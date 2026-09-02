@@ -24,4 +24,19 @@ The first successful source execution is a baseline. It may create evidence and 
 
 ## Failure/recovery
 
-A failed source attempt schedules a bounded retry window and does not advance the source baseline. Recovery processes only sitemap entries whose identity/lastmod differs from durable source state, subject to the per-run detail-fetch cap. R5 does not implement crawl-all catch-up.
+A failed source attempt schedules a bounded retry window and does not discard a pending detail item. Discovery state separates the issuer-observed `lastmod` from the last successfully processed `fetched_lastmod`; updating a sitemap snapshot therefore cannot acknowledge work that has not actually been fetched.
+
+Bangkok recovery is explicit and bounded:
+
+- normal source cadence: 15 minutes for S13;
+- recovery batch retry cadence while backlog remains: 5 minutes;
+- per-run detail cap: `delta_detail_limit` (20 for S13 production);
+- a missed-window run is recorded as `trigger_kind=RECONCILIATION`, `recovery=1`, with `outage_window_start/end`;
+- the recovery window remains durable until pending backlog reaches zero;
+- `signalforge status` exposes backlog count, oldest pending age and GREEN/YELLOW/RED recovery-backlog health;
+- canonical upsert/dedup remains identical during recovery;
+- no Bangkok outage causes Beijing takeover or an immediate crawl-all.
+
+Baseline debt is also safe: a page discovered during the first baseline but temporarily failing detail fetch keeps a one-time signal-suppression marker until its first successful processing, so a transient baseline fetch failure cannot later create a false `NEW` customer signal.
+
+S13 operating objectives for R5 are internal objectives rather than an external SLA: `DELAY_TOLERANT_MONITORED`, 15-minute business-data RPO target, 30-minute collection RTO/recovery SLO for the declared fixture, and a degraded-health indicator while recovery backlog exists.
