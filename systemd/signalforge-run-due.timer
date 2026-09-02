@@ -1,0 +1,12 @@
+[Unit]
+Description=SignalForge due-source scheduler
+
+[Timer]
+OnCalendar=*-*-* *:0/5:00 UTC
+Persistent=true
+RandomizedDelaySec=15s
+AccuracySec=1s
+Unit=signalforge-run-due.service
+
+[Install]
+WantedBy=timers.target
