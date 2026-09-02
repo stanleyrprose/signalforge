@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -9,6 +10,9 @@ from typing import Any
 
 class ConfigError(RuntimeError):
     pass
+
+
+SOURCE_ID_PATTERN = re.compile(r"^[A-Z][A-Z0-9]{0,15}$")
 
 
 def repo_root() -> Path:
@@ -65,6 +69,8 @@ class Registry:
         return result
 
     def source(self, source_id: str) -> dict[str, Any]:
+        if not SOURCE_ID_PATTERN.fullmatch(source_id):
+            raise ConfigError(f"invalid source id: {source_id}")
         value = (self.raw.get("sources") or {}).get(source_id)
         if not isinstance(value, dict) or value.get("enabled") is not True:
             raise ConfigError(f"source is not active: {source_id}")

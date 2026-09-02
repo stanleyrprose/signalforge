@@ -5,7 +5,8 @@ import json
 import sys
 from datetime import UTC, datetime
 
-from .config import Registry, db_path
+from . import VERB_MANIFEST_VERSION
+from .config import Registry, SOURCE_ID_PATTERN, db_path
 from .db import connect, migrate
 from .engine import run_due, run_source
 
@@ -17,6 +18,22 @@ def _parse_iso(value: str | None) -> datetime | None:
         return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(UTC)
     except ValueError:
         return None
+
+
+def verb_manifest() -> dict[str, object]:
+    registry = Registry.load()
+    return {
+        "verb_manifest_version": VERB_MANIFEST_VERSION,
+        "provider": "signalforge",
+        "verbs": {
+            "signalforge-status": {"helper_command": "status", "argument": None},
+            "signalforge-run-due": {"helper_command": "run-due", "argument": None},
+            "signalforge-pause": {"helper_command": None, "argument": None},
+            "signalforge-resume": {"helper_command": None, "argument": None},
+        },
+        "grammar": {"source_id": SOURCE_ID_PATTERN.pattern},
+        "active_source_ids": [source_id for source_id, _source in registry.enabled_sources()],
+    }
 
 
 def status() -> dict[str, object]:
@@ -92,6 +109,7 @@ def status() -> dict[str, object]:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="signalforge")
     sub = parser.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("manifest")
     sub.add_parser("migrate")
     sub.add_parser("run-due")
     run_source_parser = sub.add_parser("run-source")
@@ -100,9 +118,11 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("status")
     args = parser.parse_args(argv)
     try:
-        if args.cmd == "migrate":
+        if args.cmd == "manifest":
+            result: object = verb_manifest()
+        elif args.cmd == "migrate":
             migrate()
-            result: object = {"status": "PASS"}
+            result = {"status": "PASS"}
         elif args.cmd == "run-due":
             result = run_due()
         elif args.cmd == "run-source":
