@@ -42,24 +42,27 @@ Gate S — Bangkok Recovery Reconciliation is PASS on 2026-09-02.
 
 Sanitized live evidence is in `docs/verification/GATE-S-2026-09-02.md` and is pending documentation PR/CI merge.
 
-## Next applicable R5 gate
+## Gate Z status
 
-Gate Z — SignalForge Single-scheduler Invocation is next. PRD acceptance requires:
+Gate Z — SignalForge Single-scheduler Invocation is PASS on 2026-09-03.
 
-- `signalforge-run-due.service` runs under `signalforge` identity;
+- `signalforge-run-due.service` runs as dedicated `signalforge` UID in `worker-signalforge.slice`;
 - SignalForge does not use Generic `worker@.service`;
-- no per-source production timers by default;
-- one scheduler invocation maps to exactly one Worker operational Run;
-- N business Jobs remain in SignalForge DB;
-- Worker DB contains only opaque application correlation;
-- `signalforge` cannot write `worker.db`;
-- Beijing has strict zero SignalForge footprint.
+- only one application timer exists and there are no per-source production timers;
+- one controlled scheduler invocation increased Worker SignalForge operational Runs exactly `21 -> 22`;
+- the source was not due, so business scheduler rows remained `6 -> 6`;
+- all six real SignalForge business scheduler rows correlate to six distinct Worker Runs;
+- correlated Worker rows keep `job_id/app_job_id/app_trigger_id=NULL`; source/business identity remains in SignalForge DB;
+- live ACL probe as `signalforge` received `EACCES` opening `/srv/worker/state/worker.db` for write;
+- Beijing `/srv/signalforge`, SignalForge unit, application descriptor, and system user are all absent;
+- production timer was resumed; Persistent catch-up completed `RECONCILIATION changed=0 signals=0 backlog=0`;
+- final SignalForge status and both Worker doctors are PASS.
+
+Sanitized evidence is in `docs/verification/GATE-Z-2026-09-03.md` and is pending documentation PR/CI merge.
 
 ## Next
 
-1. commit/push/PR/CI/merge Gate S evidence and this checkpoint;
-2. clean temporary Gate S staging/scripts while retaining the persistent pre-migration SQLite backup;
-3. execute Gate Z LIVE_SHORT against the exact production releases using a controlled scheduler invocation;
-4. verify unit identity/timer topology, Worker-to-business cardinality, DB ownership/ACL and Beijing strict absence;
-5. write and merge Gate Z evidence;
-6. then continue to the next applicable PRD gate, skipping R3 Browser and R6 Webhook gates unless their capabilities are actually being introduced.
+1. commit/push/PR/CI/merge Gate Z evidence and checkpoint;
+2. clean temporary Gate Z probe scripts;
+3. execute the next applicable PRD gate, Gate AA — Cross-repo Verb Compatibility;
+4. skip Browser/Crawlee and webhook-specific gates unless those capabilities are actually introduced.
