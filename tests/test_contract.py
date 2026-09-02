@@ -24,6 +24,11 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(source["network_zone"], "myanmar-international")
         self.assertFalse(source["first_baseline_customer_signal"])
         self.assertEqual(source["discovery_url"], "https://mpt.com.mm/page-sitemap.xml")
+        self.assertEqual(source["delta_detail_limit"], 20)
+        self.assertEqual(source["recovery_slo_seconds"], 1800)
+        self.assertEqual(source["availability_policy"]["class"], "DELAY_TOLERANT_MONITORED")
+        self.assertEqual(source["availability_policy"]["collection_rto_seconds"], 1800)
+        self.assertEqual(source["availability_policy"]["business_data_rpo_target_seconds"], 900)
         self.assertTrue(all(url.startswith("https://mpt.com.mm/en/") for url in source["bootstrap_seed_urls"]))
 
     def test_worker_application_correlation_is_fail_closed(self) -> None:

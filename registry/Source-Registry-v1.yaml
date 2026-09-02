@@ -20,6 +20,16 @@
       "language": "en",
       "poll_interval_seconds": 900,
       "retry_interval_seconds": 300,
+      "priority": 100,
+      "recovery_slo_seconds": 1800,
+      "availability_policy": {
+        "class": "DELAY_TOLERANT_MONITORED",
+        "accepted_collection_outage_seconds": 3600,
+        "collection_rto_seconds": 1800,
+        "business_data_rpo_target_seconds": 900,
+        "outage_status": "DATA_COLLECTION_DELAYED",
+        "delivery_during_recovery": "CONTINUE_WITH_DEGRADED_HEALTH"
+      },
       "baseline_lookback_days": 120,
       "baseline_detail_limit": 40,
       "delta_detail_limit": 20,

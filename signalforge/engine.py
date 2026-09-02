@@ -44,56 +44,130 @@ def _source_state(conn, source_id: str):  # type: ignore[no-untyped-def]
     return conn.execute("SELECT * FROM source_state WHERE source_id=?", (source_id,)).fetchone()
 
 
-def _previous_discovery(conn, source_id: str) -> dict[str, tuple[str | None, str | None]]:  # type: ignore[no-untyped-def]
-    return {
-        str(row["url"]): (row["lastmod"], row["last_fetched_at"])
-        for row in conn.execute("SELECT url,lastmod,last_fetched_at FROM discovery_items WHERE source_id=?", (source_id,))
-    }
-
-
-def _select_candidates(
-    entries: list[SitemapEntry],
-    previous: dict[str, tuple[str | None, str | None]],
-    *,
-    baseline: bool,
-    now: datetime,
-    source: dict,
-) -> list[SitemapEntry]:
-    if baseline:
-        cutoff = now - timedelta(days=int(source["baseline_lookback_days"]))
-        limit = int(source["baseline_detail_limit"])
-        by_url = {entry.url: entry for entry in entries}
-        seeds = [by_url[url] for url in source.get("bootstrap_seed_urls", []) if url in by_url]
-        seed_urls = {entry.url for entry in seeds}
-        recent = [
-            entry
-            for entry in entries
-            if entry.url not in seed_urls
-            and (_parse_iso(entry.lastmod) or datetime.min.replace(tzinfo=UTC)) >= cutoff
-        ]
-        recent.sort(key=lambda entry: entry.lastmod or "", reverse=True)
-        return (seeds + recent)[:limit]
-    changed = [
+def _baseline_candidates(entries: list[SitemapEntry], *, now: datetime, source: dict) -> list[SitemapEntry]:
+    cutoff = now - timedelta(days=int(source["baseline_lookback_days"]))
+    limit = int(source["baseline_detail_limit"])
+    by_url = {entry.url: entry for entry in entries}
+    seeds = [by_url[url] for url in source.get("bootstrap_seed_urls", []) if url in by_url]
+    seed_urls = {entry.url for entry in seeds}
+    recent = [
         entry
         for entry in entries
-        if entry.url not in previous
-        or previous[entry.url][0] != entry.lastmod
-        or previous[entry.url][1] is None
+        if entry.url not in seed_urls
+        and (_parse_iso(entry.lastmod) or datetime.min.replace(tzinfo=UTC)) >= cutoff
     ]
-    changed.sort(key=lambda entry: entry.lastmod or "", reverse=True)
-    return changed[: int(source["delta_detail_limit"])]
+    recent.sort(key=lambda entry: entry.lastmod or "", reverse=True)
+    return (seeds + recent)[:limit]
 
 
-def _upsert_discovery_snapshot(conn, source_id: str, entries: list[SitemapEntry], observed_at: str) -> None:  # type: ignore[no-untyped-def]
+def _upsert_discovery_snapshot(
+    conn,  # type: ignore[no-untyped-def]
+    source_id: str,
+    entries: list[SitemapEntry],
+    observed_at: str,
+    *,
+    baseline: bool,
+) -> None:
     for entry in entries:
+        existing = conn.execute(
+            "SELECT fetched_lastmod,pending_since_at,suppress_signal_once FROM discovery_items WHERE source_id=? AND url=?",
+            (source_id, entry.url),
+        ).fetchone()
+        if existing is None:
+            conn.execute(
+                """
+                INSERT INTO discovery_items(
+                    source_id,url,lastmod,fetched_lastmod,pending_since_at,suppress_signal_once,
+                    first_seen_at,last_seen_at
+                ) VALUES (?,?,?,?,?,?,?,?)
+                """,
+                (
+                    source_id,
+                    entry.url,
+                    entry.lastmod,
+                    None,
+                    observed_at,
+                    int(baseline),
+                    observed_at,
+                    observed_at,
+                ),
+            )
+            continue
+
+        fetched_lastmod = existing["fetched_lastmod"]
+        pending_since = existing["pending_since_at"]
+        suppress_once = int(existing["suppress_signal_once"] or 0)
+        if fetched_lastmod != entry.lastmod:
+            pending_since = pending_since or observed_at
+        else:
+            pending_since = None
         conn.execute(
             """
-            INSERT INTO discovery_items(source_id,url,lastmod,first_seen_at,last_seen_at)
-            VALUES (?,?,?,?,?)
-            ON CONFLICT(source_id,url) DO UPDATE SET lastmod=excluded.lastmod,last_seen_at=excluded.last_seen_at
+            UPDATE discovery_items
+            SET lastmod=?,last_seen_at=?,pending_since_at=?,suppress_signal_once=?
+            WHERE source_id=? AND url=?
             """,
-            (source_id, entry.url, entry.lastmod, observed_at, observed_at),
+            (entry.lastmod, observed_at, pending_since, suppress_once, source_id, entry.url),
         )
+
+
+def _acknowledge_baseline_exclusions(
+    conn,  # type: ignore[no-untyped-def]
+    source_id: str,
+    entries: list[SitemapEntry],
+    candidates: list[SitemapEntry],
+) -> None:
+    selected = {entry.url for entry in candidates}
+    for entry in entries:
+        if entry.url in selected:
+            continue
+        conn.execute(
+            """
+            UPDATE discovery_items
+            SET fetched_lastmod=lastmod,pending_since_at=NULL,suppress_signal_once=0
+            WHERE source_id=? AND url=?
+            """,
+            (source_id, entry.url),
+        )
+
+
+def _pending_candidates(conn, source_id: str, limit: int) -> list[SitemapEntry]:  # type: ignore[no-untyped-def]
+    return [
+        SitemapEntry(str(row["url"]), row["lastmod"])
+        for row in conn.execute(
+            """
+            SELECT url,lastmod
+            FROM discovery_items
+            WHERE source_id=? AND pending_since_at IS NOT NULL
+            ORDER BY COALESCE(lastmod,'') DESC,pending_since_at ASC,url ASC
+            LIMIT ?
+            """,
+            (source_id, limit),
+        )
+    ]
+
+
+def _pending_summary(conn, source_id: str) -> tuple[int, str | None]:  # type: ignore[no-untyped-def]
+    row = conn.execute(
+        "SELECT COUNT(*) AS count,MIN(pending_since_at) AS oldest FROM discovery_items WHERE source_id=? AND pending_since_at IS NOT NULL",
+        (source_id,),
+    ).fetchone()
+    return int(row["count"]), row["oldest"]
+
+
+def _recovery_context(state, now: datetime, source: dict, *, baseline: bool) -> tuple[bool, str | None, str | None]:  # type: ignore[no-untyped-def]
+    if baseline or state is None:
+        return False, None, None
+    if state["recovery_window_start"] and state["recovery_window_end"]:
+        return True, str(state["recovery_window_start"]), str(state["recovery_window_end"])
+
+    interval = timedelta(seconds=int(source["poll_interval_seconds"]))
+    next_due = _parse_iso(state["next_due_at"])
+    if next_due is None or now < next_due + interval:
+        return False, None, None
+    last_reconciliation = _parse_iso(state["last_successful_reconciliation_at"]) or _parse_iso(state["last_success_at"])
+    window_start = _iso(last_reconciliation) if last_reconciliation is not None else str(state["next_due_at"] or _iso(now - interval))
+    return True, window_start, _iso(now)
 
 
 def _write_evidence(source_id: str, html: bytes, digest: str, root: Path | None = None) -> Path:
@@ -115,7 +189,7 @@ def _upsert_tender(
     source_id: str,
     tender,
     observed_at: str,
-    baseline: bool,
+    suppress_signal: bool,
     evidence_digest: str,
 ) -> tuple[bool, int]:
     payload = tender.payload()
@@ -177,7 +251,7 @@ def _upsert_tender(
         )
 
     signal_count = 0
-    if changed and not baseline:
+    if changed and not suppress_signal:
         signal_type = "NEW" if existing is None else "UPDATED"
         signal_payload = _json({"signal_type": signal_type, "canonical_key": tender.canonical_key, **payload})
         conn.execute(
@@ -215,17 +289,32 @@ def run_source(
             if due is not None and due > now:
                 return {"source_id": source_id, "status": "NOT_DUE", "next_due_at": state["next_due_at"]}
         baseline = state is None or int(state["baseline_complete"]) == 0
-        previous = _previous_discovery(conn, source_id)
+        recovery, outage_start, outage_end = _recovery_context(state, now, source, baseline=baseline)
 
     app_run_id = str(uuid.uuid4())
-    trigger_id = f"poll:{source_id}:{int(now.timestamp()) // int(source['poll_interval_seconds'])}"
+    trigger_kind = "RECONCILIATION" if recovery else "POLL"
+    trigger_id = f"{trigger_kind.lower()}:{source_id}:{int(now.timestamp()) // int(source['poll_interval_seconds'])}"
     with connect(database) as conn, conn:
         conn.execute(
             """
-            INSERT INTO scheduler_runs(app_run_id,trigger_id,trigger_kind,source_id,worker_run_id,started_at,status,baseline)
-            VALUES (?,?,?,?,?,?,?,?)
+            INSERT INTO scheduler_runs(
+                app_run_id,trigger_id,trigger_kind,source_id,worker_run_id,started_at,status,baseline,
+                recovery,outage_window_start,outage_window_end
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?)
             """,
-            (app_run_id, trigger_id, "poll", source_id, str(worker["run_id"]), observed_at, "RUNNING", int(baseline)),
+            (
+                app_run_id,
+                trigger_id,
+                trigger_kind,
+                source_id,
+                str(worker["run_id"]),
+                observed_at,
+                "RUNNING",
+                int(baseline),
+                int(recovery),
+                outage_start,
+                outage_end,
+            ),
         )
 
     changed_count = 0
@@ -233,6 +322,7 @@ def run_source(
     fetched = 0
     tenders = 0
     detail_errors = 0
+    backlog_remaining = 0
     try:
         sitemap_bytes = fetcher(
             str(source["discovery_url"]),
@@ -241,10 +331,14 @@ def run_source(
         )
         sitemap_hash = hashlib.sha256(sitemap_bytes).hexdigest()
         entries = parse_sitemap(sitemap_bytes)
-        candidates = _select_candidates(entries, previous, baseline=baseline, now=now, source=source)
 
         with connect(database) as conn, conn:
-            _upsert_discovery_snapshot(conn, source_id, entries, observed_at)
+            _upsert_discovery_snapshot(conn, source_id, entries, observed_at, baseline=baseline)
+            if baseline:
+                candidates = _baseline_candidates(entries, now=now, source=source)
+                _acknowledge_baseline_exclusions(conn, source_id, entries, candidates)
+            else:
+                candidates = _pending_candidates(conn, source_id, int(source["delta_detail_limit"]))
 
         delay = max(0, int(source["request_delay_ms"])) / 1000.0
         for index, entry in enumerate(candidates):
@@ -260,13 +354,25 @@ def run_source(
             except Exception:
                 detail_errors += 1
                 continue
+
             fetched += 1
             evidence_digest = hashlib.sha256(html).hexdigest()
             with connect(database) as conn, conn:
+                discovery = conn.execute(
+                    "SELECT suppress_signal_once FROM discovery_items WHERE source_id=? AND url=?",
+                    (source_id, entry.url),
+                ).fetchone()
+                suppress_once = bool(discovery and int(discovery["suppress_signal_once"] or 0))
                 conn.execute(
-                    "UPDATE discovery_items SET content_hash=?,last_fetched_at=? WHERE source_id=? AND url=?",
+                    """
+                    UPDATE discovery_items
+                    SET content_hash=?,last_fetched_at=?,fetched_lastmod=lastmod,pending_since_at=NULL,
+                        suppress_signal_once=0
+                    WHERE source_id=? AND url=?
+                    """,
                     (evidence_digest, observed_at, source_id, entry.url),
                 )
+
             if tender is None:
                 continue
             tenders += 1
@@ -281,7 +387,7 @@ def run_source(
                     source_id=source_id,
                     tender=tender,
                     observed_at=observed_at,
-                    baseline=baseline,
+                    suppress_signal=baseline or suppress_once,
                     evidence_digest=evidence_digest,
                 )
             changed_count += int(changed)
@@ -289,29 +395,74 @@ def run_source(
 
         if candidates and fetched == 0 and detail_errors == len(candidates):
             raise RuntimeError("all bounded detail candidates failed")
+
+        with connect(database) as conn:
+            backlog_remaining, _oldest_pending = _pending_summary(conn, source_id)
+
         warning = f"detail_errors={detail_errors}" if detail_errors else None
-        next_due = _iso(now + timedelta(seconds=int(source["poll_interval_seconds"])))
+        next_delay = int(source["retry_interval_seconds"] if backlog_remaining else source["poll_interval_seconds"])
+        next_due = _iso(now + timedelta(seconds=next_delay))
+        reconciliation_complete = backlog_remaining == 0
+        recovery_window_start = None if reconciliation_complete else outage_start
+        recovery_window_end = None if reconciliation_complete else outage_end
+
         with connect(database) as conn, conn:
             conn.execute(
                 """
-                INSERT INTO source_state(source_id,baseline_complete,sitemap_hash,last_success_at,next_due_at,last_error,updated_at)
-                VALUES (?,?,?,?,?,?,?)
-                ON CONFLICT(source_id) DO UPDATE SET baseline_complete=1,sitemap_hash=excluded.sitemap_hash,
-                    last_success_at=excluded.last_success_at,next_due_at=excluded.next_due_at,last_error=excluded.last_error,updated_at=excluded.updated_at
+                INSERT INTO source_state(
+                    source_id,baseline_complete,sitemap_hash,last_snapshot_at,last_success_at,
+                    last_successful_reconciliation_at,next_due_at,last_error,consecutive_failures,
+                    recovery_window_start,recovery_window_end,updated_at
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+                ON CONFLICT(source_id) DO UPDATE SET
+                    baseline_complete=1,
+                    sitemap_hash=excluded.sitemap_hash,
+                    last_snapshot_at=excluded.last_snapshot_at,
+                    last_success_at=excluded.last_success_at,
+                    last_successful_reconciliation_at=CASE
+                        WHEN ? THEN excluded.last_success_at
+                        ELSE source_state.last_successful_reconciliation_at
+                    END,
+                    next_due_at=excluded.next_due_at,
+                    last_error=excluded.last_error,
+                    consecutive_failures=0,
+                    recovery_window_start=excluded.recovery_window_start,
+                    recovery_window_end=excluded.recovery_window_end,
+                    updated_at=excluded.updated_at
                 """,
-                (source_id, 1, sitemap_hash, observed_at, next_due, warning, observed_at),
+                (
+                    source_id,
+                    1,
+                    sitemap_hash,
+                    observed_at,
+                    observed_at,
+                    observed_at if reconciliation_complete else None,
+                    next_due,
+                    warning,
+                    0,
+                    recovery_window_start,
+                    recovery_window_end,
+                    observed_at,
+                    int(reconciliation_complete),
+                ),
             )
             conn.execute(
                 """
-                UPDATE scheduler_runs SET finished_at=?,status='SUCCESS',changed=?,signals_created=?,error=?
+                UPDATE scheduler_runs
+                SET finished_at=?,status='SUCCESS',changed=?,signals_created=?,backlog_remaining=?,error=?
                 WHERE app_run_id=?
                 """,
-                (observed_at, changed_count, signals_created, warning, app_run_id),
+                (observed_at, changed_count, signals_created, backlog_remaining, warning, app_run_id),
             )
+
         return {
             "source_id": source_id,
             "status": "SUCCESS",
             "baseline": baseline,
+            "recovery": recovery,
+            "trigger_type": trigger_kind,
+            "outage_window_start": outage_start,
+            "outage_window_end": outage_end,
             "worker_run_id": worker["run_id"],
             "app_run_id": app_run_id,
             "discovered": len(entries),
@@ -321,23 +472,49 @@ def run_source(
             "tenders": tenders,
             "changed": changed_count,
             "signals_created": signals_created,
+            "backlog_remaining": backlog_remaining,
             "next_due_at": next_due,
         }
     except Exception as exc:
         retry_due = _iso(now + timedelta(seconds=int(source["retry_interval_seconds"])))
         error = f"{type(exc).__name__}: {exc}"[:300]
+        with connect(database) as conn:
+            existing = _source_state(conn, source_id)
+            existing_failures = int(existing["consecutive_failures"] or 0) if existing is not None else 0
+            backlog_remaining, _oldest_pending = _pending_summary(conn, source_id)
         with connect(database) as conn, conn:
             conn.execute(
                 """
-                INSERT INTO source_state(source_id,baseline_complete,next_due_at,last_error,updated_at)
-                VALUES (?,?,?,?,?)
-                ON CONFLICT(source_id) DO UPDATE SET next_due_at=excluded.next_due_at,last_error=excluded.last_error,updated_at=excluded.updated_at
+                INSERT INTO source_state(
+                    source_id,baseline_complete,next_due_at,last_error,consecutive_failures,
+                    recovery_window_start,recovery_window_end,updated_at
+                ) VALUES (?,?,?,?,?,?,?,?)
+                ON CONFLICT(source_id) DO UPDATE SET
+                    next_due_at=excluded.next_due_at,
+                    last_error=excluded.last_error,
+                    consecutive_failures=excluded.consecutive_failures,
+                    recovery_window_start=COALESCE(source_state.recovery_window_start,excluded.recovery_window_start),
+                    recovery_window_end=COALESCE(source_state.recovery_window_end,excluded.recovery_window_end),
+                    updated_at=excluded.updated_at
                 """,
-                (source_id, int(not baseline), retry_due, error, observed_at),
+                (
+                    source_id,
+                    int(not baseline),
+                    retry_due,
+                    error,
+                    existing_failures + 1,
+                    outage_start,
+                    outage_end,
+                    observed_at,
+                ),
             )
             conn.execute(
-                "UPDATE scheduler_runs SET finished_at=?,status='FAILED',changed=?,signals_created=?,error=? WHERE app_run_id=?",
-                (observed_at, changed_count, signals_created, error, app_run_id),
+                """
+                UPDATE scheduler_runs
+                SET finished_at=?,status='FAILED',changed=?,signals_created=?,backlog_remaining=?,error=?
+                WHERE app_run_id=?
+                """,
+                (observed_at, changed_count, signals_created, backlog_remaining, error, app_run_id),
             )
         raise
 
