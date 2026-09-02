@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "signalforge"
+version = "0.1.0"
+description = "Bangkok-only commercial signal collector for Myanmar tender and regulation sources"
+requires-python = ">=3.13"
+dependencies = []
+
+[project.scripts]
+signalforge = "signalforge.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["signalforge*"]

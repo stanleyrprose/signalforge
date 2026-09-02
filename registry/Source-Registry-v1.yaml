@@ -1,0 +1,60 @@
+{
+  "registry_version": 1,
+  "source_schema_version": 1,
+  "production_policy": {
+    "default_engine": "direct_http",
+    "tls_verification_required": true,
+    "browser_production_approved": false,
+    "canonical_node": "bangkok"
+  },
+  "sources": {
+    "S13": {
+      "name": "MPT Tender Information",
+      "enabled": true,
+      "role": "ACTIVE_SELECTIVE",
+      "audit_status": "YELLOW_PARSE",
+      "network_zone": "myanmar-international",
+      "engine": "direct_http",
+      "landing_url": "https://mpt.com.mm/en/about-home/tenders/",
+      "discovery_url": "https://mpt.com.mm/page-sitemap.xml",
+      "language": "en",
+      "poll_interval_seconds": 900,
+      "retry_interval_seconds": 300,
+      "baseline_lookback_days": 120,
+      "baseline_detail_limit": 40,
+      "delta_detail_limit": 20,
+      "request_timeout_seconds": 30,
+      "request_max_bytes": 2000000,
+      "request_delay_ms": 250,
+      "canonical_key": "issuer_reference_no",
+      "first_baseline_customer_signal": false,
+      "bootstrap_seed_urls": [
+        "https://mpt.com.mm/en/purchasing-of-top-up-card-with-qr-code-4/",
+        "https://mpt.com.mm/en/pstn-and-ftth-last-mile-maintenance-at-yangon-and-naypyitaw-2/",
+        "https://mpt.com.mm/en/car-rental-service-for-hi-ace_2026-yangon-2/",
+        "https://mpt.com.mm/en/core-and-important-site-dg-maintenance-project-fy26-2/"
+      ]
+    }
+  },
+  "deferred_sources": {
+    "S01": "Myanmar National Portal Tenders — ACTIVE PRIMARY after adapter gate",
+    "S04": "Myanmar National Trade Portal Legal Documents — ACTIVE PRIMARY; PDF sub-gate deferred",
+    "S05A": "Ministry of Commerce Notifications — ACTIVE PRIMARY after adapter gate",
+    "S07": "Myanmar Customs Notifications — ACTIVE PRIMARY after adapter gate",
+    "S08A": "Myanmar Customs Announcements — ACTIVE PRIMARY after adapter gate",
+    "S10": "DICA Announcements — ACTIVE SELECTIVE after language/noise gate",
+    "S12": "IRD Announcements — ACTIVE PRIMARY after adapter gate",
+    "S15A": "MPA Tender Category — EXCLUDED R0 RED-TLS",
+    "S15B": "MPA legacy Tender URL — EXCLUDED R0 RED-TLS",
+    "S16": "YCDC — conditional; segmentation fixture deferred",
+    "S17": "MCDC — conditional; PDF fixture deferred",
+    "S18": "NPTDC — conditional; ordering/classifier fixture deferred",
+    "S19": "MOEP E-Tender — EXCLUDED R0 RED-TLS",
+    "S20": "MOEP Main Tender Hub — provisional inclusion after adapter gate",
+    "S21": "Myanma Railways — provisional inclusion after adapter gate",
+    "S22": "Inland Water Transport — provisional inclusion after adapter gate",
+    "S23": "Ministry of Construction — EXCLUDED until compliant TLS/endpoint repaired",
+    "S24": "National Portal / highways fallback — fallback only",
+    "S25": "RESERVED / UNASSIGNED"
+  }
+}
