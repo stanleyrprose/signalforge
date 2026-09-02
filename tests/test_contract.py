@@ -7,7 +7,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from signalforge.config import Registry
+from signalforge.cli import verb_manifest
+from signalforge.config import ConfigError, Registry
 from signalforge.worker_context import WorkerContextError, load_worker_context
 
 
@@ -15,6 +16,22 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class ContractTests(unittest.TestCase):
+    def test_signalforge_exposes_versioned_closed_verb_manifest_and_source_grammar(self) -> None:
+        manifest = verb_manifest()
+        self.assertEqual(manifest["verb_manifest_version"], 1)
+        self.assertEqual(
+            set(manifest["verbs"]),
+            {"signalforge-status", "signalforge-run-due", "signalforge-pause", "signalforge-resume"},
+        )
+        self.assertEqual(manifest["grammar"]["source_id"], "^[A-Z][A-Z0-9]{0,15}$")
+        self.assertEqual(manifest["active_source_ids"], ["S13"])
+
+        registry = Registry.load(ROOT)
+        with self.assertRaisesRegex(ConfigError, "invalid source id"):
+            registry.source("../../etc/passwd")
+        with self.assertRaisesRegex(ConfigError, "source is not active"):
+            registry.source("S99")
+
     def test_r5_registry_is_bangkok_direct_http_only(self) -> None:
         registry = Registry.load(ROOT)
         self.assertEqual(registry.raw["production_policy"]["canonical_node"], "bangkok")
