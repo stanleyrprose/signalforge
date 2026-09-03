@@ -173,6 +173,51 @@ class EngineTests(unittest.TestCase):
             self.assertEqual(signal, ("UPDATED", "mpt:CCO-2026-001"))
             self.assertEqual(latest, ("worker-run-002", 0, "SUCCESS"))
 
+    def test_low_frequency_parse_health_probe_is_bounded_and_signal_free(self) -> None:
+        registry = Registry.load(ROOT)
+        sitemap = (FIXTURES / "mpt_page_sitemap.xml").read_bytes()
+        tender = (FIXTURES / "mpt_tender_detail.html").read_bytes()
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            db = base / "signalforge.db"
+            evidence = base / "evidence"
+            baseline = run_source(
+                "S13", registry=registry, now=datetime(2026, 9, 2, 12, 0, tzinfo=UTC),
+                fetcher=FixtureFetcher(sitemap, tender), sleeper=lambda _seconds: None, force=True,
+                database=db, evidence=evidence, worker_context={"run_id": "probe-baseline"},
+            )
+            self.assertEqual(baseline["details_attempted"], 1)
+            self.assertEqual(baseline["details_succeeded"], 1)
+
+            early_fetcher = FixtureFetcher(sitemap, tender)
+            early = run_source(
+                "S13", registry=registry, now=datetime(2026, 9, 2, 12, 20, tzinfo=UTC),
+                fetcher=early_fetcher, sleeper=lambda _seconds: None, force=True,
+                database=db, evidence=evidence, worker_context={"run_id": "probe-early"},
+            )
+            self.assertFalse(early["health_probe"])
+            self.assertEqual(early["candidates"], 0)
+            self.assertEqual(early_fetcher.calls, [SITEMAP_URL])
+
+            due_fetcher = FixtureFetcher(sitemap, tender)
+            due = run_source(
+                "S13", registry=registry, now=datetime(2026, 9, 2, 13, 1, tzinfo=UTC),
+                fetcher=due_fetcher, sleeper=lambda _seconds: None, force=True,
+                database=db, evidence=evidence, worker_context={"run_id": "probe-due"},
+            )
+            self.assertTrue(due["health_probe"])
+            self.assertEqual(due["candidates"], 1)
+            self.assertEqual(due["details_attempted"], 1)
+            self.assertEqual(due["details_succeeded"], 1)
+            self.assertEqual(due["signals_created"], 0)
+            self.assertEqual(due_fetcher.calls, [SITEMAP_URL, TENDER_URL])
+
+            with sqlite3.connect(db) as conn:
+                row = conn.execute(
+                    "SELECT details_attempted,details_succeeded,tenders_parsed,signals_created FROM scheduler_runs WHERE worker_run_id='probe-due'"
+                ).fetchone()
+            self.assertEqual(row, (1, 1, 1, 0))
+
     def test_recovery_reconciliation_is_bounded_durable_and_deduplicated(self) -> None:
         raw = json.loads(json.dumps(Registry.load(ROOT).raw))
         source = raw["sources"]["S13"]
@@ -318,7 +363,7 @@ class EngineTests(unittest.TestCase):
                 {"SIGNALFORGE_DB": str(db), "SIGNALFORGE_REPO_ROOT": str(ROOT)},
                 clear=False,
             ):
-                recovered_health = status()
+                recovered_health = status(now=datetime(2026, 9, 2, 13, 25, tzinfo=UTC))
             self.assertEqual(recovered_health["status"], "PASS")
             self.assertEqual(recovered_health["counts"]["recovery_backlog"], 0)
 

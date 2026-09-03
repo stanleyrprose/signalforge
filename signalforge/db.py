@@ -8,7 +8,7 @@ from typing import Iterator
 from .config import db_path
 
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 
 @contextmanager
@@ -121,6 +121,9 @@ def migrate(path: Path | None = None) -> None:
                 outage_window_start TEXT,
                 outage_window_end TEXT,
                 backlog_remaining INTEGER NOT NULL DEFAULT 0,
+                details_attempted INTEGER NOT NULL DEFAULT 0,
+                details_succeeded INTEGER NOT NULL DEFAULT 0,
+                tenders_parsed INTEGER NOT NULL DEFAULT 0,
                 error TEXT
             );
             CREATE INDEX IF NOT EXISTS idx_scheduler_source_started
@@ -151,6 +154,9 @@ def migrate(path: Path | None = None) -> None:
         _add_column(conn, "scheduler_runs", "outage_window_start TEXT")
         _add_column(conn, "scheduler_runs", "outage_window_end TEXT")
         _add_column(conn, "scheduler_runs", "backlog_remaining INTEGER NOT NULL DEFAULT 0")
+        _add_column(conn, "scheduler_runs", "details_attempted INTEGER NOT NULL DEFAULT 0")
+        _add_column(conn, "scheduler_runs", "details_succeeded INTEGER NOT NULL DEFAULT 0")
+        _add_column(conn, "scheduler_runs", "tenders_parsed INTEGER NOT NULL DEFAULT 0")
 
         if not discovery_had_fetched_lastmod:
             conn.execute(
@@ -163,6 +169,11 @@ def migrate(path: Path | None = None) -> None:
                 SET last_snapshot_at=COALESCE(last_snapshot_at,last_success_at),
                     last_successful_reconciliation_at=COALESCE(last_successful_reconciliation_at,last_success_at)
                 """
+            )
+
+        if conn.execute("SELECT 1 FROM schema_meta WHERE version=1").fetchone() is not None and conn.execute("SELECT 1 FROM schema_meta WHERE version=2").fetchone() is None:
+            conn.execute(
+                "INSERT INTO schema_meta(version, applied_at) VALUES (2, strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
             )
 
         exists = conn.execute("SELECT 1 FROM schema_meta WHERE version=?", (SCHEMA_VERSION,)).fetchone()

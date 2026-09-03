@@ -322,6 +322,9 @@ def run_source(
     fetched = 0
     tenders = 0
     detail_errors = 0
+    details_attempted = 0
+    details_succeeded = 0
+    health_probe = False
     backlog_remaining = 0
     try:
         sitemap_bytes = fetcher(
@@ -340,8 +343,40 @@ def run_source(
             else:
                 candidates = _pending_candidates(conn, source_id, int(source["delta_detail_limit"]))
 
+        known_tender_urls = set(str(url) for url in source.get("bootstrap_seed_urls", []))
+        with connect(database) as conn:
+            known_tender_urls.update(
+                str(row[0])
+                for row in conn.execute(
+                    "SELECT url FROM discovery_items WHERE source_id=? AND canonical_key IS NOT NULL",
+                    (source_id,),
+                )
+            )
+            latest_parse_row = conn.execute(
+                "SELECT started_at FROM scheduler_runs WHERE source_id=? AND details_attempted>0 ORDER BY started_at DESC LIMIT 1",
+                (source_id,),
+            ).fetchone()
+
+        if not baseline and not any(entry.url in known_tender_urls for entry in candidates):
+            health_policy = source.get("health_policy") or {}
+            probe_interval = int(health_policy.get("parse_probe_interval_seconds", 3600))
+            latest_parse_at = _parse_iso(latest_parse_row[0]) if latest_parse_row else None
+            probe_due = latest_parse_at is None or (now - latest_parse_at).total_seconds() >= probe_interval
+            if probe_due and len(candidates) < int(source["delta_detail_limit"]):
+                by_url = {entry.url: entry for entry in entries}
+                selected_urls = {entry.url for entry in candidates}
+                for seed_url in source.get("bootstrap_seed_urls", []):
+                    probe_entry = by_url.get(str(seed_url))
+                    if probe_entry is not None and probe_entry.url not in selected_urls:
+                        candidates.append(probe_entry)
+                        health_probe = True
+                        break
+
         delay = max(0, int(source["request_delay_ms"])) / 1000.0
         for index, entry in enumerate(candidates):
+            expected_tender = entry.url in known_tender_urls
+            if expected_tender:
+                details_attempted += 1
             if index and delay:
                 sleeper(delay)
             try:
@@ -376,6 +411,8 @@ def run_source(
             if tender is None:
                 continue
             tenders += 1
+            if expected_tender:
+                details_succeeded += 1
             _write_evidence(source_id, html, evidence_digest, evidence)
             with connect(database) as conn, conn:
                 conn.execute(
@@ -449,10 +486,14 @@ def run_source(
             conn.execute(
                 """
                 UPDATE scheduler_runs
-                SET finished_at=?,status='SUCCESS',changed=?,signals_created=?,backlog_remaining=?,error=?
+                SET finished_at=?,status='SUCCESS',changed=?,signals_created=?,backlog_remaining=?,
+                    details_attempted=?,details_succeeded=?,tenders_parsed=?,error=?
                 WHERE app_run_id=?
                 """,
-                (observed_at, changed_count, signals_created, backlog_remaining, warning, app_run_id),
+                (
+                    observed_at, changed_count, signals_created, backlog_remaining, details_attempted,
+                    details_succeeded, tenders, warning, app_run_id,
+                ),
             )
 
         return {
@@ -470,6 +511,9 @@ def run_source(
             "fetched": fetched,
             "detail_errors": detail_errors,
             "tenders": tenders,
+            "details_attempted": details_attempted,
+            "details_succeeded": details_succeeded,
+            "health_probe": health_probe,
             "changed": changed_count,
             "signals_created": signals_created,
             "backlog_remaining": backlog_remaining,
@@ -511,10 +555,14 @@ def run_source(
             conn.execute(
                 """
                 UPDATE scheduler_runs
-                SET finished_at=?,status='FAILED',changed=?,signals_created=?,backlog_remaining=?,error=?
+                SET finished_at=?,status='FAILED',changed=?,signals_created=?,backlog_remaining=?,
+                    details_attempted=?,details_succeeded=?,tenders_parsed=?,error=?
                 WHERE app_run_id=?
                 """,
-                (observed_at, changed_count, signals_created, backlog_remaining, error, app_run_id),
+                (
+                    observed_at, changed_count, signals_created, backlog_remaining, details_attempted,
+                    details_succeeded, tenders, error, app_run_id,
+                ),
             )
         raise
 

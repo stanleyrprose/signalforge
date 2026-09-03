@@ -54,6 +54,30 @@ class Registry:
         sources = value.get("sources")
         if not isinstance(sources, dict) or not sources:
             raise ConfigError("source registry must contain sources")
+        for source_id, source in sources.items():
+            if not isinstance(source, dict) or source.get("enabled") is not True:
+                continue
+            health = source.get("health_policy")
+            if not isinstance(health, dict):
+                raise ConfigError(f"active source health policy missing: {source_id}")
+            int_fields = (
+                "freshness_yellow_seconds", "freshness_red_seconds",
+                "fetch_yellow_failures", "fetch_red_failures",
+                "parse_window_runs", "parse_min_attempts", "parse_probe_interval_seconds",
+            )
+            for field in int_fields:
+                if not isinstance(health.get(field), int) or int(health[field]) < 1:
+                    raise ConfigError(f"invalid health policy {field}: {source_id}")
+            if health["freshness_yellow_seconds"] >= health["freshness_red_seconds"]:
+                raise ConfigError(f"freshness health thresholds out of order: {source_id}")
+            if health["fetch_yellow_failures"] >= health["fetch_red_failures"]:
+                raise ConfigError(f"fetch health thresholds out of order: {source_id}")
+            yellow = health.get("parse_yellow_ratio")
+            red = health.get("parse_red_ratio")
+            if not isinstance(yellow, (int, float)) or not isinstance(red, (int, float)):
+                raise ConfigError(f"parse health ratios missing: {source_id}")
+            if not 0 <= float(red) < float(yellow) <= 1:
+                raise ConfigError(f"parse health ratios out of order: {source_id}")
         return cls(value)
 
     def enabled_sources(self) -> list[tuple[str, dict[str, Any]]]:

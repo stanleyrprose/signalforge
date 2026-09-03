@@ -36,43 +36,115 @@ def verb_manifest() -> dict[str, object]:
     }
 
 
-def status() -> dict[str, object]:
+def _health_rank(value: str) -> int:
+    return {"GREEN": 0, "UNKNOWN": 0, "YELLOW": 1, "RED": 2}.get(value, 2)
+
+
+def _source_health(conn, source_id: str, source: dict[str, object], policy: dict[str, object], now: datetime) -> dict[str, object]:
+    health_policy = policy["health_policy"]
+    assert isinstance(health_policy, dict)
+
+    last_success = _parse_iso(source.get("last_success_at") if isinstance(source.get("last_success_at"), str) else None)
+    freshness_age = max(0, int((now - last_success).total_seconds())) if last_success else None
+    freshness_yellow = int(health_policy["freshness_yellow_seconds"])
+    freshness_red = int(health_policy["freshness_red_seconds"])
+    if freshness_age is None or freshness_age > freshness_red:
+        freshness_health = "RED"
+    elif freshness_age > freshness_yellow:
+        freshness_health = "YELLOW"
+    else:
+        freshness_health = "GREEN"
+
+    failures = int(source.get("consecutive_failures") or 0)
+    fetch_yellow = int(health_policy["fetch_yellow_failures"])
+    fetch_red = int(health_policy["fetch_red_failures"])
+    if failures >= fetch_red:
+        fetch_health = "RED"
+    elif failures >= fetch_yellow or source.get("last_error"):
+        fetch_health = "YELLOW"
+    else:
+        fetch_health = "GREEN"
+
+    pending = conn.execute(
+        "SELECT COUNT(*) AS count,MIN(pending_since_at) AS oldest FROM discovery_items WHERE source_id=? AND pending_since_at IS NOT NULL",
+        (source_id,),
+    ).fetchone()
+    backlog = int(pending["count"])
+    oldest = pending["oldest"]
+    oldest_dt = _parse_iso(oldest)
+    oldest_age = max(0, int((now - oldest_dt).total_seconds())) if oldest_dt else 0
+    recovery_slo = int(policy.get("recovery_slo_seconds", 1800))
+    if backlog == 0:
+        recovery_health = "GREEN"
+    elif oldest_age <= recovery_slo:
+        recovery_health = "YELLOW"
+    else:
+        recovery_health = "RED"
+
+    parse_window = int(health_policy["parse_window_runs"])
+    parse_rows = conn.execute(
+        "SELECT details_attempted,details_succeeded FROM scheduler_runs "
+        "WHERE source_id=? AND details_attempted>0 ORDER BY started_at DESC LIMIT ?",
+        (source_id, parse_window),
+    ).fetchall()
+    parse_attempts = sum(int(row["details_attempted"] or 0) for row in parse_rows)
+    parse_successes = sum(int(row["details_succeeded"] or 0) for row in parse_rows)
+    parse_min_attempts = int(health_policy["parse_min_attempts"])
+    parse_ratio = (parse_successes / parse_attempts) if parse_attempts else None
+    if parse_attempts < parse_min_attempts:
+        parse_health = "UNKNOWN"
+    elif parse_ratio is not None and parse_ratio < float(health_policy["parse_red_ratio"]):
+        parse_health = "RED"
+    elif parse_ratio is not None and parse_ratio < float(health_policy["parse_yellow_ratio"]):
+        parse_health = "YELLOW"
+    else:
+        parse_health = "GREEN"
+
+    component_states = [fetch_health, freshness_health, parse_health, recovery_health]
+    source_health = max(component_states, key=_health_rank)
+    if source_health == "UNKNOWN":
+        source_health = "GREEN"
+    return {
+        "source_health": source_health,
+        "fetch_health": fetch_health,
+        "freshness_health": freshness_health,
+        "freshness_age_seconds": freshness_age,
+        "freshness_yellow_seconds": freshness_yellow,
+        "freshness_red_seconds": freshness_red,
+        "parse_health": parse_health,
+        "parse_window_runs": parse_window,
+        "parse_attempts": parse_attempts,
+        "parse_successes": parse_successes,
+        "parse_success_ratio": round(parse_ratio, 4) if parse_ratio is not None else None,
+        "parse_min_attempts": parse_min_attempts,
+        "parse_yellow_ratio": float(health_policy["parse_yellow_ratio"]),
+        "parse_red_ratio": float(health_policy["parse_red_ratio"]),
+        "recovery_backlog_health": recovery_health,
+        "recovery_backlog": backlog,
+        "recovery_oldest_pending_at": oldest,
+        "recovery_oldest_age_seconds": oldest_age,
+        "recovery_slo_seconds": recovery_slo,
+        "availability_class": (policy.get("availability_policy") or {}).get("class") if isinstance(policy.get("availability_policy"), dict) else None,
+    }
+
+
+def status(*, now: datetime | None = None) -> dict[str, object]:
     database = db_path()
     migrate(database)
     registry = Registry.load()
-    now = datetime.now(UTC)
+    now = (now or datetime.now(UTC)).astimezone(UTC)
     with connect(database) as conn:
         sources: list[dict[str, object]] = []
-        for row in conn.execute("SELECT * FROM source_state ORDER BY source_id"):
-            source = dict(row)
-            source_id = str(source["source_id"])
-            policy = registry.source(source_id)
-            pending = conn.execute(
-                "SELECT COUNT(*) AS count,MIN(pending_since_at) AS oldest FROM discovery_items WHERE source_id=? AND pending_since_at IS NOT NULL",
-                (source_id,),
-            ).fetchone()
-            backlog = int(pending["count"])
-            oldest = pending["oldest"]
-            oldest_dt = _parse_iso(oldest)
-            oldest_age = max(0, int((now - oldest_dt).total_seconds())) if oldest_dt else 0
-            recovery_slo = int(policy.get("recovery_slo_seconds", 1800))
-            if backlog == 0:
-                recovery_health = "GREEN"
-            elif oldest_age <= recovery_slo:
-                recovery_health = "YELLOW"
-            else:
-                recovery_health = "RED"
-            failures = int(source.get("consecutive_failures") or 0)
-            fetch_health = "RED" if failures >= 3 else "YELLOW" if failures else "GREEN"
-            source["health"] = {
-                "fetch_health": fetch_health,
-                "recovery_backlog_health": recovery_health,
-                "recovery_backlog": backlog,
-                "recovery_oldest_pending_at": oldest,
-                "recovery_oldest_age_seconds": oldest_age,
-                "recovery_slo_seconds": recovery_slo,
-                "availability_class": (policy.get("availability_policy") or {}).get("class"),
+        for source_id, policy in registry.enabled_sources():
+            row = conn.execute("SELECT * FROM source_state WHERE source_id=?", (source_id,)).fetchone()
+            source: dict[str, object] = dict(row) if row is not None else {
+                "source_id": source_id,
+                "baseline_complete": 0,
+                "last_success_at": None,
+                "last_error": "NOT_INITIALIZED",
+                "consecutive_failures": 0,
             }
+            source["health"] = _source_health(conn, source_id, source, policy, now)
             sources.append(source)
 
         counts = {
@@ -86,16 +158,11 @@ def status() -> dict[str, object]:
             dict(row)
             for row in conn.execute(
                 "SELECT app_run_id,source_id,worker_run_id,started_at,finished_at,status,changed,signals_created,baseline,"
-                "trigger_kind,recovery,outage_window_start,outage_window_end,backlog_remaining,error "
-                "FROM scheduler_runs ORDER BY started_at DESC LIMIT 10"
+                "trigger_kind,recovery,outage_window_start,outage_window_end,backlog_remaining,details_attempted,"
+                "details_succeeded,tenders_parsed,error FROM scheduler_runs ORDER BY started_at DESC LIMIT 10"
             )
         ]
-    degraded = any(
-        source.get("last_error")
-        or (source.get("health") or {}).get("recovery_backlog_health") in {"YELLOW", "RED"}
-        or (source.get("health") or {}).get("fetch_health") in {"YELLOW", "RED"}
-        for source in sources
-    )
+    degraded = any((source.get("health") or {}).get("source_health") in {"YELLOW", "RED"} for source in sources)
     return {
         "status": "DEGRADED" if degraded else "PASS",
         "canonical_node": registry.raw["production_policy"]["canonical_node"],

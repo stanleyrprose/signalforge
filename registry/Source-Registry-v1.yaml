@@ -43,7 +43,18 @@
         "https://mpt.com.mm/en/pstn-and-ftth-last-mile-maintenance-at-yangon-and-naypyitaw-2/",
         "https://mpt.com.mm/en/car-rental-service-for-hi-ace_2026-yangon-2/",
         "https://mpt.com.mm/en/core-and-important-site-dg-maintenance-project-fy26-2/"
-      ]
+      ],
+      "health_policy": {
+        "freshness_yellow_seconds": 1800,
+        "freshness_red_seconds": 3600,
+        "fetch_yellow_failures": 1,
+        "fetch_red_failures": 3,
+        "parse_window_runs": 10,
+        "parse_min_attempts": 3,
+        "parse_yellow_ratio": 0.9,
+        "parse_red_ratio": 0.7,
+        "parse_probe_interval_seconds": 3600
+      }
     }
   },
   "deferred_sources": {
