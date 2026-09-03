@@ -104,8 +104,21 @@ def _source_health(conn, source_id: str, source: dict[str, object], policy: dict
     source_health = max(component_states, key=_health_rank)
     if source_health == "UNKNOWN":
         source_health = "GREEN"
+    reason_code = "OK"
+    for state, code in (
+        (fetch_health, "SOURCE_FETCH_FAILURES"),
+        (freshness_health, "SOURCE_FRESHNESS_LAG"),
+        (parse_health, "SOURCE_PARSE_RATE_LOW"),
+        (recovery_health, "SOURCE_RECOVERY_BACKLOG"),
+    ):
+        if state == source_health and state in {"YELLOW", "RED"}:
+            reason_code = code
+            break
+    if reason_code == "OK" and parse_health == "UNKNOWN":
+        reason_code = "PARSE_SAMPLE_INSUFFICIENT"
     return {
         "source_health": source_health,
+        "reason_code": reason_code,
         "fetch_health": fetch_health,
         "freshness_health": freshness_health,
         "freshness_age_seconds": freshness_age,

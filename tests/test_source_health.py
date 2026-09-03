@@ -36,7 +36,7 @@ class SourceHealthTests(unittest.TestCase):
         source = Registry.load(ROOT).source("S13")
         health = source["health_policy"]
         self.assertEqual(health["freshness_yellow_seconds"], 1800)
-        self.assertEqual(health["freshness_red_seconds"], 3600)
+        self.assertEqual(health["freshness_red_seconds"], 2700)
         self.assertEqual(health["parse_window_runs"], 10)
         self.assertEqual(health["parse_min_attempts"], 3)
         self.assertEqual(health["parse_yellow_ratio"], 0.9)
@@ -52,6 +52,7 @@ class SourceHealthTests(unittest.TestCase):
             self.assertEqual(health["source_health"], "GREEN")
             self.assertEqual(health["freshness_health"], "GREEN")
             self.assertEqual(health["parse_health"], "UNKNOWN")
+            self.assertEqual(health["reason_code"], "PARSE_SAMPLE_INSUFFICIENT")
             self.assertEqual(health["parse_attempts"], 0)
 
     def test_parse_ratio_is_yellow_and_red_from_structured_recent_runs(self) -> None:
@@ -67,6 +68,7 @@ class SourceHealthTests(unittest.TestCase):
             yellow = self._run(db, now=datetime(2026, 9, 3, 12, 10, tzinfo=UTC))
             health = yellow["sources"][0]["health"]
             self.assertEqual(health["parse_health"], "YELLOW")
+            self.assertEqual(health["reason_code"], "SOURCE_PARSE_RATE_LOW")
             self.assertEqual(health["parse_success_ratio"], 0.8)
             self.assertEqual(yellow["status"], "DEGRADED")
 
