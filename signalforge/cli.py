@@ -142,10 +142,10 @@ def _source_health(conn, source_id: str, source: dict[str, object], policy: dict
     }
 
 
-def status(*, now: datetime | None = None) -> dict[str, object]:
+def status(*, now: datetime | None = None, registry: Registry | None = None) -> dict[str, object]:
     database = db_path()
     migrate(database)
-    registry = Registry.load()
+    registry = registry or Registry.load()
     now = (now or datetime.now(UTC)).astimezone(UTC)
     with connect(database) as conn:
         sources: list[dict[str, object]] = []

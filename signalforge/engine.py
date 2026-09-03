@@ -13,7 +13,8 @@ from .acquisition_runtime import acquire_local_bytes, record_processing
 from .config import Registry, db_path, evidence_root
 from .db import connect, migrate
 from .http import fetch_bytes
-from .mpt import SitemapEntry, parse_sitemap, parse_tender_detail
+from .mpt import SitemapEntry
+from .source_adapters import adapter_for
 from .worker_context import load_worker_context
 
 
@@ -283,6 +284,7 @@ def run_source(
 ) -> dict[str, object]:
     registry = registry or Registry.load()
     source = registry.source(source_id)
+    adapter = adapter_for(source_id, source)
     now = (now or datetime.now(UTC)).astimezone(UTC)
     observed_at = _iso(now)
     database = database or db_path()
@@ -352,21 +354,21 @@ def run_source(
             url=str(source["discovery_url"]),
             timeout_seconds=int(source["request_timeout_seconds"]),
             max_bytes=int(source["request_max_bytes"]),
-            expected_content_types=["application/xml"],
+            expected_content_types=list(adapter.discovery_content_types),
             observed_at=observed_at,
             fetcher=fetcher,
         )
         sitemap_bytes = sitemap_capture.payload
         sitemap_hash = sitemap_capture.sha256
         try:
-            entries = parse_sitemap(sitemap_bytes)
+            entries = adapter.parse_discovery(sitemap_bytes)
         except Exception:
             record_processing(
                 database=database,
                 capture=sitemap_capture,
                 source_id=source_id,
                 observed_at=observed_at,
-                parser_version="mpt-sitemap-v1",
+                parser_version=adapter.discovery_parser_version,
                 normalizer_version="discovery-v1",
                 canonicalizer_version="none",
                 status="FAILED",
@@ -381,7 +383,7 @@ def run_source(
             capture=sitemap_capture,
             source_id=source_id,
             observed_at=observed_at,
-            parser_version="mpt-sitemap-v1",
+            parser_version=adapter.discovery_parser_version,
             normalizer_version="discovery-v1",
             canonicalizer_version="none",
             status="SUCCESS",
@@ -411,6 +413,9 @@ def run_source(
                 "SELECT started_at FROM scheduler_runs WHERE source_id=? AND details_attempted>0 ORDER BY started_at DESC LIMIT 1",
                 (source_id,),
             ).fetchone()
+
+        if source.get("discovery_is_tender_only") is True:
+            known_tender_urls.update(entry.url for entry in entries)
 
         if not baseline and not any(entry.url in known_tender_urls for entry in candidates):
             health_policy = source.get("health_policy") or {}
@@ -458,16 +463,16 @@ def run_source(
             html = detail_capture.payload
             evidence_digest = detail_capture.sha256
             try:
-                tender = parse_tender_detail(html, entry.url)
+                parsed_tenders = adapter.parse_detail(html, entry.url)
             except Exception:
                 record_processing(
                     database=database,
                     capture=detail_capture,
                     source_id=source_id,
                     observed_at=observed_at,
-                    parser_version="mpt-v3",
-                    normalizer_version="mpt-normalize-v1",
-                    canonicalizer_version="tender-canonical-v1",
+                    parser_version=adapter.detail_parser_version,
+                    normalizer_version=adapter.normalizer_version,
+                    canonicalizer_version=adapter.canonicalizer_version,
                     status="FAILED",
                     items_found=0,
                     canonical_items=0,
@@ -494,50 +499,57 @@ def run_source(
                     (evidence_digest, observed_at, source_id, entry.url),
                 )
 
-            if tender is None:
+            if not parsed_tenders:
                 record_processing(
                     database=database,
                     capture=detail_capture,
                     source_id=source_id,
                     observed_at=observed_at,
-                    parser_version="mpt-v3",
-                    normalizer_version="mpt-normalize-v1",
-                    canonicalizer_version="tender-canonical-v1",
+                    parser_version=adapter.detail_parser_version,
+                    normalizer_version=adapter.normalizer_version,
+                    canonicalizer_version=adapter.canonicalizer_version,
                     status="SUCCESS",
                     items_found=0,
                     canonical_items=0,
                     signals_created=0,
                 )
                 continue
-            tenders += 1
+
+            tenders += len(parsed_tenders)
             if expected_tender:
                 details_succeeded += 1
+            detail_changed = 0
+            detail_signals = 0
             try:
                 _write_evidence(source_id, html, evidence_digest, evidence)
                 with connect(database) as conn, conn:
+                    canonical_marker = parsed_tenders[0].canonical_key if len(parsed_tenders) == 1 else None
                     conn.execute(
                         "UPDATE discovery_items SET canonical_key=? WHERE source_id=? AND url=?",
-                        (tender.canonical_key, source_id, entry.url),
+                        (canonical_marker, source_id, entry.url),
                     )
-                    changed, signals = _upsert_tender(
-                        conn,
-                        source_id=source_id,
-                        tender=tender,
-                        observed_at=observed_at,
-                        suppress_signal=baseline or suppress_once,
-                        evidence_digest=evidence_digest,
-                    )
+                    for tender in parsed_tenders:
+                        changed, signals = _upsert_tender(
+                            conn,
+                            source_id=source_id,
+                            tender=tender,
+                            observed_at=observed_at,
+                            suppress_signal=baseline or suppress_once,
+                            evidence_digest=evidence_digest,
+                        )
+                        detail_changed += int(changed)
+                        detail_signals += signals
             except Exception:
                 record_processing(
                     database=database,
                     capture=detail_capture,
                     source_id=source_id,
                     observed_at=observed_at,
-                    parser_version="mpt-v3",
-                    normalizer_version="mpt-normalize-v1",
-                    canonicalizer_version="tender-canonical-v1",
+                    parser_version=adapter.detail_parser_version,
+                    normalizer_version=adapter.normalizer_version,
+                    canonicalizer_version=adapter.canonicalizer_version,
                     status="FAILED",
-                    items_found=1,
+                    items_found=len(parsed_tenders),
                     canonical_items=0,
                     signals_created=0,
                     failure=ProcessingFailure.CANONICAL_VALIDATION_FAILURE,
@@ -548,16 +560,16 @@ def run_source(
                 capture=detail_capture,
                 source_id=source_id,
                 observed_at=observed_at,
-                parser_version="mpt-v3",
-                normalizer_version="mpt-normalize-v1",
-                canonicalizer_version="tender-canonical-v1",
+                parser_version=adapter.detail_parser_version,
+                normalizer_version=adapter.normalizer_version,
+                canonicalizer_version=adapter.canonicalizer_version,
                 status="SUCCESS",
-                items_found=1,
-                canonical_items=1,
-                signals_created=signals,
+                items_found=len(parsed_tenders),
+                canonical_items=len(parsed_tenders),
+                signals_created=detail_signals,
             )
-            changed_count += int(changed)
-            signals_created += signals
+            changed_count += detail_changed
+            signals_created += detail_signals
 
         if candidates and fetched == 0 and detail_errors == len(candidates):
             raise RuntimeError("all bounded detail candidates failed")

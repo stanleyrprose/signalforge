@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from .acquisition_contract import AcquisitionContractError, validate_source_acquisition_policy
+from .source_adapters import ADAPTERS
 
 
 class ConfigError(RuntimeError):
@@ -59,6 +60,9 @@ class Registry:
         for source_id, source in sources.items():
             if not isinstance(source, dict) or source.get("enabled") is not True:
                 continue
+            adapter = source.get("adapter")
+            if not isinstance(adapter, str) or adapter not in ADAPTERS:
+                raise ConfigError(f"unsupported source adapter: {source_id}")
             try:
                 validate_source_acquisition_policy(source_id, source)
             except AcquisitionContractError as exc:
