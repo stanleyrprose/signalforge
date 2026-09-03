@@ -173,6 +173,36 @@ class EngineTests(unittest.TestCase):
             self.assertEqual(signal, ("UPDATED", "mpt:CCO-2026-001"))
             self.assertEqual(latest, ("worker-run-002", 0, "SUCCESS"))
 
+    def test_manual_refresh_is_forceful_and_records_manual_trigger(self) -> None:
+        registry = Registry.load(ROOT)
+        sitemap = (FIXTURES / "mpt_page_sitemap.xml").read_bytes()
+        tender = (FIXTURES / "mpt_tender_detail.html").read_bytes()
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            db = base / "signalforge.db"
+            evidence = base / "evidence"
+            baseline = run_source(
+                "S13", registry=registry, now=datetime(2026, 9, 2, 12, 0, tzinfo=UTC),
+                fetcher=FixtureFetcher(sitemap, tender), sleeper=lambda _seconds: None, force=True,
+                database=db, evidence=evidence, worker_context={"run_id": "manual-baseline"},
+            )
+            self.assertEqual(baseline["signals_created"], 0)
+            manual = run_source(
+                "S13", registry=registry, now=datetime(2026, 9, 2, 12, 5, tzinfo=UTC),
+                fetcher=FixtureFetcher(sitemap, tender), sleeper=lambda _seconds: None, force=True,
+                database=db, evidence=evidence, worker_context={"run_id": "manual-worker-run"},
+                trigger_kind_override="MANUAL",
+            )
+            self.assertEqual(manual["status"], "SUCCESS")
+            with sqlite3.connect(db) as conn:
+                row = conn.execute(
+                    "SELECT trigger_kind,trigger_id,worker_run_id,signals_created FROM scheduler_runs WHERE worker_run_id='manual-worker-run'"
+                ).fetchone()
+            self.assertEqual(row[0], "MANUAL")
+            self.assertTrue(row[1].startswith("manual:S13:"))
+            self.assertEqual(row[2], "manual-worker-run")
+            self.assertEqual(row[3], 0)
+
     def test_low_frequency_parse_health_probe_is_bounded_and_signal_free(self) -> None:
         registry = Registry.load(ROOT)
         sitemap = (FIXTURES / "mpt_page_sitemap.xml").read_bytes()

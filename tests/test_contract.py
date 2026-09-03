@@ -21,8 +21,9 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(manifest["verb_manifest_version"], 1)
         self.assertEqual(
             set(manifest["verbs"]),
-            {"signalforge-status", "signalforge-run-due", "signalforge-pause", "signalforge-resume"},
+            {"signalforge-status", "signalforge-run-due", "signalforge-refresh", "signalforge-pause", "signalforge-resume"},
         )
+        self.assertEqual(manifest["verbs"]["signalforge-refresh"]["argument"], "source_id")
         self.assertEqual(manifest["grammar"]["source_id"], "^[A-Z][A-Z0-9]{0,15}$")
         self.assertEqual(manifest["active_source_ids"], ["S13"])
 
@@ -47,6 +48,13 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(source["availability_policy"]["collection_rto_seconds"], 1800)
         self.assertEqual(source["availability_policy"]["business_data_rpo_target_seconds"], 900)
         self.assertTrue(all(url.startswith("https://mpt.com.mm/en/") for url in source["bootstrap_seed_urls"]))
+
+    def test_deploy_installs_reviewed_refresh_template_and_drains_instances(self) -> None:
+        deploy = (ROOT / "deploy" / "deploy-signalforge-release.sh").read_text(encoding="utf-8")
+        self.assertIn("generated/applications/signalforge/signalforge-refresh@.service", deploy)
+        self.assertIn("/etc/systemd/system/signalforge-refresh@.service", deploy)
+        self.assertIn("signalforge-refresh@*.service", deploy)
+        self.assertIn("systemd-analyze verify", deploy)
 
     def test_worker_application_correlation_is_fail_closed(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

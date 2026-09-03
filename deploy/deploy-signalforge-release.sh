@@ -58,11 +58,13 @@ trap cleanup EXIT
 systemctl disable --now signalforge-run-due.timer >/dev/null 2>&1 || true
 for _i in $(seq 1 30); do
   state="$(systemctl is-active signalforge-run-due.service 2>/dev/null || true)"
-  [ "$state" != active ] && [ "$state" != activating ] && break
+  refresh_busy="$(systemctl list-units --type=service --state=active,activating --no-legend --no-pager 'signalforge-refresh@*.service' 2>/dev/null | wc -l | tr -d ' ')"
+  [ "$state" != active ] && [ "$state" != activating ] && [ "$refresh_busy" -eq 0 ] && break
   sleep 1
 done
 state="$(systemctl is-active signalforge-run-due.service 2>/dev/null || true)"
-[ "$state" != active ] && [ "$state" != activating ] || { echo "SignalForge busy; deploy deferred" >&2; exit 75; }
+refresh_busy="$(systemctl list-units --type=service --state=active,activating --no-legend --no-pager 'signalforge-refresh@*.service' 2>/dev/null | wc -l | tr -d ' ')"
+[ "$state" != active ] && [ "$state" != activating ] && [ "$refresh_busy" -eq 0 ] || { echo "SignalForge busy; deploy deferred" >&2; exit 75; }
 
 if [ ! -d "$FINAL" ]; then
   install -d -m 0755 -o root -g root "$STAGE"
@@ -83,9 +85,10 @@ runuser -u signalforge -- env \
   "$ROOT/active/bin/signalforge" migrate >/dev/null
 
 install -m 0644 /srv/worker/current-release/generated/applications/signalforge/signalforge-run-due.service /etc/systemd/system/signalforge-run-due.service
+install -m 0644 /srv/worker/current-release/generated/applications/signalforge/signalforge-refresh@.service /etc/systemd/system/signalforge-refresh@.service
 install -m 0644 "$FINAL/systemd/signalforge-run-due.timer" /etc/systemd/system/signalforge-run-due.timer
 systemctl daemon-reload
-systemd-analyze verify /etc/systemd/system/signalforge-run-due.service /etc/systemd/system/signalforge-run-due.timer >/dev/null
+systemd-analyze verify /etc/systemd/system/signalforge-run-due.service /etc/systemd/system/signalforge-refresh@.service /etc/systemd/system/signalforge-run-due.timer >/dev/null
 
 runuser -u signalforge -- env \
   SIGNALFORGE_STATE_ROOT="$ROOT/state" \
