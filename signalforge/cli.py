@@ -175,9 +175,12 @@ def status(*, now: datetime | None = None) -> dict[str, object]:
                 "details_succeeded,tenders_parsed,error FROM scheduler_runs ORDER BY started_at DESC LIMIT 10"
             )
         ]
-    degraded = any((source.get("health") or {}).get("source_health") in {"YELLOW", "RED"} for source in sources)
+    source_states = [str((source.get("health") or {}).get("source_health") or "RED") for source in sources]
+    signalforge_health = max(source_states, key=_health_rank) if source_states else "RED"
+    degraded = signalforge_health in {"YELLOW", "RED"}
     return {
         "status": "DEGRADED" if degraded else "PASS",
+        "signalforge_health": signalforge_health,
         "canonical_node": registry.raw["production_policy"]["canonical_node"],
         "browser_production_approved": registry.raw["production_policy"]["browser_production_approved"],
         "sources": sources,
