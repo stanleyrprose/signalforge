@@ -273,6 +273,7 @@ def run_source(
     database: Path | None = None,
     evidence: Path | None = None,
     worker_context: dict | None = None,
+    trigger_kind_override: str | None = None,
 ) -> dict[str, object]:
     registry = registry or Registry.load()
     source = registry.source(source_id)
@@ -292,8 +293,14 @@ def run_source(
         recovery, outage_start, outage_end = _recovery_context(state, now, source, baseline=baseline)
 
     app_run_id = str(uuid.uuid4())
-    trigger_kind = "RECONCILIATION" if recovery else "POLL"
-    trigger_id = f"{trigger_kind.lower()}:{source_id}:{int(now.timestamp()) // int(source['poll_interval_seconds'])}"
+    if trigger_kind_override is not None and trigger_kind_override != "MANUAL":
+        raise EngineError("unsupported trigger kind override")
+    trigger_kind = trigger_kind_override or ("RECONCILIATION" if recovery else "POLL")
+    trigger_id = (
+        f"manual:{source_id}:{app_run_id}"
+        if trigger_kind == "MANUAL"
+        else f"{trigger_kind.lower()}:{source_id}:{int(now.timestamp()) // int(source['poll_interval_seconds'])}"
+    )
     with connect(database) as conn, conn:
         conn.execute(
             """

@@ -11,12 +11,28 @@ Every source execution creates a durable application scheduler Run containing:
 - application run id
 - trigger id
 - source id
-- trigger kind (`poll`)
+- trigger kind (`POLL`, `MANUAL`, or `RECONCILIATION` in R5)
 - scheduled/observed time
 - correlated Worker operational Run id
 - terminal status and changed count
 
 The Worker Run is read from the root-created `/run/worker/apps/signalforge/$INVOCATION_ID.json` descriptor. Production execution fails closed if that correlation descriptor is missing or inconsistent.
+
+## Manual source refresh
+
+Manual refresh is a closed source-ID operation, not a direct arbitrary application command. The reviewed path is:
+
+```text
+control-plane/Mac admin
+→ signalforge-refresh <source_id>
+→ validate Source Registry grammar + active membership
+→ systemctl start signalforge-refresh@<source_id>.service
+→ Worker prepare-application
+→ signalforge refresh-source <source_id>
+→ Worker finalize-application
+```
+
+The refresh template uses the same `signalforge` UID, `worker-signalforge.slice`, resource limits, sandbox and `/proc` isolation as the default scheduler. `refresh-source` forces a source execution even when `next_due_at` is in the future and records `trigger_kind=MANUAL` with an opaque correlated Worker Run. Arbitrary URLs are never accepted.
 
 ## Baseline semantics
 

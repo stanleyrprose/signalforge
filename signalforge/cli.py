@@ -28,6 +28,7 @@ def verb_manifest() -> dict[str, object]:
         "verbs": {
             "signalforge-status": {"helper_command": "status", "argument": None},
             "signalforge-run-due": {"helper_command": "run-due", "argument": None},
+            "signalforge-refresh": {"helper_command": "refresh-source", "argument": "source_id"},
             "signalforge-pause": {"helper_command": None, "argument": None},
             "signalforge-resume": {"helper_command": None, "argument": None},
         },
@@ -198,6 +199,8 @@ def main(argv: list[str] | None = None) -> int:
     run_source_parser = sub.add_parser("run-source")
     run_source_parser.add_argument("source_id")
     run_source_parser.add_argument("--force", action="store_true")
+    refresh_source_parser = sub.add_parser("refresh-source")
+    refresh_source_parser.add_argument("source_id")
     sub.add_parser("status")
     args = parser.parse_args(argv)
     try:
@@ -210,6 +213,8 @@ def main(argv: list[str] | None = None) -> int:
             result = run_due()
         elif args.cmd == "run-source":
             result = run_source(args.source_id, force=args.force)
+        elif args.cmd == "refresh-source":
+            result = run_source(args.source_id, force=True, trigger_kind_override="MANUAL")
         else:
             result = status()
         print(json.dumps(result, ensure_ascii=False, sort_keys=True))
