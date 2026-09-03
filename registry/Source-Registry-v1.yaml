@@ -46,7 +46,7 @@
       ],
       "health_policy": {
         "freshness_yellow_seconds": 1800,
-        "freshness_red_seconds": 3600,
+        "freshness_red_seconds": 2700,
         "fetch_yellow_failures": 1,
         "fetch_red_failures": 3,
         "parse_window_runs": 10,
