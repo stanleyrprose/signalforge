@@ -263,6 +263,7 @@ class EngineTests(unittest.TestCase):
         source["delta_detail_limit"] = 2
         source["request_delay_ms"] = 0
         source["bootstrap_seed_urls"] = []
+        raw["sources"] = {"S13": source}
         registry = Registry(raw)
 
         urls = [f"https://mpt.com.mm/en/gate-s-tender-{index}/" for index in range(5)]
@@ -400,7 +401,7 @@ class EngineTests(unittest.TestCase):
                 {"SIGNALFORGE_DB": str(db), "SIGNALFORGE_REPO_ROOT": str(ROOT)},
                 clear=False,
             ):
-                recovered_health = status(now=datetime(2026, 9, 2, 13, 25, tzinfo=UTC))
+                recovered_health = status(now=datetime(2026, 9, 2, 13, 25, tzinfo=UTC), registry=registry)
             self.assertEqual(recovered_health["status"], "PASS")
             self.assertEqual(recovered_health["counts"]["recovery_backlog"], 0)
 

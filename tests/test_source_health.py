@@ -29,8 +29,11 @@ class SourceHealthTests(unittest.TestCase):
             )
 
     def _run(self, db: Path, *, now: datetime) -> dict[str, object]:
+        raw = dict(Registry.load(ROOT).raw)
+        raw["sources"] = {"S13": raw["sources"]["S13"]}
+        registry = Registry(raw)
         with patch.dict(os.environ, {"SIGNALFORGE_DB": str(db), "SIGNALFORGE_REPO_ROOT": str(ROOT)}, clear=False):
-            return status(now=now)
+            return status(now=now, registry=registry)
 
     def test_registry_freezes_source_health_thresholds(self) -> None:
         source = Registry.load(ROOT).source("S13")
