@@ -167,6 +167,10 @@ def status(*, now: datetime | None = None) -> dict[str, object]:
             "scheduler_runs": int(conn.execute("SELECT COUNT(*) FROM scheduler_runs").fetchone()[0]),
             "failed_runs": int(conn.execute("SELECT COUNT(*) FROM scheduler_runs WHERE status='FAILED'").fetchone()[0]),
             "recovery_backlog": int(conn.execute("SELECT COUNT(*) FROM discovery_items WHERE pending_since_at IS NOT NULL").fetchone()[0]),
+            "acquisition_requests": int(conn.execute("SELECT COUNT(*) FROM acquisition_requests").fetchone()[0]),
+            "acquisition_attempts": int(conn.execute("SELECT COUNT(*) FROM acquisition_attempts").fetchone()[0]),
+            "evidence_envelopes": int(conn.execute("SELECT COUNT(*) FROM evidence_envelopes").fetchone()[0]),
+            "processing_records": int(conn.execute("SELECT COUNT(*) FROM processing_records").fetchone()[0]),
         }
         recent = [
             dict(row)

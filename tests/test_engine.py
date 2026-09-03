@@ -198,10 +198,17 @@ class EngineTests(unittest.TestCase):
                 row = conn.execute(
                     "SELECT trigger_kind,trigger_id,worker_run_id,signals_created FROM scheduler_runs WHERE worker_run_id='manual-worker-run'"
                 ).fetchone()
+                acquisition_reasons = {
+                    item[0] for item in conn.execute(
+                        "SELECT reason FROM acquisition_requests WHERE scheduler_run_id=?",
+                        (manual["app_run_id"],),
+                    )
+                }
             self.assertEqual(row[0], "MANUAL")
             self.assertTrue(row[1].startswith("manual:S13:"))
             self.assertEqual(row[2], "manual-worker-run")
             self.assertEqual(row[3], 0)
+            self.assertEqual(acquisition_reasons, {"MANUAL"})
 
     def test_low_frequency_parse_health_probe_is_bounded_and_signal_free(self) -> None:
         registry = Registry.load(ROOT)

@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from .acquisition_contract import AcquisitionContractError, validate_source_acquisition_policy
+
 
 class ConfigError(RuntimeError):
     pass
@@ -57,6 +59,10 @@ class Registry:
         for source_id, source in sources.items():
             if not isinstance(source, dict) or source.get("enabled") is not True:
                 continue
+            try:
+                validate_source_acquisition_policy(source_id, source)
+            except AcquisitionContractError as exc:
+                raise ConfigError(str(exc)) from exc
             health = source.get("health_policy")
             if not isinstance(health, dict):
                 raise ConfigError(f"active source health policy missing: {source_id}")

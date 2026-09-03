@@ -8,6 +8,8 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Callable
 
+from .acquisition_contract import ProcessingFailure, request_reason
+from .acquisition_runtime import acquire_local_bytes, record_processing
 from .config import Registry, db_path, evidence_root
 from .db import connect, migrate
 from .http import fetch_bytes
@@ -16,6 +18,10 @@ from .worker_context import load_worker_context
 
 
 Fetcher = Callable[..., bytes]
+
+
+class EngineError(RuntimeError):
+    pass
 
 
 def _iso(value: datetime) -> str:
@@ -332,15 +338,57 @@ def run_source(
     details_attempted = 0
     details_succeeded = 0
     health_probe = False
+    health_probe_url: str | None = None
     backlog_remaining = 0
     try:
-        sitemap_bytes = fetcher(
-            str(source["discovery_url"]),
-            timeout=int(source["request_timeout_seconds"]),
+        sitemap_capture = acquire_local_bytes(
+            database=database,
+            scheduler_run_id=app_run_id,
+            source_id=source_id,
+            source_policy_version=int(source["source_policy_version"]),
+            reason=request_reason(trigger_kind),
+            egress_profile=str(source["egress_profile"]),
+            target_kind="DISCOVERY",
+            url=str(source["discovery_url"]),
+            timeout_seconds=int(source["request_timeout_seconds"]),
             max_bytes=int(source["request_max_bytes"]),
+            expected_content_types=["application/xml"],
+            observed_at=observed_at,
+            fetcher=fetcher,
         )
-        sitemap_hash = hashlib.sha256(sitemap_bytes).hexdigest()
-        entries = parse_sitemap(sitemap_bytes)
+        sitemap_bytes = sitemap_capture.payload
+        sitemap_hash = sitemap_capture.sha256
+        try:
+            entries = parse_sitemap(sitemap_bytes)
+        except Exception:
+            record_processing(
+                database=database,
+                capture=sitemap_capture,
+                source_id=source_id,
+                observed_at=observed_at,
+                parser_version="mpt-sitemap-v1",
+                normalizer_version="discovery-v1",
+                canonicalizer_version="none",
+                status="FAILED",
+                items_found=0,
+                canonical_items=0,
+                signals_created=0,
+                failure=ProcessingFailure.PROCESSING_UNKNOWN,
+            )
+            raise
+        record_processing(
+            database=database,
+            capture=sitemap_capture,
+            source_id=source_id,
+            observed_at=observed_at,
+            parser_version="mpt-sitemap-v1",
+            normalizer_version="discovery-v1",
+            canonicalizer_version="none",
+            status="SUCCESS",
+            items_found=len(entries),
+            canonical_items=0,
+            signals_created=0,
+        )
 
         with connect(database) as conn, conn:
             _upsert_discovery_snapshot(conn, source_id, entries, observed_at, baseline=baseline)
@@ -377,6 +425,7 @@ def run_source(
                     if probe_entry is not None and probe_entry.url not in selected_urls:
                         candidates.append(probe_entry)
                         health_probe = True
+                        health_probe_url = probe_entry.url
                         break
 
         delay = max(0, int(source["request_delay_ms"])) / 1000.0
@@ -387,18 +436,48 @@ def run_source(
             if index and delay:
                 sleeper(delay)
             try:
-                html = fetcher(
-                    entry.url,
-                    timeout=int(source["request_timeout_seconds"]),
+                detail_capture = acquire_local_bytes(
+                    database=database,
+                    scheduler_run_id=app_run_id,
+                    source_id=source_id,
+                    source_policy_version=int(source["source_policy_version"]),
+                    reason=request_reason(trigger_kind, health_probe=entry.url == health_probe_url),
+                    egress_profile=str(source["egress_profile"]),
+                    target_kind="HTML",
+                    url=entry.url,
+                    timeout_seconds=int(source["request_timeout_seconds"]),
                     max_bytes=int(source["request_max_bytes"]),
+                    expected_content_types=["text/html"],
+                    observed_at=observed_at,
+                    fetcher=fetcher,
                 )
-                tender = parse_tender_detail(html, entry.url)
             except Exception:
                 detail_errors += 1
                 continue
 
+            html = detail_capture.payload
+            evidence_digest = detail_capture.sha256
+            try:
+                tender = parse_tender_detail(html, entry.url)
+            except Exception:
+                record_processing(
+                    database=database,
+                    capture=detail_capture,
+                    source_id=source_id,
+                    observed_at=observed_at,
+                    parser_version="mpt-v3",
+                    normalizer_version="mpt-normalize-v1",
+                    canonicalizer_version="tender-canonical-v1",
+                    status="FAILED",
+                    items_found=0,
+                    canonical_items=0,
+                    signals_created=0,
+                    failure=ProcessingFailure.HTML_PARSE_FAILURE,
+                )
+                detail_errors += 1
+                continue
+
             fetched += 1
-            evidence_digest = hashlib.sha256(html).hexdigest()
             with connect(database) as conn, conn:
                 discovery = conn.execute(
                     "SELECT suppress_signal_once FROM discovery_items WHERE source_id=? AND url=?",
@@ -416,24 +495,67 @@ def run_source(
                 )
 
             if tender is None:
+                record_processing(
+                    database=database,
+                    capture=detail_capture,
+                    source_id=source_id,
+                    observed_at=observed_at,
+                    parser_version="mpt-v3",
+                    normalizer_version="mpt-normalize-v1",
+                    canonicalizer_version="tender-canonical-v1",
+                    status="SUCCESS",
+                    items_found=0,
+                    canonical_items=0,
+                    signals_created=0,
+                )
                 continue
             tenders += 1
             if expected_tender:
                 details_succeeded += 1
-            _write_evidence(source_id, html, evidence_digest, evidence)
-            with connect(database) as conn, conn:
-                conn.execute(
-                    "UPDATE discovery_items SET canonical_key=? WHERE source_id=? AND url=?",
-                    (tender.canonical_key, source_id, entry.url),
-                )
-                changed, signals = _upsert_tender(
-                    conn,
+            try:
+                _write_evidence(source_id, html, evidence_digest, evidence)
+                with connect(database) as conn, conn:
+                    conn.execute(
+                        "UPDATE discovery_items SET canonical_key=? WHERE source_id=? AND url=?",
+                        (tender.canonical_key, source_id, entry.url),
+                    )
+                    changed, signals = _upsert_tender(
+                        conn,
+                        source_id=source_id,
+                        tender=tender,
+                        observed_at=observed_at,
+                        suppress_signal=baseline or suppress_once,
+                        evidence_digest=evidence_digest,
+                    )
+            except Exception:
+                record_processing(
+                    database=database,
+                    capture=detail_capture,
                     source_id=source_id,
-                    tender=tender,
                     observed_at=observed_at,
-                    suppress_signal=baseline or suppress_once,
-                    evidence_digest=evidence_digest,
+                    parser_version="mpt-v3",
+                    normalizer_version="mpt-normalize-v1",
+                    canonicalizer_version="tender-canonical-v1",
+                    status="FAILED",
+                    items_found=1,
+                    canonical_items=0,
+                    signals_created=0,
+                    failure=ProcessingFailure.CANONICAL_VALIDATION_FAILURE,
                 )
+                raise
+            record_processing(
+                database=database,
+                capture=detail_capture,
+                source_id=source_id,
+                observed_at=observed_at,
+                parser_version="mpt-v3",
+                normalizer_version="mpt-normalize-v1",
+                canonicalizer_version="tender-canonical-v1",
+                status="SUCCESS",
+                items_found=1,
+                canonical_items=1,
+                signals_created=signals,
+            )
             changed_count += int(changed)
             signals_created += signals
 

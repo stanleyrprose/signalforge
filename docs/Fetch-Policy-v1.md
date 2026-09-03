@@ -22,3 +22,23 @@ A page is a MPT Tender only when the structural parser finds both `Reference No`
 ## Evidence
 
 Parsed Tender detail HTML is stored under the application evidence root using its SHA-256 as the immutable filename. The application database stores the evidence hash, canonical key, source URL and extracted fields. Customer-visible signals contain normalized fields and evidence references, not arbitrary page HTML.
+
+
+## v1.5 Local Acquisition Contract
+
+v1.5 keeps the R5 Direct HTTP behavior but makes the acquisition lifecycle explicit inside SignalForge:
+
+```text
+Source Acquisition Policy
+→ AcquisitionRequest
+→ AcquisitionAttempt
+→ EvidenceEnvelope
+→ ProcessingRecord
+→ Canonical / Signal
+```
+
+`AcquisitionRequest` and `AcquisitionAttempt` are SignalForge business/application state. They are **not** Worker Runs and do not change the Gate Z cardinality of one SignalForge scheduler invocation to one Worker operational Run.
+
+S13 freezes `source_policy_version=8`, `egress_profile=mm-intl-datacenter`, and `DIRECT_HTTP` as the primary method. Failure handling is policy-driven: DNS/connect/429 may retry within existing bounded semantics; HTTP 403 requires review; TLS fails closed; JS-render requirement triggers capability review; parser drift triggers source re-audit. None of these silently enables Browser.
+
+`EvidenceEnvelope` contains acquisition facts only. Parser/normalizer/canonicalizer versions and business interpretation live in SignalForge-owned `ProcessingRecord`.
