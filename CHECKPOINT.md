@@ -1,11 +1,12 @@
 # CHECKPOINT
 
 Date: 2026-09-03 (Asia/Yangon)
-Branch: `main` after closure PR merge; this checkpoint update is docs-only.
+Branch: `main` after v1.5 Gate AB closure merge.
 
 ## Production releases
 
-- SignalForge application: `d36f38336bf1b10580cffdb7fa96c7db119c2079`
+- SignalForge v1.5 application: `618afaf4e6ef2ac7fdde64931f2a87dbc053a6f6`
+- SignalForge v1.4.5 known-good rollback: `d36f38336bf1b10580cffdb7fa96c7db119c2079`
 - Worker runtime/provider on Bangkok + Beijing: `0a53558c9233622c69b083d61bed596cbedc0857`
 - Control Plane dispatcher/validator: `64ab3a907bb8a18808839176208023a5de976b55`
 - Worker v1.4.5 final contract/docs closure: `c80c4e81a3f60b018c07f82bb72e4541e13cdef5`
@@ -23,6 +24,23 @@ Branch: `main` after closure PR merge; this checkpoint update is docs-only.
 - S13 recovery backlog health: GREEN
 - Bangkok `signalforge-run-due.timer`: enabled / active / waiting
 - Beijing SignalForge placement: DISABLED with strict `/srv/signalforge` absence
+- SQLite `PRAGMA quick_check`: ok
+
+## Current SignalForge business state after v1.5 Gate AB
+
+```text
+canonical_items=16
+signals=10
+failed_runs=0
+recovery_backlog=0
+scheduler_runs=83 at the final business-state check
+acquisition_requests=7
+acquisition_attempts=7
+evidence_envelopes=7
+processing_records=7
+```
+
+A subsequent persistent-timer wrapper invocation increased the Worker SignalForge application Run count without creating a business scheduler row because S13 was not due. This is expected Gate Z behavior.
 
 ## Completed SignalForge / integration gates
 
@@ -66,6 +84,21 @@ Evidence: `docs/verification/GATE-Z-2026-09-03.md`.
 
 Worker evidence: `vps-worker-plane/docs/verification/GATE-AA-2026-09-03.md`.
 
+### Gate AB — v1.5 Production Compatibility — PASS
+
+- exact SignalForge v1.5 merge SHA is live on Bangkok.
+- v1.4.5 remains the known-good rollback target.
+- one reviewed scheduler-wrapper invocation changed Worker SignalForge Runs `291 -> 292` while SignalForge `scheduler_runs` stayed `82 -> 82` because S13 was not due.
+- inactive source `S99` was denied with exit 126 and created no Worker Run.
+- active `S13` manual refresh changed Worker SignalForge Runs `292 -> 293` and SignalForge `scheduler_runs` `82 -> 83` with `trigger_kind=MANUAL`.
+- v1.5 lifecycle rows advanced one-for-one (`6 -> 7`) while canonical items stayed 16 and signals stayed 10.
+- SQLite quick_check remained `ok`.
+- Bangkok and Beijing Worker doctors both PASS.
+- Beijing remains strict SignalForge zero-footprint and rejects SignalForge control verbs.
+- production timer was restored to enabled / active / waiting.
+
+Evidence: `docs/verification/GATE-AB-2026-09-03.md`.
+
 ## Source Health contract — production
 
 SignalForge owns business/source health semantics. Current S13 policy includes:
@@ -77,7 +110,32 @@ SignalForge owns business/source health semantics. Current S13 policy includes:
 - recovery backlog health;
 - application-owned `signalforge_health=GREEN|YELLOW|RED` plus bounded `reason_code`.
 
-Production schema is v3. Historical v2 rows safely migrated without changing canonical/signal counts. Worker Fleet only consumes the bounded summary and does not recompute business health.
+Production schema is v4. Historical rows migrated additively without changing canonical/signal state. Worker Fleet only consumes the bounded summary and does not recompute business health.
+
+## v1.5 acquisition contract — production
+
+The Bangkok local Direct HTTP path now explicitly records SignalForge-owned:
+
+```text
+Source Acquisition Policy
+-> AcquisitionRequest
+-> AcquisitionAttempt
+-> EvidenceEnvelope
+-> ProcessingRecord
+-> Canonical / Dedup / Signal
+```
+
+Frozen v1.5 invariants:
+
+- `AcquisitionRequest != Worker Run`.
+- `AcquisitionAttempt != Worker Run`.
+- Worker DB has no SignalForge business/acquisition semantics.
+- Direct HTTP remains default.
+- no silent Browser escalation.
+- TLS failure never becomes certificate bypass or automatic Browser success.
+- no remote Provider transport, Redis/Celery, central scheduler or automatic cross-zone failover.
+- Mac remains non-production.
+- Beijing remains Generic Worker only.
 
 ## Closed manual source refresh — production
 
@@ -98,13 +156,11 @@ Properties:
 
 - arbitrary URL input is impossible;
 - same `signalforge` UID/slice/resource/sandbox as scheduler;
-- inactive source `S99` is rejected with 126 before systemd start and creates no Worker Run;
-- active `S13` succeeds and creates exactly one Worker application Run;
+- inactive source is rejected with 126 before systemd business execution and creates no Worker Run;
+- active S13 succeeds and creates exactly one Worker application Run;
 - Beijing returns `126 / DENY: SignalForge is Bangkok-only`.
 
-Final live valid refresh moved SignalForge scheduler Runs `73 -> 74` and Worker SignalForge application Runs `259 -> 260`, while customer Signals remained `10`.
-
-## Worker / host safeguards now relied on by SignalForge
+## Worker / host safeguards relied on by SignalForge
 
 - root-owned Worker operational DBs; SignalForge write denied;
 - `ProtectProc=invisible` + `ProcSubset=pid` cross-UID isolation verified live;
@@ -116,9 +172,9 @@ Final live valid refresh moved SignalForge scheduler Runs `73 -> 74` and Worker 
 - Host Baseline v2 journald budget is live on both VPS hosts;
 - local break-glass uses root-only `worker-admin`, real TTY, human reason and audit.
 
-## v1.4.5 closure
+## v1.4.5 closure / rollback baseline
 
-The authorized production scope — R0–R2 Shared Worker Runtime + Bangkok-only R5 SignalForge — is implementation/deployment/live-verification/cross-repo-contract **PASS**.
+The v1.4.5 authorized production scope — R0–R2 Shared Worker Runtime + Bangkok-only R5 SignalForge — remains implementation/deployment/live-verification/cross-repo-contract **PASS** and is now the known-good rollback baseline for v1.5.
 
 Worker closure records:
 
@@ -127,18 +183,30 @@ Worker closure records:
 
 Next calendar cross-repo review is due no later than **2026-12-03**, or earlier after a major/minor production release, security-boundary change, Job Runtime ABI change, incompatible Trigger/Webhook schema change, or identity-model change.
 
+## v1.5 closure
+
+SignalForge v1.5 — Acquisition Policy & Local Contract Foundation — P0 is now:
+
+> **IMPLEMENTED / CI PASS / DEPLOYED / GATE AB PASS / PRODUCTION COMPLETE**
+
+The release changes SignalForge internal acquisition lifecycle state only. It does not reopen or replace the proven Worker/Control topology.
+
 ## Conditional future gates — NOT TRIGGERED
 
 Do not implement these merely to complete a checklist:
 
-- Browser/Crawlee Gates O2/P/Q: only after a real source fixture proves Direct HTTP insufficient.
+- Browser/Crawlee Gates O2/P/Q: only after a real source fixture proves Direct HTTP insufficient specifically because JS rendering is required.
 - Webhook Gate T: only after a real webhook provider/use case and ingress/auth/dedup contract exist.
 - Dedicated identity Gate V: before the first real dedicated Generic Job retirement; no production retirement exists yet.
+- Remote Provider ADR: only after a real source proves Bangkok local acquisition insufficient.
+- Mac production Provider ADR: only after a source-specific repeated residential-path need is proven.
+- Browserless ADR: only after multiple real browser consumers create shared lifecycle/queue/session pain.
 
 ## Next
 
-1. operate the current production system and collect real S13 business/source history;
-2. treat any new source as a SignalForge Source Registry/business change, not a Worker Generic Job by default;
-3. use Direct HTTP first and escalate to Browser only on fixture evidence;
-4. run the next cross-repo consistency review by 2026-12-03 or at an earlier contract-change trigger;
-5. keep future capability gates fail-closed until their real trigger exists.
+1. operate v1.5 and collect real acquisition/source history;
+2. prioritize Myanmar Source Expansion over new infrastructure;
+3. add each new source through business-value audit -> network/shape audit -> Direct HTTP fixture -> Source Acquisition Policy -> parser -> baseline -> health -> production;
+4. treat real friction as the trigger for Browser, remote Provider, Mac production, API/PDF supplementary adapters or distributed coordination;
+5. run the next cross-repo consistency review by 2026-12-03 or at an earlier contract-change trigger;
+6. keep future capability gates fail-closed until their real trigger exists.

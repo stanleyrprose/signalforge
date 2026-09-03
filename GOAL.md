@@ -1,31 +1,40 @@
-# GOAL — SignalForge R5 / Gate O
+# GOAL — SignalForge v1.5 Production Closure
 
 ## Goal
 
-Deliver the Bangkok-only SignalForge application slice required by `VPS-Worker-Runtime-SignalForge-PRD-v1.4.5` Gate O.
+Run SignalForge v1.5 — Acquisition Policy & Local Contract Foundation on top of the completed v1.4.5 production baseline without changing the proven external Worker/Control/Fleet/S13 behavior.
 
-## Current release boundary
+## Frozen production boundary
 
-- Source Registry and trigger/fetch contracts live in this repository.
-- Only S13 MPT is production-enabled in R5.
-- Production engine is Direct HTTP with normal TLS verification.
-- Bangkok is the only canonical SignalForge node.
-- Beijing must have no `/srv/signalforge`, SignalForge unit, timer, database, or business evidence.
-- First successful source run is baseline-only: evidence/canonical records allowed; customer signals forbidden.
-- `signalforge-run-due.service` must correlate application scheduler runs to the Worker operational Run created by the R5 Worker provider.
-- No Browser/Crawlee production capability in this gate.
-- No public webhook ingress in R5.
+- SignalForge production is Bangkok-only.
+- Beijing is Generic Worker only and must remain SignalForge-free.
+- Direct HTTP is the default production acquisition method.
+- One `signalforge-run-due.service` invocation creates one Worker operational Run; N business/source Jobs remain internal SignalForge state.
+- `AcquisitionRequest` and `AcquisitionAttempt` are SignalForge-internal lifecycle objects, not Worker Runs.
+- Worker DB contains no SignalForge acquisition/canonical business semantics.
+- Source acquisition policy is explicit and fail-closed; TLS failure does not become certificate bypass or automatic Browser escalation.
+- No remote Provider, Mac production dependency, Browserless, Redis/Celery, central scheduler, distributed queue, automatic Beijing failover or speculative Webhook is part of v1.5.
 
-## Gate O closure
+## v1.5 closure
 
-Gate O is complete only after CI and Bangkok live verification prove:
+v1.5 P0 is complete only when:
 
-1. Bangkok-only installation and Beijing absence;
-2. real MPT fixture captured through standard TLS;
-3. parser and canonical tests pass;
-4. first live baseline creates zero customer signals;
-5. Direct HTTP + official sitemap discovery is the production path;
-6. SignalForge scheduler Run stores the same Worker Run ID created for the systemd invocation;
-7. worker and existing nanobot/hermes agents remain healthy.
+1. the additive acquisition schema and local contracts pass CI/fixture/DB migration verification;
+2. exact reviewed SHA is deployed to Bangkok only;
+3. Gate Z scheduler cardinality remains unchanged;
+4. closed Control Plane verb/manifest behavior remains fail-closed;
+5. S13 canonical/signal behavior remains equivalent;
+6. manual refresh and recovery behavior remain equivalent;
+7. Bangkok and Beijing Worker health remain PASS;
+8. Beijing remains strict SignalForge zero-footprint;
+9. SQLite quick_check and business-state preservation pass;
+10. `signalforge-run-due.timer` is restored to enabled/active/waiting;
+11. Gate AB is recorded as PASS.
 
-Only after Gate O PASS may `signalforge-run-due.timer` be enabled for 24x7 MPT collection.
+Current result: **v1.5 P0 = IMPLEMENTED / CI PASS / DEPLOYED / GATE AB PASS / PRODUCTION COMPLETE**.
+
+Evidence: `docs/verification/GATE-AB-2026-09-03.md`.
+
+## Next authorized direction
+
+Operate the current system and expand valuable Myanmar sources using the same local acquisition contract. Capability expansion is evidence-triggered: Direct HTTP first; Browser/remote Provider/Mac production/distributed coordination only after a real source or operational bottleneck proves the need.
