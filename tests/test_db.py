@@ -78,8 +78,8 @@ class DatabaseMigrationTests(unittest.TestCase):
 
             self.assertEqual(discovery, ("2026-09-02T11:00:00+00:00", "2026-09-02T11:00:00+00:00", None, 0))
             self.assertEqual(state, ("2026-09-02T12:00:00Z", "2026-09-02T12:00:00Z", 0, None, None))
-            self.assertEqual(versions, [1, 2])
-            self.assertTrue({"recovery", "outage_window_start", "outage_window_end", "backlog_remaining"} <= scheduler_columns)
+            self.assertEqual(versions, [1, 2, 3])
+            self.assertTrue({"recovery", "outage_window_start", "outage_window_end", "backlog_remaining", "details_attempted", "details_succeeded", "tenders_parsed"} <= scheduler_columns)
 
 
 if __name__ == "__main__":
