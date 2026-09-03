@@ -75,11 +75,13 @@ class DatabaseMigrationTests(unittest.TestCase):
                 ).fetchone()
                 versions = [row[0] for row in conn.execute("SELECT version FROM schema_meta ORDER BY version")]
                 scheduler_columns = {row[1] for row in conn.execute("PRAGMA table_info(scheduler_runs)")}
+                tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
 
             self.assertEqual(discovery, ("2026-09-02T11:00:00+00:00", "2026-09-02T11:00:00+00:00", None, 0))
             self.assertEqual(state, ("2026-09-02T12:00:00Z", "2026-09-02T12:00:00Z", 0, None, None))
-            self.assertEqual(versions, [1, 2, 3])
+            self.assertEqual(versions, [1, 2, 3, 4])
             self.assertTrue({"recovery", "outage_window_start", "outage_window_end", "backlog_remaining", "details_attempted", "details_succeeded", "tenders_parsed"} <= scheduler_columns)
+            self.assertTrue({"acquisition_requests", "acquisition_attempts", "evidence_envelopes", "processing_records"} <= tables)
 
 
 if __name__ == "__main__":

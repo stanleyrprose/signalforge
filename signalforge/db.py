@@ -8,7 +8,7 @@ from typing import Iterator
 from .config import db_path
 
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 
 @contextmanager
@@ -128,6 +128,100 @@ def migrate(path: Path | None = None) -> None:
             );
             CREATE INDEX IF NOT EXISTS idx_scheduler_source_started
                 ON scheduler_runs(source_id, started_at DESC);
+            CREATE TABLE IF NOT EXISTS acquisition_requests (
+                request_id TEXT PRIMARY KEY,
+                schema_version INTEGER NOT NULL,
+                scheduler_run_id TEXT NOT NULL,
+                app_job_ref TEXT,
+                source_id TEXT NOT NULL,
+                source_policy_version INTEGER NOT NULL,
+                mode TEXT NOT NULL,
+                reason TEXT NOT NULL,
+                egress_profile TEXT NOT NULL,
+                requested_at TEXT NOT NULL,
+                primary_method TEXT NOT NULL,
+                target_kind TEXT NOT NULL,
+                timeout_seconds INTEGER NOT NULL,
+                expected_content_types_json TEXT NOT NULL,
+                FOREIGN KEY(scheduler_run_id) REFERENCES scheduler_runs(app_run_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_acquisition_requests_source_requested
+                ON acquisition_requests(source_id, requested_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_acquisition_requests_scheduler
+                ON acquisition_requests(scheduler_run_id);
+            CREATE TABLE IF NOT EXISTS acquisition_attempts (
+                attempt_id TEXT PRIMARY KEY,
+                schema_version INTEGER NOT NULL,
+                request_id TEXT NOT NULL,
+                attempt_number INTEGER NOT NULL,
+                source_id TEXT NOT NULL,
+                source_policy_version INTEGER NOT NULL,
+                method TEXT NOT NULL,
+                egress_profile TEXT NOT NULL,
+                started_at TEXT NOT NULL,
+                finished_at TEXT,
+                status TEXT NOT NULL,
+                acquisition_failure_class TEXT,
+                UNIQUE(request_id, attempt_number),
+                FOREIGN KEY(request_id) REFERENCES acquisition_requests(request_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_acquisition_attempts_request
+                ON acquisition_attempts(request_id, attempt_number);
+            CREATE TABLE IF NOT EXISTS evidence_envelopes (
+                evidence_id TEXT PRIMARY KEY,
+                schema_version INTEGER NOT NULL,
+                request_id TEXT NOT NULL,
+                attempt_id TEXT NOT NULL UNIQUE,
+                scheduler_run_id TEXT NOT NULL,
+                app_job_ref TEXT,
+                source_id TEXT NOT NULL,
+                source_policy_version INTEGER NOT NULL,
+                execution_scope TEXT NOT NULL,
+                provider_id TEXT NOT NULL,
+                provider_baseline_version INTEGER NOT NULL,
+                egress_profile TEXT NOT NULL,
+                fetch_method TEXT NOT NULL,
+                started_at TEXT NOT NULL,
+                fetched_at TEXT NOT NULL,
+                requested_url TEXT NOT NULL,
+                final_url TEXT,
+                http_status INTEGER,
+                media_type TEXT,
+                content_length INTEGER NOT NULL,
+                artifact_id TEXT NOT NULL,
+                artifact_sha256 TEXT NOT NULL,
+                artifact_bytes INTEGER NOT NULL,
+                artifact_media_type TEXT NOT NULL,
+                acquisition_failure_class TEXT,
+                FOREIGN KEY(request_id) REFERENCES acquisition_requests(request_id),
+                FOREIGN KEY(attempt_id) REFERENCES acquisition_attempts(attempt_id),
+                FOREIGN KEY(scheduler_run_id) REFERENCES scheduler_runs(app_run_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_evidence_source_fetched
+                ON evidence_envelopes(source_id, fetched_at DESC);
+            CREATE TABLE IF NOT EXISTS processing_records (
+                processing_id TEXT PRIMARY KEY,
+                schema_version INTEGER NOT NULL,
+                evidence_id TEXT NOT NULL,
+                request_id TEXT NOT NULL,
+                attempt_id TEXT NOT NULL,
+                source_id TEXT NOT NULL,
+                parser_version TEXT NOT NULL,
+                normalizer_version TEXT NOT NULL,
+                canonicalizer_version TEXT NOT NULL,
+                started_at TEXT NOT NULL,
+                finished_at TEXT NOT NULL,
+                status TEXT NOT NULL,
+                processing_failure_class TEXT,
+                items_found INTEGER NOT NULL DEFAULT 0,
+                canonical_items INTEGER NOT NULL DEFAULT 0,
+                signals_created INTEGER NOT NULL DEFAULT 0,
+                FOREIGN KEY(evidence_id) REFERENCES evidence_envelopes(evidence_id),
+                FOREIGN KEY(request_id) REFERENCES acquisition_requests(request_id),
+                FOREIGN KEY(attempt_id) REFERENCES acquisition_attempts(attempt_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_processing_source_finished
+                ON processing_records(source_id, finished_at DESC);
             """
         )
 
@@ -158,6 +252,14 @@ def migrate(path: Path | None = None) -> None:
         _add_column(conn, "scheduler_runs", "details_succeeded INTEGER NOT NULL DEFAULT 0")
         _add_column(conn, "scheduler_runs", "tenders_parsed INTEGER NOT NULL DEFAULT 0")
 
+        for acquisition_table in (
+            "acquisition_requests",
+            "acquisition_attempts",
+            "evidence_envelopes",
+            "processing_records",
+        ):
+            _add_column(conn, acquisition_table, "schema_version INTEGER NOT NULL DEFAULT 1")
+
         if not discovery_had_fetched_lastmod:
             conn.execute(
                 "UPDATE discovery_items SET fetched_lastmod=lastmod,pending_since_at=NULL,suppress_signal_once=0"
@@ -171,10 +273,15 @@ def migrate(path: Path | None = None) -> None:
                 """
             )
 
-        if conn.execute("SELECT 1 FROM schema_meta WHERE version=1").fetchone() is not None and conn.execute("SELECT 1 FROM schema_meta WHERE version=2").fetchone() is None:
-            conn.execute(
-                "INSERT INTO schema_meta(version, applied_at) VALUES (2, strftime('%Y-%m-%dT%H:%M:%fZ','now'))"
-            )
+        existing_versions = [int(row[0]) for row in conn.execute("SELECT version FROM schema_meta ORDER BY version")]
+        if existing_versions:
+            first_version = min(existing_versions)
+            for historical_version in range(first_version + 1, SCHEMA_VERSION):
+                if conn.execute("SELECT 1 FROM schema_meta WHERE version=?", (historical_version,)).fetchone() is None:
+                    conn.execute(
+                        "INSERT INTO schema_meta(version, applied_at) VALUES (?, strftime('%Y-%m-%dT%H:%M:%fZ','now'))",
+                        (historical_version,),
+                    )
 
         exists = conn.execute("SELECT 1 FROM schema_meta WHERE version=?", (SCHEMA_VERSION,)).fetchone()
         if exists is None:
