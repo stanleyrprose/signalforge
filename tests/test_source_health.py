@@ -49,6 +49,7 @@ class SourceHealthTests(unittest.TestCase):
             value = self._run(db, now=datetime(2026, 9, 3, 12, 10, tzinfo=UTC))
             health = value["sources"][0]["health"]
             self.assertEqual(value["status"], "PASS")
+            self.assertEqual(value["signalforge_health"], "GREEN")
             self.assertEqual(health["source_health"], "GREEN")
             self.assertEqual(health["freshness_health"], "GREEN")
             self.assertEqual(health["parse_health"], "UNKNOWN")
@@ -71,6 +72,7 @@ class SourceHealthTests(unittest.TestCase):
             self.assertEqual(health["reason_code"], "SOURCE_PARSE_RATE_LOW")
             self.assertEqual(health["parse_success_ratio"], 0.8)
             self.assertEqual(yellow["status"], "DEGRADED")
+            self.assertEqual(yellow["signalforge_health"], "YELLOW")
 
             with connect(db) as conn, conn:
                 conn.execute("DELETE FROM scheduler_runs")
@@ -92,6 +94,7 @@ class SourceHealthTests(unittest.TestCase):
             health = stale["sources"][0]["health"]
             self.assertEqual(health["freshness_health"], "RED")
             self.assertEqual(health["source_health"], "RED")
+            self.assertEqual(stale["signalforge_health"], "RED")
 
         with tempfile.TemporaryDirectory() as tmp:
             db = Path(tmp) / "signalforge.db"
