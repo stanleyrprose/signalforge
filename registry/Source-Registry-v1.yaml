@@ -38,6 +38,27 @@
       }
     }
   },
+  "manual_provider_bridge": {
+    "schema_version": 1,
+    "bridge_name": "manual-provider-v0",
+    "provider_id": "mac-mm-01",
+    "provider_baseline_version": 1,
+    "candidates": {
+      "S15A": {
+        "url": "https://www.mpa.gov.mm/tenders-and-announcement/",
+        "task_type": "fetch",
+        "target_kind": "HTML",
+        "expected_content_types": ["text/html", "application/xhtml+xml"],
+        "egress": "direct",
+        "egress_profile": "mac-direct",
+        "profile": "public-research",
+        "profile_mode": "ephemeral",
+        "queue_timeout_sec": 60,
+        "max_run_sec": 30,
+        "source_policy_version": 1
+      }
+    }
+  },
   "sources": {
     "S13": {
       "name": "MPT Tender Information",

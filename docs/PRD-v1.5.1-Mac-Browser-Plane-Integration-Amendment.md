@@ -323,9 +323,12 @@ invocation_mode: manual_or_future_contract
 - source audit；
 - interactive browser investigation；
 - manual evidence gathering outside unattended production；
-- Browser Plane 自身 local browserctl / SQLite lifecycle。
+- Browser Plane 自身 local browserctl / SQLite lifecycle；
+- **Manual Provider Bridge v0**：对显式批准的 deferred candidate，由人工导出 request、在 Mac 本地执行、再人工导入 evidence bundle；当前仅 S15A + C0 fetch + `EVIDENCE_ONLY`。
 
-当前不允许 SignalForge unattended production 依赖 Mac remote invocation。
+Manual Provider Bridge v0 不改变 `production_enabled=false`：它没有 SignalForge→Mac 网络调用通道，`provider-request` / `provider-import` 也不进入 VPS Worker verb manifest。当前仍不允许 SignalForge unattended production 依赖 Mac remote invocation。
+
+操作与验证边界见 `docs/MANUAL-PROVIDER-BRIDGE-v0.md`。
 
 ---
 

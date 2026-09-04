@@ -4,11 +4,13 @@ import argparse
 import json
 import sys
 from datetime import UTC, datetime
+from pathlib import Path
 
 from . import VERB_MANIFEST_VERSION
 from .config import Registry, SOURCE_ID_PATTERN, db_path
 from .db import connect, migrate
 from .engine import run_due, run_source
+from .provider_bridge import build_provider_request, import_provider_result, write_provider_request
 
 
 def _parse_iso(value: str | None) -> datetime | None:
@@ -216,6 +218,15 @@ def main(argv: list[str] | None = None) -> int:
     run_source_parser.add_argument("--force", action="store_true")
     refresh_source_parser = sub.add_parser("refresh-source")
     refresh_source_parser.add_argument("source_id")
+    provider_request_parser = sub.add_parser("provider-request")
+    provider_request_parser.add_argument("source_id")
+    provider_request_parser.add_argument("--output")
+    provider_import_parser = sub.add_parser("provider-import")
+    provider_import_parser.add_argument("--request", required=True)
+    provider_import_parser.add_argument("--result", required=True)
+    provider_import_parser.add_argument("--artifact")
+    provider_import_parser.add_argument("--database")
+    provider_import_parser.add_argument("--evidence-root")
     sub.add_parser("status")
     args = parser.parse_args(argv)
     try:
@@ -230,6 +241,19 @@ def main(argv: list[str] | None = None) -> int:
             result = run_source(args.source_id, force=args.force)
         elif args.cmd == "refresh-source":
             result = run_source(args.source_id, force=True, trigger_kind_override="MANUAL")
+        elif args.cmd == "provider-request":
+            if args.output:
+                result = write_provider_request(args.source_id, Path(args.output).expanduser())
+            else:
+                result = build_provider_request(args.source_id)
+        elif args.cmd == "provider-import":
+            result = import_provider_result(
+                request_path=Path(args.request).expanduser(),
+                result_path=Path(args.result).expanduser(),
+                artifact_path=Path(args.artifact).expanduser() if args.artifact else None,
+                database=Path(args.database).expanduser() if args.database else None,
+                evidence_directory=Path(args.evidence_root).expanduser() if args.evidence_root else None,
+            )
         else:
             result = status()
         print(json.dumps(result, ensure_ascii=False, sort_keys=True))
