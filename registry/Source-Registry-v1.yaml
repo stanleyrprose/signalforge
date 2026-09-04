@@ -618,12 +618,85 @@
         "current_health": "AVAILABLE_NOT_FETCHED",
         "fetch_in_primary_pipeline": false
       }
+    },
+    "S10": {
+      "name": "DICA Company and Investment Announcements",
+      "adapter": "dica_notice",
+      "enabled": true,
+      "role": "ACTIVE_SELECTIVE",
+      "audit_status": "GREEN_DIRECT_HTTP_EVENT_METADATA_PDF_VALUE_GATE",
+      "item_kind": "REGULATORY_NOTICE",
+      "network_zone": "myanmar-international",
+      "engine": "direct_http",
+      "landing_url": "https://www.dica.gov.mm/category/announcements-and-information/",
+      "discovery_url": "https://www.dica.gov.mm/category/announcements-and-information/",
+      "language": "en-my",
+      "poll_interval_seconds": 1800,
+      "retry_interval_seconds": 300,
+      "priority": 72,
+      "recovery_slo_seconds": 3600,
+      "availability_policy": {
+        "class": "DELAY_TOLERANT_MONITORED",
+        "accepted_collection_outage_seconds": 7200,
+        "collection_rto_seconds": 3600,
+        "business_data_rpo_target_seconds": 1800,
+        "outage_status": "DATA_COLLECTION_DELAYED",
+        "delivery_during_recovery": "CONTINUE_WITH_DEGRADED_HEALTH"
+      },
+      "baseline_lookback_days": 365,
+      "baseline_detail_limit": 12,
+      "delta_detail_limit": 12,
+      "request_timeout_seconds": 30,
+      "request_max_bytes": 5000000,
+      "request_delay_ms": 150,
+      "canonical_key": "issuer_record_id",
+      "first_baseline_customer_signal": false,
+      "bootstrap_seed_urls": [
+        "https://www.dica.gov.mm/52512/",
+        "https://www.dica.gov.mm/52343/",
+        "https://www.dica.gov.mm/51848/",
+        "https://www.dica.gov.mm/51845/"
+      ],
+      "selection_policy_version": 1,
+      "health_policy": {
+        "freshness_yellow_seconds": 3600,
+        "freshness_red_seconds": 5400,
+        "fetch_yellow_failures": 1,
+        "fetch_red_failures": 3,
+        "parse_window_runs": 10,
+        "parse_min_attempts": 3,
+        "parse_yellow_ratio": 0.9,
+        "parse_red_ratio": 0.7,
+        "parse_probe_interval_seconds": 7200
+      },
+      "source_policy_version": 1,
+      "egress_profile": "mm-intl-datacenter",
+      "acquisition_policy": {
+        "enabled": true,
+        "primary": {"method": "DIRECT_HTTP", "target_kind": "HTML"},
+        "supplementary": [],
+        "escalation": {
+          "DNS_FAILURE": {"action": "RETRY"},
+          "CONNECT_TIMEOUT": {"action": "RETRY"},
+          "HTTP_429": {"action": "RETRY"},
+          "HTTP_403": {"action": "REVIEW"},
+          "TLS_FAILURE": {"action": "FAIL"},
+          "JS_RENDER_REQUIRED": {"action": "REVIEW_CAPABILITY"},
+          "PARSER_DRIFT": {"action": "REAUDIT"}
+        }
+      },
+      "attachment_policy": {
+        "mode": "METADATA_ONLY_NON_BLOCKING",
+        "current_health": "TEXT_NATIVE_VALUE_AUDITED_EXTRACTION_RUNTIME_DEFERRED",
+        "fetch_in_primary_pipeline": false,
+        "pdf_value_gate": "TRIGGERED",
+        "runtime_packaging_gate": "DEFERRED_ZERO_DEPENDENCY"
+      }
     }
   },
   "deferred_sources": {
     "S01": "Myanmar National Portal Tenders — DEFER canonical onboarding; keep for future discovery-aggregator/issuer-resolution contract after 2026-09-04 metadata contradiction audit",
     "S04": "Myanmar National Trade Portal Legal Documents — DEFER canonical onboarding; official multi-agency aggregator overlaps issuer-original S05A/S07/S12 and requires cross-source issuer-resolution/dedup contract",
-    "S10": "DICA Announcements — ACTIVE SELECTIVE after language/noise gate",
     "S15A": "MPA Tender Category — EXCLUDED R0 RED-TLS",
     "S15B": "MPA legacy Tender URL — EXCLUDED R0 RED-TLS",
     "S16": "YCDC — conditional; segmentation fixture deferred",

@@ -7,6 +7,8 @@ from .commerce import parse_notification_detail as parse_commerce_notification_d
 from .commerce import parse_notification_listing as parse_commerce_notification_listing
 from .customs import parse_notification_records as parse_customs_notification_records
 from .customs_announcements import parse_auction_records as parse_customs_auction_records
+from .dica import parse_announcement_detail as parse_dica_announcement_detail
+from .dica import parse_announcement_listing as parse_dica_announcement_listing
 from .iwt import parse_tender_detail as parse_iwt_tender_detail
 from .ird import parse_announcement_detail as parse_ird_announcement_detail
 from .ird import parse_announcement_listing as parse_ird_announcement_listing
@@ -66,6 +68,11 @@ def _parse_commerce_detail(payload: bytes, url: str) -> list[object]:
 
 def _parse_ird_detail(payload: bytes, url: str) -> list[object]:
     notice = parse_ird_announcement_detail(payload, url)
+    return [notice] if notice is not None else []
+
+
+def _parse_dica_detail(payload: bytes, url: str) -> list[object]:
+    notice = parse_dica_announcement_detail(payload, url)
     return [notice] if notice is not None else []
 
 
@@ -129,6 +136,16 @@ ADAPTERS = {
         canonicalizer_version="ird-notice-record-date-v1",
         parse_discovery=parse_ird_announcement_listing,
         parse_detail=_parse_ird_detail,
+    ),
+    "dica_notice": SourceAdapter(
+        name="dica_notice",
+        discovery_content_types=("text/html",),
+        discovery_parser_version="dica-announcement-category-v1",
+        detail_parser_version="dica-announcement-detail-v1",
+        normalizer_version="dica-notice-normalize-v1",
+        canonicalizer_version="dica-notice-post-date-v1",
+        parse_discovery=parse_dica_announcement_listing,
+        parse_detail=_parse_dica_detail,
     ),
     "customs_notice": SourceAdapter(
         name="customs_notice",

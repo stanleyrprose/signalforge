@@ -25,7 +25,7 @@ class ContractTests(unittest.TestCase):
         )
         self.assertEqual(manifest["verbs"]["signalforge-refresh"]["argument"], "source_id")
         self.assertEqual(manifest["grammar"]["source_id"], "^[A-Z][A-Z0-9]{0,15}$")
-        self.assertEqual(manifest["active_source_ids"], ["S05A", "S07", "S08A", "S12", "S13", "S20", "S21", "S22"])
+        self.assertEqual(manifest["active_source_ids"], ["S05A", "S07", "S08A", "S10", "S12", "S13", "S20", "S21", "S22"])
 
         registry = Registry.load(ROOT)
         with self.assertRaisesRegex(ConfigError, "invalid source id"):
@@ -84,6 +84,17 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(ird["attachment_policy"]["mode"], "METADATA_ONLY_NON_BLOCKING")
         self.assertFalse(ird["attachment_policy"]["fetch_in_primary_pipeline"])
         self.assertIn("S04", registry.raw["deferred_sources"])
+
+        dica = registry.source("S10")
+        self.assertEqual(dica["adapter"], "dica_notice")
+        self.assertEqual(dica["role"], "ACTIVE_SELECTIVE")
+        self.assertEqual(dica["item_kind"], "REGULATORY_NOTICE")
+        self.assertEqual(dica["discovery_url"], "https://www.dica.gov.mm/category/announcements-and-information/")
+        self.assertEqual(dica["canonical_key"], "issuer_record_id")
+        self.assertEqual(dica["attachment_policy"]["mode"], "METADATA_ONLY_NON_BLOCKING")
+        self.assertFalse(dica["attachment_policy"]["fetch_in_primary_pipeline"])
+        self.assertEqual(dica["attachment_policy"]["pdf_value_gate"], "TRIGGERED")
+        self.assertEqual(dica["attachment_policy"]["runtime_packaging_gate"], "DEFERRED_ZERO_DEPENDENCY")
 
     def test_deploy_installs_reviewed_refresh_template_and_drains_instances(self) -> None:
         deploy = (ROOT / "deploy" / "deploy-signalforge-release.sh").read_text(encoding="utf-8")
