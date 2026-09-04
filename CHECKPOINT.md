@@ -635,15 +635,19 @@ Evidence: `docs/verification/MAC-BKK-SOURCE-NETWORK-REAUDIT-2026-09-04.md`.
 - SignalForge projection remains descriptive/decision-support only: `production_enabled=false`, `invocation_mode=manual_or_future_contract`, no RPC/API/SSH invocation path added;
 - active source execution remains Bangkok Direct HTTP and no existing source routing changed.
 
-### Manual Provider Bridge v0 — IMPLEMENTED / LIVE TEMP-DB PASS
+### Manual Provider Bridge v0 — PRODUCTION EVIDENCE-ONLY PASS
 
-- bridge scope is intentionally narrow: `mac-mm-01`, S15A only, direct C0 fetch only, evidence-only import;
+- bridge scope remains intentionally narrow: `mac-mm-01`, S15A only, direct C0 fetch only, evidence-only import;
 - `signalforge provider-request S15A` emits a browserctl-compatible request with explicit `signalforge_job_id`, `acquisition_request_id`, `acquisition_attempt_id`, and `provider_request_id` correlation;
 - installed Mac Browser Plane consumed the real S15A request successfully: Browser Job `c082bb94-e001-42ba-adeb-564a7fa40878`, HTTP 200, 252,512-byte HTML, SHA-256 `c016d4efcae50f271e5e6860e1567650ee3d215c4ef7d9d31bd029ed4a0ec810`;
-- `provider-import` validated request/result/artifact provenance and wrote one lifecycle row per existing layer into an isolated temporary DB/evidence root, with processing status `EVIDENCE_ONLY` and zero canonical/signals;
-- repeated import returned `ALREADY_IMPORTED` and created no duplicates;
+- local isolated import passed first, then exact main release `d1f6d1773390767e73747df75e81383e4997f053` was deployed over the already-live S28 release `7413a9da60a1b0c3bf82ac0b30f00fe625ca75a2`;
+- production `provider-import` wrote exactly one S15A scheduler/request/attempt/evidence/processing lifecycle, with `provider_id=mac-mm-01`, `execution_scope=MAC_LOCAL_MANUAL_BRIDGE`, `fetch_method=C0_FETCH`, processing status `EVIDENCE_ONLY` and parser/normalizer/canonicalizer all `none`;
+- S15A canonical items/signals remain exactly `0/0`; overall canonical/signals remained `124/11` immediately after import;
+- repeated production import returned `ALREADY_IMPORTED` and created no duplicates;
+- production evidence permissions verified: provider directory `0700`, request/result JSON `0600`, raw HTML `0640`, all owned by `signalforge:signalforge`;
+- post-import SignalForge remained `PASS/GREEN`, recovery backlog `0`, timer `enabled/active`, `browser_production_approved=false`;
 - SHA/content-type/request-contract tampering fails closed;
-- `provider-request` / `provider-import` are deliberately absent from the VPS Worker verb manifest, so this does not create unattended SignalForge→Mac invocation;
+- `provider-request` / `provider-import` remain absent from the VPS Worker verb manifest, so this still does not create unattended SignalForge→Mac invocation;
 - no schema migration, no new daemon/API/queue, no TLS bypass, no S15A source onboarding, and no customer signal creation were introduced.
 
 Evidence/runbook: `docs/MANUAL-PROVIDER-BRIDGE-v0.md`.

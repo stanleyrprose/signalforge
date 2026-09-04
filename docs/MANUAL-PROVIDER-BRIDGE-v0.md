@@ -1,6 +1,6 @@
 # Manual Provider Bridge v0
 
-**Status:** implemented for controlled evidence-only use.
+**Status:** **PRODUCTION EVIDENCE-ONLY PASS** for the controlled S15A manual path.
 
 ## Purpose
 
@@ -189,19 +189,52 @@ If an existing request ID points to a different provider or SHA-256, import fail
 
 ## Current evidence
 
-Pre-merge live smoke on 2026-09-04:
+2026-09-04 live verification:
 
 ```text
-Source             S15A MPA Tender Category
-Mac browser job    c082bb94-e001-42ba-adeb-564a7fa40878
-HTTP               200
-Artifact bytes     252,512
-SHA-256            c016d4efcae50f271e5e6860e1567650ee3d215c4ef7d9d31bd029ed4a0ec810
-Local temp import  IMPORTED_EVIDENCE_ONLY
-Repeated import    ALREADY_IMPORTED
+Source               S15A MPA Tender Category
+Mac browser job      c082bb94-e001-42ba-adeb-564a7fa40878
+HTTP                 200
+Artifact bytes       252,512
+SHA-256              c016d4efcae50f271e5e6860e1567650ee3d215c4ef7d9d31bd029ed4a0ec810
+Local temp import    IMPORTED_EVIDENCE_ONLY
+Production release   d1f6d1773390767e73747df75e81383e4997f053
+Production import    IMPORTED_EVIDENCE_ONLY
+Repeated import      ALREADY_IMPORTED
 ```
 
-This live smoke used the installed Mac Browser Plane and an isolated temporary SignalForge database/evidence root. Production import is a separate controlled verification step after merge/deployment.
+Production lifecycle verification on Bangkok:
+
+```text
+S15A scheduler_runs         = 1
+S15A acquisition_requests   = 1
+S15A acquisition_attempts   = 1
+S15A evidence_envelopes     = 1
+S15A processing_records     = 1
+S15A canonical_items        = 0
+S15A signals                = 0
+
+trigger_kind                = MANUAL_PROVIDER
+provider_id                 = mac-mm-01
+execution_scope             = MAC_LOCAL_MANUAL_BRIDGE
+fetch_method                = C0_FETCH
+processing status           = EVIDENCE_ONLY
+parser/normalizer/canonical = none / none / none
+```
+
+Post-import production state remained healthy:
+
+```text
+SignalForge status          = PASS
+SignalForge health          = GREEN
+browser_production_approved = false
+recovery_backlog            = 0
+canonical_items             = 124
+signals                     = 11
+timer                       = enabled / active
+```
+
+Production evidence permissions were verified as `0700` for the provider directory, `0600` for request/result JSON, and `0640` for the raw HTML artifact. The bridge therefore closed the manual evidence path without onboarding S15A or enabling unattended Mac invocation.
 
 ## Reopen rule
 
