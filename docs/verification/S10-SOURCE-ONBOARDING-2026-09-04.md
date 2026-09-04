@@ -1,8 +1,8 @@
 # S10 DICA Company and Investment Announcements — Source Onboarding
 
 Date (Asia/Yangon): 2026-09-04
-Phase: PRE-PRODUCTION
-Result: IMPLEMENTATION / TEST / LIVE TRANSPORT PASS
+Phase: PRODUCTION
+Result: PASS / PRODUCTION COMPLETE
 
 ## Decision
 
@@ -154,9 +154,137 @@ Bangkok current 12-detail transport: 12/12 PASS
 
 Existing S05A/S07/S08A/S12/S13/S20/S21/S22 regression behavior remains unchanged.
 
-## Production gate
+## Production rollout — PASS
 
-Production is not complete until:
+PR #30 passed CI and was squash-merged. Exact application SHA deployed to Bangkok:
+
+```text
+3f31b937cc8dbe2941e85b1f810f2bd8a9b811fb
+```
+
+Immediate rollback target:
+
+```text
+d5222d00e81692ae4f4b8ee3d0a3d7ad70618237
+```
+
+Pre-deploy frozen state:
+
+```text
+canonical_items=92
+signals=11
+scheduler_runs=228
+acquisition_requests=315
+acquisition_attempts=315
+evidence_envelopes=315
+processing_records=315
+failed_runs=0
+recovery_backlog=0
+Worker SignalForge Runs=462
+existing eight sources=GREEN
+timer=disabled/inactive
+```
+
+Deployment reported `timer_preexisting=0`. Active manifest became `S05A,S07,S08A,S10,S12,S13,S20,S21,S22`. Deployment itself left all business counts unchanged, S10 remained `0/0`, and SQLite `quick_check=ok`.
+
+### First production baseline
+
+Reviewed `signalforge-refresh S10` returned:
+
+```text
+trigger_kind=MANUAL
+baseline=1
+status=SUCCESS
+items_parsed=12
+tenders_parsed=0
+details_attempted=4
+details_succeeded=4
+changed=12
+signals_created=0
+worker_run_id=signalforge-20260904T091008Z-10e990be
+```
+
+State transition:
+
+```text
+canonical_items: 92 -> 104
+signals:         11 -> 11
+scheduler_runs:  228 -> 229
+acquisition/evidence/processing: 315 -> 328
+```
+
+S10 persistence:
+
+```text
+REGULATORY_NOTICE=12
+COMPANY_STRIKE_OFF_BATCH=9
+COMPANY_COMPLIANCE_NOTICE=1
+INVESTMENT_TAX_INCENTIVE=1
+INVESTMENT_CAPITAL_CURRENCY=1
+signals=0
+requests/attempts/evidence/processing=13/13/13/13
+pending discovery items=0
+PDF requested_url count=0
+SQLite quick_check=ok
+```
+
+Canonical identity is post-ID only:
+
+```text
+dica-notice:51344
+...
+dica-notice:52512
+```
+
+No publication date is embedded in the canonical key.
+
+The manual production refresh completed successfully within the reviewed `TimeoutStartSec=300s` envelope. End-to-end remote invocation observed during rollout was approximately 99 seconds, still with substantial timeout headroom.
+
+Worker cardinality/correlation:
+
+```text
+Worker SignalForge Runs: 462 -> 463
+latest Worker Run=signalforge-20260904T091008Z-10e990be / SUCCESS
+```
+
+Worker Run ID exactly matched the S10 scheduler row.
+
+### Topology / timer restoration
+
+```text
+Bangkok Worker doctor=PASS
+Beijing Worker doctor=PASS
+Beijing /srv/signalforge=ABSENT
+Beijing signalforge-refresh S10=126 / DENY: SignalForge is Bangkok-only
+```
+
+After `signalforge-resume`, one persistent wrapper (`463 -> 464`) processed only due S12. It returned `SUCCESS`, `changed=0`, `signals_created=0`; S10 was not repeated.
+
+Final state:
+
+```text
+release=3f31b937cc8dbe2941e85b1f810f2bd8a9b811fb
+active sources=S05A,S07,S08A,S10,S12,S13,S20,S21,S22
+canonical_items=104
+signals=11
+scheduler_runs=230
+acquisition_requests=329
+acquisition_attempts=329
+evidence_envelopes=329
+processing_records=329
+failed_runs=0
+recovery_backlog=0
+Worker SignalForge Runs=464
+timer=enabled/active/waiting
+all nine sources=GREEN
+browser_production_approved=false
+```
+
+The PDF value gate remains explicitly **TRIGGERED**, but production extraction/runtime packaging remains **DEFERRED_ZERO_DEPENDENCY**. No `pypdf`, `pdftotext`, OCR, Browser runtime, Mac remote invocation, schema migration, Worker change or Control Plane change was introduced by S10 P0.
+
+## Production gate — closed
+
+All of the following passed:
 
 1. PR CI passes and exact merged SHA is deployed to Bangkok only;
 2. timer is paused and current eight-source state is frozen;
