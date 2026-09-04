@@ -1,8 +1,8 @@
 # S28 Department of Fisheries Open Tenders — Source Onboarding
 
 Date (Asia/Yangon): 2026-09-04
-Phase: PRE-PRODUCTION
-Result: IMPLEMENTATION / TEST / LIVE AUDIT PASS
+Phase: PRODUCTION
+Result: PASS / PRODUCTION COMPLETE
 
 ## Decision
 
@@ -226,20 +226,147 @@ Bangkok Direct HTTP: 3/3 PASS
 Registry JSON: PASS
 ```
 
-## Production gate
+## Production rollout closure
 
-Production remains incomplete until:
+PR #38 passed GitHub `verify` and was squash-merged. The exact production application SHA is:
 
-1. GitHub PR CI passes and the exact squash-merged SHA is deployed to Bangkok only;
-2. the then-current eleven-source state is frozen under a controlled timer pause;
-3. deployment itself changes no business/acquisition counts;
-4. reviewed `signalforge-refresh S28` succeeds;
-5. baseline reflects the actual issuer-visible row count (expected 8 if the page is unchanged) and creates zero customer signals;
-6. S28 persists exactly one discovery acquisition lifecycle and zero detail/PDF requests;
-7. S28 parse health is GREEN using `BUSINESS_PROCESSING`;
-8. one manual S28 refresh maps to exactly one Worker SignalForge Run;
-9. Beijing remains SignalForge-free and rejects `signalforge-refresh S28`;
-10. Bangkok + Beijing Worker doctors pass;
-11. timer returns to enabled/active/waiting and all twelve sources are GREEN;
-12. `browser_production_approved=false` remains unchanged;
-13. no schema/OCR/PDF/Browser/JSON-primary/runtime capability is introduced.
+```text
+7413a9da60a1b0c3bf82ac0b30f00fe625ca75a2
+```
+
+Immediately before S28 rollout, live Bangkok was already running the separately merged/deployed Mac-provider projection release:
+
+```text
+0a3e6156f2635fd9509738d3b6c0aa1d073f6c03
+```
+
+That release is the immediate S28 rollback target. Its live provider boundary was verified before pause:
+
+```text
+mac-mm-01 production_enabled=false
+invocation_mode=manual_or_future_contract
+remote_invocation=false
+browser_production_approved=false
+```
+
+Thus the actual production transition for this rollout was `0a3e6156... -> 7413a9da...`; the Mac-provider projection was pre-existing production state, not an S28 side effect.
+
+The controlled pre-deploy snapshot after timer pause was:
+
+```text
+canonical_items=116
+signals=11
+scheduler_runs=399
+acquisition_requests=533
+acquisition_attempts=533
+evidence_envelopes=532
+processing_records=532
+failed_runs=1
+recovery_backlog=0
+Worker SignalForge Runs=549
+timer=disabled / inactive
+run-due service=inactive
+active refresh=0
+```
+
+The single failed run remained the previously recovered S10 DICA `CONNECT_TIMEOUT`; all eleven existing sources were GREEN and backlog was zero.
+
+Exact-SHA deployment succeeded:
+
+```text
+deployment=success
+release=7413a9da60a1b0c3bf82ac0b30f00fe625ca75a2
+previous=0a3e6156f2635fd9509738d3b6c0aa1d073f6c03
+timer_preexisting=0
+```
+
+Deployment itself changed no business/acquisition counts. S28 appeared in the manifest as `NOT_INITIALIZED` with canonical/signals `0/0`, while the Mac provider remained locked (`production_enabled=false`, `remote_invocation=false`, `browser_production_approved=false`).
+
+The first reviewed S28 baseline ran through `signalforge-refresh@S28.service`:
+
+```text
+worker_run_id=signalforge-20260904T162016Z-e786baa0
+trigger_type=MANUAL
+status=SUCCESS
+baseline=true
+listing_complete=true
+discovered=8
+items=8
+tenders=8
+details_attempted=0
+details_succeeded=0
+changed=8
+signals_created=0
+backlog_remaining=0
+```
+
+Persistence after baseline:
+
+```text
+canonical_items: 116 -> 124
+signals: 11 -> 11
+scheduler_runs: 399 -> 400
+S28 requests/attempts/evidence/processing=1/1/1/1
+S28 canonical_items=8
+S28 signals=0
+S28 PDF requested_url count=0
+SQLite quick_check=ok
+```
+
+The eight production canonical rows exactly preserve issuer-visible identity/publication/deadline evidence, including the historical inconsistencies documented above. No source-side date was silently corrected.
+
+Worker cardinality/correlation passed:
+
+```text
+Worker SignalForge Runs: 549 -> 550
+latest manual run=signalforge-20260904T162016Z-e786baa0 / SUCCESS
+S28 scheduler worker_run_id matches exactly
+```
+
+Topology/runtime gates passed:
+
+```text
+Bangkok workerctl doctor = PASS
+Beijing workerctl doctor = PASS
+Beijing /srv/signalforge = ABSENT
+Beijing signalforge-refresh S28 = 126 / DENY: SignalForge is Bangkok-only
+browser_production_approved=false
+```
+
+After timer resume, Persistent reconciliation created one normal Worker wrapper:
+
+```text
+signalforge-20260904T162128Z-eb642231
+```
+
+That wrapper processed four due source jobs:
+
+```text
+S13 / S20 / S21 / S22
+```
+
+All four were `SUCCESS`, `changed=0`, `signals=0`. S28 was not due and was not fetched again.
+
+Final observed steady state:
+
+```text
+12/12 sources GREEN
+overall=PASS / GREEN
+canonical_items=124
+signals=11
+scheduler_runs=404
+acquisition_requests=538
+acquisition_attempts=538
+evidence_envelopes=537
+processing_records=537
+failed_runs=1   # pre-existing recovered S10 timeout
+recovery_backlog=0
+Worker SignalForge Runs=551
+timer=enabled / active
+run-due service=inactive
+browser_production_approved=false
+```
+
+No schema migration, PDF/OCR runtime, Browser, JSON-primary target, remote Provider invocation, Worker-runtime or Control-Plane capability was introduced by S28.
+
+The S28 rollout itself was pinned to `7413a9da60a1b0c3bf82ac0b30f00fe625ca75a2`. A later, separately reviewed Manual Provider Bridge production verification intentionally superseded the application release with `d1f6d1773390767e73747df75e81383e4997f053`; S28 remained active/GREEN with its eight canonical items and zero S28 customer signals. That later release change is not an S28 side effect. Any docs-only closure SHA must not be redeployed merely to update facts.
