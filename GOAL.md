@@ -101,4 +101,4 @@ business-value audit
 -> checkpoint closure
 ```
 
-The next source should be selected by business value and current audit evidence, not simply by source ID order. Strong candidates from the existing audit pool include S01 National Portal, S04 Trade Portal legal documents, S05A Commerce Notifications, S07/S08A Customs and S12 IRD. YCDC/MCDC/NPTDC retain their identity/PDF/classifier conditions and must not be force-onboarded merely to increase source count.
+The next source should be selected by business value and current audit evidence, not simply by source ID order. S01 National Portal has now been fresh-audited and is deferred as a canonical source because aggregator metadata conflicts with issuer-original evidence; keep it only for a future discovery-lead contract. The preferred issuer-original audit pool is S05A Commerce Notifications, S04 Trade Portal legal documents, S07/S08A Customs and S12 IRD. YCDC/MCDC/NPTDC retain their identity/PDF/classifier conditions and must not be force-onboarded merely to increase source count.
