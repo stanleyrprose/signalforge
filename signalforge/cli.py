@@ -83,13 +83,23 @@ def _source_health(conn, source_id: str, source: dict[str, object], policy: dict
         recovery_health = "RED"
 
     parse_window = int(health_policy["parse_window_runs"])
-    parse_rows = conn.execute(
-        "SELECT details_attempted,details_succeeded FROM scheduler_runs "
-        "WHERE source_id=? AND details_attempted>0 ORDER BY started_at DESC LIMIT ?",
-        (source_id, parse_window),
-    ).fetchall()
-    parse_attempts = sum(int(row["details_attempted"] or 0) for row in parse_rows)
-    parse_successes = sum(int(row["details_succeeded"] or 0) for row in parse_rows)
+    parse_sample_source = str(health_policy.get("parse_sample_source", "DETAIL_SCHEDULER"))
+    if parse_sample_source == "BUSINESS_PROCESSING":
+        parse_rows = conn.execute(
+            "SELECT status FROM processing_records "
+            "WHERE source_id=? AND canonicalizer_version!='none' ORDER BY finished_at DESC LIMIT ?",
+            (source_id, parse_window),
+        ).fetchall()
+        parse_attempts = len(parse_rows)
+        parse_successes = sum(1 for row in parse_rows if str(row["status"]) == "SUCCESS")
+    else:
+        parse_rows = conn.execute(
+            "SELECT details_attempted,details_succeeded FROM scheduler_runs "
+            "WHERE source_id=? AND details_attempted>0 ORDER BY started_at DESC LIMIT ?",
+            (source_id, parse_window),
+        ).fetchall()
+        parse_attempts = sum(int(row["details_attempted"] or 0) for row in parse_rows)
+        parse_successes = sum(int(row["details_succeeded"] or 0) for row in parse_rows)
     parse_min_attempts = int(health_policy["parse_min_attempts"])
     parse_ratio = (parse_successes / parse_attempts) if parse_attempts else None
     if parse_attempts < parse_min_attempts:
@@ -127,6 +137,7 @@ def _source_health(conn, source_id: str, source: dict[str, object], policy: dict
         "freshness_red_seconds": freshness_red,
         "parse_health": parse_health,
         "parse_window_runs": parse_window,
+        "parse_sample_source": parse_sample_source,
         "parse_attempts": parse_attempts,
         "parse_successes": parse_successes,
         "parse_success_ratio": round(parse_ratio, 4) if parse_ratio is not None else None,

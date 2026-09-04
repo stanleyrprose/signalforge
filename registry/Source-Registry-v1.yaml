@@ -402,12 +402,82 @@
         "current_health": "AVAILABLE_NOT_FETCHED",
         "fetch_in_primary_pipeline": false
       }
+    },
+    "S07": {
+      "name": "Myanmar Customs Notifications",
+      "adapter": "customs_notice",
+      "enabled": true,
+      "role": "ACTIVE_PRIMARY",
+      "audit_status": "GREEN_DIRECT_HTTP_LISTING_COMPLETE_REGULATORY_NOTICE",
+      "item_kind": "REGULATORY_NOTICE",
+      "network_zone": "myanmar-international",
+      "engine": "direct_http",
+      "landing_url": "https://customs.gov.mm/notifications",
+      "discovery_url": "https://customs.gov.mm/notifications",
+      "listing_complete_business_records": true,
+      "language": "my",
+      "poll_interval_seconds": 1800,
+      "retry_interval_seconds": 300,
+      "priority": 78,
+      "recovery_slo_seconds": 3600,
+      "availability_policy": {
+        "class": "DELAY_TOLERANT_MONITORED",
+        "accepted_collection_outage_seconds": 7200,
+        "collection_rto_seconds": 3600,
+        "business_data_rpo_target_seconds": 1800,
+        "outage_status": "DATA_COLLECTION_DELAYED",
+        "delivery_during_recovery": "CONTINUE_WITH_DEGRADED_HEALTH"
+      },
+      "baseline_lookback_days": 0,
+      "baseline_detail_limit": 0,
+      "delta_detail_limit": 0,
+      "request_timeout_seconds": 30,
+      "request_max_bytes": 2000000,
+      "request_delay_ms": 0,
+      "canonical_key": "issuer_notification_or_order_number",
+      "first_baseline_customer_signal": false,
+      "bootstrap_seed_urls": [],
+      "health_policy": {
+        "freshness_yellow_seconds": 3600,
+        "freshness_red_seconds": 5400,
+        "fetch_yellow_failures": 1,
+        "fetch_red_failures": 3,
+        "parse_window_runs": 10,
+        "parse_min_attempts": 1,
+        "parse_yellow_ratio": 0.9,
+        "parse_red_ratio": 0.7,
+        "parse_probe_interval_seconds": 7200,
+        "parse_sample_source": "BUSINESS_PROCESSING"
+      },
+      "source_policy_version": 1,
+      "egress_profile": "mm-intl-datacenter",
+      "acquisition_policy": {
+        "enabled": true,
+        "primary": {
+          "method": "DIRECT_HTTP",
+          "target_kind": "HTML"
+        },
+        "supplementary": [],
+        "escalation": {
+          "DNS_FAILURE": {"action": "RETRY"},
+          "CONNECT_TIMEOUT": {"action": "RETRY"},
+          "HTTP_429": {"action": "RETRY"},
+          "HTTP_403": {"action": "REVIEW"},
+          "TLS_FAILURE": {"action": "FAIL"},
+          "JS_RENDER_REQUIRED": {"action": "REVIEW_CAPABILITY"},
+          "PARSER_DRIFT": {"action": "REAUDIT"}
+        }
+      },
+      "attachment_policy": {
+        "mode": "METADATA_ONLY_NON_BLOCKING",
+        "current_health": "AVAILABLE_NOT_FETCHED",
+        "fetch_in_primary_pipeline": false
+      }
     }
   },
   "deferred_sources": {
     "S01": "Myanmar National Portal Tenders — DEFER canonical onboarding; keep for future discovery-aggregator/issuer-resolution contract after 2026-09-04 metadata contradiction audit",
     "S04": "Myanmar National Trade Portal Legal Documents — ACTIVE PRIMARY; PDF sub-gate deferred",
-    "S07": "Myanmar Customs Notifications — ACTIVE PRIMARY after adapter gate",
     "S08A": "Myanmar Customs Announcements — ACTIVE PRIMARY after adapter gate",
     "S10": "DICA Announcements — ACTIVE SELECTIVE after language/noise gate",
     "S12": "IRD Announcements — ACTIVE PRIMARY after adapter gate",

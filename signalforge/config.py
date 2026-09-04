@@ -88,6 +88,9 @@ class Registry:
                 raise ConfigError(f"parse health ratios missing: {source_id}")
             if not 0 <= float(red) < float(yellow) <= 1:
                 raise ConfigError(f"parse health ratios out of order: {source_id}")
+            parse_sample_source = health.get("parse_sample_source", "DETAIL_SCHEDULER")
+            if parse_sample_source not in {"DETAIL_SCHEDULER", "BUSINESS_PROCESSING"}:
+                raise ConfigError(f"invalid parse sample source: {source_id}")
         return cls(value)
 
     def enabled_sources(self) -> list[tuple[str, dict[str, Any]]]:

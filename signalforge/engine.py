@@ -369,6 +369,144 @@ def run_source(
         )
         sitemap_bytes = sitemap_capture.payload
         sitemap_hash = sitemap_capture.sha256
+
+        if adapter.parse_discovery_records is not None:
+            try:
+                discovery_records = adapter.parse_discovery_records(sitemap_bytes, str(source["discovery_url"]))
+            except Exception:
+                record_processing(
+                    database=database,
+                    capture=sitemap_capture,
+                    source_id=source_id,
+                    observed_at=observed_at,
+                    parser_version=adapter.discovery_parser_version,
+                    normalizer_version=adapter.normalizer_version,
+                    canonicalizer_version=adapter.canonicalizer_version,
+                    status="FAILED",
+                    items_found=0,
+                    canonical_items=0,
+                    signals_created=0,
+                    failure=ProcessingFailure.HTML_PARSE_FAILURE,
+                )
+                raise
+
+            items_parsed = len(discovery_records)
+            tenders_parsed = sum(
+                1 for item in discovery_records if str(getattr(item, "item_kind", "TENDER")) == "TENDER"
+            )
+            listing_changed = 0
+            listing_signals = 0
+            try:
+                _write_evidence(source_id, sitemap_bytes, sitemap_hash, evidence)
+                with connect(database) as conn, conn:
+                    for item in discovery_records:
+                        changed, signals = _upsert_tender(
+                            conn,
+                            source_id=source_id,
+                            tender=item,
+                            observed_at=observed_at,
+                            suppress_signal=baseline,
+                            evidence_digest=sitemap_hash,
+                        )
+                        listing_changed += int(changed)
+                        listing_signals += signals
+            except Exception:
+                record_processing(
+                    database=database,
+                    capture=sitemap_capture,
+                    source_id=source_id,
+                    observed_at=observed_at,
+                    parser_version=adapter.discovery_parser_version,
+                    normalizer_version=adapter.normalizer_version,
+                    canonicalizer_version=adapter.canonicalizer_version,
+                    status="FAILED",
+                    items_found=len(discovery_records),
+                    canonical_items=0,
+                    signals_created=0,
+                    failure=ProcessingFailure.CANONICAL_VALIDATION_FAILURE,
+                )
+                raise
+
+            record_processing(
+                database=database,
+                capture=sitemap_capture,
+                source_id=source_id,
+                observed_at=observed_at,
+                parser_version=adapter.discovery_parser_version,
+                normalizer_version=adapter.normalizer_version,
+                canonicalizer_version=adapter.canonicalizer_version,
+                status="SUCCESS",
+                items_found=len(discovery_records),
+                canonical_items=len(discovery_records),
+                signals_created=listing_signals,
+            )
+            changed_count += listing_changed
+            signals_created += listing_signals
+            backlog_remaining = 0
+            next_due = _iso(now + timedelta(seconds=int(source["poll_interval_seconds"])))
+
+            with connect(database) as conn, conn:
+                conn.execute(
+                    """
+                    INSERT INTO source_state(
+                        source_id,baseline_complete,sitemap_hash,last_snapshot_at,last_success_at,
+                        last_successful_reconciliation_at,next_due_at,last_error,consecutive_failures,
+                        recovery_window_start,recovery_window_end,updated_at
+                    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+                    ON CONFLICT(source_id) DO UPDATE SET
+                        baseline_complete=1,
+                        sitemap_hash=excluded.sitemap_hash,
+                        last_snapshot_at=excluded.last_snapshot_at,
+                        last_success_at=excluded.last_success_at,
+                        last_successful_reconciliation_at=excluded.last_success_at,
+                        next_due_at=excluded.next_due_at,
+                        last_error=NULL,
+                        consecutive_failures=0,
+                        recovery_window_start=NULL,
+                        recovery_window_end=NULL,
+                        updated_at=excluded.updated_at
+                    """,
+                    (
+                        source_id, 1, sitemap_hash, observed_at, observed_at, observed_at, next_due,
+                        None, 0, None, None, observed_at,
+                    ),
+                )
+                conn.execute(
+                    """
+                    UPDATE scheduler_runs
+                    SET finished_at=?,status='SUCCESS',changed=?,signals_created=?,backlog_remaining=0,
+                        details_attempted=0,details_succeeded=0,tenders_parsed=?,items_parsed=?,error=NULL
+                    WHERE app_run_id=?
+                    """,
+                    (observed_at, changed_count, signals_created, tenders_parsed, items_parsed, app_run_id),
+                )
+
+            return {
+                "source_id": source_id,
+                "status": "SUCCESS",
+                "baseline": baseline,
+                "recovery": recovery,
+                "trigger_type": trigger_kind,
+                "outage_window_start": outage_start,
+                "outage_window_end": outage_end,
+                "worker_run_id": worker["run_id"],
+                "app_run_id": app_run_id,
+                "discovered": len(discovery_records),
+                "candidates": 0,
+                "fetched": 0,
+                "detail_errors": 0,
+                "items": items_parsed,
+                "tenders": tenders_parsed,
+                "details_attempted": 0,
+                "details_succeeded": 0,
+                "health_probe": False,
+                "changed": changed_count,
+                "signals_created": signals_created,
+                "backlog_remaining": 0,
+                "next_due_at": next_due,
+                "listing_complete": True,
+            }
+
         try:
             entries = adapter.parse_discovery(sitemap_bytes)
         except Exception:
