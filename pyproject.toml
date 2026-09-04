@@ -7,7 +7,7 @@ name = "signalforge"
 version = "0.1.0"
 description = "Bangkok-only commercial signal collector for Myanmar tender and regulation sources"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = ["pypdf==6.16.2"]
 
 [project.scripts]
 signalforge = "signalforge.cli:main"

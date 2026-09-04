@@ -10,7 +10,7 @@ from . import VERB_MANIFEST_VERSION
 from .config import Registry, SOURCE_ID_PATTERN, db_path
 from .db import connect, migrate
 from .engine import run_due, run_source
-from .mpa import parse_listing_records, preview_summary
+from .mpa import parse_listing_records, parse_pdf_business_fields, preview_summary
 from .provider_bridge import build_provider_request, import_provider_result, write_provider_request
 
 
@@ -231,6 +231,8 @@ def main(argv: list[str] | None = None) -> int:
     mpa_preview_parser = sub.add_parser("mpa-preview")
     mpa_preview_parser.add_argument("--html", required=True)
     mpa_preview_parser.add_argument("--limit", type=int, default=30)
+    mpa_pdf_preview_parser = sub.add_parser("mpa-pdf-preview")
+    mpa_pdf_preview_parser.add_argument("--pdf", required=True)
     sub.add_parser("status")
     args = parser.parse_args(argv)
     try:
@@ -268,6 +270,13 @@ def main(argv: list[str] | None = None) -> int:
             result["records_returned"] = min(args.limit, len(records))
             result["records_truncated"] = len(records) > args.limit
             result["records"] = records[: args.limit]
+        elif args.cmd == "mpa-pdf-preview":
+            pdf_path = Path(args.pdf).expanduser()
+            result = {
+                "status": "PREVIEW_ONLY",
+                "source_id": "S15A",
+                **parse_pdf_business_fields(pdf_path.read_bytes()).payload(),
+            }
         else:
             result = status()
         print(json.dumps(result, ensure_ascii=False, sort_keys=True))

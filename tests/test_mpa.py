@@ -1,17 +1,24 @@
 from __future__ import annotations
 
+import io
 import tempfile
 import unittest
 from pathlib import Path
+
+from pypdf import PdfWriter
 
 from signalforge.cli import main, verb_manifest
 from signalforge.config import Registry
 from signalforge.mpa import (
     MpaParseError,
     classify_item_kind,
+    classify_pdf_text,
+    extract_deadline,
     extract_detail_pdf_url,
+    extract_reference_no,
     extract_wordpress_post_id,
     parse_listing_records,
+    parse_pdf_business_fields,
     preview_summary,
 )
 
@@ -88,16 +95,56 @@ class MpaPreviewTests(unittest.TestCase):
         self.assertEqual(classify_item_kind("ကုန်သေတ္တာအခွံ(၂၈)လုံးအား အိတ်ဖွင့်တင်ဒါ"), "AUCTION_NOTICE")
         self.assertEqual(classify_item_kind("General announcement"), "UNCLASSIFIED")
 
+    def test_pdf_classifier_uses_authoritative_disposal_semantics(self) -> None:
+        text = (
+            "Open Tender Invitation. The following three Tugs will be auctioned through an open tender system. "
+            "Date & Time (to submit): 25-6-2026 (1300)."
+        )
+        item_kind, status, basis, excerpt = classify_pdf_text(text)
+        self.assertEqual(item_kind, "AUCTION_NOTICE")
+        self.assertEqual(status, "DETERMINISTIC_PDF")
+        self.assertEqual(basis, "AUCTION_EN")
+        self.assertIn("auctioned", excerpt or "")
+        self.assertEqual(extract_deadline(text), ("2026-06-25T13:00:00", "FOUND"))
+
+    def test_pdf_classifier_recognizes_procurement_and_myanmar_deadline(self) -> None:
+        text = "Battery (With Acid)(9-Items) ဝယ်ယူရန် အိတ်ဖွင့်တင်ဒါ ၂၉-၅-၂၀၂၅ (၁၃:၀၀) နောက်ဆုံးထား တင်သွင်းရန်"
+        item_kind, status, basis, _excerpt = classify_pdf_text(text)
+        self.assertEqual(item_kind, "TENDER")
+        self.assertEqual(status, "DETERMINISTIC_PDF")
+        self.assertEqual(basis, "PURCHASE_MY")
+        self.assertEqual(extract_deadline(text), ("2025-05-29T13:00:00", "FOUND"))
+
+    def test_pdf_reference_and_service_semantics(self) -> None:
+        text = "Port EDI Operation and Maintenance လုပ်ငန်းအတွက် ဝန်ဆောင်မှုရယူရန် တင်ဒါအမှတ် MPA-IR&HRD/01- 2026"
+        item_kind, status, basis, _excerpt = classify_pdf_text(text)
+        self.assertEqual(item_kind, "TENDER")
+        self.assertEqual(status, "DETERMINISTIC_PDF")
+        self.assertIn(basis, {"SERVICE_MY", "SERVICE_EN"})
+        self.assertEqual(extract_reference_no(text), "MPA-IR&HRD/01-2026")
+        self.assertEqual(extract_deadline(text), (None, "NOT_FOUND"))
+
+    def test_pdf_classifier_fails_closed_without_decisive_business_semantics(self) -> None:
+        self.assertEqual(classify_pdf_text("Open Tender Invitation general notice")[:3], (None, "REVIEW_REQUIRED", None))
+        buffer = io.BytesIO()
+        writer = PdfWriter()
+        writer.add_blank_page(width=72, height=72)
+        writer.write(buffer)
+        with self.assertRaisesRegex(MpaParseError, "text too short"):
+            parse_pdf_business_fields(buffer.getvalue())
+
     def test_cli_preview_reads_file_only(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "mpa.html"
             path.write_bytes(LISTING)
             self.assertEqual(main(["mpa-preview", "--html", str(path)]), 0)
 
-    def test_preview_command_is_not_worker_verb(self) -> None:
+    def test_preview_commands_are_not_worker_verbs(self) -> None:
         verbs = verb_manifest()["verbs"]
         self.assertNotIn("mpa-preview", verbs)
         self.assertNotIn("signalforge-mpa-preview", verbs)
+        self.assertNotIn("mpa-pdf-preview", verbs)
+        self.assertNotIn("signalforge-mpa-pdf-preview", verbs)
 
     def test_s15a_remains_deferred_and_inactive(self) -> None:
         registry = Registry.load(ROOT)

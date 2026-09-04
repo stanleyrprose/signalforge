@@ -694,11 +694,25 @@ Evidence/runbook: `docs/MANUAL-PROVIDER-BRIDGE-v0.md`.
 - six live detail probes across 2022–2026 returned HTTP 200 and stable WordPress shortlink IDs (`38289`, `37867`, `37745`, `35819`, `34155`, `2392`), supporting future canonical identity `mpa:<wordpress_post_id>` rather than slug identity;
 - four representative detail pages each exposed exactly one issuer-original PDF iframe; the detail HTML is principally an identity + PDF locator layer;
 - all four sampled PDFs were fetched through installed Mac Browser Plane C0 with strict TLS and were text-native enough in the audit to expose commercially useful semantics such as procurement/disposal classification, deadline, scope, tender number and service period;
-- `pypdf` was already present in the Mac development environment and was used only as a preview audit aid; no production dependency/runtime packaging was promoted;
-- preview implementation is read-only (`signalforge mpa-preview --html ...`), bounded, absent from the VPS Worker verb manifest, and writes no DB/canonical/signal state;
+- the initial parser preview used Mac-local `pypdf` only; the follow-on reviewed slice now promotes an exact `pypdf==6.16.2` runtime dependency in a per-release SignalForge venv without activating S15A;
+- preview implementation remains read-only (`signalforge mpa-preview --html ...`, `signalforge mpa-pdf-preview --pdf ...`), bounded, absent from the VPS Worker verb manifest, and writes no DB/canonical/signal state;
 - S15A remains deferred and Mac provider remains `production_enabled=false` / `remote_invocation=false`.
 
 Evidence: `docs/verification/S15A-MPA-PARSER-PREVIEW-2026-09-04.md`.
+
+### S15A PDF Supplementary Slice — IMPLEMENTATION PASS / ACTIVATION DEFERRED
+
+- exact runtime dependency: `pypdf==6.16.2`;
+- Bangkok preflight proved `/usr/bin/python3 -m venv` bootstraps pip even though system Python itself has no `pypdf`/pip module;
+- deployment now builds `/srv/signalforge/venvs/<release>` before switching `active`, and release-local `bin/signalforge` uses `.venv/bin/python` when present;
+- dependency install/version verification fails deployment before active-release switch; previous release + venv remain the rollback target;
+- deterministic PDF parser limits: 10 MiB, 20 pages, 100k extracted chars; encrypted/non-text/oversized/ambiguous inputs fail closed;
+- final PDF classification prioritizes disposal/auction semantics over generic tender/procurement words; generic `Open Tender` without decisive business semantics returns `REVIEW_REQUIRED`;
+- deadline is emitted only from uniquely supported date+time evidence; explicit MPA reference numbers are normalized without inference;
+- four real issuer PDFs passed under exact Python 3.13 + `pypdf 6.16.2`: Three Tugs=`AUCTION_NOTICE` / `2026-06-25T13:00`, Marine Paint=`TENDER` / `2026-06-04T13:00`, Port EDI=`TENDER` / `2026-05-21T13:00` / `MPA-IR&HRD/01-2026`, Battery=`TENDER` / `2025-05-29T13:00`;
+- full local suite remains 86/86 PASS; S15A still has no active adapter/scheduler/canonical path.
+
+Evidence: `docs/verification/S15A-MPA-PDF-SUPPLEMENTARY-2026-09-05.md`.
 
 ## Frozen acquisition invariants
 
@@ -757,7 +771,7 @@ S20, S22, S05A, S07, S08A, S12, S25, S26 and S28 triggered none of these capabil
 4. S01 National Portal stays discovery-aggregator-only until issuer-resolution/equivalence/dedup exists; S04 Trade Portal remains deferred for the same cross-source contract reason;
 5. preserve the newly proven municipal gates: S16 requires identity/locator separation, S17 requires Burmese OCR, S18 requires classifier + OCR; do not force any of them into P0;
 6. keep S10 PDF supplementary extraction as a separate reviewed runtime-packaging slice and promote it only when its incremental commercial value justifies the dependency;
-7. keep S15A deferred: listing-only parsing is preview-safe but not production-safe; only reopen onboarding after an explicitly reviewed PDF supplementary classification/extraction slice can determine final `TENDER` vs `AUCTION_NOTICE` and recover deadline/scope/reference facts;
+7. keep S15A deferred until an explicit onboarding decision: the reviewed PDF supplementary slice now resolves the classification/deadline/reference gate, but activation still requires wiring listing -> detail -> PDF -> canonical processing and deciding whether the current manual Mac acquisition path is operationally acceptable;
 8. keep S08A tender-award/result content as a separate future `PROCUREMENT_RESULT` decision;
 9. periodically recheck whether MOEP advertised PDFs become retrievable; only then consider a supplementary PDF parser gate;
 10. keep Direct HTTP first; if a source truly requires Browser, route the requirement only to Mac Browser Plane and block unattended production until a separate Provider Invocation Contract is live-verified;
