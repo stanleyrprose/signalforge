@@ -25,7 +25,7 @@ class ContractTests(unittest.TestCase):
         )
         self.assertEqual(manifest["verbs"]["signalforge-refresh"]["argument"], "source_id")
         self.assertEqual(manifest["grammar"]["source_id"], "^[A-Z][A-Z0-9]{0,15}$")
-        self.assertEqual(manifest["active_source_ids"], ["S05A", "S07", "S08A", "S13", "S20", "S21", "S22"])
+        self.assertEqual(manifest["active_source_ids"], ["S05A", "S07", "S08A", "S12", "S13", "S20", "S21", "S22"])
 
         registry = Registry.load(ROOT)
         with self.assertRaisesRegex(ConfigError, "invalid source id"):
@@ -74,6 +74,16 @@ class ContractTests(unittest.TestCase):
         self.assertNotIn("discovery_is_tender_only", commerce)
         self.assertEqual(commerce["attachment_policy"]["mode"], "METADATA_ONLY_NON_BLOCKING")
         self.assertFalse(commerce["attachment_policy"]["fetch_in_primary_pipeline"])
+
+        ird = registry.source("S12")
+        self.assertEqual(ird["adapter"], "ird_notice")
+        self.assertEqual(ird["role"], "ACTIVE_SELECTIVE")
+        self.assertEqual(ird["item_kind"], "REGULATORY_NOTICE")
+        self.assertEqual(ird["discovery_url"], "https://www.ird.gov.mm/announcement-lists")
+        self.assertEqual(ird["canonical_key"], "issuer_record_id_publication_date")
+        self.assertEqual(ird["attachment_policy"]["mode"], "METADATA_ONLY_NON_BLOCKING")
+        self.assertFalse(ird["attachment_policy"]["fetch_in_primary_pipeline"])
+        self.assertIn("S04", registry.raw["deferred_sources"])
 
     def test_deploy_installs_reviewed_refresh_template_and_drains_instances(self) -> None:
         deploy = (ROOT / "deploy" / "deploy-signalforge-release.sh").read_text(encoding="utf-8")
