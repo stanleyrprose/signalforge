@@ -1,14 +1,14 @@
 # S22 Inland Water Transport — Source Onboarding Verification
 
 Date (Asia/Yangon): 2026-09-04
-Phase: `PRE_PRODUCTION`
-Result: **READY_FOR_PR / NOT YET PRODUCTION-COMPLETE**
+Phase: `PRODUCTION`
+Result: **PASS / PRODUCTION COMPLETE**
 
 ## Decision
 
-S22 Inland Water Transport (IWT) is the next Myanmar source expansion after S21 Myanma Railways.
+S22 Inland Water Transport (IWT) is production-enabled as the third SignalForge Myanmar source after S13 MPT and S21 Myanma Railways.
 
-The source stays inside the frozen v1.5 architecture:
+It stays inside the frozen v1.5 architecture:
 
 ```text
 Bangkok SignalForge
@@ -21,26 +21,18 @@ Bangkok SignalForge
 -> Canonical / Dedup / Signal
 ```
 
-No Worker ABI, Control Plane verb, Browser/Browserless, remote Provider, Mac production dependency, Beijing acquisition, PDF parser, Redis/Celery, distributed queue or automatic cross-zone failover is introduced.
+No Worker ABI, Control Plane verb, Browser/Browserless, remote Provider, Mac production dependency, Beijing acquisition, PDF parser, Redis/Celery, distributed queue or automatic cross-zone failover was introduced.
 
-## Why S22
+## Release
 
-The completed engineering source audit classified IWT as:
+- implementation PR: `#16 feat: onboard Inland Water Transport S22`
+- PR CI `verify`: PASS
+- SignalForge production release: `9ec2b133ca1c3339abccf34c5f5c86cecd3e6023`
+- immediate rollback release: `52c9ab5b5e5643014e1b55a634cc5fbe26c0ebac`
+- Worker runtime/provider: `0a53558c9233622c69b083d61bed596cbedc0857`
+- Control Plane: `64ab3a907bb8a18808839176208023a5de976b55`
 
-```text
-GREEN-CANDIDATE / PARSE-STRONG
-Type A — structured HTML detail
-```
-
-The current source exposes enough business information directly in HTML for initial opportunity qualification:
-
-- tender title;
-- business scope/body;
-- post date;
-- closing date/time;
-- attachment metadata.
-
-PDF quality remains an independent future dimension and is not required for this HTML source onboarding.
+The live Bangkok `/srv/signalforge/active` symlink was verified to resolve to the exact merged SHA.
 
 ## Fresh transport re-audit
 
@@ -50,23 +42,16 @@ Canonical discovery endpoint:
 https://iwt.gov.mm/tenders
 ```
 
-A bare Python `urllib` request using the library-default User-Agent received HTTP 403 from the current edge policy.
-
-This did **not** represent a Direct HTTP or Browser failure. SignalForge production does not use the library-default identity; the frozen fetcher already sends:
+A bare Python urllib request using the library-default User-Agent returned HTTP 403. This was not a Direct HTTP failure: the frozen SignalForge fetcher already uses its own explicit application identity:
 
 ```text
 User-Agent: SignalForge/0.1 (+commercial-signal-monitor)
 Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
 ```
 
-Using the actual SignalForge fetcher from the Myanmar-side development path returned:
+The actual SignalForge fetcher succeeded from the Myanmar-side development path with a 97,758-byte HTML response.
 
-```text
-HTTP 200
-body=97758 bytes
-```
-
-Using the production SignalForge fetcher identity from Bangkok returned three sequential successful reads:
+Bangkok production egress using that same SignalForge fetcher completed three consecutive listing reads:
 
 ```text
 97758 bytes / 0.142s
@@ -74,24 +59,19 @@ Using the production SignalForge fetcher identity from Bangkok returned three se
 97758 bytes / 0.078s
 ```
 
-The current node 1038 detail was also fetched from Bangkok with the production fetcher and contained both:
-
-```text
-field-name-field-close-date-tender
-IWT_1 Costal Vessel Tender 25-8-2026
-```
+Bangkok also fetched the newest audited detail node 1038 and its HTML contained both the closing-date field and vessel-tender attachment metadata.
 
 Conclusion:
 
 > **LOCAL_BANGKOK + DIRECT_HTTP = PASS**
 
-No Browser/JS-render capability gate is triggered.
+The default-urllib 403 is an HTTP client-identity policy difference, not a Browser/JS-render requirement. No Browser gate was triggered and no browser-like spoofing was added. If the real SignalForge fetcher later receives 403, the frozen policy remains `HTTP_403 -> REVIEW`.
 
-## Current live source shape
+## Live source shape
 
-The current listing parser was executed against live issuer HTML and found 20 tender records on the page.
+The new parser was run directly against the current issuer listing and found 20 tender records.
 
-The first six records were:
+The current leading records included:
 
 ```text
 1038 — 2026-08-25T08:51:07Z
@@ -102,13 +82,13 @@ The first six records were:
 971  — 2025-05-23T06:45:41Z
 ```
 
-The four 2026 detail pages were fetched and parsed from the live issuer site:
+All four audited 2026 detail nodes parsed successfully from live issuer HTML:
 
 ```text
-node 1038: publication=2026-08-25, deadline=2026-11-03
-node 1037: publication=2026-07-25, deadline=2026-08-25
-node 1036: publication=2026-04-24, deadline=2026-05-14
-node 1035: publication=2026-04-10, deadline=2026-05-06
+1038: publication=2026-08-25 / deadline=2026-11-03
+1037: publication=2026-07-25 / deadline=2026-08-25
+1036: publication=2026-04-24 / deadline=2026-05-14
+1035: publication=2026-04-10 / deadline=2026-05-06
 ```
 
 Observed live attachments:
@@ -120,42 +100,31 @@ Observed live attachments:
 1035: CS Tender Data_10-4-2026.pdf
 ```
 
-The current listing now correctly exposes node 1038 as the newest item. Earlier cached/search views that omitted 1038 were stale and are not used as production discovery truth.
+## Adapter / identity contract
 
-## Source adapter contract
-
-IWT is one issuer detail page -> one business tender:
+IWT is a deterministic Type-A HTML source:
 
 ```text
 /tenders HTML
 -> N issuer node URLs
--> one node detail HTML
+-> one tender-node HTML
 -> zero/one IwtTender
 -> one EvidenceEnvelope / ProcessingRecord
 -> one canonical upsert
 ```
 
-The parser is deterministic HTML extraction and requires the issuer page to identify itself as Drupal content type `node--type-tenders`.
+The detail parser requires the issuer page to identify itself as Drupal content type `node--type-tenders`; non-tender pages fail closed.
 
-Non-tender pages fail closed.
+IWT currently does not expose a true business tender/reference number in HTML. The implementation therefore does not pretend the Drupal node id is a tender number.
 
-## Canonical identity
-
-Current IWT HTML does not expose a business tender/reference number.
-
-The implementation therefore does **not** pretend the Drupal node id is a real tender number. The legacy required `reference_no` field stores an explicit synthetic issuer-record token:
+The required legacy DB field is explicit issuer-record metadata:
 
 ```text
-IWT-NODE-1038
-```
-
-and the payload records:
-
-```text
+reference_no=IWT-NODE-1038
 reference_no_kind=issuer_record_id
 ```
 
-Canonical identity uses issuer-native record id plus publication date:
+Canonical identity is:
 
 ```text
 iwt:<source_record_id>:<publication_date>
@@ -167,22 +136,18 @@ Example:
 iwt:1038:2026-08-25
 ```
 
-This is stable across body, attachment and deadline edits so those changes become `UPDATED` signals rather than duplicate `NEW` tenders.
+The identity is stable across body, deadline and attachment edits, so those changes produce `UPDATED` rather than duplicate `NEW` signals.
 
-It is not URL-only identity: the issuer namespace, issuer-native immutable record id and publication date are explicit canonical components.
+## Closing-time semantics
 
-## Deadline/time semantics
-
-IWT Drupal exposes machine-readable UTC datetimes while displaying Myanmar local time.
-
-Example node 1038:
+IWT exposes machine-readable UTC time while displaying Myanmar local time. For node 1038:
 
 ```text
 source UTC:   2026-11-03T03:30:00Z
 Yangon local: 2026-11-03T10:00:00+06:30
 ```
 
-SignalForge stores:
+The adapter preserves both date-level compatibility and commercially important time detail:
 
 ```text
 deadline=2026-11-03
@@ -190,102 +155,36 @@ deadline_datetime_utc=2026-11-03T03:30:00Z
 deadline_datetime_local=2026-11-03T10:00:00+06:30
 ```
 
-This avoids losing the commercially important closing time while preserving the existing canonical table's date-level `deadline` field.
+## PDF boundary
 
-## Attachment boundary
-
-The HTML adapter records only:
+HTML already supplies identity, scope and closing time. S22 therefore records only:
 
 ```text
 attachment_name
 attachment_url
 ```
 
-It does **not** fetch, parse or score the PDF during S22 onboarding.
+No PDF is fetched or parsed by the S22 adapter. This preserves the audit rule that PDF quality is separate from HTML source health and avoids widening scope without a demonstrated business-data gap.
 
-Reason:
+## Latest-detail probe
 
-- HTML already provides identity, scope and closing time;
-- the existing audit explicitly separated PDF quality from HTML source health;
-- adding PDF extraction without a concrete business-data gap would unnecessarily widen v1.5 scope.
+IWT listing timestamps are publication timestamps, not reliable modification timestamps. Existing tender deadlines or bodies may change without a new listing timestamp.
 
-A future PDF supplementary adapter remains evidence-triggered.
+For tender-only discovery sources, the existing bounded low-frequency detail probe now chooses the newest currently discovered tender before static bootstrap seeds.
 
-## Latest-detail probe behavior
-
-IWT listing timestamps are publication timestamps, not reliable modification timestamps. A deadline/body change can therefore occur without changing the listing timestamp.
-
-For tender-only discovery sources, the bounded low-frequency detail health probe now chooses the **newest currently discovered tender** before static bootstrap seeds.
-
-This improves both S21 and S22 without changing MPT behavior.
-
-The regression fixture proves:
+Regression proof:
 
 ```text
-baseline canonical = iwt:1038:2026-08-25
-deadline             = 2026-11-03
+canonical=iwt:1038:2026-08-25
+deadline=2026-11-03
 
 later detail probe:
-deadline             = 2026-11-10
-canonical            = unchanged
-signal               = UPDATED
+deadline=2026-11-10
+canonical unchanged
+signal=UPDATED
 ```
 
-The probe remains bounded to one detail page at the existing one-hour parse-probe interval when there is no normal pending candidate.
-
-## Source policy
-
-```text
-source_id=S22
-adapter=iwt
-role=ACTIVE_PRIMARY
-network_zone=myanmar-international
-engine=direct_http
-egress_profile=mm-intl-datacenter
-source_policy_version=1
-poll_interval_seconds=900
-baseline_lookback_days=120
-baseline_detail_limit=10
-delta_detail_limit=10
-first_baseline_customer_signal=false
-```
-
-Bootstrap seeds preserve the four audited 2026 nodes:
-
-```text
-https://iwt.gov.mm/my/node/1038
-https://iwt.gov.mm/my/node/1037
-https://iwt.gov.mm/my/node/1036
-https://iwt.gov.mm/my/node/1035
-```
-
-Failure policy preserves v1.5 semantics:
-
-```text
-HTTP_403 -> REVIEW
-TLS_FAILURE -> FAIL
-JS_RENDER_REQUIRED -> REVIEW_CAPABILITY
-PARSER_DRIFT -> REAUDIT
-```
-
-The fresh default-urllib 403 does not weaken this policy: production SignalForge fetches succeeded using the already-frozen application User-Agent. If the production fetcher itself begins returning 403, the source will enter REVIEW rather than silently spoofing a browser identity.
-
-## Implementation
-
-Added:
-
-- `signalforge/iwt.py` — Drupal tender listing/detail parser, issuer-record identity, Myanmar-local time normalization, attachment metadata;
-- IWT source adapter registration;
-- S22 active Source Registry policy;
-- IWT listing/detail fixtures;
-- parser + engine regression tests;
-- CI inclusion for `tests.test_iwt`.
-
-Small engine change:
-
-- tender-only sources use the newest discovery item for the existing bounded parse/detail probe before falling back to static seed URLs.
-
-No acquisition schema, Worker schema, Worker ABI, Control Plane grammar or deployment topology changed.
+This also improves S21 tender-only probing and does not change MPT behavior.
 
 ## Pre-production verification
 
@@ -301,35 +200,205 @@ CI-equivalent SignalForge unit suite:
 29/29 PASS
 ```
 
-Release checks:
+Release hygiene:
 
 ```text
-python3 -m json.tool registry/Source-Registry-v1.yaml PASS
-python3 -m compileall -q signalforge tests        PASS
+registry JSON validation                          PASS
+python3 -m compileall -q signalforge tests       PASS
 sh -n bin/signalforge                            PASS
 sh -n deploy/deploy-signalforge-release.sh       PASS
 git diff --check                                 PASS
 ```
 
-The new parser was also run against current live IWT listing plus the four 2026 detail pages, not only fixtures.
+## Controlled production rollout
 
-## Production acceptance after merge
+The production timer was paused through the reviewed Control Plane verb before deployment.
 
-S22 remains **not production-complete** until all of the following pass on the exact merged SHA:
+Frozen pre-deploy state:
 
-1. pause the production timer through the reviewed Control Plane verb;
-2. snapshot S13/S21/canonical/signal/Worker Run state;
-3. deploy the exact merged SignalForge SHA to Bangkok only;
-4. verify Beijing remains strict SignalForge zero-footprint;
-5. execute reviewed `signalforge-refresh S22` once to establish the first baseline;
-6. prove the S22 baseline creates zero customer signals;
-7. prove exactly one Worker application Run correlates to the S22 manual baseline invocation;
-8. verify S22 acquisition/evidence/processing rows and canonical rows are durable;
-9. verify S13 and S21 business state remains intact;
-10. verify SQLite `quick_check=ok`;
-11. verify Bangkok + Beijing Worker doctors remain PASS;
-12. verify Beijing rejects `signalforge-refresh S22` with the Bangkok-only control-plane guard;
-13. restore `signalforge-run-due.timer` to enabled / active / waiting;
-14. record final live onboarding evidence and update `CHECKPOINT.md` / `GOAL.md`.
+```text
+release=52c9ab5b5e5643014e1b55a634cc5fbe26c0ebac
+canonical_items=61
+signals=10
+scheduler_runs=128
+acquisition_requests=132
+acquisition_attempts=132
+evidence_envelopes=132
+processing_records=132
+failed_runs=0
+recovery_backlog=0
+Worker SignalForge Runs=381
+S13=GREEN
+S21=GREEN
+timer=disabled/inactive
+```
 
-Until those steps pass, this record remains `PRE_PRODUCTION`.
+The exact merged SHA was deployed from a Git archive to Bangkok only. Deploy result:
+
+```text
+deployment=success
+release=9ec2b133ca1c3339abccf34c5f5c86cecd3e6023
+previous=52c9ab5b5e5643014e1b55a634cc5fbe26c0ebac
+timer_preexisting=0
+```
+
+Post-deploy manifest:
+
+```text
+verb_manifest_version=1
+active_source_ids=[S13,S21,S22]
+```
+
+## First S22 production baseline — PASS
+
+Reviewed invocation:
+
+```text
+signalforge-refresh S22
+```
+
+Live result:
+
+```text
+trigger_kind=MANUAL
+baseline=1
+status=SUCCESS
+details_attempted=4
+details_succeeded=4
+tenders_parsed=4
+changed=4
+signals_created=0
+worker_run_id=signalforge-20260904T004652Z-d4992f14
+```
+
+Business state:
+
+```text
+canonical_items: 61 -> 65
+signals:         10 -> 10
+scheduler_runs: 128 -> 129
+```
+
+Therefore the first IWT baseline created four durable canonical records and zero customer signals.
+
+## Acquisition / evidence persistence — PASS
+
+The baseline fetched one discovery page plus four detail pages:
+
+```text
+S22 acquisition_requests=5
+S22 acquisition_attempts=5
+S22 evidence_envelopes=5
+S22 processing_records=5
+S22 canonical_items=4
+S22 signals=0
+PRAGMA quick_check=ok
+```
+
+Per-source state during the paused window remained:
+
+```text
+S13 canonical/signals=16/10
+S21 canonical/signals=45/0
+S22 canonical/signals=4/0
+```
+
+No S13/S21 business-state pollution occurred.
+
+## Worker cardinality / correlation — PASS
+
+Before S22 baseline:
+
+```text
+Worker SignalForge Runs=381
+```
+
+After S22 baseline:
+
+```text
+Worker SignalForge Runs=382
+latest Worker Run=signalforge-20260904T004652Z-d4992f14 / SUCCESS
+```
+
+The S22 scheduler row stores that same Worker Run ID. Thus one reviewed manual source refresh created exactly one Worker operational Run while five acquisition attempts and four business items stayed internal SignalForge state.
+
+## Topology / Worker verification — PASS
+
+Bangkok Worker doctor: PASS.
+
+Beijing Worker doctor: PASS.
+
+Beijing remained strict zero-footprint:
+
+```text
+/srv/signalforge absent
+```
+
+and the reviewed S22 refresh verb on Beijing failed closed:
+
+```text
+126 / DENY: SignalForge is Bangkok-only
+```
+
+## Timer restoration / Gate Z — PASS
+
+`signalforge-resume` restored:
+
+```text
+signalforge-run-due.timer=enabled/active/waiting
+signalforge-run-due.service=inactive/dead after completion
+Result=success
+ExecMainStatus=0
+```
+
+The persistent timer immediately created one Worker wrapper:
+
+```text
+Worker SignalForge Runs: 382 -> 383
+```
+
+S13 and S21 had become due during the controlled pause, so that one wrapper processed two SignalForge business jobs:
+
+```text
+S13 POLL=SUCCESS / details 1/1 / signals 0
+S21 POLL=SUCCESS / no pending detail / signals 0
+scheduler_runs: 129 -> 131
+```
+
+S22 was not run again because its next due time had not arrived.
+
+This reconfirms Gate Z:
+
+> one Worker wrapper Run can contain N due SignalForge source jobs; source jobs and acquisition attempts do not become Worker Runs.
+
+## Final production state
+
+```text
+SignalForge release=9ec2b133ca1c3339abccf34c5f5c86cecd3e6023
+active sources=S13,S21,S22
+SignalForge health=GREEN
+S13 health=GREEN
+S21 health=GREEN
+S22 health=GREEN
+canonical_items=65
+signals=10
+scheduler_runs=131
+acquisition_requests=140
+acquisition_attempts=140
+evidence_envelopes=140
+processing_records=140
+Worker SignalForge Runs=383
+failed_runs=0
+recovery_backlog=0
+SQLite quick_check=ok
+Bangkok Worker doctor=PASS
+Beijing Worker doctor=PASS
+Beijing SignalForge footprint=ABSENT
+timer=enabled/active/waiting
+```
+
+## Conclusion
+
+S22 Inland Water Transport onboarding is **PASS / PRODUCTION COMPLETE**.
+
+It proves a third issuer shape can run under the same local SignalForge acquisition/Worker boundary while preserving baseline signal suppression, source-specific canonical identity, full closing-time metadata, Bangkok-only placement, Direct HTTP first, and one-Worker-wrapper-to-many-business-jobs Gate Z semantics.
