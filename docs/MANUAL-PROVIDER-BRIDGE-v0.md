@@ -1,6 +1,6 @@
 # Manual Provider Bridge v0
 
-**Status:** **PRODUCTION EVIDENCE-ONLY PASS** for the controlled S15A manual path.
+**Status:** **PRODUCTION EVIDENCE PATH PASS / MANUAL CANONICAL COMMIT IMPLEMENTED** for the controlled S15A Manual P0 path.
 
 ## Purpose
 
@@ -26,7 +26,8 @@ supported source     = S15A only
 supported task       = C0 fetch only
 approved S15A roles  = LISTING / DETAIL / PDF
 network              = Mac direct only
-processing           = EVIDENCE_ONLY
+acquisition import   = EVIDENCE_ONLY
+manual processing    = explicit canonical commit only
 remote invocation    = disabled
 production routing   = unchanged
 ```
@@ -48,9 +49,9 @@ It does **not**:
 - add Browser runtime to Bangkok/Beijing;
 - bypass TLS verification;
 - enable C1 generic interaction, C2 remote diagnostics or C3 Browser Agent;
-- onboard S15A as an active SignalForge source;
-- parse/canonicalize imported MPA evidence;
-- create customer signals from imported MPA evidence.
+- onboard S15A as an automated active/scheduled SignalForge source;
+- canonicalize imported MPA evidence automatically;
+- create customer signals unless an operator explicitly runs the manual commit with `--emit-signal`.
 
 `provider-request` and `provider-import` are deliberately absent from the VPS Worker verb manifest, so the Worker dispatcher cannot invoke them as scheduled production verbs.
 
@@ -263,7 +264,7 @@ Production evidence permissions were verified as `0700` for the provider directo
 
 ## Manual P0 Phase A — evidence bundle preview
 
-A later bounded extension may import one `LISTING`, one `DETAIL` and one `PDF` artifact as independent `EVIDENCE_ONLY` lifecycles, then join them **read-only**:
+One `LISTING`, one `DETAIL` and one `PDF` artifact may be imported as independent `EVIDENCE_ONLY` lifecycles, then joined **read-only**:
 
 ```text
 mpa-provider-bundle-preview
@@ -275,7 +276,28 @@ mpa-provider-bundle-preview
 -> READY_FOR_MANUAL_COMMIT or REVIEW_REQUIRED
 ```
 
-The preview verifies durable provider evidence SHA/size and relationship constraints (`listing row -> detail URL -> detail PDF locator -> PDF URL`). It does not write canonical items or signals. A future manual canonical commit, if approved, is a separate phase and must remain explicit/idempotent.
+The preview verifies durable provider evidence SHA/size and relationship constraints (`listing row -> detail URL -> detail PDF locator -> PDF URL`). It does not write canonical items or signals.
+
+## Manual P0 Phase B — explicit canonical commit
+
+After an operator reviews a `READY_FOR_MANUAL_COMMIT` preview, the same three durable provider request IDs may be committed explicitly:
+
+```bash
+signalforge mpa-provider-bundle-commit \
+  --listing-provider-request-id <listing-id> \
+  --detail-provider-request-id <detail-id> \
+  --pdf-provider-request-id <pdf-id>
+```
+
+Default behavior creates/updates the canonical item but emits **zero** customer signals. Signal emission requires the additional explicit flag:
+
+```text
+--emit-signal
+```
+
+The PDF evidence SHA is stored as the canonical evidence digest. One PDF evidence artifact can be committed only once per `mpa-manual-v1` canonicalizer version; a repeated command returns `ALREADY_COMMITTED`. `REVIEW_REQUIRED` bundles fail closed.
+
+`mpa-provider-bundle-commit` is also absent from the VPS Worker verb manifest. Phase B therefore remains operator-driven and does not turn the bridge into scheduled or unattended execution.
 
 ## Reopen rule
 
