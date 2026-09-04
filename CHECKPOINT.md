@@ -401,16 +401,16 @@ Still frozen:
 - no silent Browser escalation;
 - TLS failure never becomes certificate bypass or automatic Browser success;
 - no remote Provider transport, Redis/Celery, central scheduler or automatic cross-zone failover;
-- Mac remains non-production;
+- Mac mini is the sole Browser Runtime host; SignalForge→Mac unattended production invocation remains disabled;
 - Beijing remains Generic Worker only.
 
-## Conditional future gates — NOT TRIGGERED
+## Conditional future gates / superseded Browser path
 
-- Browser/Crawlee Gates O2/P/Q: only after a real source proves Direct HTTP insufficient specifically because JS rendering is required.
+- VPS Browser/Crawlee Gates O2/P/Q: `SUPERSEDED_BY_MAC_BROWSER_PLANE`; do not implement on Bangkok/Beijing. A real JS-render-required source may only create a Mac Browser Provider requirement, which stays blocked while `production_enabled=false`.
 - Webhook Gate T: only after a real webhook use case and ingress/auth/dedup contract exist.
 - Dedicated identity Gate V: before the first real dedicated Generic Job retirement.
 - Remote Provider ADR: only after a real source proves Bangkok local acquisition insufficient.
-- Mac production Provider ADR: only after a source-specific repeated residential-path need is proven.
+- Mac Browser Provider Invocation Contract: only after a real Browser-required source exists; must be a separate reviewed cross-host contract, not ad-hoc SSH/HTTP/CDP.
 - Browserless ADR: only after multiple real browser consumers create shared lifecycle/queue/session pain.
 - PDF supplementary adapter: only when issuer HTML lacks business-critical fields whose extraction materially improves the commercial signal.
 
@@ -424,5 +424,5 @@ S20, S22 and S05A triggered none of these gates. S20 did surface a real PDF-atta
 4. preferred next issuer-original audit pool: S04 Trade Portal legal documents, S07/S08A Customs, and S12 IRD; S05A is now production-complete;
 5. periodically recheck whether MOEP advertised PDFs become retrievable; only then consider a supplementary PDF parser gate;
 6. preserve YCDC/MCDC/NPTDC identity/PDF/classifier gates rather than bypassing them;
-7. keep Direct HTTP first and trigger Browser/remote/Mac/PDF capability expansion only from real source evidence;
+7. keep Direct HTTP first; if a source truly requires Browser, route the requirement only to Mac Browser Plane and block unattended production until a separate Provider Invocation Contract is live-verified;
 8. run the next cross-repo consistency review by 2026-12-03 or an earlier contract-change trigger.

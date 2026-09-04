@@ -14,7 +14,7 @@ Expand SignalForge across high-value Myanmar issuer-original sources while prese
 - Worker DB has no SignalForge source/canonical/acquisition business semantics.
 - Source adapters follow real issuer shape; there is no universal tender parser requirement.
 - TLS/HTTP failures stay fail-closed and do not silently become certificate bypass or Browser escalation.
-- Browser, remote Provider, Mac production, Browserless, PDF extraction and distributed coordination remain evidence-triggered capabilities rather than default infrastructure.
+- Browser execution belongs only to the Mac Browser Plane; VPS Browser/Crawlee R3 is superseded. SignalForge→Mac unattended production invocation remains disabled until a separate Provider Invocation Contract is approved; Browserless/PDF/distributed coordination remain evidence-triggered future capabilities.
 
 ## Current production sources
 
