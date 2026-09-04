@@ -25,7 +25,7 @@ class ContractTests(unittest.TestCase):
         )
         self.assertEqual(manifest["verbs"]["signalforge-refresh"]["argument"], "source_id")
         self.assertEqual(manifest["grammar"]["source_id"], "^[A-Z][A-Z0-9]{0,15}$")
-        self.assertEqual(manifest["active_source_ids"], ["S13", "S21", "S22"])
+        self.assertEqual(manifest["active_source_ids"], ["S13", "S20", "S21", "S22"])
 
         registry = Registry.load(ROOT)
         with self.assertRaisesRegex(ConfigError, "invalid source id"):
@@ -57,6 +57,14 @@ class ContractTests(unittest.TestCase):
         self.assertFalse(iwt["first_baseline_customer_signal"])
         self.assertEqual(iwt["canonical_key"], "issuer_record_id_publication_date")
         self.assertEqual(iwt["egress_profile"], "mm-intl-datacenter")
+
+        moep = registry.source("S20")
+        self.assertEqual(moep["adapter"], "moep")
+        self.assertEqual(moep["role"], "ACTIVE_SELECTIVE")
+        self.assertEqual(moep["discovery_url"], "https://moep.gov.mm/mm/ignite/page/62")
+        self.assertTrue(moep["discovery_is_tender_only"])
+        self.assertEqual(moep["attachment_policy"]["mode"], "METADATA_ONLY_NON_BLOCKING")
+        self.assertFalse(moep["attachment_policy"]["fetch_in_primary_pipeline"])
 
     def test_deploy_installs_reviewed_refresh_template_and_drains_instances(self) -> None:
         deploy = (ROOT / "deploy" / "deploy-signalforge-release.sh").read_text(encoding="utf-8")

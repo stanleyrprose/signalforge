@@ -253,6 +253,81 @@
           }
         }
       }
+    },
+    "S20": {
+      "name": "MOEP Main Tender Hub",
+      "adapter": "moep",
+      "enabled": true,
+      "role": "ACTIVE_SELECTIVE",
+      "audit_status": "GREEN_HTML_ATTACHMENT_DEGRADED",
+      "network_zone": "myanmar-international",
+      "engine": "direct_http",
+      "landing_url": "https://moep.gov.mm/mm/ignite/page/62",
+      "discovery_url": "https://moep.gov.mm/mm/ignite/page/62",
+      "discovery_is_tender_only": true,
+      "language": "my",
+      "poll_interval_seconds": 900,
+      "retry_interval_seconds": 300,
+      "priority": 85,
+      "recovery_slo_seconds": 1800,
+      "availability_policy": {
+        "class": "DELAY_TOLERANT_MONITORED",
+        "accepted_collection_outage_seconds": 3600,
+        "collection_rto_seconds": 1800,
+        "business_data_rpo_target_seconds": 900,
+        "outage_status": "DATA_COLLECTION_DELAYED",
+        "delivery_during_recovery": "CONTINUE_WITH_DEGRADED_HEALTH"
+      },
+      "baseline_lookback_days": 120,
+      "baseline_detail_limit": 5,
+      "delta_detail_limit": 5,
+      "request_timeout_seconds": 30,
+      "request_max_bytes": 3000000,
+      "request_delay_ms": 250,
+      "canonical_key": "issuer_record_id_publication_date",
+      "first_baseline_customer_signal": false,
+      "bootstrap_seed_urls": [
+        "https://moep.gov.mm/mm/ignite/contentView/7141",
+        "https://moep.gov.mm/mm/ignite/contentView/7124",
+        "https://moep.gov.mm/mm/ignite/contentView/7121",
+        "https://moep.gov.mm/mm/ignite/contentView/7112",
+        "https://moep.gov.mm/mm/ignite/contentView/7103"
+      ],
+      "health_policy": {
+        "freshness_yellow_seconds": 1800,
+        "freshness_red_seconds": 2700,
+        "fetch_yellow_failures": 1,
+        "fetch_red_failures": 3,
+        "parse_window_runs": 10,
+        "parse_min_attempts": 3,
+        "parse_yellow_ratio": 0.9,
+        "parse_red_ratio": 0.7,
+        "parse_probe_interval_seconds": 3600
+      },
+      "source_policy_version": 1,
+      "egress_profile": "mm-intl-datacenter",
+      "acquisition_policy": {
+        "enabled": true,
+        "primary": {
+          "method": "DIRECT_HTTP",
+          "target_kind": "HTML"
+        },
+        "supplementary": [],
+        "escalation": {
+          "DNS_FAILURE": {"action": "RETRY"},
+          "CONNECT_TIMEOUT": {"action": "RETRY"},
+          "HTTP_429": {"action": "RETRY"},
+          "HTTP_403": {"action": "REVIEW"},
+          "TLS_FAILURE": {"action": "FAIL"},
+          "JS_RENDER_REQUIRED": {"action": "REVIEW_CAPABILITY"},
+          "PARSER_DRIFT": {"action": "REAUDIT"}
+        }
+      },
+      "attachment_policy": {
+        "mode": "METADATA_ONLY_NON_BLOCKING",
+        "current_health": "DEGRADED_HTTP_404",
+        "fetch_in_primary_pipeline": false
+      }
     }
   },
   "deferred_sources": {
@@ -269,7 +344,6 @@
     "S17": "MCDC — conditional; PDF fixture deferred",
     "S18": "NPTDC — conditional; ordering/classifier fixture deferred",
     "S19": "MOEP E-Tender — EXCLUDED R0 RED-TLS",
-    "S20": "MOEP Main Tender Hub — provisional inclusion after adapter gate",
     "S23": "Ministry of Construction — EXCLUDED until compliant TLS/endpoint repaired",
     "S24": "National Portal / highways fallback — fallback only",
     "S25": "RESERVED / UNASSIGNED"

@@ -22,7 +22,7 @@ jobs:
       - name: Compile Python
         run: python -m compileall -q signalforge tests
       - name: Unit tests
-        run: python -m unittest -v tests.test_acquisition_contract tests.test_contract tests.test_db tests.test_mpt tests.test_railways tests.test_iwt tests.test_engine tests.test_source_health
+        run: python -m unittest -v tests.test_acquisition_contract tests.test_contract tests.test_db tests.test_mpt tests.test_railways tests.test_iwt tests.test_moep tests.test_engine tests.test_source_health
       - name: Shell syntax
         run: |
           sh -n bin/signalforge
