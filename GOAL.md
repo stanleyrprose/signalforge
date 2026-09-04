@@ -18,6 +18,19 @@ Expand SignalForge across high-value Myanmar issuer-original sources while prese
 
 ## Current production sources
 
+### S12 — IRD Business Tax Announcements
+
+- production-enabled on current application release `d5222d00e81692ae4f4b8ee3d0a3d7ad70618237`;
+- issuer-original `ACTIVE_SELECTIVE` tax/regulatory source;
+- current first page discovers 16 deterministic announcement records; 180-day baseline fetched 14 details and selected 9 business tax notices;
+- canonical domain is `REGULATORY_NOTICE`; categories currently include TAX_REGISTRATION, TAX_FILING, TAX_PAYMENT and TAX_EXEMPTION;
+- IRD tenders, anti-corruption campaigns and institutional/noise records are explicitly excluded from S12 P0;
+- first baseline metrics: `items_parsed=9`, `tenders_parsed=0`, `details_attempted=9`, parse `9/9 = 1.0`, zero customer signals;
+- official PDFs remain metadata-only with safe percent-encoding; primary pipeline fetched zero PDFs;
+- issuer record identity is preserved; same-day Myanmar/English legal records are not heuristically merged;
+- source health GREEN;
+- evidence: `docs/verification/S12-SOURCE-ONBOARDING-2026-09-04.md`.
+
 ### S13 — MPT Tender Information
 
 - production-enabled;
@@ -39,7 +52,7 @@ Expand SignalForge across high-value Myanmar issuer-original sources while prese
 
 ### S08A — Myanmar Customs Auction Announcements
 
-- production-enabled on current application release `cb5291fdfcc13a678f63b53072e39089f8c27258`;
+- production-enabled; first Customs Auction onboarding release was `cb5291fdfcc13a678f63b53072e39089f8c27258`;
 - `ACTIVE_SELECTIVE` auction-opportunity slice from the mixed Customs Announcements page;
 - canonical domain is `AUCTION_NOTICE`; tender-award/result records remain explicitly excluded from this slice;
 - visible issuer publication text is authoritative because the current HTML `datetime` attribute is stale (`2025-05-13`);
@@ -94,14 +107,15 @@ Expand SignalForge across high-value Myanmar issuer-original sources while prese
 
 ## Current result
 
-> **S05A + S07 + S08A + S13 + S20 + S21 + S22 = PRODUCTION / GREEN**
+> **S05A + S07 + S08A + S12 + S13 + S20 + S21 + S22 = PRODUCTION / GREEN**
 
-SignalForge has now proven seven source/domain shapes under the same v1.5 acquisition lifecycle:
+SignalForge has now proven eight source/domain shapes under the same v1.5 acquisition lifecycle:
 
 ```text
 Commerce: one Drupal notice -> zero/one selected REGULATORY_NOTICE + attachment metadata
 Customs Notifications: one listing HTML -> N REGULATORY_NOTICE records, no synthetic detail stage
 Customs Auctions:      one mixed announcements HTML -> selected AUCTION_NOTICE records, award/result excluded
+IRD:                   one announcement list -> selective tax detail fetch -> REGULATORY_NOTICE
 MPT:      one detail page -> zero/one tender
 MOEP:     one category item -> one partial HTML tender + attachment metadata
 Railways: one detail page -> N tender rows
@@ -141,4 +155,4 @@ business-value audit
 -> checkpoint closure
 ```
 
-The next source should be selected by business value and current audit evidence, not simply by source ID order. S01 National Portal remains deferred as a canonical source because aggregator metadata conflicts with issuer-original evidence; keep it only for a future discovery-lead contract. S05A, S07 and S08A are now production-complete and prove regulation plus auction-opportunity source shapes without tender semantic leakage. The preferred next issuer-original audit pool is S04 Trade Portal legal documents and S12 IRD. S08A tender-award/result content remains a separate future `PROCUREMENT_RESULT` decision rather than part of the auction slice. YCDC/MCDC/NPTDC retain their identity/PDF/classifier conditions and must not be force-onboarded merely to increase source count.
+The next source should be selected by business value and current audit evidence, not simply by source ID order. S01 National Portal remains deferred as a canonical source because aggregator metadata conflicts with issuer-original evidence. S04 Trade Portal is also deferred for canonical onboarding because it is a multi-agency official aggregator overlapping issuer-original S05A/S07/S12 and needs an explicit cross-source issuer-resolution/equivalence/dedup contract. S05A, S07, S08A and S12 are production-complete. The preferred next issuer-original audit pool now starts with S10 DICA Announcements, followed by the conditional YCDC/MCDC/NPTDC pool only if their identity/PDF/classifier gates pass. S08A tender-award/result content remains a separate future `PROCUREMENT_RESULT` decision.

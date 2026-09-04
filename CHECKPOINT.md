@@ -1,12 +1,13 @@
 # CHECKPOINT
 
 Date: 2026-09-04 (Asia/Yangon)
-Branch: `main` after S08A Myanmar Customs Auction Announcements production onboarding closure.
+Branch: `main` after S12 IRD Business Tax Announcements production onboarding closure.
 
 ## Production releases
 
-- SignalForge current application: `cb5291fdfcc13a678f63b53072e39089f8c27258`
-- Immediate SignalForge rollback (S05A + S07 + S13 + S20 + S21 + S22): `edf3e342ad127b4beac93a285bfb0096a1815aaa`
+- SignalForge current application: `d5222d00e81692ae4f4b8ee3d0a3d7ad70618237`
+- Immediate SignalForge rollback (S05A + S07 + S08A + S13 + S20 + S21 + S22): `cb5291fdfcc13a678f63b53072e39089f8c27258`
+- Previous SignalForge S05A + S07 + S13 + S20 + S21 + S22 release: `edf3e342ad127b4beac93a285bfb0096a1815aaa`
 - Previous SignalForge S05A + S13 + S20 + S21 + S22 release: `3c833d62dcf16ecd9e4b12dafd9ac557417efddb`
 - Previous SignalForge S13 + S20 + S21 + S22 release: `255f18f3dd919b6e77b9d3138839f0439062e3bc`
 - Previous SignalForge S13 + S21 + S22 release: `9ec2b133ca1c3339abccf34c5f5c86cecd3e6023`
@@ -33,6 +34,9 @@ Branch: `main` after S08A Myanmar Customs Auction Announcements production onboa
 - S08A source health: GREEN
 - S08A parse health at baseline: GREEN (`1/1`, `BUSINESS_PROCESSING`)
 - S08A canonical domain: `AUCTION_NOTICE`; baseline `items_parsed=4`, `tenders_parsed=0`, `details_attempted=0`
+- S12 source health: GREEN
+- S12 parse health at baseline: GREEN (`9/9`, ratio `1.0`)
+- S12 canonical domain: `REGULATORY_NOTICE`; baseline `items_parsed=9`, `tenders_parsed=0`, `details_attempted=9`
 - S13 source health: GREEN
 - S20 source health: GREEN
 - S20 parse health at baseline: GREEN (`5/5`, ratio `1.0`)
@@ -46,19 +50,19 @@ Branch: `main` after S08A Myanmar Customs Auction Announcements production onboa
 
 ## Current SignalForge business state
 
-Final live state after S08A baseline and timer restoration:
+Final live state after S12 baseline and timer restoration:
 
 ```text
-canonical_items=83
+canonical_items=92
 signals=11
-scheduler_runs=205
+scheduler_runs=221
 failed_runs=0
 recovery_backlog=0
-acquisition_requests=274
-acquisition_attempts=274
-evidence_envelopes=274
-processing_records=274
-Worker SignalForge application Runs=445
+acquisition_requests=304
+acquisition_attempts=304
+evidence_envelopes=304
+processing_records=304
+Worker SignalForge application Runs=457
 ```
 
 Per-source canonical/signal state verified during the paused rollout window:
@@ -67,6 +71,7 @@ Per-source canonical/signal state verified during the paused rollout window:
 S05A canonical_items=3  / signals=0 / item_kind=REGULATORY_NOTICE
 S07 canonical_items=5   / signals=0 / item_kind=REGULATORY_NOTICE
 S08A canonical_items=4  / signals=0 / item_kind=AUCTION_NOTICE
+S12 canonical_items=9   / signals=0 / item_kind=REGULATORY_NOTICE
 S13 canonical_items=16  / signals=10 / item_kind=TENDER
 S20 canonical_items=6   / signals=1 / item_kind=TENDER
 S21 canonical_items=45  / signals=0 / item_kind=TENDER
@@ -138,6 +143,22 @@ Customs /Announcements mixed HTML
 ```
 
 First baseline: 4 auction notices, `items_parsed=4`, `tenders_parsed=0`, `details_attempted=0`, zero signals. Current PDF set is mixed text-native/scan; no OCR/PDF production parser was introduced.
+
+### S12 — IRD Business Tax Announcements — GREEN / PRODUCTION COMPLETE
+
+Current production release: `d5222d00e81692ae4f4b8ee3d0a3d7ad70618237`.
+
+Source/domain shape:
+
+```text
+IRD /announcement-lists HTML
+-> bounded 180-day detail fetch
+-> ACTIVE_SELECTIVE tax classifier
+-> zero/one REGULATORY_NOTICE canonical item
+-> attachment metadata only
+```
+
+First baseline: 9 tax/regulatory notices, `items_parsed=9`, `tenders_parsed=0`, `details_attempted=9`, parse `9/9`, zero signals. IRD procurement tenders and non-tax institutional noise are excluded.
 
 ### S20 — MOEP Main Tender Hub — GREEN / PRODUCTION COMPLETE
 
@@ -464,6 +485,29 @@ Evidence: `docs/verification/S07-SOURCE-ONBOARDING-2026-09-04.md`.
 
 Evidence: `docs/verification/S08A-SOURCE-ONBOARDING-2026-09-04.md`.
 
+### S12 IRD Business Tax Announcements Onboarding — PASS
+
+- PR #28 CI PASS and squash-merged;
+- exact SHA `d5222d00e81692ae4f4b8ee3d0a3d7ad70618237` deployed to Bangkok only;
+- immediate rollback is `cb5291fdfcc13a678f63b53072e39089f8c27258`;
+- pre-deploy state frozen at canonical `83`, signals `11`, scheduler runs `216`, Worker Runs `455`;
+- first baseline created 9 `REGULATORY_NOTICE` canonical items and zero customer signals;
+- baseline metrics: `items_parsed=9`, `tenders_parsed=0`, `details_attempted=9`, `details_succeeded=9`;
+- S12 categories persisted as TAX_REGISTRATION=3, TAX_PAYMENT=2, TAX_FILING=2, TAX_EXEMPTION=2;
+- requests/attempts/evidence/processing=`15/15/15/15`, zero pending discovery items and zero PDF requested URLs;
+- S12 parse health GREEN (`9/9`);
+- Worker cardinality/correlation verified (`455 -> 456`);
+- Bangkok + Beijing Worker doctors PASS;
+- Beijing remains strict zero-footprint and rejects `signalforge-refresh S12`;
+- timer resume wrapper changed Worker Runs `456 -> 457` and processed due S13/S20/S21/S22, all `SUCCESS`, `changed=0`, `signals=0`;
+- timer restored enabled / active / waiting;
+- all eight sources GREEN;
+- S04 Trade Portal remains deferred for canonical onboarding pending cross-source issuer-resolution/equivalence/dedup;
+- PRD v1.5.1 Browser invariant preserved: no VPS Browser runtime and no SignalForge→Mac remote invocation;
+- no PDF/OCR production capability introduced.
+
+Evidence: `docs/verification/S12-SOURCE-ONBOARDING-2026-09-04.md`.
+
 ## Frozen acquisition invariants
 
 ```text
@@ -499,14 +543,14 @@ Still frozen:
 - Browserless ADR: only after multiple real browser consumers create shared lifecycle/queue/session pain.
 - PDF supplementary adapter: only when issuer HTML lacks business-critical fields whose extraction materially improves the commercial signal.
 
-S20, S22, S05A, S07 and S08A triggered none of these gates. S20 did surface a real PDF-attachment degradation, while S05A proved retrievable official PDFs can still remain metadata-only when HTML is sufficient for event detection; neither condition was promoted into a new runtime capability.
+S20, S22, S05A, S07, S08A and S12 triggered none of these gates. S20 did surface a real PDF-attachment degradation, while S05A proved retrievable official PDFs can still remain metadata-only when HTML is sufficient for event detection; neither condition was promoted into a new runtime capability.
 
 ## Next
 
-1. operate S05A + S07 + S08A + S13 + S20 + S21 + S22 and collect real acquisition/source history;
+1. operate S05A + S07 + S08A + S12 + S13 + S20 + S21 + S22 and collect real acquisition/source history;
 2. choose the next source by business value plus current endpoint quality, not source-ID order;
 3. S01 National Portal fresh audit: defer canonical onboarding; preserve only as a future discovery-aggregator/issuer-resolution capability because its labelled closing date can conflict with issuer-original evidence;
-4. preferred next issuer-original audit pool: S04 Trade Portal legal documents and S12 IRD; S05A/S07/S08A are production-complete; keep S08A tender-award/result as a separate future `PROCUREMENT_RESULT` decision;
+4. S04 Trade Portal canonical onboarding is deferred until cross-source issuer-resolution/equivalence/dedup exists; S12 is production-complete; preferred next issuer-original audit starts with S10 DICA Announcements, then only conditional YCDC/MCDC/NPTDC if their gates pass; keep S08A tender-award/result as a separate future `PROCUREMENT_RESULT` decision;
 5. periodically recheck whether MOEP advertised PDFs become retrievable; only then consider a supplementary PDF parser gate;
 6. preserve YCDC/MCDC/NPTDC identity/PDF/classifier gates rather than bypassing them;
 7. keep Direct HTTP first; if a source truly requires Browser, route the requirement only to Mac Browser Plane and block unattended production until a separate Provider Invocation Contract is live-verified;

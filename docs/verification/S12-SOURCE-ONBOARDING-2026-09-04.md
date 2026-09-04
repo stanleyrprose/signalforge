@@ -1,8 +1,8 @@
 # S12 IRD Business Tax Announcements — Source Onboarding
 
 Date (Asia/Yangon): 2026-09-04
-Phase: PRE-PRODUCTION
-Result: IMPLEMENTATION / TEST / LIVE TRANSPORT PASS
+Phase: PRODUCTION
+Result: PASS / PRODUCTION COMPLETE
 
 ## Decision
 
@@ -140,9 +140,125 @@ Bangkok Direct HTTP: PASS
 
 Existing S05A/S07/S08A/S13/S20/S21/S22 regression behavior remains unchanged.
 
-## Production gate
+## Production rollout — PASS
 
-Production is not complete until:
+PR #28 passed CI and was squash-merged. Exact application SHA deployed to Bangkok:
+
+```text
+d5222d00e81692ae4f4b8ee3d0a3d7ad70618237
+```
+
+Immediate rollback target:
+
+```text
+cb5291fdfcc13a678f63b53072e39089f8c27258
+```
+
+Pre-deploy frozen state:
+
+```text
+canonical_items=83
+signals=11
+scheduler_runs=216
+acquisition_requests=285
+acquisition_attempts=285
+evidence_envelopes=285
+processing_records=285
+failed_runs=0
+recovery_backlog=0
+Worker SignalForge Runs=455
+existing seven sources=GREEN
+timer=disabled/inactive
+```
+
+Deployment reported `timer_preexisting=0`. Active manifest became `S05A,S07,S08A,S12,S13,S20,S21,S22`. Deployment itself left all business counts unchanged and SQLite `quick_check=ok`.
+
+### First production baseline
+
+Reviewed `signalforge-refresh S12` returned:
+
+```text
+trigger_kind=MANUAL
+baseline=1
+status=SUCCESS
+items_parsed=9
+tenders_parsed=0
+details_attempted=9
+details_succeeded=9
+changed=9
+signals_created=0
+worker_run_id=signalforge-20260904T083918Z-dda68678
+```
+
+State transition:
+
+```text
+canonical_items: 83 -> 92
+signals:         11 -> 11
+scheduler_runs:  216 -> 217
+acquisition/evidence/processing: 285 -> 300
+```
+
+S12 persistence:
+
+```text
+REGULATORY_NOTICE=9
+TAX_REGISTRATION=3
+TAX_PAYMENT=2
+TAX_FILING=2
+TAX_EXEMPTION=2
+signals=0
+requests/attempts/evidence/processing=15/15/15/15
+pending discovery items=0
+PDF requested_url count=0
+SQLite quick_check=ok
+```
+
+Worker cardinality/correlation:
+
+```text
+Worker SignalForge Runs: 455 -> 456
+latest Worker Run=signalforge-20260904T083918Z-dda68678 / SUCCESS
+```
+
+Worker Run ID exactly matched the S12 scheduler row.
+
+### Topology / timer restoration
+
+```text
+Bangkok Worker doctor=PASS
+Beijing Worker doctor=PASS
+Beijing /srv/signalforge=ABSENT
+Beijing signalforge-refresh S12=126 / DENY: SignalForge is Bangkok-only
+```
+
+After `signalforge-resume`, one persistent wrapper (`456 -> 457`) processed due S13/S20/S21/S22 only. All returned `SUCCESS`, `changed=0`, `signals_created=0`. S12 was not due and was not repeated.
+
+Final state:
+
+```text
+release=d5222d00e81692ae4f4b8ee3d0a3d7ad70618237
+active sources=S05A,S07,S08A,S12,S13,S20,S21,S22
+canonical_items=92
+signals=11
+scheduler_runs=221
+acquisition_requests=304
+acquisition_attempts=304
+evidence_envelopes=304
+processing_records=304
+failed_runs=0
+recovery_backlog=0
+Worker SignalForge Runs=457
+timer=enabled/active/waiting
+all eight sources=GREEN
+browser_production_approved=false
+```
+
+No Browser, PDF parser, OCR, Mac remote invocation, schema migration or Worker/Control Plane expansion was introduced.
+
+## Production gate — closed
+
+All of the following passed:
 
 1. PR CI passes and exact merged SHA is deployed to Bangkok only;
 2. timer is paused and current seven-source state is frozen;
