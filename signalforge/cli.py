@@ -10,8 +10,8 @@ from . import VERB_MANIFEST_VERSION
 from .config import Registry, SOURCE_ID_PATTERN, db_path
 from .db import connect, migrate
 from .engine import run_due, run_source
-from .mpa import parse_listing_records, parse_pdf_business_fields, preview_summary
-from .provider_bridge import build_provider_request, import_provider_result, write_provider_request
+from .mpa import build_manual_bundle_preview, parse_listing_records, parse_pdf_business_fields, preview_summary
+from .provider_bridge import build_provider_request, import_provider_result, load_imported_provider_artifact, write_provider_request
 
 
 def _parse_iso(value: str | None) -> datetime | None:
@@ -222,6 +222,8 @@ def main(argv: list[str] | None = None) -> int:
     provider_request_parser = sub.add_parser("provider-request")
     provider_request_parser.add_argument("source_id")
     provider_request_parser.add_argument("--output")
+    provider_request_parser.add_argument("--url")
+    provider_request_parser.add_argument("--target-role", choices=("LISTING", "DETAIL", "PDF"), default="LISTING")
     provider_import_parser = sub.add_parser("provider-import")
     provider_import_parser.add_argument("--request", required=True)
     provider_import_parser.add_argument("--result", required=True)
@@ -233,6 +235,12 @@ def main(argv: list[str] | None = None) -> int:
     mpa_preview_parser.add_argument("--limit", type=int, default=30)
     mpa_pdf_preview_parser = sub.add_parser("mpa-pdf-preview")
     mpa_pdf_preview_parser.add_argument("--pdf", required=True)
+    mpa_bundle_preview_parser = sub.add_parser("mpa-provider-bundle-preview")
+    mpa_bundle_preview_parser.add_argument("--listing-provider-request-id", required=True)
+    mpa_bundle_preview_parser.add_argument("--detail-provider-request-id", required=True)
+    mpa_bundle_preview_parser.add_argument("--pdf-provider-request-id", required=True)
+    mpa_bundle_preview_parser.add_argument("--database")
+    mpa_bundle_preview_parser.add_argument("--evidence-root")
     sub.add_parser("status")
     args = parser.parse_args(argv)
     try:
@@ -249,9 +257,14 @@ def main(argv: list[str] | None = None) -> int:
             result = run_source(args.source_id, force=True, trigger_kind_override="MANUAL")
         elif args.cmd == "provider-request":
             if args.output:
-                result = write_provider_request(args.source_id, Path(args.output).expanduser())
+                result = write_provider_request(
+                    args.source_id,
+                    Path(args.output).expanduser(),
+                    url=args.url,
+                    target_role=args.target_role,
+                )
             else:
-                result = build_provider_request(args.source_id)
+                result = build_provider_request(args.source_id, url=args.url, target_role=args.target_role)
         elif args.cmd == "provider-import":
             result = import_provider_result(
                 request_path=Path(args.request).expanduser(),
@@ -276,6 +289,34 @@ def main(argv: list[str] | None = None) -> int:
                 "status": "PREVIEW_ONLY",
                 "source_id": "S15A",
                 **parse_pdf_business_fields(pdf_path.read_bytes()).payload(),
+            }
+        elif args.cmd == "mpa-provider-bundle-preview":
+            database = Path(args.database).expanduser() if args.database else None
+            evidence_directory = Path(args.evidence_root).expanduser() if args.evidence_root else None
+            listing = load_imported_provider_artifact(
+                args.listing_provider_request_id, database=database, evidence_directory=evidence_directory
+            )
+            detail = load_imported_provider_artifact(
+                args.detail_provider_request_id, database=database, evidence_directory=evidence_directory
+            )
+            pdf = load_imported_provider_artifact(
+                args.pdf_provider_request_id, database=database, evidence_directory=evidence_directory
+            )
+            if (listing.source_id, detail.source_id, pdf.source_id) != ("S15A", "S15A", "S15A"):
+                raise ValueError("MPA provider bundle must contain S15A evidence only")
+            if (listing.target_role, detail.target_role, pdf.target_role) != ("LISTING", "DETAIL", "PDF"):
+                raise ValueError("MPA provider bundle roles must be LISTING / DETAIL / PDF")
+            result = build_manual_bundle_preview(
+                listing.payload,
+                detail.payload,
+                pdf.payload,
+                detail_url=detail.requested_url,
+                pdf_url=pdf.requested_url,
+            )
+            result["provider_evidence"] = {
+                "listing": {"provider_request_id": listing.provider_request_id, "evidence_id": listing.evidence_id, "sha256": listing.sha256},
+                "detail": {"provider_request_id": detail.provider_request_id, "evidence_id": detail.evidence_id, "sha256": detail.sha256},
+                "pdf": {"provider_request_id": pdf.provider_request_id, "evidence_id": pdf.evidence_id, "sha256": pdf.sha256},
             }
         else:
             result = status()

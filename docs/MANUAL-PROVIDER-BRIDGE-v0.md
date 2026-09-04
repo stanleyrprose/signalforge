@@ -24,11 +24,22 @@ Manual Provider Bridge v0 is intentionally narrow:
 supported provider   = mac-mm-01
 supported source     = S15A only
 supported task       = C0 fetch only
+approved S15A roles  = LISTING / DETAIL / PDF
 network              = Mac direct only
 processing           = EVIDENCE_ONLY
 remote invocation    = disabled
 production routing   = unchanged
 ```
+
+Approved S15A target roles are fail-closed and source-bounded:
+
+```text
+LISTING  fixed https://www.mpa.gov.mm/tenders-and-announcement/
+DETAIL   https://www.mpa.gov.mm/announcements/.../
+PDF      https://www.mpa.gov.mm/wp-content/uploads/...pdf
+```
+
+Dynamic DETAIL/PDF requests require an explicit URL. The bridge rejects non-HTTPS URLs, other hosts, query/fragment variants, path traversal, paths outside the approved prefix and mismatched PDF suffix/content-type contracts. These roles expand only **manual evidence acquisition**; they do not create generic arbitrary-URL provider execution.
 
 It does **not**:
 
@@ -73,7 +84,20 @@ evidence_envelopes.app_job_ref    = provider_request_id
 From a SignalForge checkout/release containing this bridge:
 
 ```bash
-signalforge provider-request S15A --output /tmp/s15a-provider-request.json
+# fixed listing request
+signalforge provider-request S15A --output /tmp/s15a-listing-request.json
+
+# one explicit issuer detail discovered from the listing
+signalforge provider-request S15A \
+  --target-role DETAIL \
+  --url 'https://www.mpa.gov.mm/announcements/<issuer-slug>/' \
+  --output /tmp/s15a-detail-request.json
+
+# one issuer PDF discovered from that detail page
+signalforge provider-request S15A \
+  --target-role PDF \
+  --url 'https://www.mpa.gov.mm/wp-content/uploads/<issuer-path>.pdf' \
+  --output /tmp/s15a-pdf-request.json
 ```
 
 The request file is mode `0600` and is directly compatible with `browserctl run`. Extra `_provider_request` metadata is ignored by the Browser Plane JobSpec parser but is preserved for SignalForge import validation.
@@ -124,7 +148,8 @@ signalforge provider-import \
 The importer validates before DB insertion:
 
 - provider/source/bridge version;
-- approved S15A URL;
+- approved S15A target role and URL boundary;
+- LISTING fixed URL or bounded DETAIL/PDF issuer path;
 - direct-only C0 request;
 - source policy/provider baseline;
 - profile/egress/expected content-type contract;
@@ -235,6 +260,22 @@ timer                       = enabled / active
 ```
 
 Production evidence permissions were verified as `0700` for the provider directory, `0600` for request/result JSON, and `0640` for the raw HTML artifact. The bridge therefore closed the manual evidence path without onboarding S15A or enabling unattended Mac invocation.
+
+## Manual P0 Phase A — evidence bundle preview
+
+A later bounded extension may import one `LISTING`, one `DETAIL` and one `PDF` artifact as independent `EVIDENCE_ONLY` lifecycles, then join them **read-only**:
+
+```text
+mpa-provider-bundle-preview
+  LISTING evidence
++ DETAIL evidence (stable WordPress post ID + issuer PDF locator)
++ PDF evidence (deterministic business semantics)
+-> stable mpa:<wordpress_post_id> candidate
+-> final item_kind / deadline / reference / scope evidence
+-> READY_FOR_MANUAL_COMMIT or REVIEW_REQUIRED
+```
+
+The preview verifies durable provider evidence SHA/size and relationship constraints (`listing row -> detail URL -> detail PDF locator -> PDF URL`). It does not write canonical items or signals. A future manual canonical commit, if approved, is a separate phase and must remain explicit/idempotent.
 
 ## Reopen rule
 

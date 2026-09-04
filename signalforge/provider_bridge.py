@@ -4,9 +4,11 @@ import hashlib
 import json
 import shutil
 import uuid
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import unquote, urlparse
 
 from .acquisition_contract import ACQUISITION_SCHEMA_VERSION
 from .config import Registry, db_path, evidence_root
@@ -19,6 +21,21 @@ BRIDGE_NAME = "manual-provider-v0"
 
 class ProviderBridgeError(RuntimeError):
     pass
+
+
+@dataclass(frozen=True)
+class ImportedProviderArtifact:
+    source_id: str
+    provider_request_id: str
+    acquisition_request_id: str
+    evidence_id: str
+    target_role: str
+    target_kind: str
+    requested_url: str
+    content_type: str
+    sha256: str
+    artifact_path: Path
+    payload: bytes
 
 
 def _json(value: object) -> str:
@@ -90,19 +107,91 @@ def _manual_candidate(registry: Registry, source_id: str) -> tuple[dict[str, Any
     return bridge, provider, candidate
 
 
-def build_provider_request(source_id: str, *, registry: Registry | None = None, requested_at: str | None = None) -> dict[str, Any]:
+def _resolve_manual_target(
+    candidate: dict[str, Any],
+    *,
+    target_role: str = "LISTING",
+    url: str | None = None,
+) -> dict[str, Any]:
+    role = str(target_role or "LISTING").upper()
+    if role == "LISTING":
+        expected_url = candidate.get("url")
+        if not isinstance(expected_url, str) or not expected_url.startswith("https://"):
+            raise ProviderBridgeError("manual bridge listing URL missing")
+        if url is not None and url != expected_url:
+            raise ProviderBridgeError("manual bridge LISTING URL must equal approved candidate URL")
+        expected_types = candidate.get("expected_content_types")
+        if not isinstance(expected_types, list) or not expected_types:
+            raise ProviderBridgeError("manual bridge listing content types missing")
+        return {
+            "target_role": "LISTING",
+            "url": expected_url,
+            "target_kind": str(candidate.get("target_kind", "HTML")),
+            "expected_content_types": list(expected_types),
+        }
+
+    targets = candidate.get("manual_targets")
+    target = targets.get(role) if isinstance(targets, dict) else None
+    if not isinstance(target, dict):
+        raise ProviderBridgeError(f"manual bridge target role is not approved: {role}")
+    if not isinstance(url, str) or not url.startswith("https://"):
+        raise ProviderBridgeError(f"manual bridge {role} URL must be explicit HTTPS")
+    parsed = urlparse(url)
+    approved_host = target.get("https_host")
+    if (
+        parsed.scheme != "https"
+        or parsed.hostname != approved_host
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.port not in (None, 443)
+        or parsed.query
+        or parsed.fragment
+    ):
+        raise ProviderBridgeError(f"manual bridge {role} URL violates HTTPS host/path boundary")
+    decoded_path = unquote(parsed.path)
+    if ".." in decoded_path.split("/"):
+        raise ProviderBridgeError(f"manual bridge {role} URL path traversal is forbidden")
+    prefix = target.get("path_prefix")
+    suffix = target.get("path_suffix")
+    if not isinstance(prefix, str) or not parsed.path.startswith(prefix):
+        raise ProviderBridgeError(f"manual bridge {role} URL path is outside approved prefix")
+    if isinstance(suffix, str) and suffix and not parsed.path.lower().endswith(suffix.lower()):
+        raise ProviderBridgeError(f"manual bridge {role} URL path suffix is not approved")
+    expected_types = target.get("expected_content_types")
+    if not isinstance(expected_types, list) or not expected_types or not all(isinstance(item, str) and item for item in expected_types):
+        raise ProviderBridgeError(f"manual bridge {role} expected_content_types invalid")
+    target_kind = target.get("target_kind")
+    if target_kind not in {"HTML", "PDF"}:
+        raise ProviderBridgeError(f"manual bridge {role} target_kind invalid")
+    return {
+        "target_role": role,
+        "url": url,
+        "target_kind": str(target_kind),
+        "expected_content_types": list(expected_types),
+    }
+
+
+def build_provider_request(
+    source_id: str,
+    *,
+    registry: Registry | None = None,
+    requested_at: str | None = None,
+    url: str | None = None,
+    target_role: str = "LISTING",
+) -> dict[str, Any]:
     registry = registry or Registry.load()
     bridge, _provider, candidate = _manual_candidate(registry, source_id)
+    target = _resolve_manual_target(candidate, target_role=target_role, url=url)
     provider_request_id = str(uuid.uuid4())
     signalforge_job_id = str(uuid.uuid4())
     acquisition_request_id = str(uuid.uuid4())
     acquisition_attempt_id = str(uuid.uuid4())
     requested_at = requested_at or _now()
-    url = str(candidate["url"])
+    requested_url = str(target["url"])
 
     return {
         "task_type": "fetch",
-        "url": url,
+        "url": requested_url,
         "egress": "direct",
         "profile": str(candidate.get("profile", "public-research")),
         "profile_mode": str(candidate.get("profile_mode", "ephemeral")),
@@ -124,16 +213,24 @@ def build_provider_request(source_id: str, *, registry: Registry | None = None, 
             "source_id": source_id,
             "source_policy_version": int(candidate.get("source_policy_version", 1)),
             "requested_at": requested_at,
-            "requested_url": url,
-            "target_kind": str(candidate.get("target_kind", "HTML")),
-            "expected_content_types": list(candidate["expected_content_types"]),
+            "requested_url": requested_url,
+            "target_role": str(target["target_role"]),
+            "target_kind": str(target["target_kind"]),
+            "expected_content_types": list(target["expected_content_types"]),
             "egress_profile": str(candidate.get("egress_profile", "mac-direct")),
         },
     }
 
 
-def write_provider_request(source_id: str, output: Path, *, registry: Registry | None = None) -> dict[str, Any]:
-    request = build_provider_request(source_id, registry=registry)
+def write_provider_request(
+    source_id: str,
+    output: Path,
+    *,
+    registry: Registry | None = None,
+    url: str | None = None,
+    target_role: str = "LISTING",
+) -> dict[str, Any]:
+    request = build_provider_request(source_id, registry=registry, url=url, target_role=target_role)
     _private_write_json(output, request)
     metadata = request["_provider_request"]
     assert isinstance(metadata, dict)
@@ -145,6 +242,8 @@ def write_provider_request(source_id: str, output: Path, *, registry: Registry |
         "signalforge_job_id": metadata["signalforge_job_id"],
         "acquisition_request_id": metadata["acquisition_request_id"],
         "acquisition_attempt_id": metadata["acquisition_attempt_id"],
+        "target_role": metadata["target_role"],
+        "requested_url": metadata["requested_url"],
         "output": str(output),
     }
 
@@ -153,7 +252,9 @@ def _base_media_type(value: str | None) -> str:
     return (value or "").split(";", 1)[0].strip().lower()
 
 
-def _validated_request(request: dict[str, Any], registry: Registry) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+def _validated_request(
+    request: dict[str, Any], registry: Registry
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]]:
     metadata = request.get("_provider_request")
     if not isinstance(metadata, dict):
         raise ProviderBridgeError("provider request metadata missing")
@@ -167,13 +268,18 @@ def _validated_request(request: dict[str, Any], registry: Registry) -> tuple[dic
         raise ProviderBridgeError("provider request provider_id mismatch")
     if int(metadata.get("provider_baseline_version", -1)) != int(bridge.get("provider_baseline_version", 1)):
         raise ProviderBridgeError("provider request baseline version mismatch")
-    if metadata.get("requested_url") != candidate.get("url") or request.get("url") != candidate.get("url"):
-        raise ProviderBridgeError("provider request URL does not match approved candidate")
+    requested_url = metadata.get("requested_url")
+    if not isinstance(requested_url, str):
+        raise ProviderBridgeError("provider request requested_url missing")
+    target_role = str(metadata.get("target_role") or "LISTING")
+    target = _resolve_manual_target(candidate, target_role=target_role, url=requested_url)
+    if request.get("url") != target.get("url"):
+        raise ProviderBridgeError("provider request URL does not match approved target")
     if metadata.get("source_policy_version") != candidate.get("source_policy_version"):
         raise ProviderBridgeError("provider request source policy version mismatch")
-    if metadata.get("target_kind") != candidate.get("target_kind"):
+    if metadata.get("target_kind") != target.get("target_kind"):
         raise ProviderBridgeError("provider request target kind mismatch")
-    if metadata.get("expected_content_types") != candidate.get("expected_content_types"):
+    if metadata.get("expected_content_types") != target.get("expected_content_types"):
         raise ProviderBridgeError("provider request expected content types mismatch")
     if metadata.get("egress_profile") != candidate.get("egress_profile"):
         raise ProviderBridgeError("provider request egress profile mismatch")
@@ -189,7 +295,7 @@ def _validated_request(request: dict[str, Any], registry: Registry) -> tuple[dic
     for key in ("signalforge_job_id", "acquisition_request_id", "acquisition_attempt_id", "requested_at"):
         if not isinstance(metadata.get(key), str) or not metadata[key]:
             raise ProviderBridgeError(f"provider request correlation missing: {key}")
-    return metadata, provider, candidate
+    return metadata, provider, candidate, target
 
 
 def import_provider_result(
@@ -203,7 +309,7 @@ def import_provider_result(
 ) -> dict[str, Any]:
     registry = registry or Registry.load()
     request = _load_json(request_path)
-    metadata, _provider, candidate = _validated_request(request, registry)
+    metadata, _provider, candidate, target = _validated_request(request, registry)
     browser_result = _load_json(result_path)
 
     if browser_result.get("state") != "SUCCEEDED":
@@ -218,8 +324,8 @@ def import_provider_result(
     if not isinstance(status, int) or status < 200 or status >= 300:
         raise ProviderBridgeError(f"provider result HTTP status is not successful: {status}")
     final_url = result.get("url")
-    if not isinstance(final_url, str) or final_url != candidate.get("url"):
-        raise ProviderBridgeError("provider result final URL does not match approved candidate")
+    if not isinstance(final_url, str) or final_url != target.get("url"):
+        raise ProviderBridgeError("provider result final URL does not match approved target")
 
     source_artifact = artifact_path
     if source_artifact is None:
@@ -239,7 +345,7 @@ def import_provider_result(
     if int(result.get("body_bytes", -1)) != len(payload):
         raise ProviderBridgeError("provider artifact byte count mismatch")
     content_type = str(result.get("content_type") or "application/octet-stream")
-    expected_types = metadata.get("expected_content_types")
+    expected_types = target.get("expected_content_types")
     if not isinstance(expected_types, list):
         raise ProviderBridgeError("provider request expected_content_types missing")
     if _base_media_type(content_type) not in {_base_media_type(str(item)) for item in expected_types}:
@@ -259,7 +365,7 @@ def import_provider_result(
     source_policy_version = int(metadata["source_policy_version"])
     provider_baseline_version = int(metadata["provider_baseline_version"])
     egress_profile = str(metadata["egress_profile"])
-    target_kind = str(metadata["target_kind"])
+    target_kind = str(target["target_kind"])
 
     with connect(target_database) as conn:
         existing = conn.execute(
@@ -440,8 +546,78 @@ def import_provider_result(
         "evidence_id": evidence_id,
         "processing_id": processing_id,
         "processing_status": "EVIDENCE_ONLY",
+        "target_role": str(metadata.get("target_role") or "LISTING"),
         "artifact_path": str(stored_artifact),
         "sha256": digest,
         "artifact_bytes": len(payload),
         "content_type": content_type,
     }
+
+
+def load_imported_provider_artifact(
+    provider_request_id: str,
+    *,
+    database: Path | None = None,
+    evidence_directory: Path | None = None,
+    registry: Registry | None = None,
+) -> ImportedProviderArtifact:
+    registry = registry or Registry.load()
+    target_database = database or db_path()
+    target_evidence_root = evidence_directory or evidence_root()
+    with connect(target_database) as conn:
+        rows = conn.execute(
+            """
+            SELECT ar.request_id,ar.target_kind,e.evidence_id,e.app_job_ref,e.source_id,e.requested_url,e.media_type,
+                   e.provider_id,e.execution_scope,e.fetch_method,e.artifact_sha256,e.artifact_bytes
+            FROM acquisition_requests ar
+            JOIN evidence_envelopes e ON e.request_id=ar.request_id
+            WHERE ar.app_job_ref=?
+            """,
+            (provider_request_id,),
+        ).fetchall()
+        if not rows:
+            raise ProviderBridgeError(f"imported provider artifact not found: {provider_request_id}")
+        if len(rows) != 1:
+            raise ProviderBridgeError(f"imported provider artifact correlation is not unique: {provider_request_id}")
+        row = rows[0]
+        evidence_only = conn.execute(
+            "SELECT COUNT(*) FROM processing_records WHERE evidence_id=? AND status='EVIDENCE_ONLY'",
+            (str(row["evidence_id"]),),
+        ).fetchone()[0]
+        if int(evidence_only) < 1:
+            raise ProviderBridgeError("provider artifact does not have EVIDENCE_ONLY processing provenance")
+
+    source_id = str(row["source_id"])
+    import_dir = target_evidence_root / source_id / "provider" / provider_request_id
+    request_path = import_dir / "request.json"
+    request = _load_json(request_path)
+    metadata, _provider, _candidate, target = _validated_request(request, registry)
+    if metadata.get("provider_request_id") != provider_request_id:
+        raise ProviderBridgeError("stored provider request id does not match evidence path")
+    candidates = [
+        item
+        for item in import_dir.iterdir()
+        if item.is_file() and item.name.startswith("response.") and not item.name.endswith(".part")
+    ] if import_dir.exists() else []
+    if len(candidates) != 1:
+        raise ProviderBridgeError(f"expected exactly one stored provider response artifact, found {len(candidates)}")
+    artifact_path = candidates[0]
+    payload = artifact_path.read_bytes()
+    digest = hashlib.sha256(payload).hexdigest()
+    if digest != str(row["artifact_sha256"]) or len(payload) != int(row["artifact_bytes"]):
+        raise ProviderBridgeError("stored provider response artifact fails durable hash/size verification")
+    if str(row["requested_url"]) != str(target["url"]):
+        raise ProviderBridgeError("stored provider requested_url does not match current target contract")
+    return ImportedProviderArtifact(
+        source_id=source_id,
+        provider_request_id=provider_request_id,
+        acquisition_request_id=str(row["request_id"]),
+        evidence_id=str(row["evidence_id"]),
+        target_role=str(metadata.get("target_role") or "LISTING"),
+        target_kind=str(row["target_kind"]),
+        requested_url=str(row["requested_url"]),
+        content_type=str(row["media_type"] or "application/octet-stream"),
+        sha256=digest,
+        artifact_path=artifact_path,
+        payload=payload,
+    )

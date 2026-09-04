@@ -4,6 +4,7 @@ import io
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from pypdf import PdfWriter
 
@@ -11,6 +12,8 @@ from signalforge.cli import main, verb_manifest
 from signalforge.config import Registry
 from signalforge.mpa import (
     MpaParseError,
+    MpaPdfFields,
+    build_manual_bundle_preview,
     classify_item_kind,
     classify_pdf_text,
     extract_deadline,
@@ -95,6 +98,56 @@ class MpaPreviewTests(unittest.TestCase):
         self.assertEqual(classify_item_kind("ကုန်သေတ္တာအခွံ(၂၈)လုံးအား အိတ်ဖွင့်တင်ဒါ"), "AUCTION_NOTICE")
         self.assertEqual(classify_item_kind("General announcement"), "UNCLASSIFIED")
 
+    def test_manual_bundle_preview_joins_listing_detail_pdf_without_writing_state(self) -> None:
+        detail_url = "https://www.mpa.gov.mm/announcements/open-tender-invitation-for-three-tugs-2/"
+        pdf_url = "https://www.mpa.gov.mm/wp-content/uploads/2026/06/Three-Tug-Tender-Eng.pdf"
+        detail = f"""<html><head><link rel='shortlink' href='https://www.mpa.gov.mm/?p=37867' /></head>
+        <body><iframe data-src='{pdf_url}'></iframe></body></html>""".encode()
+        fields = MpaPdfFields(
+            final_item_kind="AUCTION_NOTICE",
+            classification_status="DETERMINISTIC_PDF",
+            classification_basis="AUCTION_EN",
+            deadline_local="2026-06-25T13:00:00",
+            deadline_timezone="Asia/Yangon",
+            deadline_status="FOUND",
+            reference_no=None,
+            scope_excerpt="three Tugs will be auctioned through an open tender system",
+            page_count=2,
+            text_chars=1941,
+        )
+        with patch("signalforge.mpa.parse_pdf_business_fields", return_value=fields):
+            result = build_manual_bundle_preview(
+                LISTING, detail, b"pdf-bytes", detail_url=detail_url, pdf_url=pdf_url
+            )
+        self.assertEqual(result["status"], "READY_FOR_MANUAL_COMMIT")
+        candidate = result["candidate"]
+        self.assertEqual(candidate["canonical_key"], "mpa:37867")
+        self.assertEqual(candidate["item_kind"], "AUCTION_NOTICE")
+        self.assertEqual(candidate["publication_date"], "2026-06-02")
+        self.assertEqual(candidate["deadline"], "2026-06-25T13:00:00+06:30")
+        self.assertEqual(candidate["reference_no"], "MPA-POST-37867")
+        self.assertEqual(candidate["reference_no_kind"], "wordpress_post_id")
+        self.assertEqual(candidate["pdf_url"], pdf_url)
+        self.assertEqual(candidate["listing_provisional_item_kind"], "TENDER")
+
+    def test_manual_bundle_preview_fails_closed_on_evidence_relationship_mismatch(self) -> None:
+        detail_url = "https://www.mpa.gov.mm/announcements/open-tender-invitation-for-three-tugs-2/"
+        pdf_url = "https://www.mpa.gov.mm/wp-content/uploads/2026/06/Three-Tug-Tender-Eng.pdf"
+        detail = f"""<html><head><link rel='shortlink' href='https://www.mpa.gov.mm/?p=37867' /></head>
+        <body><iframe data-src='{pdf_url}'></iframe></body></html>""".encode()
+        with self.assertRaisesRegex(MpaParseError, "exactly one listing row"):
+            build_manual_bundle_preview(
+                LISTING, detail, b"pdf",
+                detail_url="https://www.mpa.gov.mm/announcements/not-in-listing/",
+                pdf_url=pdf_url,
+            )
+        with self.assertRaisesRegex(MpaParseError, "PDF URL does not match"):
+            build_manual_bundle_preview(
+                LISTING, detail, b"pdf",
+                detail_url=detail_url,
+                pdf_url="https://www.mpa.gov.mm/wp-content/uploads/2026/06/other.pdf",
+            )
+
     def test_pdf_classifier_uses_authoritative_disposal_semantics(self) -> None:
         text = (
             "Open Tender Invitation. The following three Tugs will be auctioned through an open tender system. "
@@ -145,6 +198,8 @@ class MpaPreviewTests(unittest.TestCase):
         self.assertNotIn("signalforge-mpa-preview", verbs)
         self.assertNotIn("mpa-pdf-preview", verbs)
         self.assertNotIn("signalforge-mpa-pdf-preview", verbs)
+        self.assertNotIn("mpa-provider-bundle-preview", verbs)
+        self.assertNotIn("signalforge-mpa-provider-bundle-preview", verbs)
 
     def test_s15a_remains_deferred_and_inactive(self) -> None:
         registry = Registry.load(ROOT)
