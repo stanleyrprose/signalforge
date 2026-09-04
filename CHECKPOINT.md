@@ -745,18 +745,25 @@ Evidence: `docs/verification/S15A-MPA-PDF-SUPPLEMENTARY-2026-09-05.md`.
 
 Evidence: `docs/verification/S15A-MPA-MANUAL-P0-PHASE-A-2026-09-05.md`.
 
-### S15A Manual P0 Phase B — IMPLEMENTATION / TEST PASS, LIVE BASELINE PENDING
+### S15A Manual P0 Phase B — PRODUCTION LIVE PASS
 
 - explicit user authorization was received to continue the recommended Manual P0 onboarding after Phase A production live verification;
-- new operator-only `mpa-provider-bundle-commit` reuses the three durable LISTING/DETAIL/PDF provider artifacts and revalidates the same evidence relationship before any write;
+- operator-only `mpa-provider-bundle-commit` reuses the three durable LISTING/DETAIL/PDF provider artifacts and revalidates the same evidence relationship before any write;
 - canonical identity remains `mpa:<wordpress_post_id>` and authoritative canonical evidence digest is the issuer PDF SHA-256;
 - first/manual baseline commits default to zero customer signal; `--emit-signal` is required explicitly for NEW/UPDATED emission when content materially changes;
 - one PDF evidence artifact can be committed once per `mpa-manual-v1` canonicalizer version; repeat returns `ALREADY_COMMITTED` without a second processing row or signal;
 - provider-import rows remain `EVIDENCE_ONLY`; canonical commit writes a separate `SUCCESS` processing row with parser `mpa-pdf-v1`, normalizer/canonicalizer `mpa-manual-v1`;
 - `REVIEW_REQUIRED` bundles fail closed and the commit command is absent from the VPS Worker verb manifest;
-- S15A remains outside the automated scheduler and Mac provider remains `production_enabled=false` / `remote_invocation=false`;
-- targeted Phase B tests 4/4 PASS; full repository suite 95/95 PASS;
-- production gate requires exact-SHA deploy and one Three-Tugs baseline commit without `--emit-signal`, resulting in S15A canonical/signals `1/0`, followed by idempotent repeat.
+- targeted Phase B tests 4/4 PASS; full repository suite 95/95 PASS; PR #49 and merged main verify PASS;
+- exact merged release `0ff38409a5c0f2a312a79c912e7e411b21cdccd4` is live on Bangkok; previous `bd4e217d0b036a436290462ce9f1393defd00d6c` remains the application rollback target;
+- installed-release preview of Phase A bundle `74a9b732-... / 88f20980-... / 9d3aa060-...` returned `READY_FOR_MANUAL_COMMIT`, stable `mpa:37867`, final `AUCTION_NOTICE`, deadline `2026-06-25T13:00:00+06:30`;
+- the first production commit omitted `--emit-signal` and returned `COMMITTED / CREATED`, processing `61dde280-ec98-45f0-8b78-59ed1b475921`; immediate repeat returned `ALREADY_COMMITTED` with the same processing ID;
+- S15A durable state after baseline is scheduler/request/attempt/evidence/processing `4/4/4/4/5`, canonical/signals `1/0`; exactly one `mpa-manual-v1` SUCCESS processing row exists and SQLite `quick_check=ok`;
+- the fourth evidence lifecycle is an immutable duplicate Three Tugs PDF manual verification with the same issuer SHA; the canonical baseline uses original Phase A PDF provider request `9d3aa060-...` and no audit evidence was deleted;
+- global canonical/signals changed only `124/11 -> 125/11`; SignalForge remained PASS/GREEN, all 12 automated sources GREEN, backlog 0, timer enabled/active;
+- S15A remains outside automated scheduling; Mac provider remains `production_enabled=false` / `remote_invocation=false` and `browser_production_approved=false`;
+- Bangkok and Beijing Worker doctors PASS with documented `WORKER_REPO_ROOT`; Beijing remains SignalForge zero-footprint;
+- Phase B is therefore PRODUCTION LIVE PASS. Operate MPA as a low-frequency manual canonical source; do not build unattended remote invocation until repeated real use proves material operator burden.
 
 Evidence: `docs/verification/S15A-MPA-MANUAL-P0-PHASE-B-2026-09-05.md`.
 
@@ -817,7 +824,7 @@ S20, S22, S05A, S07, S08A, S12, S25, S26 and S28 triggered none of these capabil
 4. S01 National Portal stays discovery-aggregator-only until issuer-resolution/equivalence/dedup exists; S04 Trade Portal remains deferred for the same cross-source contract reason;
 5. preserve the newly proven municipal gates: S16 requires identity/locator separation, S17 requires Burmese OCR, S18 requires classifier + OCR; do not force any of them into P0;
 6. keep S10 PDF supplementary extraction as a separate reviewed runtime-packaging slice and promote it only when its incremental commercial value justifies the dependency;
-7. S15A Manual P0 Phase B explicit manual canonical commit is authorized/implemented; complete its live zero-signal baseline gate, then operate the source manually at the current low event rate. Do not build unattended remote invocation unless repeated manual use proves operational burden;
+7. S15A Manual P0 Phase B is production live-verified with one zero-signal canonical baseline item (`mpa:37867`); operate MPA manually at the current low event rate, and do not build unattended remote invocation unless repeated real use proves material operational burden;
 8. keep S08A tender-award/result content as a separate future `PROCUREMENT_RESULT` decision;
 9. periodically recheck whether MOEP advertised PDFs become retrievable; only then consider a supplementary PDF parser gate;
 10. keep Direct HTTP first; if a source truly requires Browser, route the requirement only to Mac Browser Plane and block unattended production until a separate Provider Invocation Contract is live-verified;
