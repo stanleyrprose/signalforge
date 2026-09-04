@@ -25,7 +25,7 @@ class ContractTests(unittest.TestCase):
         )
         self.assertEqual(manifest["verbs"]["signalforge-refresh"]["argument"], "source_id")
         self.assertEqual(manifest["grammar"]["source_id"], "^[A-Z][A-Z0-9]{0,15}$")
-        self.assertEqual(manifest["active_source_ids"], ["S05A", "S07", "S08A", "S10", "S12", "S13", "S20", "S21", "S22", "S25"])
+        self.assertEqual(manifest["active_source_ids"], ["S05A", "S07", "S08A", "S10", "S12", "S13", "S20", "S21", "S22", "S25", "S26"])
 
         registry = Registry.load(ROOT)
         with self.assertRaisesRegex(ConfigError, "invalid source id"):
@@ -107,6 +107,16 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(monpifer["attachment_policy"]["mode"], "METADATA_ONLY_NON_BLOCKING")
         self.assertFalse(monpifer["attachment_policy"]["fetch_in_primary_pipeline"])
         self.assertNotIn("S25", registry.raw["deferred_sources"])
+
+        doms = registry.source("S26")
+        self.assertEqual(doms["adapter"], "doms_tender")
+        self.assertEqual(doms["role"], "ACTIVE_SELECTIVE")
+        self.assertEqual(doms["item_kind"], "TENDER")
+        self.assertTrue(doms["discovery_is_tender_only"])
+        self.assertEqual(doms["canonical_key"], "wordpress_post_id")
+        self.assertEqual(doms["acquisition_policy"]["primary"], {"method": "DIRECT_HTTP", "target_kind": "HTML"})
+        self.assertEqual(doms["attachment_policy"]["mode"], "METADATA_ONLY_NON_BLOCKING")
+        self.assertFalse(doms["attachment_policy"]["fetch_in_primary_pipeline"])
 
     def test_deploy_installs_reviewed_refresh_template_and_drains_instances(self) -> None:
         deploy = (ROOT / "deploy" / "deploy-signalforge-release.sh").read_text(encoding="utf-8")

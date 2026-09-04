@@ -9,6 +9,8 @@ from .customs import parse_notification_records as parse_customs_notification_re
 from .customs_announcements import parse_auction_records as parse_customs_auction_records
 from .dica import parse_announcement_detail as parse_dica_announcement_detail
 from .dica import parse_announcement_listing as parse_dica_announcement_listing
+from .doms import parse_tender_detail as parse_doms_tender_detail
+from .doms import parse_tender_listing as parse_doms_tender_listing
 from .iwt import parse_tender_detail as parse_iwt_tender_detail
 from .ird import parse_announcement_detail as parse_ird_announcement_detail
 from .ird import parse_announcement_listing as parse_ird_announcement_listing
@@ -75,6 +77,11 @@ def _parse_ird_detail(payload: bytes, url: str) -> list[object]:
 def _parse_dica_detail(payload: bytes, url: str) -> list[object]:
     notice = parse_dica_announcement_detail(payload, url)
     return [notice] if notice is not None else []
+
+
+def _parse_doms_detail(payload: bytes, url: str) -> list[object]:
+    tender = parse_doms_tender_detail(payload, url)
+    return [tender] if tender is not None else []
 
 
 ADAPTERS = {
@@ -180,6 +187,16 @@ ADAPTERS = {
         parse_discovery=_empty_discovery,
         parse_detail=lambda _payload, _url: [],
         parse_discovery_records=parse_monpifer_tender_records,
+    ),
+    "doms_tender": SourceAdapter(
+        name="doms_tender",
+        discovery_content_types=("text/html",),
+        discovery_parser_version="doms-tender-category-v1",
+        detail_parser_version="doms-tender-html-v1",
+        normalizer_version="doms-tender-normalize-v1",
+        canonicalizer_version="doms-wordpress-post-id-v1",
+        parse_discovery=parse_doms_tender_listing,
+        parse_detail=_parse_doms_detail,
     ),
 }
 
