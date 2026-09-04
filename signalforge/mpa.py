@@ -294,6 +294,7 @@ _PROCUREMENT_SIGNALS: tuple[tuple[str, str], ...] = (
     ("construction", "CONSTRUCTION_EN"),
     ("installation", "INSTALLATION_EN"),
     ("dredging", "DREDGING_EN"),
+    ("infrastructure refreshment", "INFRA_REFRESH_EN"),
 )
 
 
