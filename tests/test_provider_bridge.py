@@ -14,6 +14,7 @@ from signalforge.provider_bridge import (
     ProviderBridgeError,
     build_provider_request,
     import_provider_result,
+    load_imported_provider_artifact,
     write_provider_request,
 )
 
@@ -42,6 +43,148 @@ class ProviderBridgeTests(unittest.TestCase):
     def test_unapproved_source_cannot_create_manual_provider_request(self) -> None:
         with self.assertRaisesRegex(ProviderBridgeError, "not approved"):
             build_provider_request("S27", registry=Registry.load(ROOT))
+
+    def test_manual_detail_and_pdf_targets_are_bounded_and_typed(self) -> None:
+        registry = Registry.load(ROOT)
+        detail_url = "https://www.mpa.gov.mm/announcements/open-tender-invitation-for-three-tugs-2/"
+        detail = build_provider_request(
+            "S15A", registry=registry, url=detail_url, target_role="DETAIL"
+        )
+        detail_meta = detail["_provider_request"]
+        self.assertEqual(detail["url"], detail_url)
+        self.assertEqual(detail_meta["target_role"], "DETAIL")
+        self.assertEqual(detail_meta["target_kind"], "HTML")
+        self.assertEqual(detail_meta["expected_content_types"], ["text/html", "application/xhtml+xml"])
+
+        pdf_url = "https://www.mpa.gov.mm/wp-content/uploads/2026/06/Three-Tug-Tender-Eng.pdf"
+        pdf = build_provider_request("S15A", registry=registry, url=pdf_url, target_role="PDF")
+        pdf_meta = pdf["_provider_request"]
+        self.assertEqual(pdf["url"], pdf_url)
+        self.assertEqual(pdf_meta["target_role"], "PDF")
+        self.assertEqual(pdf_meta["target_kind"], "PDF")
+        self.assertEqual(pdf_meta["expected_content_types"], ["application/pdf"])
+
+        rejected = (
+            ("DETAIL", "https://evil.example/announcements/x/"),
+            ("DETAIL", "https://www.mpa.gov.mm/other/x/"),
+            ("DETAIL", "https://www.mpa.gov.mm/announcements/x/?next=1"),
+            ("DETAIL", "https://www.mpa.gov.mm/announcements/../secret/"),
+            ("PDF", "https://www.mpa.gov.mm/wp-content/uploads/2026/06/not-a-pdf.txt"),
+            ("PDF", "https://www.mpa.gov.mm/wp-content/uploads/2026/06/a.pdf#fragment"),
+        )
+        for role, url in rejected:
+            with self.subTest(role=role, url=url):
+                with self.assertRaises(ProviderBridgeError):
+                    build_provider_request("S15A", registry=registry, url=url, target_role=role)
+
+    def test_pdf_import_stays_evidence_only_and_loader_verifies_durable_artifact(self) -> None:
+        registry = Registry.load(ROOT)
+        pdf_url = "https://www.mpa.gov.mm/wp-content/uploads/2026/06/Three-Tug-Tender-Eng.pdf"
+        payload = b"%PDF-1.7\nmanual provider test artifact\n%%EOF\n"
+        digest = hashlib.sha256(payload).hexdigest()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            request = build_provider_request(
+                "S15A",
+                registry=registry,
+                requested_at="2026-09-05T00:00:00Z",
+                url=pdf_url,
+                target_role="PDF",
+            )
+            metadata = request["_provider_request"]
+            request_path = root / "request.json"
+            request_path.write_text(json.dumps(request), encoding="utf-8")
+            artifact_path = root / "response.pdf"
+            artifact_path.write_bytes(payload)
+            result_path = root / "result.json"
+            result_path.write_text(
+                json.dumps(
+                    {
+                        "job_id": "browser-pdf-1",
+                        "state": "SUCCEEDED",
+                        "started_at": "2026-09-05T00:00:01Z",
+                        "finished_at": "2026-09-05T00:00:02Z",
+                        "result": {
+                            "engine": "c0-fetch",
+                            "url": pdf_url,
+                            "status": 200,
+                            "content_type": "application/pdf",
+                            "body_bytes": len(payload),
+                            "artifact_path": str(artifact_path),
+                            "sha256": digest,
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            database = root / "state" / "signalforge.db"
+            evidence = root / "evidence"
+            imported = import_provider_result(
+                request_path=request_path,
+                result_path=result_path,
+                database=database,
+                evidence_directory=evidence,
+                registry=registry,
+            )
+            self.assertEqual(imported["status"], "IMPORTED_EVIDENCE_ONLY")
+            self.assertEqual(imported["target_role"], "PDF")
+            loaded = load_imported_provider_artifact(
+                metadata["provider_request_id"],
+                database=database,
+                evidence_directory=evidence,
+                registry=registry,
+            )
+            self.assertEqual(loaded.target_role, "PDF")
+            self.assertEqual(loaded.target_kind, "PDF")
+            self.assertEqual(loaded.requested_url, pdf_url)
+            self.assertEqual(loaded.content_type, "application/pdf")
+            self.assertEqual(loaded.payload, payload)
+            self.assertEqual(loaded.sha256, digest)
+            with connect(database) as conn:
+                processing = conn.execute("SELECT status,items_found,canonical_items,signals_created FROM processing_records").fetchone()
+                self.assertEqual(tuple(processing), ("EVIDENCE_ONLY", 0, 0, 0))
+                self.assertEqual(conn.execute("SELECT COUNT(*) FROM canonical_items").fetchone()[0], 0)
+                self.assertEqual(conn.execute("SELECT COUNT(*) FROM signals").fetchone()[0], 0)
+
+    def test_legacy_listing_request_without_target_role_still_imports(self) -> None:
+        registry = Registry.load(ROOT)
+        payload = b"<html><body>legacy listing</body></html>"
+        digest = hashlib.sha256(payload).hexdigest()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            request = build_provider_request("S15A", registry=registry, requested_at="2026-09-04T16:30:00Z")
+            request["_provider_request"].pop("target_role")
+            request_path = root / "request.json"
+            request_path.write_text(json.dumps(request), encoding="utf-8")
+            artifact_path = root / "response.html"
+            artifact_path.write_bytes(payload)
+            result_path = root / "result.json"
+            result_path.write_text(
+                json.dumps(
+                    {
+                        "job_id": "browser-legacy-1",
+                        "state": "SUCCEEDED",
+                        "result": {
+                            "engine": "c0-fetch",
+                            "url": request["url"],
+                            "status": 200,
+                            "content_type": "text/html",
+                            "body_bytes": len(payload),
+                            "artifact_path": str(artifact_path),
+                            "sha256": digest,
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            imported = import_provider_result(
+                request_path=request_path,
+                result_path=result_path,
+                database=root / "state" / "signalforge.db",
+                evidence_directory=root / "evidence",
+                registry=registry,
+            )
+            self.assertEqual(imported["target_role"], "LISTING")
 
     def test_import_records_full_correlation_and_is_idempotent(self) -> None:
         registry = Registry.load(ROOT)

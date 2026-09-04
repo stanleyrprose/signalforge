@@ -6,6 +6,7 @@ from dataclasses import asdict, dataclass
 from datetime import date, datetime
 from html.parser import HTMLParser
 from urllib.parse import unquote, urljoin, urlparse
+from zoneinfo import ZoneInfo
 
 from pypdf import PdfReader
 
@@ -448,6 +449,56 @@ def parse_pdf_business_fields(pdf_bytes: bytes) -> MpaPdfFields:
         page_count=page_count,
         text_chars=len(text),
     )
+
+
+def build_manual_bundle_preview(
+    listing_html: bytes,
+    detail_html: bytes,
+    pdf_bytes: bytes,
+    *,
+    detail_url: str,
+    pdf_url: str,
+) -> dict[str, object]:
+    records = [record for record in parse_listing_records(listing_html) if record.url == detail_url]
+    if len(records) != 1:
+        raise MpaParseError(f"expected exactly one listing row for detail URL, found {len(records)}")
+    record = records[0]
+    post_id = extract_wordpress_post_id(detail_html)
+    expected_pdf_url = extract_detail_pdf_url(detail_html)
+    if pdf_url != expected_pdf_url:
+        raise MpaParseError("manual bundle PDF URL does not match detail-page issuer PDF locator")
+    fields = parse_pdf_business_fields(pdf_bytes)
+    deadline = None
+    if fields.deadline_local is not None:
+        deadline = datetime.fromisoformat(fields.deadline_local).replace(tzinfo=ZoneInfo("Asia/Yangon")).isoformat()
+    reference_no = fields.reference_no or f"MPA-POST-{post_id}"
+    reference_no_kind = "issuer_reference_no" if fields.reference_no else "wordpress_post_id"
+    candidate = {
+        "canonical_key": f"mpa:{post_id}",
+        "item_kind": fields.final_item_kind,
+        "title": record.title,
+        "project_name": record.title,
+        "publication_date": record.publication_date,
+        "deadline": deadline,
+        "location": None,
+        "url": detail_url,
+        "pdf_url": pdf_url,
+        "reference_no": reference_no,
+        "reference_no_kind": reference_no_kind,
+        "source_record_id": str(post_id),
+        "scope_excerpt": fields.scope_excerpt,
+        "classification_status": fields.classification_status,
+        "classification_basis": fields.classification_basis,
+        "deadline_status": fields.deadline_status,
+        "listing_provisional_item_kind": record.provisional_item_kind,
+    }
+    return {
+        "status": "READY_FOR_MANUAL_COMMIT" if fields.final_item_kind is not None else "REVIEW_REQUIRED",
+        "source_id": "S15A",
+        "identity_status": "WORDPRESS_POST_ID",
+        "candidate": candidate,
+        "pdf_fields": fields.payload(),
+    }
 
 
 def preview_summary(records: list[MpaListingRecord]) -> dict[str, object]:

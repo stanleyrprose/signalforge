@@ -55,7 +55,23 @@
         "profile_mode": "ephemeral",
         "queue_timeout_sec": 60,
         "max_run_sec": 30,
-        "source_policy_version": 1
+        "source_policy_version": 1,
+        "manual_targets": {
+          "DETAIL": {
+            "target_kind": "HTML",
+            "expected_content_types": ["text/html", "application/xhtml+xml"],
+            "https_host": "www.mpa.gov.mm",
+            "path_prefix": "/announcements/",
+            "path_suffix": "/"
+          },
+          "PDF": {
+            "target_kind": "PDF",
+            "expected_content_types": ["application/pdf"],
+            "https_host": "www.mpa.gov.mm",
+            "path_prefix": "/wp-content/uploads/",
+            "path_suffix": ".pdf"
+          }
+        }
       }
     }
   },

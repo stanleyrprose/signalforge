@@ -722,6 +722,21 @@ Evidence: `docs/verification/S15A-MPA-PARSER-PREVIEW-2026-09-04.md`.
 
 Evidence: `docs/verification/S15A-MPA-PDF-SUPPLEMENTARY-2026-09-05.md`.
 
+### S15A Manual P0 Phase A — IMPLEMENTATION / TEST PASS, LIVE VERIFICATION PENDING
+
+- fresh Mac C0 listing audit still parses 181 MPA rows; observed publication volume is low: 2 records in 30 days, 3 in 60/90 days, 13 in 180 days, 21 in 365 days;
+- current evidence does not justify a Remote Provider Invocation Contract; operator-driven C0 remains the smaller operational design;
+- Manual Provider Bridge now supports bounded S15A `LISTING`, `DETAIL` and `PDF` target roles while keeping `production_enabled=false`, `remote_invocation=false` and `EVIDENCE_ONLY` imports;
+- LISTING remains the fixed MPA tender hub; DETAIL is restricted to issuer `/announcements/.../`; PDF is restricted to issuer `/wp-content/uploads/...pdf`; wrong host/path/query/fragment/traversal/content-type contracts fail closed;
+- legacy listing provider requests without `target_role` remain backward-compatible as `LISTING`;
+- durable provider artifact loading requires unique request correlation, `EVIDENCE_ONLY` provenance, current request-contract validity and exact stored SHA/byte verification;
+- read-only `mpa-provider-bundle-preview` joins imported listing/detail/PDF evidence and validates `listing -> detail -> issuer PDF` relationship before deriving stable `mpa:<wordpress_post_id>` identity and deterministic PDF business fields;
+- Phase A still creates zero canonical items and zero customer signals; `mpa-provider-bundle-preview` is not a Worker verb;
+- targeted MPA/provider tests `24/24 PASS`; full repository test discovery `91/91 PASS`;
+- Phase A production gate requires exact-SHA deploy plus one real manually acquired detail/PDF evidence bundle and must leave S15A canonical/signals at `0/0`; Phase B manual canonical commit is not yet authorized.
+
+Evidence: `docs/verification/S15A-MPA-MANUAL-P0-PHASE-A-2026-09-05.md`.
+
 ## Frozen acquisition invariants
 
 ```text
@@ -779,7 +794,7 @@ S20, S22, S05A, S07, S08A, S12, S25, S26 and S28 triggered none of these capabil
 4. S01 National Portal stays discovery-aggregator-only until issuer-resolution/equivalence/dedup exists; S04 Trade Portal remains deferred for the same cross-source contract reason;
 5. preserve the newly proven municipal gates: S16 requires identity/locator separation, S17 requires Burmese OCR, S18 requires classifier + OCR; do not force any of them into P0;
 6. keep S10 PDF supplementary extraction as a separate reviewed runtime-packaging slice and promote it only when its incremental commercial value justifies the dependency;
-7. keep S15A deferred until an explicit onboarding decision: deterministic PDF classification/deadline/reference parsing and Bangkok runtime packaging are now live-verified, but activation still requires wiring listing -> detail -> PDF -> canonical processing and deciding whether an operator-driven manual Mac C0 path is operationally acceptable; unattended remote invocation remains unapproved;
+7. continue S15A only through Manual P0 Phase A: bounded LISTING/DETAIL/PDF evidence requests + read-only bundle preview are implemented/tested; live-verify that evidence chain before considering Phase B manual canonical commit. Do not build unattended remote invocation at the current low event rate;
 8. keep S08A tender-award/result content as a separate future `PROCUREMENT_RESULT` decision;
 9. periodically recheck whether MOEP advertised PDFs become retrievable; only then consider a supplementary PDF parser gate;
 10. keep Direct HTTP first; if a source truly requires Browser, route the requirement only to Mac Browser Plane and block unattended production until a separate Provider Invocation Contract is live-verified;
