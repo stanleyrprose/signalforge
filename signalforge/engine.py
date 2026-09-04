@@ -203,7 +203,7 @@ def _upsert_tender(
     payload_json = _json(payload)
     content_hash = _material_hash(payload)
     item_kind = str(getattr(tender, "item_kind", "TENDER"))
-    if item_kind not in {"TENDER", "REGULATORY_NOTICE"}:
+    if item_kind not in {"TENDER", "REGULATORY_NOTICE", "AUCTION_NOTICE"}:
         raise EngineError(f"unsupported canonical item kind: {item_kind}")
     title = str(getattr(tender, "title", tender.project_name))
     existing = conn.execute(
