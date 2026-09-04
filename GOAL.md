@@ -151,7 +151,7 @@ Expand SignalForge across high-value Myanmar issuer-original sources while prese
 
 ### S28 — Department of Fisheries Open Tenders
 
-- production-enabled on current application release `7413a9da60a1b0c3bf82ac0b30f00fe625ca75a2`;
+- first production-enabled on release `7413a9da60a1b0c3bf82ac0b30f00fe625ca75a2`; remains active/GREEN under current application `d1f6d1773390767e73747df75e81383e4997f053`;
 - issuer-original `ACTIVE_PRIMARY` listing-complete tender source at `https://www.dof.gov.mm/index.php/my/tender`;
 - one official HTML acquisition directly yields all issuer-visible tender cards; no synthetic detail stage or attachment fetch is required;
 - first production baseline created 8 `TENDER` canonical items and zero customer signals;

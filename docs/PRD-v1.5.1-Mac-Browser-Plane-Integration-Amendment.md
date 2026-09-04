@@ -323,9 +323,14 @@ invocation_mode: manual_or_future_contract
 - source audit；
 - interactive browser investigation；
 - manual evidence gathering outside unattended production；
-- Browser Plane 自身 local browserctl / SQLite lifecycle。
+- Browser Plane 自身 local browserctl / SQLite lifecycle；
+- **Manual Provider Bridge v0**：对显式批准的 deferred candidate，由人工导出 request、在 Mac 本地执行、再人工导入 evidence bundle；当前仅 S15A + C0 fetch + `EVIDENCE_ONLY`。
 
-当前不允许 SignalForge unattended production 依赖 Mac remote invocation。
+Manual Provider Bridge v0 不改变 `production_enabled=false`：它没有 SignalForge→Mac 网络调用通道，`provider-request` / `provider-import` 也不进入 VPS Worker verb manifest。当前仍不允许 SignalForge unattended production 依赖 Mac remote invocation。
+
+操作与验证边界见 `docs/MANUAL-PROVIDER-BRIDGE-v0.md`。
+
+2026-09-04 的 S15A parser preview 进一步证明：Manual Bridge 能可靠提供 MPA listing/detail/PDF evidence，但 **listing title 不能直接作为最终 business classification**。例如 `Open Tender Invitation for three Tugs` 的官方 PDF 明确说明三艘拖轮将通过 open tender 方式拍卖，因此 listing-only 会把资产处置误判成采购机会。S15A 在 production onboarding 前必须经过单独评审的 PDF supplementary classification/extraction gate，以确定最终 `TENDER` / `AUCTION_NOTICE` 并补充 deadline/scope/reference；该 gate 不自动授权新的 production PDF dependency，也不改变 `production_enabled=false` 或 remote invocation 边界。Evidence: `docs/verification/S15A-MPA-PARSER-PREVIEW-2026-09-04.md`。
 
 ---
 

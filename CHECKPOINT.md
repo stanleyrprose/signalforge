@@ -5,8 +5,9 @@ Branch: `main` after S28 Department of Fisheries production onboarding closure.
 
 ## Production releases
 
-- SignalForge current application: `7413a9da60a1b0c3bf82ac0b30f00fe625ca75a2`
-- Immediate SignalForge rollback (eleven-source + locked Mac-provider projection): `0a3e6156f2635fd9509738d3b6c0aa1d073f6c03`
+- SignalForge current application: `d1f6d1773390767e73747df75e81383e4997f053`
+- Immediate SignalForge rollback (twelve-source S28 release): `7413a9da60a1b0c3bf82ac0b30f00fe625ca75a2`
+- Previous eleven-source + locked Mac-provider projection: `0a3e6156f2635fd9509738d3b6c0aa1d073f6c03`
 - Previous eleven-source application before Mac-provider projection: `ae894d092f97843280c92228d6b43eda3bf0336f`
 - Previous ten-source S05A + S07 + S08A + S10 + S12 + S13 + S20 + S21 + S22 + S25 release: `930c94641b0699072350dcea9344aa55e930e169`
 - Previous nine-source S05A + S07 + S08A + S10 + S12 + S13 + S20 + S21 + S22 release: `3f31b937cc8dbe2941e85b1f810f2bd8a9b811fb`
@@ -68,22 +69,23 @@ Branch: `main` after S28 Department of Fisheries production onboarding closure.
 
 ## Current SignalForge business state
 
-Final live state after S28 baseline and timer restoration/reconciliation:
+Current live snapshot after S28 onboarding and the separately reviewed Manual Provider Bridge production verification:
 
 ```text
+current_application=d1f6d1773390767e73747df75e81383e4997f053
 canonical_items=124
 signals=11
-scheduler_runs=404
+scheduler_runs=458
 failed_runs=1
 recovery_backlog=0
-acquisition_requests=538
-acquisition_attempts=538
-evidence_envelopes=537
-processing_records=537
-Worker SignalForge application Runs=551
+acquisition_requests=600
+acquisition_attempts=600
+evidence_envelopes=599
+processing_records=599
+Worker SignalForge application Runs=574
 ```
 
-The single historical failed run remains the pre-existing/recovered S10 DICA `CONNECT_TIMEOUT`; it is not an S28 failure. Its fail-closed acquisition has no fake evidence/processing row, so the durable lifecycle remains one evidence/processing row lower than request/attempt totals.
+All twelve active sources remain GREEN. The single historical failed run remains the pre-existing/recovered S10 DICA `CONNECT_TIMEOUT`; it is not an S28 or Manual Provider Bridge failure. The durable lifecycle remains one evidence/processing row lower than request/attempt totals because that failed acquisition correctly has no fake evidence/processing row. S28-specific rollout counters remain frozen in the S28 onboarding section below.
 
 Per-source canonical/signal state verified during the paused rollout window:
 
@@ -666,9 +668,42 @@ Evidence: `docs/verification/MAC-BKK-SOURCE-NETWORK-REAUDIT-2026-09-04.md`.
 - SignalForge projection remains descriptive/decision-support only: `production_enabled=false`, `invocation_mode=manual_or_future_contract`, no RPC/API/SSH invocation path added;
 - active source execution remains Bangkok Direct HTTP and no existing source routing changed.
 
+### Manual Provider Bridge v0 — PRODUCTION EVIDENCE-ONLY PASS
+
+- bridge scope remains intentionally narrow: `mac-mm-01`, S15A only, direct C0 fetch only, evidence-only import;
+- `signalforge provider-request S15A` emits a browserctl-compatible request with explicit `signalforge_job_id`, `acquisition_request_id`, `acquisition_attempt_id`, and `provider_request_id` correlation;
+- installed Mac Browser Plane consumed the real S15A request successfully: Browser Job `c082bb94-e001-42ba-adeb-564a7fa40878`, HTTP 200, 252,512-byte HTML, SHA-256 `c016d4efcae50f271e5e6860e1567650ee3d215c4ef7d9d31bd029ed4a0ec810`;
+- local isolated import passed first, then exact main release `d1f6d1773390767e73747df75e81383e4997f053` was deployed over the already-live S28 release `7413a9da60a1b0c3bf82ac0b30f00fe625ca75a2`;
+- production `provider-import` wrote exactly one S15A scheduler/request/attempt/evidence/processing lifecycle, with `provider_id=mac-mm-01`, `execution_scope=MAC_LOCAL_MANUAL_BRIDGE`, `fetch_method=C0_FETCH`, processing status `EVIDENCE_ONLY` and parser/normalizer/canonicalizer all `none`;
+- S15A canonical items/signals remain exactly `0/0`; overall canonical/signals remained `124/11` immediately after import;
+- repeated production import returned `ALREADY_IMPORTED` and created no duplicates;
+- production evidence permissions verified: provider directory `0700`, request/result JSON `0600`, raw HTML `0640`, all owned by `signalforge:signalforge`;
+- post-import SignalForge remained `PASS/GREEN`, recovery backlog `0`, timer `enabled/active`, `browser_production_approved=false`;
+- SHA/content-type/request-contract tampering fails closed;
+- `provider-request` / `provider-import` remain absent from the VPS Worker verb manifest, so this still does not create unattended SignalForge→Mac invocation;
+- no schema migration, no new daemon/API/queue, no TLS bypass, no S15A source onboarding, and no customer signal creation were introduced.
+
+Evidence/runbook: `docs/MANUAL-PROVIDER-BRIDGE-v0.md`.
+
+### S15A MPA Parser Preview — PASS / PRODUCTION ONBOARDING DEFERRED
+
+- real Manual Provider Bridge listing evidence parses deterministically into all `181` MPA listing rows without Browser DOM execution;
+- title-only classification is explicitly provisional: `152` provisional `TENDER`, `29` provisional `AUCTION_NOTICE`, `0` provisional unclassified after disposal/sale semantics were added;
+- a 30-record evenly distributed human review across 2021–2026 found the revised title-level classification consistent with visible title semantics, but title text is not authoritative enough for final `item_kind`;
+- critical counterexample: `Open Tender Invitation for three Tugs` looks like procurement from the listing title, while the linked official PDF states the three tugs will be auctioned through an open tender system; listing-only canonicalization is therefore rejected;
+- six live detail probes across 2022–2026 returned HTTP 200 and stable WordPress shortlink IDs (`38289`, `37867`, `37745`, `35819`, `34155`, `2392`), supporting future canonical identity `mpa:<wordpress_post_id>` rather than slug identity;
+- four representative detail pages each exposed exactly one issuer-original PDF iframe; the detail HTML is principally an identity + PDF locator layer;
+- all four sampled PDFs were fetched through installed Mac Browser Plane C0 with strict TLS and were text-native enough in the audit to expose commercially useful semantics such as procurement/disposal classification, deadline, scope, tender number and service period;
+- `pypdf` was already present in the Mac development environment and was used only as a preview audit aid; no production dependency/runtime packaging was promoted;
+- preview implementation is read-only (`signalforge mpa-preview --html ...`), bounded, absent from the VPS Worker verb manifest, and writes no DB/canonical/signal state;
+- S15A remains deferred and Mac provider remains `production_enabled=false` / `remote_invocation=false`.
+
+Evidence: `docs/verification/S15A-MPA-PARSER-PREVIEW-2026-09-04.md`.
+
 ## Frozen acquisition invariants
 
 ```text
+Default active-source production path:
 Source Acquisition Policy
 -> AcquisitionRequest
 -> AcquisitionAttempt
@@ -677,6 +712,17 @@ Source Acquisition Policy
 -> source-specific parser/normalizer/canonicalizer
 -> ProcessingRecord
 -> Canonical / Dedup / Signal
+
+Controlled manual-provider evidence path:
+approved deferred candidate
+-> provider-request
+-> operator transfer
+-> Mac C0
+-> operator transfer
+-> provider-import
+-> EvidenceEnvelope
+-> ProcessingRecord(EVIDENCE_ONLY)
+-> no Canonical / no Signal
 ```
 
 Still frozen:
@@ -697,11 +743,11 @@ Still frozen:
 - Webhook Gate T: only after a real webhook use case and ingress/auth/dedup contract exist.
 - Dedicated identity Gate V: before the first real dedicated Generic Job retirement.
 - Remote Provider ADR: only after a real source proves Bangkok local acquisition insufficient.
-- Mac Browser Provider Invocation Contract: only after a real Browser-required source exists; must be a separate reviewed cross-host contract, not ad-hoc SSH/HTTP/CDP.
+- Mac Browser Provider Invocation Contract: only after repeated manual-provider evidence proves that a real high-value source materially requires the Mac execution environment and the operational burden justifies automation; must be a separate reviewed cross-host contract, not ad-hoc SSH/HTTP/CDP.
 - Browserless ADR: only after multiple real browser consumers create shared lifecycle/queue/session pain.
-- PDF supplementary adapter: only when issuer HTML lacks business-critical fields whose extraction materially improves the commercial signal.
+- PDF supplementary adapter: only when issuer HTML lacks business-critical fields whose extraction materially improves the commercial signal or when PDF semantics are required to prevent business misclassification.
 
-S20, S22, S05A, S07, S08A, S12, S25, S26 and S28 triggered none of these capability gates. S10 remains the first source to trigger the PDF supplementary **value** gate because the official PDFs contain company-level and policy-level business facts absent from HTML. The separate production extraction/runtime-packaging gate remains deferred, so no new dependency or runtime capability has been promoted. Fresh audits now make the municipal gates more specific: S16 YCDC requires a stable discovery-identity vs ephemeral transport-locator contract; S17 MCDC requires Burmese image/OCR for current scan-only tender PDFs; S18 NPTDC requires mixed-board segmentation plus image/OCR. None should be bypassed merely to increase source count.
+S20, S22, S05A, S07, S08A, S12, S25, S26 and S28 triggered none of these capability gates. S10 remains the first source to trigger the PDF supplementary **value** gate because the official PDFs contain company-level and policy-level business facts absent from HTML. S15A now separately triggers a PDF supplementary **classification + business-fields** gate: listing-only semantics can misclassify asset-disposal auctions as procurement tenders and omit deadline/scope/reference facts. Both production extraction/runtime-packaging gates remain deferred, so no new production dependency or runtime capability has been promoted. Fresh audits make the municipal gates more specific: S16 YCDC requires a stable discovery-identity vs ephemeral transport-locator contract; S17 MCDC requires Burmese image/OCR for current scan-only tender PDFs; S18 NPTDC requires mixed-board segmentation plus image/OCR. None should be bypassed merely to increase source count.
 
 ## Next
 
@@ -711,7 +757,8 @@ S20, S22, S05A, S07, S08A, S12, S25, S26 and S28 triggered none of these capabil
 4. S01 National Portal stays discovery-aggregator-only until issuer-resolution/equivalence/dedup exists; S04 Trade Portal remains deferred for the same cross-source contract reason;
 5. preserve the newly proven municipal gates: S16 requires identity/locator separation, S17 requires Burmese OCR, S18 requires classifier + OCR; do not force any of them into P0;
 6. keep S10 PDF supplementary extraction as a separate reviewed runtime-packaging slice and promote it only when its incremental commercial value justifies the dependency;
-7. keep S08A tender-award/result content as a separate future `PROCUREMENT_RESULT` decision;
-8. periodically recheck whether MOEP advertised PDFs become retrievable; only then consider a supplementary PDF parser gate;
-9. keep Direct HTTP first; if a source truly requires Browser, route the requirement only to Mac Browser Plane and block unattended production until a separate Provider Invocation Contract is live-verified;
-10. run the next cross-repo consistency review by 2026-12-03 or an earlier contract-change trigger.
+7. keep S15A deferred: listing-only parsing is preview-safe but not production-safe; only reopen onboarding after an explicitly reviewed PDF supplementary classification/extraction slice can determine final `TENDER` vs `AUCTION_NOTICE` and recover deadline/scope/reference facts;
+8. keep S08A tender-award/result content as a separate future `PROCUREMENT_RESULT` decision;
+9. periodically recheck whether MOEP advertised PDFs become retrievable; only then consider a supplementary PDF parser gate;
+10. keep Direct HTTP first; if a source truly requires Browser, route the requirement only to Mac Browser Plane and block unattended production until a separate Provider Invocation Contract is live-verified;
+11. run the next cross-repo consistency review by 2026-12-03 or an earlier contract-change trigger.

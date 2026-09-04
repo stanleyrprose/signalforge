@@ -367,4 +367,6 @@ run-due service=inactive
 browser_production_approved=false
 ```
 
-No schema migration, PDF/OCR runtime, Browser, JSON-primary target, remote Provider invocation, Worker-runtime or Control-Plane capability was introduced by S28. The production application remains pinned to `7413a9da60a1b0c3bf82ac0b30f00fe625ca75a2`; any later docs-only closure SHA must not be redeployed merely to update facts.
+No schema migration, PDF/OCR runtime, Browser, JSON-primary target, remote Provider invocation, Worker-runtime or Control-Plane capability was introduced by S28.
+
+The S28 rollout itself was pinned to `7413a9da60a1b0c3bf82ac0b30f00fe625ca75a2`. A later, separately reviewed Manual Provider Bridge production verification intentionally superseded the application release with `d1f6d1773390767e73747df75e81383e4997f053`; S28 remained active/GREEN with its eight canonical items and zero S28 customer signals. That later release change is not an S28 side effect. Any docs-only closure SHA must not be redeployed merely to update facts.
