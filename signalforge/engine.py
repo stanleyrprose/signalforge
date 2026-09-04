@@ -425,8 +425,14 @@ def run_source(
             if probe_due and len(candidates) < int(source["delta_detail_limit"]):
                 by_url = {entry.url: entry for entry in entries}
                 selected_urls = {entry.url for entry in candidates}
-                for seed_url in source.get("bootstrap_seed_urls", []):
-                    probe_entry = by_url.get(str(seed_url))
+                probe_urls: list[str] = []
+                if source.get("discovery_is_tender_only") is True:
+                    probe_urls.extend(
+                        entry.url for entry in sorted(entries, key=lambda item: item.lastmod or "", reverse=True)
+                    )
+                probe_urls.extend(str(url) for url in source.get("bootstrap_seed_urls", []))
+                for probe_url in probe_urls:
+                    probe_entry = by_url.get(probe_url)
                     if probe_entry is not None and probe_entry.url not in selected_urls:
                         candidates.append(probe_entry)
                         health_probe = True
