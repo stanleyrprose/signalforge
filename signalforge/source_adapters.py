@@ -8,6 +8,8 @@ from .commerce import parse_notification_listing as parse_commerce_notification_
 from .customs import parse_notification_records as parse_customs_notification_records
 from .customs_announcements import parse_auction_records as parse_customs_auction_records
 from .iwt import parse_tender_detail as parse_iwt_tender_detail
+from .ird import parse_announcement_detail as parse_ird_announcement_detail
+from .ird import parse_announcement_listing as parse_ird_announcement_listing
 from .iwt import parse_tender_listing as parse_iwt_tender_listing
 from .moep import parse_tender_detail as parse_moep_tender_detail
 from .moep import parse_tender_listing as parse_moep_tender_listing
@@ -62,6 +64,11 @@ def _parse_commerce_detail(payload: bytes, url: str) -> list[object]:
     return [notice] if notice is not None else []
 
 
+def _parse_ird_detail(payload: bytes, url: str) -> list[object]:
+    notice = parse_ird_announcement_detail(payload, url)
+    return [notice] if notice is not None else []
+
+
 ADAPTERS = {
     "mpt": SourceAdapter(
         name="mpt",
@@ -112,6 +119,16 @@ ADAPTERS = {
         canonicalizer_version="commerce-notice-node-date-v1",
         parse_discovery=parse_commerce_notification_listing,
         parse_detail=_parse_commerce_detail,
+    ),
+    "ird_notice": SourceAdapter(
+        name="ird_notice",
+        discovery_content_types=("text/html",),
+        discovery_parser_version="ird-announcement-list-v1",
+        detail_parser_version="ird-announcement-detail-v1",
+        normalizer_version="ird-notice-normalize-v1",
+        canonicalizer_version="ird-notice-record-date-v1",
+        parse_discovery=parse_ird_announcement_listing,
+        parse_detail=_parse_ird_detail,
     ),
     "customs_notice": SourceAdapter(
         name="customs_notice",
