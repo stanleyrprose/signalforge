@@ -1,6 +1,6 @@
 # S15A MPA PDF Supplementary Slice — 2026-09-05
 
-**Status:** `IMPLEMENTATION PASS / S15A ACTIVATION DEFERRED`
+**Status:** `LIVE RUNTIME PACKAGING PASS / S15A ACTIVATION DEFERRED`
 
 ## Purpose
 
@@ -74,6 +74,110 @@ exact-version 4 real PDFs:     4/4 PASS
 
 Existing Python 3.13 SQLite `ResourceWarning` output is outside this slice and is not caused by the PDF runtime.
 
+## Bangkok live runtime-packaging verification
+
+The reviewed supplementary implementation had already been deployed to Bangkok as exact application release:
+
+```text
+f4a3dfd0ae77797b8fd82911fb908097a1dc97d8
+```
+
+This verification did **not** redeploy the application. It validated the live packaging/runtime boundary already active on Bangkok.
+
+Per-release runtime isolation:
+
+```text
+active release = f4a3dfd0ae77797b8fd82911fb908097a1dc97d8
+venv           = /srv/signalforge/venvs/f4a3dfd0ae77797b8fd82911fb908097a1dc97d8
+Python         = 3.13.5
+pypdf          = 6.16.2
+system Python import pypdf = FAIL / exit 1
+```
+
+Therefore `pypdf` is isolated to the SignalForge release venv rather than installed into Bangkok system Python.
+
+The previous Manual Provider Bridge production release remains present and executable as the immediate runtime rollback:
+
+```text
+d1f6d1773390767e73747df75e81383e4997f053
+old-release signalforge status = PASS
+```
+
+A fresh issuer-original contradiction sample was acquired through installed Mac Browser Plane C0 with strict TLS:
+
+```text
+PDF            = Three-Tug-Tender-Eng.pdf
+Browser Job    = 0e0e0062-7792-4f9b-a4b3-3a10b70597f7
+HTTP           = 200
+content-type   = application/pdf
+bytes          = 101,698
+SHA-256        = 9a664132a31c682d48d765c44e5b0d83c5e165bb1aebe9cc770b3f26ba30d046
+engine         = c0-fetch
+```
+
+The artifact was transferred manually to Bangkok only for operator-preview verification. No `provider-import`, scheduler onboarding, source activation or remote invocation occurred.
+
+Running the live release as the dedicated `signalforge` user:
+
+```text
+signalforge mpa-pdf-preview --pdf <Three-Tug-Tender-Eng.pdf>
+```
+
+returned:
+
+```text
+status                = PREVIEW_ONLY
+source_id             = S15A
+final_item_kind       = AUCTION_NOTICE
+classification_status = DETERMINISTIC_PDF
+classification_basis  = AUCTION_EN
+deadline_local        = 2026-06-25T13:00:00
+deadline_timezone     = Asia/Yangon
+deadline_status       = FOUND
+page_count            = 2
+text_chars             = 1941
+```
+
+The extracted evidence excerpt explicitly states that the three tugs "will be auctioned through an open tender system", proving on the live Bangkok runtime that PDF semantics correctly override the misleading procurement-like listing title.
+
+S15A durable state was compared immediately before and after preview:
+
+```text
+scheduler_runs       1 -> 1
+acquisition_requests 1 -> 1
+acquisition_attempts 1 -> 1
+evidence_envelopes   1 -> 1
+processing_records   1 -> 1
+canonical_items      0 -> 0
+signals              0 -> 0
+SQLite quick_check   ok -> ok
+```
+
+The existing `1/1/1/1/1` S15A lifecycle is the previously verified Manual Provider Bridge `EVIDENCE_ONLY` import. The PDF preview created **no** new DB lifecycle, canonical item or customer signal.
+
+Post-verification production state remained:
+
+```text
+12/12 active sources GREEN
+SignalForge status          = PASS
+SignalForge health          = GREEN
+canonical_items             = 124
+signals                     = 11
+scheduler_runs              = 466
+acquisition requests        = 612
+acquisition attempts        = 612
+evidence envelopes          = 611
+processing records          = 611
+failed_runs                 = 1   # pre-existing recovered S10 timeout
+recovery_backlog            = 0
+browser_production_approved = false
+timer                       = enabled / active
+```
+
+Beijing remained outside the SignalForge application boundary (`/srv/signalforge = ABSENT`) and its Worker Runtime doctor remained `PASS`.
+
+**Gate result:** production runtime packaging for deterministic text-native PDF parsing is now live-verified on Bangkok. S15A activation remains a separate decision because source execution still depends on the controlled manual Mac C0 acquisition path and no unattended provider invocation contract exists.
+
 ## Hard boundary
 
 This slice does **not**:
@@ -88,4 +192,4 @@ This slice does **not**:
 - create RPC/SSH/API automation to Mac;
 - change `mac-mm-01 production_enabled=false` or `remote_invocation=false`.
 
-The next decision after live runtime packaging verification is whether to onboard S15A using the already-proven manual acquisition path, or leave it deferred until remote provider automation is justified.
+Live runtime packaging verification is complete. The next decision is whether to onboard S15A using the already-proven **manual** Mac C0 acquisition path as an explicitly operator-driven P0, or leave S15A deferred until repeated manual evidence justifies a separately reviewed remote Provider Invocation Contract.

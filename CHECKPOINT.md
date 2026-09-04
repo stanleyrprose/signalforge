@@ -700,7 +700,7 @@ Evidence/runbook: `docs/MANUAL-PROVIDER-BRIDGE-v0.md`.
 
 Evidence: `docs/verification/S15A-MPA-PARSER-PREVIEW-2026-09-04.md`.
 
-### S15A PDF Supplementary Slice — IMPLEMENTATION PASS / ACTIVATION DEFERRED
+### S15A PDF Supplementary Slice — LIVE RUNTIME PACKAGING PASS / ACTIVATION DEFERRED
 
 - exact runtime dependency: `pypdf==6.16.2`;
 - Bangkok preflight proved `/usr/bin/python3 -m venv` bootstraps pip even though system Python itself has no `pypdf`/pip module;
@@ -710,7 +710,15 @@ Evidence: `docs/verification/S15A-MPA-PARSER-PREVIEW-2026-09-04.md`.
 - final PDF classification prioritizes disposal/auction semantics over generic tender/procurement words; generic `Open Tender` without decisive business semantics returns `REVIEW_REQUIRED`;
 - deadline is emitted only from uniquely supported date+time evidence; explicit MPA reference numbers are normalized without inference;
 - four real issuer PDFs passed under exact Python 3.13 + `pypdf 6.16.2`: Three Tugs=`AUCTION_NOTICE` / `2026-06-25T13:00`, Marine Paint=`TENDER` / `2026-06-04T13:00`, Port EDI=`TENDER` / `2026-05-21T13:00` / `MPA-IR&HRD/01-2026`, Battery=`TENDER` / `2025-05-29T13:00`;
-- full local suite remains 86/86 PASS; S15A still has no active adapter/scheduler/canonical path.
+- full implementation suite passed before merge; S15A still has no active adapter/scheduler/canonical path;
+- Bangkok is now live on exact release `f4a3dfd0ae77797b8fd82911fb908097a1dc97d8` with release-local venv `/srv/signalforge/venvs/f4a3dfd0ae77797b8fd82911fb908097a1dc97d8`, Python `3.13.5`, `pypdf 6.16.2`; system Python still cannot import `pypdf`;
+- previous release `d1f6d1773390767e73747df75e81383e4997f053` remains present and its `signalforge status` command passes, preserving immediate runtime rollback;
+- fresh Mac Browser Plane C0 verification fetched `Three-Tug-Tender-Eng.pdf` as Browser Job `0e0e0062-7792-4f9b-a4b3-3a10b70597f7`, HTTP 200, 101,698 bytes, SHA-256 `9a664132a31c682d48d765c44e5b0d83c5e165bb1aebe9cc770b3f26ba30d046`;
+- live Bangkok `mpa-pdf-preview` classified that artifact as `AUCTION_NOTICE`, basis `AUCTION_EN`, deadline `2026-06-25T13:00:00`, with no provider-import or source activation;
+- S15A durable state remained exactly scheduler/request/attempt/evidence/processing `1/1/1/1/1`, canonical/signals `0/0` before and after preview; the existing lifecycle is the prior Manual Provider Bridge `EVIDENCE_ONLY` import;
+- post-preview production remained PASS/GREEN, all twelve active sources GREEN, canonical/signals `124/11`, backlog `0`, timer enabled/active and `browser_production_approved=false`;
+- Beijing `/srv/signalforge` remains absent and Beijing Worker doctor remains PASS;
+- production PDF runtime packaging gate is therefore LIVE-VERIFIED, while S15A activation remains deferred pending an explicit decision on operator-driven manual acquisition vs a future separately reviewed remote Provider Invocation Contract.
 
 Evidence: `docs/verification/S15A-MPA-PDF-SUPPLEMENTARY-2026-09-05.md`.
 
@@ -771,7 +779,7 @@ S20, S22, S05A, S07, S08A, S12, S25, S26 and S28 triggered none of these capabil
 4. S01 National Portal stays discovery-aggregator-only until issuer-resolution/equivalence/dedup exists; S04 Trade Portal remains deferred for the same cross-source contract reason;
 5. preserve the newly proven municipal gates: S16 requires identity/locator separation, S17 requires Burmese OCR, S18 requires classifier + OCR; do not force any of them into P0;
 6. keep S10 PDF supplementary extraction as a separate reviewed runtime-packaging slice and promote it only when its incremental commercial value justifies the dependency;
-7. keep S15A deferred until an explicit onboarding decision: the reviewed PDF supplementary slice now resolves the classification/deadline/reference gate, but activation still requires wiring listing -> detail -> PDF -> canonical processing and deciding whether the current manual Mac acquisition path is operationally acceptable;
+7. keep S15A deferred until an explicit onboarding decision: deterministic PDF classification/deadline/reference parsing and Bangkok runtime packaging are now live-verified, but activation still requires wiring listing -> detail -> PDF -> canonical processing and deciding whether an operator-driven manual Mac C0 path is operationally acceptable; unattended remote invocation remains unapproved;
 8. keep S08A tender-award/result content as a separate future `PROCUREMENT_RESULT` decision;
 9. periodically recheck whether MOEP advertised PDFs become retrievable; only then consider a supplementary PDF parser gate;
 10. keep Direct HTTP first; if a source truly requires Browser, route the requirement only to Mac Browser Plane and block unattended production until a separate Provider Invocation Contract is live-verified;
