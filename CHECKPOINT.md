@@ -627,6 +627,14 @@ Evidence: `docs/verification/S26-SOURCE-ONBOARDING-2026-09-04.md`.
 
 Evidence: `docs/verification/MAC-BKK-SOURCE-NETWORK-REAUDIT-2026-09-04.md`.
 
+### Mac Browser Provider Capability Projection — PASS
+
+- `registry/Source-Registry-v1.yaml` now carries a machine-readable `providers.mac-mm-01` projection;
+- `Registry.load()` fail-closes if the provider identity, direct-only network boundary, authorized C0/C1/C2 capabilities, or disabled C3/remote-invocation boundary drifts;
+- Mac Browser Plane exposes its local authoritative manifest through `browserctl capabilities`;
+- SignalForge projection remains descriptive/decision-support only: `production_enabled=false`, `invocation_mode=manual_or_future_contract`, no RPC/API/SSH invocation path added;
+- active source execution remains Bangkok Direct HTTP and no existing source routing changed.
+
 ## Frozen acquisition invariants
 
 ```text

@@ -217,6 +217,21 @@ invocation_mode: manual_or_future_contract
 
 `production_enabled=false` 是当前 invariant，不是临时文档说明。
 
+2026-09-04 后，这个 projection 已经落入 `registry/Source-Registry-v1.yaml` 的 `providers.mac-mm-01`，并由 `Registry.load()` 做 fail-closed contract validation。当前机器可读能力边界包括：
+
+```text
+C0 fetch/raw artifact       = enabled
+C1 render                   = enabled
+C1 generic interaction      = disabled
+C2 read-only inspect        = enabled
+C3 Browser Agent            = disabled
+persistent profile          = enabled
+remote invocation           = disabled
+network                     = direct-only
+```
+
+Mac Browser Plane 本身的 authoritative local manifest 由 `browserctl capabilities` 输出。SignalForge 保存的是用于 acquisition 决策的静态 provider projection；它不构成远程调用通道。
+
 ---
 
 # 6. Required Lifecycle Separation

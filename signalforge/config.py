@@ -54,6 +54,36 @@ class Registry:
             raise ConfigError("R5 production must be Direct HTTP with TLS verification")
         if policy.get("browser_production_approved") is not False:
             raise ConfigError("R5 browser production must remain disabled")
+        providers = value.get("providers") or {}
+        mac_provider = providers.get("mac-mm-01") if isinstance(providers, dict) else None
+        if not isinstance(mac_provider, dict):
+            raise ConfigError("Mac Browser Provider capability projection missing")
+        if mac_provider.get("provider_type") != "browser" or mac_provider.get("runtime") != "mac-browser-plane-r1":
+            raise ConfigError("invalid Mac Browser Provider identity")
+        if mac_provider.get("production_enabled") is not False or mac_provider.get("invocation_mode") != "manual_or_future_contract":
+            raise ConfigError("Mac Browser Provider production invocation must remain disabled")
+        network = mac_provider.get("network") or {}
+        if network.get("direct") is not True or network.get("southeast_asia") is not False or network.get("china") is not False:
+            raise ConfigError("Mac Browser Provider network projection must remain R1 direct-only")
+        capabilities = mac_provider.get("capabilities") or {}
+        required_capabilities = {
+            "c0_fetch": True,
+            "c0_raw_artifact": True,
+            "c1_render": True,
+            "c1_generic_interaction": False,
+            "c2_readonly_inspect": True,
+            "c3_browser_agent": False,
+            "persistent_profile": True,
+            "screenshot": True,
+            "binary_artifact": True,
+            "remote_invocation": False,
+            "headed_human_takeover": False,
+        }
+        if any(capabilities.get(name) is not expected for name, expected in required_capabilities.items()):
+            raise ConfigError("Mac Browser Provider capability projection violates authorized R1 boundary")
+        security = mac_provider.get("security") or {}
+        if security.get("tls_verification_required") is not True or security.get("cdp_loopback_only") is not True or security.get("personal_chrome_profile_allowed") is not False:
+            raise ConfigError("Mac Browser Provider security projection violates authorized R1 boundary")
         sources = value.get("sources")
         if not isinstance(sources, dict) or not sources:
             raise ConfigError("source registry must contain sources")
