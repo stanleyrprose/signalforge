@@ -331,7 +331,7 @@
     }
   },
   "deferred_sources": {
-    "S01": "Myanmar National Portal Tenders — ACTIVE PRIMARY after adapter gate",
+    "S01": "Myanmar National Portal Tenders — DEFER canonical onboarding; keep for future discovery-aggregator/issuer-resolution contract after 2026-09-04 metadata contradiction audit",
     "S04": "Myanmar National Trade Portal Legal Documents — ACTIVE PRIMARY; PDF sub-gate deferred",
     "S05A": "Ministry of Commerce Notifications — ACTIVE PRIMARY after adapter gate",
     "S07": "Myanmar Customs Notifications — ACTIVE PRIMARY after adapter gate",

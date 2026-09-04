@@ -382,8 +382,9 @@ S20 and S22 triggered none of these gates. S20 did surface a real PDF-attachment
 
 1. operate S13 + S20 + S21 + S22 and collect real acquisition/source history;
 2. choose the next source by business value plus current endpoint quality, not source-ID order;
-3. preferred next audit pool: S01 National Portal, S04 Trade Portal legal documents, S05A Commerce Notifications, S07/S08A Customs, and S12 IRD;
-4. periodically recheck whether MOEP advertised PDFs become retrievable; only then consider a supplementary PDF parser gate;
-5. preserve YCDC/MCDC/NPTDC identity/PDF/classifier gates rather than bypassing them;
-6. keep Direct HTTP first and trigger Browser/remote/Mac/PDF capability expansion only from real source evidence;
-7. run the next cross-repo consistency review by 2026-12-03 or an earlier contract-change trigger.
+3. S01 National Portal fresh audit: defer canonical onboarding; preserve only as a future discovery-aggregator/issuer-resolution capability because its labelled closing date can conflict with issuer-original evidence;
+4. preferred next issuer-original audit pool: S05A Commerce Notifications, S04 Trade Portal legal documents, S07/S08A Customs, and S12 IRD;
+5. periodically recheck whether MOEP advertised PDFs become retrievable; only then consider a supplementary PDF parser gate;
+6. preserve YCDC/MCDC/NPTDC identity/PDF/classifier gates rather than bypassing them;
+7. keep Direct HTTP first and trigger Browser/remote/Mac/PDF capability expansion only from real source evidence;
+8. run the next cross-repo consistency review by 2026-12-03 or an earlier contract-change trigger.
