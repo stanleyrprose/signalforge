@@ -177,6 +177,19 @@ class MpaPreviewTests(unittest.TestCase):
         self.assertEqual(extract_reference_no(text), "MPA-IR&HRD/01-2026")
         self.assertEqual(extract_deadline(text), (None, "NOT_FOUND"))
 
+    def test_pdf_classifier_recognizes_port_edi_infrastructure_refreshment(self) -> None:
+        text = (
+            "Port EDI Mini Data Center Hardware Device Infrastructure Refreshment Phase II (1 Lot) "
+            "Tender No. MPA-IR&HRD/03-2026. Date & Time to submit: 18-6-2026 (13:00)."
+        )
+        item_kind, status, basis, excerpt = classify_pdf_text(text)
+        self.assertEqual(item_kind, "TENDER")
+        self.assertEqual(status, "DETERMINISTIC_PDF")
+        self.assertEqual(basis, "INFRA_REFRESH_EN")
+        self.assertIn("Infrastructure Refreshment", excerpt or "")
+        self.assertEqual(extract_reference_no(text), "MPA-IR&HRD/03-2026")
+        self.assertEqual(extract_deadline(text), ("2026-06-18T13:00:00", "FOUND"))
+
     def test_pdf_classifier_fails_closed_without_decisive_business_semantics(self) -> None:
         self.assertEqual(classify_pdf_text("Open Tender Invitation general notice")[:3], (None, "REVIEW_REQUIRED", None))
         buffer = io.BytesIO()
