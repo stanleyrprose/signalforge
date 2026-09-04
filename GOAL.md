@@ -149,11 +149,28 @@ Expand SignalForge across high-value Myanmar issuer-original sources while prese
 - source health GREEN; all eleven production sources GREEN after timer restoration;
 - evidence: `docs/verification/S26-SOURCE-ONBOARDING-2026-09-04.md`.
 
+### S28 — Department of Fisheries Open Tenders
+
+- production-enabled on current application release `7413a9da60a1b0c3bf82ac0b30f00fe625ca75a2`;
+- issuer-original `ACTIVE_PRIMARY` listing-complete tender source at `https://www.dof.gov.mm/index.php/my/tender`;
+- one official HTML acquisition directly yields all issuer-visible tender cards; no synthetic detail stage or attachment fetch is required;
+- first production baseline created 8 `TENDER` canonical items and zero customer signals;
+- baseline metrics: `items_parsed=8`, `tenders_parsed=8`, `details_attempted=0`, `details_succeeded=0`;
+- canonical identity uses the issuer-owned tender alias (`dof:<issuer_tender_alias>`);
+- publication date comes from the card `<time datetime>` while sale date and closing date come from their respective visible texts; historical issuer inconsistencies are preserved rather than heuristically repaired;
+- first baseline persisted exactly one request/attempt/evidence/processing lifecycle and zero PDF requests;
+- parse health uses `BUSINESS_PROCESSING`; first production sample `1/1 = GREEN`;
+- immediate S28 rollback is live-preexisting Mac-provider projection release `0a3e6156f2635fd9509738d3b6c0aa1d073f6c03`;
+- Mac provider remains locked: `production_enabled=false`, `remote_invocation=false`, `browser_production_approved=false`;
+- Bangkok + Beijing Worker doctors PASS; Beijing remains SignalForge-free and returns `126 / DENY: SignalForge is Bangkok-only` for S28 refresh;
+- source health GREEN; all twelve production sources GREEN after timer restoration;
+- evidence: `docs/verification/S28-SOURCE-ONBOARDING-2026-09-04.md`.
+
 ## Current result
 
-> **S05A + S07 + S08A + S10 + S12 + S13 + S20 + S21 + S22 + S25 + S26 = PRODUCTION / GREEN**
+> **S05A + S07 + S08A + S10 + S12 + S13 + S20 + S21 + S22 + S25 + S26 + S28 = PRODUCTION / GREEN**
 
-SignalForge has now proven eleven source/domain shapes under the same v1.5 acquisition lifecycle:
+SignalForge has now proven twelve source/domain shapes under the same v1.5 acquisition lifecycle:
 
 ```text
 Commerce: one Drupal notice -> zero/one selected REGULATORY_NOTICE + attachment metadata
@@ -167,6 +184,7 @@ Railways: one detail page -> N tender rows
 IWT:      one Drupal tender node -> one tender + attachment metadata
 MONPIFER: one official tender table -> N complete TENDER records + PDF metadata, no detail fetch
 DOMS:     one WordPress tender category -> selected opportunity detail HTML -> TENDER + PDF metadata
+DOF:      one official tender-card listing -> N complete TENDER records, no detail/attachment fetch
 ```
 
 All remain inside one Bangkok SignalForge application boundary and the existing Worker operational envelope.
@@ -202,4 +220,4 @@ business-value audit
 -> checkpoint closure
 ```
 
-The next engineering slice should still be selected by business value and current evidence, not source-ID order or a source-count target. S01 National Portal and S04 Trade Portal remain deferred as canonical sources because aggregator metadata/duplication needs an explicit issuer-resolution/equivalence/dedup contract. S16 YCDC now has a concrete identity/transport-locator gate; S17 MCDC and S18 NPTDC require image/OCR capability for current business specifics and remain deferred rather than forcing runtime expansion. Fresh S26 candidate audit also showed Ministry of Industry failing Bangkok DNS and Ministry of Energy carrying current business detail primarily in embedded PDFs; neither justified weakening the existing contract. S10 remains the only production source with a triggered supplementary-PDF **value** gate, but extraction/runtime packaging must be a separate reviewed slice. Prefer another issuer-original Direct-HTTP source that fits the existing engine before adding schema/OCR/Browser capability; only promote the S10 PDF slice when its incremental business value justifies the new runtime dependency. S08A tender-award/result content remains a separate future `PROCUREMENT_RESULT` decision.
+The next engineering slice should still be selected by business value and current evidence, not source-ID order or a source-count target. S01 National Portal and S04 Trade Portal remain deferred as canonical sources because aggregator metadata/duplication needs an explicit issuer-resolution/equivalence/dedup contract. S16 YCDC now has a concrete identity/transport-locator gate; S17 MCDC and S18 NPTDC require image/OCR capability for current business specifics and remain deferred rather than forcing runtime expansion. Fresh S26 candidate audit also showed Ministry of Industry failing Bangkok DNS and Ministry of Energy carrying current business detail primarily in embedded PDFs; S28 audit additionally found current Ministry of Education and Tourism tender specifics to be image-based. None justified weakening the existing contract. S10 remains the only production source with a triggered supplementary-PDF **value** gate, but extraction/runtime packaging must be a separate reviewed slice. Prefer another issuer-original Direct-HTTP source that fits the existing engine before adding schema/OCR/Browser capability; only promote the S10 PDF slice when its incremental business value justifies the new runtime dependency. S08A tender-award/result content remains a separate future `PROCUREMENT_RESULT` decision.

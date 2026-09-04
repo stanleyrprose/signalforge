@@ -1,12 +1,14 @@
 # CHECKPOINT
 
 Date: 2026-09-04 (Asia/Yangon)
-Branch: `main` after S26 DOMS Medical Procurement Opportunities production onboarding closure.
+Branch: `main` after S28 Department of Fisheries production onboarding closure.
 
 ## Production releases
 
-- SignalForge current application: `ae894d092f97843280c92228d6b43eda3bf0336f`
-- Immediate SignalForge rollback (ten-source S05A + S07 + S08A + S10 + S12 + S13 + S20 + S21 + S22 + S25): `930c94641b0699072350dcea9344aa55e930e169`
+- SignalForge current application: `7413a9da60a1b0c3bf82ac0b30f00fe625ca75a2`
+- Immediate SignalForge rollback (eleven-source + locked Mac-provider projection): `0a3e6156f2635fd9509738d3b6c0aa1d073f6c03`
+- Previous eleven-source application before Mac-provider projection: `ae894d092f97843280c92228d6b43eda3bf0336f`
+- Previous ten-source S05A + S07 + S08A + S10 + S12 + S13 + S20 + S21 + S22 + S25 release: `930c94641b0699072350dcea9344aa55e930e169`
 - Previous nine-source S05A + S07 + S08A + S10 + S12 + S13 + S20 + S21 + S22 release: `3f31b937cc8dbe2941e85b1f810f2bd8a9b811fb`
 - Previous eight-source S05A + S07 + S08A + S12 + S13 + S20 + S21 + S22 release: `d5222d00e81692ae4f4b8ee3d0a3d7ad70618237`
 - Previous SignalForge S05A + S07 + S08A + S13 + S20 + S21 + S22 release: `cb5291fdfcc13a678f63b53072e39089f8c27258`
@@ -56,28 +58,32 @@ Branch: `main` after S26 DOMS Medical Procurement Opportunities production onboa
 - S26 source health: GREEN
 - S26 parse health at baseline: GREEN (`2/2`, ratio `1.0`)
 - S26 canonical domain: `TENDER`; baseline `items_parsed=2`, `tenders_parsed=2`, `details_attempted=2`
+- S28 source health: GREEN
+- S28 parse health at baseline: GREEN (`1/1`, `BUSINESS_PROCESSING`)
+- S28 canonical domain: `TENDER`; baseline `items_parsed=8`, `tenders_parsed=8`, `details_attempted=0`
+- Mac provider projection: `production_enabled=false`, `remote_invocation=false`, `browser_production_approved=false`
 - Bangkok `signalforge-run-due.timer`: enabled / active / waiting
 - Beijing SignalForge placement: DISABLED with strict `/srv/signalforge` absence
 - SQLite `PRAGMA quick_check`: ok
 
 ## Current SignalForge business state
 
-Final live state after S26 baseline and timer restoration/reconciliation:
+Final live state after S28 baseline and timer restoration/reconciliation:
 
 ```text
-canonical_items=116
+canonical_items=124
 signals=11
-scheduler_runs=367
+scheduler_runs=404
 failed_runs=1
 recovery_backlog=0
-acquisition_requests=495
-acquisition_attempts=495
-evidence_envelopes=494
-processing_records=494
-Worker SignalForge application Runs=532
+acquisition_requests=538
+acquisition_attempts=538
+evidence_envelopes=537
+processing_records=537
+Worker SignalForge application Runs=551
 ```
 
-The single historical failed run is the pre-existing S10 DICA `CONNECT_TIMEOUT` at `2026-09-04T14:05:13Z`; S10 recovered automatically at `14:15Z` and remained GREEN with `last_error=None` before and after S26 rollout. The failed acquisition correctly has no fake evidence/processing row, hence the durable `495/495/494/494` lifecycle totals.
+The single historical failed run remains the pre-existing/recovered S10 DICA `CONNECT_TIMEOUT`; it is not an S28 failure. Its fail-closed acquisition has no fake evidence/processing row, so the durable lifecycle remains one evidence/processing row lower than request/attempt totals.
 
 Per-source canonical/signal state verified during the paused rollout window:
 
@@ -93,6 +99,7 @@ S21 canonical_items=45  / signals=0 / item_kind=TENDER
 S22 canonical_items=4   / signals=0 / item_kind=TENDER
 S25 canonical_items=10  / signals=0 / item_kind=TENDER
 S26 canonical_items=2   / signals=0 / item_kind=TENDER
+S28 canonical_items=8   / signals=0 / item_kind=TENDER
 ```
 
 S22 onboarding-owned acquisition lifecycle:
@@ -614,6 +621,30 @@ Evidence: `docs/verification/S25-SOURCE-ONBOARDING-2026-09-04.md`.
 
 Evidence: `docs/verification/S26-SOURCE-ONBOARDING-2026-09-04.md`.
 
+### S28 Department of Fisheries Open Tenders Onboarding — PASS
+
+- PR #38 CI PASS and squash-merged;
+- exact production application SHA `7413a9da60a1b0c3bf82ac0b30f00fe625ca75a2` deployed to Bangkok only;
+- immediate rollback is the already-live Mac-provider projection release `0a3e6156f2635fd9509738d3b6c0aa1d073f6c03`;
+- before pause the live provider boundary was `production_enabled=false`, `invocation_mode=manual_or_future_contract`, `remote_invocation=false`, `browser_production_approved=false`;
+- frozen pre-deploy eleven-source state: canonical `116`, signals `11`, scheduler runs `399`, acquisition lifecycle `533/533/532/532`, failed `1` (pre-existing recovered S10 timeout), recovery backlog `0`, Worker SignalForge Runs `549`;
+- deployment itself changed no business/acquisition counts and left S28 at canonical/signals `0/0` before baseline;
+- first reviewed S28 baseline created 8 listing-complete `TENDER` canonical items and zero customer signals;
+- baseline metrics: `items_parsed=8`, `tenders_parsed=8`, `details_attempted=0`, `details_succeeded=0`, `changed=8`;
+- S28 lifecycle is exactly `1/1/1/1`: only `https://www.dof.gov.mm/index.php/my/tender` was requested; detail/PDF requested URL count is zero;
+- canonical identity uses issuer tender aliases (`dof:<alias>`); publication/sale/deadline fields preserve separate issuer evidence, including historical inconsistencies rather than heuristically rewriting them;
+- S28 parse health GREEN from `BUSINESS_PROCESSING` (`1/1`);
+- manual baseline Worker Run `signalforge-20260904T162016Z-e786baa0` correlates exactly to the S28 scheduler row; Worker Runs `549 -> 550`;
+- Bangkok + Beijing `workerctl doctor` PASS;
+- Beijing `/srv/signalforge` remains absent and installed dispatcher returns `126 / DENY: SignalForge is Bangkok-only` for `signalforge-refresh S28`;
+- timer resume created one normal Worker wrapper `signalforge-20260904T162128Z-eb642231` that processed four due source jobs (S13/S20/S21/S22), all `SUCCESS`, `changed=0`, `signals=0`; S28 was not fetched again;
+- final steady state: all twelve sources GREEN, canonical `124`, signals `11`, scheduler runs `404`, acquisition lifecycle `538/538/537/537`, failed `1` (pre-existing recovered S10 timeout), recovery backlog `0`, Worker SignalForge Runs `551`;
+- timer restored enabled / active / waiting; run-due service inactive;
+- Mac provider remains locked and `browser_production_approved=false` remains frozen;
+- no schema migration, PDF/OCR runtime, Browser, JSON-primary target, remote Provider invocation, Worker-runtime or Control-Plane capability was introduced by S28.
+
+Evidence: `docs/verification/S28-SOURCE-ONBOARDING-2026-09-04.md`.
+
 ### Mac/Bangkok Source Network Re-Audit — PASS / NO ONBOARDING CHANGE
 
 - read-only live re-audit compared Mac Browser Plane direct C0 observations with Bangkok production-network strict-TLS behavior;
@@ -670,13 +701,13 @@ Still frozen:
 - Browserless ADR: only after multiple real browser consumers create shared lifecycle/queue/session pain.
 - PDF supplementary adapter: only when issuer HTML lacks business-critical fields whose extraction materially improves the commercial signal.
 
-S20, S22, S05A, S07, S08A, S12, S25 and S26 triggered none of these capability gates. S10 remains the first source to trigger the PDF supplementary **value** gate because the official PDFs contain company-level and policy-level business facts absent from HTML. The separate production extraction/runtime-packaging gate remains deferred, so no new dependency or runtime capability has been promoted. Fresh audits now make the municipal gates more specific: S16 YCDC requires a stable discovery-identity vs ephemeral transport-locator contract; S17 MCDC requires Burmese image/OCR for current scan-only tender PDFs; S18 NPTDC requires mixed-board segmentation plus image/OCR. None should be bypassed merely to increase source count.
+S20, S22, S05A, S07, S08A, S12, S25, S26 and S28 triggered none of these capability gates. S10 remains the first source to trigger the PDF supplementary **value** gate because the official PDFs contain company-level and policy-level business facts absent from HTML. The separate production extraction/runtime-packaging gate remains deferred, so no new dependency or runtime capability has been promoted. Fresh audits now make the municipal gates more specific: S16 YCDC requires a stable discovery-identity vs ephemeral transport-locator contract; S17 MCDC requires Burmese image/OCR for current scan-only tender PDFs; S18 NPTDC requires mixed-board segmentation plus image/OCR. None should be bypassed merely to increase source count.
 
 ## Next
 
-1. operate S05A + S07 + S08A + S10 + S12 + S13 + S20 + S21 + S22 + S25 + S26 and collect real acquisition/source history;
+1. operate S05A + S07 + S08A + S10 + S12 + S13 + S20 + S21 + S22 + S25 + S26 + S28 and collect real acquisition/source history;
 2. choose the next source by business value plus current endpoint quality, not source-ID order or a target source count;
-3. prefer another issuer-original Direct-HTTP source that fits the existing acquisition engine before introducing schema/OCR/Browser capability; S26 candidate audit already ruled out Ministry of Industry on Bangkok DNS and deferred Ministry of Energy because current business detail is primarily embedded-PDF content;
+3. prefer another issuer-original Direct-HTTP source that fits the existing acquisition engine before introducing schema/OCR/Browser capability; S26/S28 audits have already ruled out or deferred Ministry of Industry (Bangkok DNS), Ministry of Energy (embedded PDF), Ministry of Education (image notice) and Tourism (JPG notice) under current capabilities;
 4. S01 National Portal stays discovery-aggregator-only until issuer-resolution/equivalence/dedup exists; S04 Trade Portal remains deferred for the same cross-source contract reason;
 5. preserve the newly proven municipal gates: S16 requires identity/locator separation, S17 requires Burmese OCR, S18 requires classifier + OCR; do not force any of them into P0;
 6. keep S10 PDF supplementary extraction as a separate reviewed runtime-packaging slice and promote it only when its incremental commercial value justifies the dependency;
