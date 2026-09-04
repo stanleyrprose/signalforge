@@ -25,7 +25,7 @@ class ContractTests(unittest.TestCase):
         )
         self.assertEqual(manifest["verbs"]["signalforge-refresh"]["argument"], "source_id")
         self.assertEqual(manifest["grammar"]["source_id"], "^[A-Z][A-Z0-9]{0,15}$")
-        self.assertEqual(manifest["active_source_ids"], ["S05A", "S07", "S08A", "S10", "S12", "S13", "S20", "S21", "S22"])
+        self.assertEqual(manifest["active_source_ids"], ["S05A", "S07", "S08A", "S10", "S12", "S13", "S20", "S21", "S22", "S25"])
 
         registry = Registry.load(ROOT)
         with self.assertRaisesRegex(ConfigError, "invalid source id"):
@@ -95,6 +95,18 @@ class ContractTests(unittest.TestCase):
         self.assertFalse(dica["attachment_policy"]["fetch_in_primary_pipeline"])
         self.assertEqual(dica["attachment_policy"]["pdf_value_gate"], "TRIGGERED")
         self.assertEqual(dica["attachment_policy"]["runtime_packaging_gate"], "DEFERRED_ZERO_DEPENDENCY")
+
+        monpifer = registry.source("S25")
+        self.assertEqual(monpifer["adapter"], "monpifer_tender")
+        self.assertEqual(monpifer["role"], "ACTIVE_PRIMARY")
+        self.assertEqual(monpifer["item_kind"], "TENDER")
+        self.assertTrue(monpifer["listing_complete_business_records"])
+        self.assertEqual(monpifer["canonical_key"], "issuer_article_alias")
+        self.assertEqual(monpifer["discovery_url"], "https://www.monpifer.gov.mm/my/ministry-tenders")
+        self.assertEqual(monpifer["health_policy"]["parse_sample_source"], "BUSINESS_PROCESSING")
+        self.assertEqual(monpifer["attachment_policy"]["mode"], "METADATA_ONLY_NON_BLOCKING")
+        self.assertFalse(monpifer["attachment_policy"]["fetch_in_primary_pipeline"])
+        self.assertNotIn("S25", registry.raw["deferred_sources"])
 
     def test_deploy_installs_reviewed_refresh_template_and_drains_instances(self) -> None:
         deploy = (ROOT / "deploy" / "deploy-signalforge-release.sh").read_text(encoding="utf-8")
