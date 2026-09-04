@@ -1,8 +1,8 @@
 # S20 MOEP Main Tender Hub — Source Onboarding Verification
 
 Date (Asia/Yangon): 2026-09-04
-Phase: `PRE_PRODUCTION`
-Result: **READY_FOR_PR / NOT YET PRODUCTION-COMPLETE**
+Phase: `PRODUCTION`
+Result: **PASS / PRODUCTION COMPLETE**
 
 ## Decision
 
@@ -191,21 +191,160 @@ sh -n deploy/deploy-signalforge-release.sh PASS
 git diff --check                           PASS
 ```
 
-## Production acceptance after merge
+## Production rollout — PASS
 
-S20 remains not production-complete until the exact merged SHA passes:
+Implementation PR `#18` passed CI and was squash-merged. Exact production SHA:
 
-1. pause Bangkok SignalForge timer through the reviewed Control Plane verb;
-2. snapshot S13/S21/S22/global canonical/signal/Worker state;
-3. deploy the exact merged SHA to Bangkok only;
-4. confirm Beijing remains strict SignalForge zero-footprint;
-5. run reviewed `signalforge-refresh S20` once;
-6. prove first S20 baseline creates zero customer signals;
-7. prove one manual refresh correlates to exactly one Worker application Run;
-8. verify S20 requests/attempts/evidence/processing/canonical rows are durable;
-9. verify no PDF acquisition attempt exists for S20;
-10. verify S13/S21/S22 business state remains intact;
-11. verify SQLite `quick_check=ok` and both Worker doctors PASS;
-12. verify Beijing rejects `signalforge-refresh S20`;
-13. restore timer enabled / active / waiting and inspect any persistent due wrapper;
-14. promote this evidence to `PRODUCTION / PASS` and update `CHECKPOINT.md` / `GOAL.md`.
+```text
+255f18f3dd919b6e77b9d3138839f0439062e3bc
+```
+
+Immediate rollback target:
+
+```text
+9ec2b133ca1c3339abccf34c5f5c86cecd3e6023
+```
+
+The production timer was paused through the reviewed Control Plane verb before deployment.
+
+Frozen pre-deploy state:
+
+```text
+canonical_items=65
+signals=10
+scheduler_runs=134
+acquisition_requests=143
+acquisition_attempts=143
+evidence_envelopes=143
+processing_records=143
+failed_runs=0
+recovery_backlog=0
+Worker SignalForge Runs=389
+S13/S21/S22=GREEN
+timer=disabled/inactive
+```
+
+The exact merged SHA was deployed to Bangkok only. Post-deploy manifest exposed:
+
+```text
+active_source_ids=[S13,S20,S21,S22]
+verb_manifest_version=1
+```
+
+## First S20 production baseline — PASS
+
+Reviewed invocation:
+
+```text
+signalforge-refresh S20
+```
+
+Live result:
+
+```text
+trigger_kind=MANUAL
+baseline=1
+status=SUCCESS
+details_attempted=5
+details_succeeded=5
+tenders_parsed=5
+changed=5
+signals_created=0
+worker_run_id=signalforge-20260904T011731Z-2575d704
+```
+
+Business state:
+
+```text
+canonical_items: 65 -> 70
+signals:         10 -> 10
+scheduler_runs: 134 -> 135
+```
+
+Worker correlation:
+
+```text
+Worker SignalForge Runs: 389 -> 390
+latest Worker Run=signalforge-20260904T011731Z-2575d704 / SUCCESS
+```
+
+Exactly one Worker operational Run correlated to the manual S20 baseline.
+
+## Attachment isolation — PASS
+
+S20 persisted exactly one category acquisition plus five detail acquisitions:
+
+```text
+requests=6
+attempts=6
+evidence=6
+processing=6
+canonical=5
+signals=0
+PDF requested_url count=0
+```
+
+Persisted S20 evidence URLs were only:
+
+```text
+https://moep.gov.mm/mm/ignite/page/62
+https://moep.gov.mm/mm/ignite/contentView/7141
+https://moep.gov.mm/mm/ignite/contentView/7124
+https://moep.gov.mm/mm/ignite/contentView/7121
+https://moep.gov.mm/mm/ignite/contentView/7112
+https://moep.gov.mm/mm/ignite/contentView/7103
+```
+
+Therefore the currently broken official PDF links did not enter the primary acquisition pipeline.
+
+## State / topology verification — PASS
+
+Paused-window per-source business state:
+
+```text
+S13 canonical/signals=16/10
+S20 canonical/signals=5/0
+S21 canonical/signals=45/0
+S22 canonical/signals=4/0
+```
+
+Additional checks:
+
+```text
+SQLite quick_check=ok
+Bangkok Worker doctor=PASS
+Beijing Worker doctor=PASS
+Beijing /srv/signalforge=ABSENT
+Beijing signalforge-refresh S20=126 / DENY: SignalForge is Bangkok-only
+```
+
+`signalforge-resume` restored the timer to:
+
+```text
+enabled / active / waiting
+```
+
+No immediate persistent wrapper was created by this resume; Worker SignalForge Runs remained `390`.
+
+## Final production state
+
+```text
+SignalForge release=255f18f3dd919b6e77b9d3138839f0439062e3bc
+active sources=S13,S20,S21,S22
+SignalForge health=GREEN
+S20 health=GREEN
+S20 parse=5/5
+canonical_items=70
+signals=10
+scheduler_runs=135
+acquisition_requests=149
+acquisition_attempts=149
+evidence_envelopes=149
+processing_records=149
+failed_runs=0
+recovery_backlog=0
+Worker SignalForge Runs=390
+timer=enabled/active/waiting
+```
+
+S20 MOEP Main Tender Hub is therefore **PASS / PRODUCTION COMPLETE**.

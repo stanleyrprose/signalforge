@@ -1,12 +1,13 @@
 # CHECKPOINT
 
 Date: 2026-09-04 (Asia/Yangon)
-Branch: `main` after S22 Inland Water Transport production onboarding closure.
+Branch: `main` after S20 MOEP Main Tender Hub production onboarding closure.
 
 ## Production releases
 
-- SignalForge current application: `9ec2b133ca1c3339abccf34c5f5c86cecd3e6023`
-- Immediate SignalForge rollback (S13 + S21): `52c9ab5b5e5643014e1b55a634cc5fbe26c0ebac`
+- SignalForge current application: `255f18f3dd919b6e77b9d3138839f0439062e3bc`
+- Immediate SignalForge rollback (S13 + S21 + S22): `9ec2b133ca1c3339abccf34c5f5c86cecd3e6023`
+- Previous SignalForge S13 + S21 release: `52c9ab5b5e5643014e1b55a634cc5fbe26c0ebac`
 - Previous SignalForge v1.5 S13-only release: `618afaf4e6ef2ac7fdde64931f2a87dbc053a6f6`
 - SignalForge v1.4.5 known-good rollback: `d36f38336bf1b10580cffdb7fa96c7db119c2079`
 - Worker runtime/provider on Bangkok + Beijing: `0a53558c9233622c69b083d61bed596cbedc0857`
@@ -21,6 +22,9 @@ Branch: `main` after S22 Inland Water Transport production onboarding closure.
 - Beijing `hermes-gateway.service`: active
 - Bangkok SignalForge: ENABLED / GREEN
 - S13 source health: GREEN
+- S20 source health: GREEN
+- S20 parse health at baseline: GREEN (`5/5`, ratio `1.0`)
+- S20 attachment health: DEGRADED (`0/5` current advertised PDFs retrievable; metadata-only/non-blocking)
 - S21 source health: GREEN
 - S22 source health: GREEN
 - S22 parse health at baseline: GREEN (`4/4`, ratio `1.0`)
@@ -30,25 +34,26 @@ Branch: `main` after S22 Inland Water Transport production onboarding closure.
 
 ## Current SignalForge business state
 
-Final live state after S22 baseline, timer restoration, and the first recovery wrapper:
+Final live state after S20 baseline and timer restoration:
 
 ```text
-canonical_items=65
+canonical_items=70
 signals=10
-scheduler_runs=131
+scheduler_runs=135
 failed_runs=0
 recovery_backlog=0
-acquisition_requests=140
-acquisition_attempts=140
-evidence_envelopes=140
-processing_records=140
-Worker SignalForge application Runs=383
+acquisition_requests=149
+acquisition_attempts=149
+evidence_envelopes=149
+processing_records=149
+Worker SignalForge application Runs=390
 ```
 
 Per-source canonical/signal state verified during the paused rollout window:
 
 ```text
 S13 canonical_items=16 / signals=10
+S20 canonical_items=5  / signals=0
 S21 canonical_items=45 / signals=0
 S22 canonical_items=4  / signals=0
 ```
@@ -69,6 +74,55 @@ The four S22 rows are issuer nodes 1038, 1037, 1036 and 1035. The baseline creat
 ### S13 — MPT Tender Information — GREEN
 
 Existing production semantics remain unchanged.
+
+### S20 — MOEP Main Tender Hub — GREEN / PRODUCTION COMPLETE
+
+Production release: `255f18f3dd919b6e77b9d3138839f0439062e3bc`.
+
+Source shape:
+
+```text
+/mm/ignite/page/62 HTML
+-> latest 5 official tender items
+-> one detail page -> one partial HTML tender
+-> attachment metadata only
+```
+
+First production baseline through reviewed `signalforge-refresh S20`:
+
+```text
+baseline=1
+status=SUCCESS
+details_attempted=5
+details_succeeded=5
+tenders_parsed=5
+changed=5
+signals_created=0
+worker_run_id=signalforge-20260904T011731Z-2575d704
+```
+
+Worker correlation:
+
+```text
+Worker SignalForge Runs: 389 -> 390
+latest Worker Run=signalforge-20260904T011731Z-2575d704 / SUCCESS
+```
+
+S20 persistence:
+
+```text
+requests=6
+attempts=6
+evidence=6
+processing=6
+canonical=5
+signals=0
+PDF requested_url count=0
+```
+
+Current official attachment reality is degraded: the latest 5 advertised PDFs returned HTTP 404 from Bangkok. This does not reduce S20 HTML source health because attachments are explicitly `METADATA_ONLY_NON_BLOCKING`. Missing deadline/business-detail fields remain unknown rather than inferred.
+
+Evidence: `docs/verification/S20-SOURCE-ONBOARDING-2026-09-04.md`.
 
 ### S21 — Myanma Railways Tenders — GREEN
 
@@ -239,7 +293,7 @@ Evidence: `docs/verification/GATE-Z-2026-09-03.md`, S21 onboarding and S22 onboa
 ### Gate AA — Cross-repo Verb Compatibility — PASS
 
 - `verb_manifest_version=1` remains live;
-- active Source Registry membership now exposes `S13`, `S21`, `S22`;
+- active Source Registry membership now exposes `S13`, `S20`, `S21`, `S22`;
 - Beijing continues to reject SignalForge control verbs.
 
 ### Gate AB — v1.5 Production Compatibility — PASS
@@ -269,6 +323,23 @@ Evidence: `docs/verification/S21-SOURCE-ONBOARDING-2026-09-04.md`.
 - resumed wrapper processed due S13/S21 correctly with no signals or canonical changes.
 
 Evidence: `docs/verification/S22-SOURCE-ONBOARDING-2026-09-04.md`.
+
+### S20 Source Onboarding — PASS
+
+- PR #18 CI PASS and merged;
+- exact SHA `255f18f3dd919b6e77b9d3138839f0439062e3bc` deployed to Bangkok only;
+- first baseline parsed 5/5 current MOEP detail pages;
+- first baseline created zero customer signals;
+- 5 S20 canonical items durable;
+- one category + five detail acquisitions persisted; zero PDF requested URLs;
+- SQLite quick_check ok;
+- Worker cardinality/correlation verified (`389 -> 390`);
+- Bangkok + Beijing Worker doctors PASS;
+- Beijing remains strict zero-footprint and rejects `signalforge-refresh S20`;
+- timer restored enabled / active / waiting with no immediate extra wrapper;
+- S13/S21/S22 canonical/signal state remained unchanged.
+
+Evidence: `docs/verification/S20-SOURCE-ONBOARDING-2026-09-04.md`.
 
 ## Frozen acquisition invariants
 
@@ -305,13 +376,14 @@ Still frozen:
 - Browserless ADR: only after multiple real browser consumers create shared lifecycle/queue/session pain.
 - PDF supplementary adapter: only when issuer HTML lacks business-critical fields whose extraction materially improves the commercial signal.
 
-S22 triggered none of these gates.
+S20 and S22 triggered none of these gates. S20 did surface a real PDF-attachment degradation, but it is correctly isolated as non-blocking metadata rather than being promoted into a new runtime capability.
 
 ## Next
 
-1. operate S13 + S21 + S22 and collect real acquisition/source history;
-2. fresh-audit **S20 MOEP Main Tender Hub** as the preferred next engineering candidate;
-3. explicitly decide whether MOEP HTML alone is commercially sufficient before adding any PDF extraction;
-4. preserve YCDC/MCDC/NPTDC identity/PDF/classifier gates rather than bypassing them;
-5. keep Direct HTTP first and trigger capability expansion only from real source evidence;
-6. run the next cross-repo consistency review by 2026-12-03 or an earlier contract-change trigger.
+1. operate S13 + S20 + S21 + S22 and collect real acquisition/source history;
+2. choose the next source by business value plus current endpoint quality, not source-ID order;
+3. preferred next audit pool: S01 National Portal, S04 Trade Portal legal documents, S05A Commerce Notifications, S07/S08A Customs, and S12 IRD;
+4. periodically recheck whether MOEP advertised PDFs become retrievable; only then consider a supplementary PDF parser gate;
+5. preserve YCDC/MCDC/NPTDC identity/PDF/classifier gates rather than bypassing them;
+6. keep Direct HTTP first and trigger Browser/remote/Mac/PDF capability expansion only from real source evidence;
+7. run the next cross-repo consistency review by 2026-12-03 or an earlier contract-change trigger.
