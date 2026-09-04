@@ -1,12 +1,13 @@
 # CHECKPOINT
 
 Date: 2026-09-04 (Asia/Yangon)
-Branch: `main` after S05A Ministry of Commerce regulatory-notice production onboarding closure.
+Branch: `main` after S07 Myanmar Customs Notifications production onboarding closure.
 
 ## Production releases
 
-- SignalForge current application: `3c833d62dcf16ecd9e4b12dafd9ac557417efddb`
-- Immediate SignalForge rollback (S13 + S20 + S21 + S22): `255f18f3dd919b6e77b9d3138839f0439062e3bc`
+- SignalForge current application: `edf3e342ad127b4beac93a285bfb0096a1815aaa`
+- Immediate SignalForge rollback (S05A + S13 + S20 + S21 + S22): `3c833d62dcf16ecd9e4b12dafd9ac557417efddb`
+- Previous SignalForge S13 + S20 + S21 + S22 release: `255f18f3dd919b6e77b9d3138839f0439062e3bc`
 - Previous SignalForge S13 + S21 + S22 release: `9ec2b133ca1c3339abccf34c5f5c86cecd3e6023`
 - Previous SignalForge S13 + S21 release: `52c9ab5b5e5643014e1b55a634cc5fbe26c0ebac`
 - Previous SignalForge v1.5 S13-only release: `618afaf4e6ef2ac7fdde64931f2a87dbc053a6f6`
@@ -25,6 +26,9 @@ Branch: `main` after S05A Ministry of Commerce regulatory-notice production onbo
 - S05A source health: GREEN
 - S05A parse health at baseline: GREEN (`3/3`, ratio `1.0`)
 - S05A canonical domain: `REGULATORY_NOTICE`; baseline `items_parsed=3`, `tenders_parsed=0`
+- S07 source health: GREEN
+- S07 parse health at baseline: GREEN (`1/1`, `BUSINESS_PROCESSING`)
+- S07 canonical domain: `REGULATORY_NOTICE`; baseline `items_parsed=5`, `tenders_parsed=0`, `details_attempted=0`
 - S13 source health: GREEN
 - S20 source health: GREEN
 - S20 parse health at baseline: GREEN (`5/5`, ratio `1.0`)
@@ -38,29 +42,30 @@ Branch: `main` after S05A Ministry of Commerce regulatory-notice production onbo
 
 ## Current SignalForge business state
 
-Final live state after S05A baseline and timer restoration:
+Final live state after S07 baseline and timer restoration:
 
 ```text
-canonical_items=73
-signals=10
-scheduler_runs=152
+canonical_items=79
+signals=11
+scheduler_runs=198
 failed_runs=0
 recovery_backlog=0
-acquisition_requests=198
-acquisition_attempts=198
-evidence_envelopes=198
-processing_records=198
-Worker SignalForge application Runs=406
+acquisition_requests=262
+acquisition_attempts=262
+evidence_envelopes=262
+processing_records=262
+Worker SignalForge application Runs=441
 ```
 
 Per-source canonical/signal state verified during the paused rollout window:
 
 ```text
 S05A canonical_items=3  / signals=0 / item_kind=REGULATORY_NOTICE
-S13 canonical_items=16 / signals=10 / item_kind=TENDER
-S20 canonical_items=5  / signals=0 / item_kind=TENDER
-S21 canonical_items=45 / signals=0 / item_kind=TENDER
-S22 canonical_items=4  / signals=0 / item_kind=TENDER
+S07 canonical_items=5   / signals=0 / item_kind=REGULATORY_NOTICE
+S13 canonical_items=16  / signals=10 / item_kind=TENDER
+S20 canonical_items=6   / signals=1 / item_kind=TENDER
+S21 canonical_items=45  / signals=0 / item_kind=TENDER
+S22 canonical_items=4   / signals=0 / item_kind=TENDER
 ```
 
 S22 onboarding-owned acquisition lifecycle:
@@ -95,6 +100,22 @@ First baseline: 3 selected regulatory notices, `items_parsed=3`, `tenders_parsed
 ### S13 — MPT Tender Information — GREEN
 
 Existing production semantics remain unchanged.
+
+### S07 — Myanmar Customs Notifications — GREEN / PRODUCTION COMPLETE
+
+Current production release: `edf3e342ad127b4beac93a285bfb0096a1815aaa`.
+
+Source/domain shape:
+
+```text
+Customs /notifications HTML table
+-> listing-complete regulatory records
+-> one acquisition/evidence/processing lifecycle
+-> N REGULATORY_NOTICE canonical items
+-> attachment metadata only
+```
+
+First baseline: 5 regulatory notices, `items_parsed=5`, `tenders_parsed=0`, `details_attempted=0`, zero signals. Canonical identity uses normalized issuer notification/order number.
 
 ### S20 — MOEP Main Tender Hub — GREEN / PRODUCTION COMPLETE
 
@@ -379,6 +400,25 @@ Evidence: `docs/verification/S20-SOURCE-ONBOARDING-2026-09-04.md`.
 
 Evidence: `docs/verification/S05A-SOURCE-ONBOARDING-2026-09-04.md`.
 
+### S07 Customs Notifications Onboarding — PASS
+
+- PR #24 CI PASS and squash-merged;
+- exact SHA `edf3e342ad127b4beac93a285bfb0096a1815aaa` deployed to Bangkok only;
+- pre-deploy state frozen at canonical `74`, signals `11`, scheduler runs `192`, Worker Runs `439`;
+- first baseline created 5 `REGULATORY_NOTICE` canonical items and zero customer signals;
+- baseline metrics: `items_parsed=5`, `tenders_parsed=0`, `details_attempted=0`;
+- exactly one request/attempt/evidence/processing record persisted; no `discovery_items` and zero PDF requested URLs;
+- S07 parse health GREEN from `BUSINESS_PROCESSING` (`1/1`);
+- Worker cardinality/correlation verified (`439 -> 440`);
+- Bangkok + Beijing Worker doctors PASS;
+- Beijing remains strict zero-footprint and rejects `signalforge-refresh S07`;
+- timer resume wrapper changed Worker Runs `440 -> 441` and processed due S05A/S13/S20/S21/S22 with zero changes/signals;
+- timer restored enabled / active / waiting;
+- all six sources GREEN;
+- PRD v1.5.1 Browser invariant preserved: no VPS Browser runtime and no SignalForge→Mac remote invocation.
+
+Evidence: `docs/verification/S07-SOURCE-ONBOARDING-2026-09-04.md`.
+
 ## Frozen acquisition invariants
 
 ```text
@@ -414,14 +454,14 @@ Still frozen:
 - Browserless ADR: only after multiple real browser consumers create shared lifecycle/queue/session pain.
 - PDF supplementary adapter: only when issuer HTML lacks business-critical fields whose extraction materially improves the commercial signal.
 
-S20, S22 and S05A triggered none of these gates. S20 did surface a real PDF-attachment degradation, while S05A proved retrievable official PDFs can still remain metadata-only when HTML is sufficient for event detection; neither condition was promoted into a new runtime capability.
+S20, S22, S05A and S07 triggered none of these gates. S20 did surface a real PDF-attachment degradation, while S05A proved retrievable official PDFs can still remain metadata-only when HTML is sufficient for event detection; neither condition was promoted into a new runtime capability.
 
 ## Next
 
-1. operate S05A + S13 + S20 + S21 + S22 and collect real acquisition/source history;
+1. operate S05A + S07 + S13 + S20 + S21 + S22 and collect real acquisition/source history;
 2. choose the next source by business value plus current endpoint quality, not source-ID order;
 3. S01 National Portal fresh audit: defer canonical onboarding; preserve only as a future discovery-aggregator/issuer-resolution capability because its labelled closing date can conflict with issuer-original evidence;
-4. preferred next issuer-original audit pool: S04 Trade Portal legal documents, S07/S08A Customs, and S12 IRD; S05A is now production-complete;
+4. preferred next issuer-original audit pool: S08A Customs Announcements, S04 Trade Portal legal documents, and S12 IRD; S05A/S07 are production-complete;
 5. periodically recheck whether MOEP advertised PDFs become retrievable; only then consider a supplementary PDF parser gate;
 6. preserve YCDC/MCDC/NPTDC identity/PDF/classifier gates rather than bypassing them;
 7. keep Direct HTTP first; if a source truly requires Browser, route the requirement only to Mac Browser Plane and block unattended production until a separate Provider Invocation Contract is live-verified;

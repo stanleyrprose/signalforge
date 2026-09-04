@@ -24,9 +24,22 @@ Expand SignalForge across high-value Myanmar issuer-original sources while prese
 - Direct HTTP / issuer sitemap + structured detail parser;
 - source health GREEN.
 
+### S07 — Myanmar Customs Notifications
+
+- production-enabled on current application release `edf3e342ad127b4beac93a285bfb0096a1815aaa`;
+- issuer-original `REGULATORY_NOTICE` source;
+- listing-complete Direct HTTP shape: one `/notifications` HTML acquisition directly yields current business records;
+- canonical identity is normalized issuer notification/order number (`customs-notice:<ref>`);
+- first baseline created 5 regulatory canonical items and zero customer signals;
+- baseline metrics: `items_parsed=5`, `tenders_parsed=0`, `details_attempted=0`;
+- official PDF links remain metadata-only and are not fetched by the primary pipeline;
+- parse health uses `BUSINESS_PROCESSING`; first production sample `1/1 = GREEN`;
+- source health GREEN;
+- evidence: `docs/verification/S07-SOURCE-ONBOARDING-2026-09-04.md`.
+
 ### S05A — Ministry of Commerce Trade Notifications
 
-- production-enabled on current application release `3c833d62dcf16ecd9e4b12dafd9ac557417efddb`;
+- production-enabled; first regulation-domain onboarding release was `3c833d62dcf16ecd9e4b12dafd9ac557417efddb`;
 - first production `REGULATORY_NOTICE` domain slice, explicitly not represented as a tender;
 - `ACTIVE_SELECTIVE` Myanmar-language Drupal Notifications discovery;
 - current baseline created 3 regulatory canonical items and zero customer signals;
@@ -68,12 +81,13 @@ Expand SignalForge across high-value Myanmar issuer-original sources while prese
 
 ## Current result
 
-> **S05A + S13 + S20 + S21 + S22 = PRODUCTION / GREEN**
+> **S05A + S07 + S13 + S20 + S21 + S22 = PRODUCTION / GREEN**
 
-SignalForge has now proven five source/domain shapes under the same v1.5 acquisition lifecycle:
+SignalForge has now proven six source/domain shapes under the same v1.5 acquisition lifecycle:
 
 ```text
 Commerce: one Drupal notice -> zero/one selected REGULATORY_NOTICE + attachment metadata
+Customs:  one listing HTML -> N REGULATORY_NOTICE records, no synthetic detail stage
 MPT:      one detail page -> zero/one tender
 MOEP:     one category item -> one partial HTML tender + attachment metadata
 Railways: one detail page -> N tender rows
@@ -113,4 +127,4 @@ business-value audit
 -> checkpoint closure
 ```
 
-The next source should be selected by business value and current audit evidence, not simply by source ID order. S01 National Portal remains deferred as a canonical source because aggregator metadata conflicts with issuer-original evidence; keep it only for a future discovery-lead contract. S05A is now production-complete and proves the regulation domain can coexist with tender sources without semantic leakage. The preferred next issuer-original audit pool is S04 Trade Portal legal documents, S07/S08A Customs and S12 IRD. YCDC/MCDC/NPTDC retain their identity/PDF/classifier conditions and must not be force-onboarded merely to increase source count.
+The next source should be selected by business value and current audit evidence, not simply by source ID order. S01 National Portal remains deferred as a canonical source because aggregator metadata conflicts with issuer-original evidence; keep it only for a future discovery-lead contract. S05A and S07 are now production-complete and prove two regulation source shapes without tender semantic leakage. The preferred next issuer-original audit pool is S08A Customs Announcements, S04 Trade Portal legal documents and S12 IRD. S08A requires a fresh mixed-content classifier audit because its current surface includes tender awards and auctions. YCDC/MCDC/NPTDC retain their identity/PDF/classifier conditions and must not be force-onboarded merely to increase source count.
