@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import io
 import re
 from dataclasses import asdict, dataclass
-from datetime import date
+from datetime import date, datetime
 from html.parser import HTMLParser
 from urllib.parse import unquote, urljoin, urlparse
+
+from pypdf import PdfReader
 
 from .mpt import normalize_text
 
@@ -256,6 +259,195 @@ def extract_detail_pdf_url(detail_html: bytes) -> str:
     if len(unique) != 1:
         raise MpaParseError(f"expected exactly one MPA detail PDF iframe, found {len(unique)}")
     return unique[0]
+
+
+MAX_MPA_PDF_BYTES = 10 * 1024 * 1024
+MAX_MPA_PDF_PAGES = 20
+MAX_MPA_PDF_TEXT_CHARS = 100_000
+_MYANMAR_DIGIT_TRANSLATION = str.maketrans("၀၁၂၃၄၅၆၇၈၉", "0123456789")
+_DATE_TOKEN_RE = re.compile(r"(?<!\d)(\d{1,2})\s*[-/.]\s*(\d{1,2})\s*[-/.]\s*(20\d{2})(?!\d)")
+_REFERENCE_RE = re.compile(r"\bMPA-[A-Z0-9&]+/\d{1,4}-\s*20\d{2}\b", re.IGNORECASE)
+
+_DISPOSAL_SIGNALS: tuple[tuple[str, str], ...] = (
+    ("auctioned", "AUCTION_EN"),
+    ("auction", "AUCTION_EN"),
+    ("disposal", "DISPOSAL_EN"),
+    ("လေလံ", "AUCTION_MY"),
+    ("ရောင်းချ", "SALE_MY"),
+    ("စာရင်းမှ ပယ်ဖျက်", "DECOMMISSION_MY"),
+    ("စာရင်းမှပယ်ဖျက်", "DECOMMISSION_MY"),
+    ("မလိုအပ်တော့", "SURPLUS_MY"),
+)
+_PROCUREMENT_SIGNALS: tuple[tuple[str, str], ...] = (
+    ("ဝယ်ယူ", "PURCHASE_MY"),
+    ("ဝန်ဆောင်မှုရယူ", "SERVICE_MY"),
+    ("ပြုပြင်", "REPAIR_MY"),
+    ("တည်ဆောက်", "CONSTRUCTION_MY"),
+    ("တပ်ဆင်", "INSTALLATION_MY"),
+    ("procurement", "PROCUREMENT_EN"),
+    ("purchase", "PURCHASE_EN"),
+    ("supply", "SUPPLY_EN"),
+    ("operation and maintenance", "SERVICE_EN"),
+    ("maintenance", "MAINTENANCE_EN"),
+    ("repair", "REPAIR_EN"),
+    ("construction", "CONSTRUCTION_EN"),
+    ("installation", "INSTALLATION_EN"),
+    ("dredging", "DREDGING_EN"),
+)
+
+
+@dataclass(frozen=True)
+class MpaPdfFields:
+    final_item_kind: str | None
+    classification_status: str
+    classification_basis: str | None
+    deadline_local: str | None
+    deadline_timezone: str
+    deadline_status: str
+    reference_no: str | None
+    scope_excerpt: str | None
+    page_count: int
+    text_chars: int
+
+    def payload(self) -> dict[str, object]:
+        return asdict(self)
+
+
+def extract_pdf_text(pdf_bytes: bytes) -> tuple[str, int]:
+    if not pdf_bytes or len(pdf_bytes) > MAX_MPA_PDF_BYTES:
+        raise MpaParseError(f"MPA PDF size outside allowed range: {len(pdf_bytes)} bytes")
+    try:
+        reader = PdfReader(io.BytesIO(pdf_bytes), strict=False)
+    except Exception as exc:  # pypdf exposes multiple parser exception types
+        raise MpaParseError(f"unable to open MPA PDF: {type(exc).__name__}") from exc
+    if reader.is_encrypted:
+        raise MpaParseError("encrypted MPA PDF is not supported")
+    page_count = len(reader.pages)
+    if page_count < 1 or page_count > MAX_MPA_PDF_PAGES:
+        raise MpaParseError(f"MPA PDF page count outside allowed range: {page_count}")
+    parts: list[str] = []
+    try:
+        for page in reader.pages:
+            parts.append(page.extract_text() or "")
+    except Exception as exc:
+        raise MpaParseError(f"unable to extract MPA PDF text: {type(exc).__name__}") from exc
+    text = normalize_text(" ".join(parts))
+    if len(text) < 80:
+        raise MpaParseError(f"MPA PDF text too short for deterministic parsing: {len(text)} chars")
+    if len(text) > MAX_MPA_PDF_TEXT_CHARS:
+        raise MpaParseError(f"MPA PDF text exceeds deterministic parser limit: {len(text)} chars")
+    return text, page_count
+
+
+def _signal_match(text: str, signals: tuple[tuple[str, str], ...]) -> tuple[str, str, int] | None:
+    lowered = text.lower()
+    best: tuple[str, str, int] | None = None
+    for token, label in signals:
+        index = lowered.find(token.lower())
+        if index < 0:
+            continue
+        candidate = (token, label, index)
+        if best is None or index < best[2]:
+            best = candidate
+    return best
+
+
+def classify_pdf_text(text: str) -> tuple[str | None, str, str | None, str | None]:
+    disposal = _signal_match(text, _DISPOSAL_SIGNALS)
+    if disposal is not None:
+        token, basis, index = disposal
+        start = max(0, index - 180)
+        end = min(len(text), index + max(420, len(token) + 180))
+        return "AUCTION_NOTICE", "DETERMINISTIC_PDF", basis, text[start:end]
+    procurement = _signal_match(text, _PROCUREMENT_SIGNALS)
+    if procurement is not None:
+        token, basis, index = procurement
+        start = max(0, index - 180)
+        end = min(len(text), index + max(420, len(token) + 180))
+        return "TENDER", "DETERMINISTIC_PDF", basis, text[start:end]
+    return None, "REVIEW_REQUIRED", None, None
+
+
+def _normalize_numeric_text(text: str) -> str:
+    return text.translate(_MYANMAR_DIGIT_TRANSLATION).translate(str.maketrans({"−": "-", "–": "-", "—": "-"}))
+
+
+def _deadline_candidate_score(before: str, after: str) -> int:
+    before_lower = before.lower()
+    after_lower = after.lower()
+    before_compact = re.sub(r"\s+", "", before)
+    after_compact = re.sub(r"\s+", "", after)
+    score = 0
+    for marker in ("to submit", "submission", "closing", "deadline", "not later", "latest"):
+        if marker in before_lower:
+            score += 8
+        elif marker in after_lower:
+            score += 4
+    if "တင်သွင်" in before_compact:
+        score += 8
+    elif "တင်သွင်" in after_compact:
+        score += 4
+    if "နောက်ဆ" in after_compact:
+        score += 5
+    elif "နောက်ဆ" in before_compact:
+        score += 3
+    return score
+
+
+def extract_deadline(text: str) -> tuple[str | None, str]:
+    normalized = _normalize_numeric_text(text)
+    candidates: list[tuple[int, datetime]] = []
+    for match in _DATE_TOKEN_RE.finditer(normalized):
+        day, month, year = (int(value) for value in match.groups())
+        tail = normalized[match.end() : match.end() + 100]
+        time_match = re.search(r"\(?\s*(\d{1,2})\s*:\s*(\d{2})\s*\)?", tail)
+        if time_match is None:
+            compact_time = re.search(r"\(\s*(\d{2})(\d{2})\s*\)", tail)
+            if compact_time is None:
+                continue
+            hour, minute = (int(value) for value in compact_time.groups())
+        else:
+            hour, minute = (int(value) for value in time_match.groups())
+        try:
+            value = datetime(year, month, day, hour, minute)
+        except ValueError:
+            continue
+        before = normalized[max(0, match.start() - 90) : match.start()]
+        after = normalized[match.end() : min(len(normalized), match.end() + 90)]
+        candidates.append((_deadline_candidate_score(before, after), value))
+    if not candidates:
+        return None, "NOT_FOUND"
+    best_score = max(score for score, _value in candidates)
+    best = sorted({value for score, value in candidates if score == best_score})
+    if len(best) != 1:
+        return None, "AMBIGUOUS"
+    return best[0].isoformat(timespec="seconds"), "FOUND"
+
+
+def extract_reference_no(text: str) -> str | None:
+    normalized = _normalize_numeric_text(text)
+    match = _REFERENCE_RE.search(normalized)
+    if match is None:
+        return None
+    return re.sub(r"-\s+(20\d{2})$", r"-\1", match.group(0))
+
+
+def parse_pdf_business_fields(pdf_bytes: bytes) -> MpaPdfFields:
+    text, page_count = extract_pdf_text(pdf_bytes)
+    final_item_kind, classification_status, classification_basis, scope_excerpt = classify_pdf_text(text)
+    deadline_local, deadline_status = extract_deadline(text)
+    return MpaPdfFields(
+        final_item_kind=final_item_kind,
+        classification_status=classification_status,
+        classification_basis=classification_basis,
+        deadline_local=deadline_local,
+        deadline_timezone="Asia/Yangon",
+        deadline_status=deadline_status,
+        reference_no=extract_reference_no(text),
+        scope_excerpt=scope_excerpt,
+        page_count=page_count,
+        text_chars=len(text),
+    )
 
 
 def preview_summary(records: list[MpaListingRecord]) -> dict[str, object]:

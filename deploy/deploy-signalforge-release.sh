@@ -30,7 +30,9 @@ id signalforge >/dev/null 2>&1 || useradd --system --gid signalforge --no-create
 
 ROOT=/srv/signalforge
 FINAL="$ROOT/releases/$RELEASE"
-STAGE="$ROOT/releases/.stage-$RELEASE-$$"
+STAGE="$ROOT/releases/.stage-$RELEASE"
+VENV="$ROOT/venvs/$RELEASE"
+VENV_STAGE="$ROOT/venvs/.stage-$RELEASE"
 OLD=""
 [ ! -L "$ROOT/active" ] || OLD="$(basename "$(readlink -f "$ROOT/active")")"
 TIMER_WAS_ENABLED=0
@@ -42,7 +44,7 @@ install -d -m 0700 -o signalforge -g signalforge "$ROOT/state" "$ROOT/evidence" 
 cleanup() {
   rc=$?
   trap - EXIT
-  rm -rf "$STAGE"
+  rm -rf "$STAGE" "$VENV_STAGE"
   if [ "$rc" -ne 0 ]; then
     if [ -n "$OLD" ] && [ -d "$ROOT/releases/$OLD" ]; then
       ln -sfn "$ROOT/releases/$OLD" "$ROOT/active"
@@ -77,6 +79,16 @@ if [ ! -d "$FINAL" ]; then
   mv "$STAGE" "$FINAL"
 fi
 
+if [ ! -x "$VENV/bin/python" ]; then
+  /usr/bin/python3 -m venv "$VENV_STAGE"
+  "$VENV_STAGE/bin/python" -m pip install --disable-pip-version-check --no-input "$FINAL"
+  chown -R root:root "$VENV_STAGE"
+  chmod -R go-w "$VENV_STAGE"
+  mv "$VENV_STAGE" "$VENV"
+fi
+ln -sfn "../../venvs/$RELEASE" "$FINAL/.venv"
+"$VENV/bin/python" -c 'import pypdf; assert pypdf.__version__ == "6.16.2"'
+
 ln -sfn "$FINAL" "$ROOT/active"
 runuser -u signalforge -- env \
   SIGNALFORGE_STATE_ROOT="$ROOT/state" \
@@ -102,5 +114,5 @@ if [ "$TIMER_WAS_ENABLED" -eq 1 ]; then
 fi
 
 trap - EXIT
-rm -rf "$STAGE"
+rm -rf "$STAGE" "$VENV_STAGE"
 echo "deployment=success application=signalforge release=$RELEASE previous=${OLD:-none} timer_preexisting=$TIMER_WAS_ENABLED"

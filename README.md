@@ -13,12 +13,24 @@ SignalForge application runs are executed by `signalforge-run-due.service`, whos
 ## Local verification
 
 ```sh
-python -m unittest -v tests.test_contract tests.test_mpt tests.test_engine
+python -m pip install -e .
+python -m unittest discover -s tests -v
 python -m compileall -q signalforge tests
 python -m json.tool registry/Source-Registry-v1.yaml >/dev/null
 sh -n bin/signalforge
 sh -n deploy/deploy-signalforge-release.sh
 ```
+
+## MPA preview tooling
+
+S15A remains deferred/inactive. The preview tools are operator-only and are not VPS Worker verbs:
+
+```sh
+signalforge mpa-preview --html response.html --limit 30
+signalforge mpa-pdf-preview --pdf tender.pdf
+```
+
+The PDF preview uses the issuer-original PDF as authoritative business evidence. It returns a deterministic final `TENDER` / `AUCTION_NOTICE` only when decisive procurement/disposal semantics are present; otherwise it returns `REVIEW_REQUIRED`. Deadline extraction is fail-closed when date/time evidence is missing or ambiguous.
 
 ## Production layout
 
@@ -26,7 +38,7 @@ sh -n deploy/deploy-signalforge-release.sh
 /srv/signalforge/
   active -> releases/<signalforge-sha>
   releases/
-  venvs/
+  venvs/<signalforge-sha>/
   state/signalforge.db
   evidence/
   artifacts/
