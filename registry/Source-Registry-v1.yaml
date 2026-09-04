@@ -954,8 +954,8 @@
   "deferred_sources": {
     "S01": "Myanmar National Portal Tenders — DEFER canonical onboarding; keep for future discovery-aggregator/issuer-resolution contract after 2026-09-04 metadata contradiction audit",
     "S04": "Myanmar National Trade Portal Legal Documents — DEFER canonical onboarding; official multi-agency aggregator overlaps issuer-original S05A/S07/S12 and requires cross-source issuer-resolution/dedup contract",
-    "S15A": "MPA Tender Category — DEFER; 2026-09-04 re-audit is Mac direct C0 GREEN but Bangkok strict-TLS RED (curl 60 / issuer chain incomplete); do not bypass TLS or route production to Mac without a separately approved provider contract",
-    "S15B": "MPA legacy Tender URL — DEFER under the same Bangkok RED-TLS / Mac GREEN network-environment split as S15A",
+    "S15A": "MPA Tender Category — DEFER production onboarding; Mac direct C0 + Manual Provider Bridge evidence-only path are GREEN while Bangkok strict-TLS remains RED (curl 60 / issuer chain incomplete); parser preview proves listing rows and stable WordPress post IDs are usable but final TENDER vs AUCTION_NOTICE classification and deadline/scope require the linked official PDF, so do not bypass TLS, enable remote Mac invocation, or canonicalize listing titles without a reviewed PDF supplementary classification slice",
+    "S15B": "MPA legacy Tender URL — DEFER under the same Bangkok RED-TLS / Mac GREEN and PDF supplementary classification gate as S15A",
     "S16": "YCDC — DEFER; HTML business value is strong but department tender locators are randomized Laravel ciphertext on every request; requires explicit stable discovery-identity vs transport-locator contract before onboarding",
     "S17": "MCDC — DEFER; current issuer-original tender posts are stable but business details are scan-only PDFs (0 extracted text in fresh audit), so onboarding requires a separately approved Burmese image/OCR capability",
     "S18": "NPTDC — DEFER; correct legacy PHP board path is Direct-HTTP reachable when literal parentheses are preserved, but tender specifics are image-based and the mixed 3MB board still requires classifier + image/OCR capability",
