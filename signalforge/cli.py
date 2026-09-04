@@ -10,6 +10,7 @@ from . import VERB_MANIFEST_VERSION
 from .config import Registry, SOURCE_ID_PATTERN, db_path
 from .db import connect, migrate
 from .engine import run_due, run_source
+from .mpa import parse_listing_records, preview_summary
 from .provider_bridge import build_provider_request, import_provider_result, write_provider_request
 
 
@@ -227,6 +228,9 @@ def main(argv: list[str] | None = None) -> int:
     provider_import_parser.add_argument("--artifact")
     provider_import_parser.add_argument("--database")
     provider_import_parser.add_argument("--evidence-root")
+    mpa_preview_parser = sub.add_parser("mpa-preview")
+    mpa_preview_parser.add_argument("--html", required=True)
+    mpa_preview_parser.add_argument("--limit", type=int, default=30)
     sub.add_parser("status")
     args = parser.parse_args(argv)
     try:
@@ -254,6 +258,16 @@ def main(argv: list[str] | None = None) -> int:
                 database=Path(args.database).expanduser() if args.database else None,
                 evidence_directory=Path(args.evidence_root).expanduser() if args.evidence_root else None,
             )
+        elif args.cmd == "mpa-preview":
+            if args.limit < 0:
+                raise ValueError("mpa-preview --limit must be >= 0")
+            html_path = Path(args.html).expanduser()
+            result = preview_summary(parse_listing_records(html_path.read_bytes()))
+            records = result["records"]
+            assert isinstance(records, list)
+            result["records_returned"] = min(args.limit, len(records))
+            result["records_truncated"] = len(records) > args.limit
+            result["records"] = records[: args.limit]
         else:
             result = status()
         print(json.dumps(result, ensure_ascii=False, sort_keys=True))
