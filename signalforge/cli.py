@@ -177,7 +177,7 @@ def status(*, now: datetime | None = None, registry: Registry | None = None) -> 
             for row in conn.execute(
                 "SELECT app_run_id,source_id,worker_run_id,started_at,finished_at,status,changed,signals_created,baseline,"
                 "trigger_kind,recovery,outage_window_start,outage_window_end,backlog_remaining,details_attempted,"
-                "details_succeeded,tenders_parsed,error FROM scheduler_runs ORDER BY started_at DESC LIMIT 10"
+                "details_succeeded,tenders_parsed,items_parsed,error FROM scheduler_runs ORDER BY started_at DESC LIMIT 10"
             )
         ]
     source_states = [str((source.get("health") or {}).get("source_health") or "RED") for source in sources]

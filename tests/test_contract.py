@@ -25,7 +25,7 @@ class ContractTests(unittest.TestCase):
         )
         self.assertEqual(manifest["verbs"]["signalforge-refresh"]["argument"], "source_id")
         self.assertEqual(manifest["grammar"]["source_id"], "^[A-Z][A-Z0-9]{0,15}$")
-        self.assertEqual(manifest["active_source_ids"], ["S13", "S20", "S21", "S22"])
+        self.assertEqual(manifest["active_source_ids"], ["S05A", "S13", "S20", "S21", "S22"])
 
         registry = Registry.load(ROOT)
         with self.assertRaisesRegex(ConfigError, "invalid source id"):
@@ -65,6 +65,15 @@ class ContractTests(unittest.TestCase):
         self.assertTrue(moep["discovery_is_tender_only"])
         self.assertEqual(moep["attachment_policy"]["mode"], "METADATA_ONLY_NON_BLOCKING")
         self.assertFalse(moep["attachment_policy"]["fetch_in_primary_pipeline"])
+
+        commerce = registry.source("S05A")
+        self.assertEqual(commerce["adapter"], "commerce_notice")
+        self.assertEqual(commerce["role"], "ACTIVE_SELECTIVE")
+        self.assertEqual(commerce["item_kind"], "REGULATORY_NOTICE")
+        self.assertEqual(commerce["discovery_url"], "https://commerce.gov.mm/my/node/32071")
+        self.assertNotIn("discovery_is_tender_only", commerce)
+        self.assertEqual(commerce["attachment_policy"]["mode"], "METADATA_ONLY_NON_BLOCKING")
+        self.assertFalse(commerce["attachment_policy"]["fetch_in_primary_pipeline"])
 
     def test_deploy_installs_reviewed_refresh_template_and_drains_instances(self) -> None:
         deploy = (ROOT / "deploy" / "deploy-signalforge-release.sh").read_text(encoding="utf-8")
