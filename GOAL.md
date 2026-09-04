@@ -20,7 +20,7 @@ Expand SignalForge across high-value Myanmar issuer-original sources while prese
 
 ### S10 — DICA Company and Investment Announcements
 
-- production-enabled on current application release `3f31b937cc8dbe2941e85b1f810f2bd8a9b811fb`;
+- production-enabled; first S10 onboarding release was `3f31b937cc8dbe2941e85b1f810f2bd8a9b811fb`;
 - issuer-hosted `ACTIVE_SELECTIVE` company/investment event source;
 - current page-1 baseline produced 12 `REGULATORY_NOTICE` items: 9 `COMPANY_STRIKE_OFF_BATCH`, 1 `COMPANY_COMPLIANCE_NOTICE`, 1 `INVESTMENT_TAX_INCENTIVE`, 1 `INVESTMENT_CAPITAL_CURRENCY`;
 - canonical identity is stable DICA WordPress post ID (`dica-notice:<post_id>`), so publication-date corrections do not create duplicate canonical items;
@@ -118,11 +118,26 @@ Expand SignalForge across high-value Myanmar issuer-original sources while prese
 - source health GREEN;
 - evidence: `docs/verification/S22-SOURCE-ONBOARDING-2026-09-04.md`.
 
+### S25 — MONPIFER Ministry Tenders
+
+- production-enabled on current application release `930c94641b0699072350dcea9344aa55e930e169`;
+- issuer-original `ACTIVE_PRIMARY` listing-complete tender source at `https://www.monpifer.gov.mm/my/ministry-tenders`;
+- one official HTML acquisition directly yields current tender business rows; no synthetic detail stage is required;
+- first production baseline created 10 `TENDER` canonical items and zero customer signals;
+- baseline metrics: `items_parsed=10`, `tenders_parsed=10`, `details_attempted=0`;
+- canonical identity uses the issuer-owned Drupal article alias (`monpifer:<article_alias>`); numeric Drupal node ID was audited but is intentionally not fetched per row in P0;
+- issuer-visible `Last Date` text is authoritative where the hidden HTML `datetime` attribute disagrees;
+- official PDFs remain metadata-only and the primary pipeline fetched zero PDFs;
+- parse health uses `BUSINESS_PROCESSING`; first production sample `1/1 = GREEN`;
+- no schema migration, PDF parser, OCR, Browser or YCDC identity/locator capability was introduced;
+- source health GREEN;
+- evidence: `docs/verification/S25-SOURCE-ONBOARDING-2026-09-04.md`.
+
 ## Current result
 
-> **S05A + S07 + S08A + S10 + S12 + S13 + S20 + S21 + S22 = PRODUCTION / GREEN**
+> **S05A + S07 + S08A + S10 + S12 + S13 + S20 + S21 + S22 + S25 = PRODUCTION / GREEN**
 
-SignalForge has now proven nine source/domain shapes under the same v1.5 acquisition lifecycle:
+SignalForge has now proven ten source/domain shapes under the same v1.5 acquisition lifecycle:
 
 ```text
 Commerce: one Drupal notice -> zero/one selected REGULATORY_NOTICE + attachment metadata
@@ -134,6 +149,7 @@ MPT:      one detail page -> zero/one tender
 MOEP:     one category item -> one partial HTML tender + attachment metadata
 Railways: one detail page -> N tender rows
 IWT:      one Drupal tender node -> one tender + attachment metadata
+MONPIFER: one official tender table -> N complete TENDER records + PDF metadata, no detail fetch
 ```
 
 All remain inside one Bangkok SignalForge application boundary and the existing Worker operational envelope.
@@ -169,4 +185,4 @@ business-value audit
 -> checkpoint closure
 ```
 
-The next engineering slice should be selected by business value and current evidence, not source-ID order. S01 National Portal and S04 Trade Portal remain deferred as canonical sources because aggregator metadata/duplication needs an explicit issuer-resolution/equivalence/dedup contract. S05A, S07, S08A, S10 and S12 are production-complete. S10 has now provided the first real production-grade evidence that a supplementary PDF parser would materially improve business detail, but that capability must be a separate reviewed runtime-packaging slice rather than an implicit source-adapter dependency. The next decision is therefore between a dedicated S10 PDF supplementary-runtime PRD/slice and fresh audits of the conditional YCDC/MCDC/NPTDC pool; neither path may bypass its existing gate. S08A tender-award/result content remains a separate future `PROCUREMENT_RESULT` decision.
+The next engineering slice should still be selected by business value and current evidence, not source-ID order or a source-count target. S01 National Portal and S04 Trade Portal remain deferred as canonical sources because aggregator metadata/duplication needs an explicit issuer-resolution/equivalence/dedup contract. S16 YCDC now has a concrete identity/transport-locator gate; S17 MCDC and S18 NPTDC require image/OCR capability for current business specifics and remain deferred rather than forcing runtime expansion. S10 remains the only production source with a triggered supplementary-PDF **value** gate, but extraction/runtime packaging must be a separate reviewed slice. Prefer another issuer-original Direct-HTTP source that fits the existing engine before adding schema/OCR/Browser capability; only promote the S10 PDF slice when its incremental business value justifies the new runtime dependency. S08A tender-award/result content remains a separate future `PROCUREMENT_RESULT` decision.

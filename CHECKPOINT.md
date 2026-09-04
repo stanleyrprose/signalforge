@@ -554,6 +554,31 @@ Evidence: `docs/verification/S12-SOURCE-ONBOARDING-2026-09-04.md`.
 
 Evidence: `docs/verification/S10-SOURCE-ONBOARDING-2026-09-04.md`.
 
+### S25 MONPIFER Ministry Tenders Onboarding — PASS
+
+- PR #32 CI PASS and squash-merged;
+- exact production application SHA `930c94641b0699072350dcea9344aa55e930e169` deployed to Bangkok only;
+- immediate rollback is `3f31b937cc8dbe2941e85b1f810f2bd8a9b811fb`;
+- frozen pre-deploy nine-source state: canonical `104`, signals `11`, scheduler runs `315`, acquisition lifecycle `430/430/430/430`, failed `0`, recovery backlog `0`;
+- deployment itself changed no business counts and left S25 at canonical/signals `0/0`;
+- first reviewed S25 baseline created 10 `TENDER` canonical items and zero customer signals;
+- baseline metrics: `items_parsed=10`, `tenders_parsed=10`, `details_attempted=0`, `details_succeeded=0`;
+- exactly one S25 request/attempt/evidence/processing lifecycle persisted; requested URL was only `https://www.monpifer.gov.mm/my/ministry-tenders`; PDF requested URL count remained zero;
+- S25 canonical identity uses the issuer-owned Drupal article alias (`monpifer:<article_alias>`), while the hidden numeric Drupal node ID is intentionally not fetched per row in P0;
+- visible `Last Date` text is authoritative where the issuer page's hidden machine `datetime` disagrees;
+- S25 parse health GREEN from `BUSINESS_PROCESSING` (`1/1`);
+- manual baseline Worker Run `signalforge-20260904T125653Z-f810ed17` correlates exactly to the S25 scheduler row;
+- the Worker count transition around rollout is causally separated: `508` observed before the final pre-pause timer tick, `509` normal timer wrapper at `12:55:10Z`, `510` reviewed manual S25 baseline; therefore the manual refresh added exactly one Worker Run;
+- Bangkok + Beijing Worker doctors PASS;
+- Beijing `/srv/signalforge` remains absent and `signalforge-refresh S25` returns `126 / DENY: SignalForge is Bangkok-only`;
+- timer resume created one normal Worker wrapper `signalforge-20260904T130038Z-c53c154f` that processed seven due source jobs (S08A/S10/S12/S13/S20/S21/S22), all `SUCCESS`, `changed=0`, `signals=0`; S25 was not due and was not fetched again;
+- final steady state: all ten sources GREEN, canonical `114`, signals `11`, scheduler runs `323`, acquisition lifecycle `439/439/439/439`, failed `0`, recovery backlog `0`, Worker SignalForge Runs `511`;
+- timer restored enabled / active / waiting;
+- `browser_production_approved=false` remains frozen;
+- no schema migration, YCDC identity/locator contract, PDF extraction, OCR, Browser or remote Provider capability was introduced.
+
+Evidence: `docs/verification/S25-SOURCE-ONBOARDING-2026-09-04.md`.
+
 ## Frozen acquisition invariants
 
 ```text
@@ -589,15 +614,17 @@ Still frozen:
 - Browserless ADR: only after multiple real browser consumers create shared lifecycle/queue/session pain.
 - PDF supplementary adapter: only when issuer HTML lacks business-critical fields whose extraction materially improves the commercial signal.
 
-S20, S22, S05A, S07, S08A and S12 triggered none of these gates. S10 is the first source to trigger the PDF supplementary **value** gate because the official PDFs contain company-level and policy-level business facts absent from HTML. The separate production extraction/runtime-packaging gate remains deferred, so no new dependency or runtime capability has been promoted yet.
+S20, S22, S05A, S07, S08A, S12 and S25 triggered none of these capability gates. S10 remains the first source to trigger the PDF supplementary **value** gate because the official PDFs contain company-level and policy-level business facts absent from HTML. The separate production extraction/runtime-packaging gate remains deferred, so no new dependency or runtime capability has been promoted. Fresh audits now make the municipal gates more specific: S16 YCDC requires a stable discovery-identity vs ephemeral transport-locator contract; S17 MCDC requires Burmese image/OCR for current scan-only tender PDFs; S18 NPTDC requires mixed-board segmentation plus image/OCR. None should be bypassed merely to increase source count.
 
 ## Next
 
-1. operate S05A + S07 + S08A + S10 + S12 + S13 + S20 + S21 + S22 and collect real acquisition/source history;
-2. choose the next source by business value plus current endpoint quality, not source-ID order;
-3. S01 National Portal fresh audit: defer canonical onboarding; preserve only as a future discovery-aggregator/issuer-resolution capability because its labelled closing date can conflict with issuer-original evidence;
-4. S04 Trade Portal canonical onboarding remains deferred until cross-source issuer-resolution/equivalence/dedup exists; S10 and S12 are production-complete; next choose between a separate S10 PDF supplementary runtime-packaging PRD/slice and fresh conditional YCDC/MCDC/NPTDC audits based on business value, without bypassing either gate; keep S08A tender-award/result as a separate future `PROCUREMENT_RESULT` decision;
-5. periodically recheck whether MOEP advertised PDFs become retrievable; only then consider a supplementary PDF parser gate;
-6. preserve YCDC/MCDC/NPTDC identity/PDF/classifier gates rather than bypassing them;
-7. keep Direct HTTP first; if a source truly requires Browser, route the requirement only to Mac Browser Plane and block unattended production until a separate Provider Invocation Contract is live-verified;
-8. run the next cross-repo consistency review by 2026-12-03 or an earlier contract-change trigger.
+1. operate S05A + S07 + S08A + S10 + S12 + S13 + S20 + S21 + S22 + S25 and collect real acquisition/source history;
+2. choose the next source by business value plus current endpoint quality, not source-ID order or a target source count;
+3. prefer another issuer-original Direct-HTTP source that fits the existing acquisition engine before introducing schema/OCR/Browser capability;
+4. S01 National Portal stays discovery-aggregator-only until issuer-resolution/equivalence/dedup exists; S04 Trade Portal remains deferred for the same cross-source contract reason;
+5. preserve the newly proven municipal gates: S16 requires identity/locator separation, S17 requires Burmese OCR, S18 requires classifier + OCR; do not force any of them into P0;
+6. keep S10 PDF supplementary extraction as a separate reviewed runtime-packaging slice and promote it only when its incremental commercial value justifies the dependency;
+7. keep S08A tender-award/result content as a separate future `PROCUREMENT_RESULT` decision;
+8. periodically recheck whether MOEP advertised PDFs become retrievable; only then consider a supplementary PDF parser gate;
+9. keep Direct HTTP first; if a source truly requires Browser, route the requirement only to Mac Browser Plane and block unattended production until a separate Provider Invocation Contract is live-verified;
+10. run the next cross-repo consistency review by 2026-12-03 or an earlier contract-change trigger.
