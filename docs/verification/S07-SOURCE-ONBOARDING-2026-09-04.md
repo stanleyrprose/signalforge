@@ -1,8 +1,8 @@
 # S07 Myanmar Customs Notifications — Source Onboarding
 
 Date (Asia/Yangon): 2026-09-04
-Phase: PRE-PRODUCTION
-Result: IMPLEMENTATION / TEST / LIVE TRANSPORT PASS
+Phase: PRODUCTION
+Result: PASS / PRODUCTION COMPLETE
 
 ## Decision
 
@@ -244,9 +244,123 @@ Also passed:
 - one listing run -> one acquisition/evidence/processing lifecycle;
 - primary pipeline PDF fetch count remains zero.
 
-## Production gate
+## Production rollout — PASS
 
-Production is not complete until all of the following pass:
+PR #24 passed CI and was squash-merged. Exact application SHA deployed to Bangkok:
+
+```text
+edf3e342ad127b4beac93a285bfb0096a1815aaa
+```
+
+Immediate rollback target:
+
+```text
+3c833d62dcf16ecd9e4b12dafd9ac557417efddb
+```
+
+The reviewed pause froze the pre-rollout state at:
+
+```text
+canonical_items=74
+signals=11
+scheduler_runs=192
+acquisition_requests=253
+acquisition_attempts=253
+evidence_envelopes=253
+processing_records=253
+failed_runs=0
+recovery_backlog=0
+Worker SignalForge Runs=439
+S05A/S13/S20/S21/S22=GREEN
+timer=disabled/inactive
+```
+
+Deployment reported `timer_preexisting=0`; schema remained v5 (`1,2,3,4,5`) and business counts were unchanged before the S07 baseline.
+
+### First production baseline
+
+Reviewed `signalforge-refresh S07` returned:
+
+```text
+trigger_kind=MANUAL
+baseline=1
+status=SUCCESS
+changed=5
+items_parsed=5
+tenders_parsed=0
+details_attempted=0
+details_succeeded=0
+signals_created=0
+worker_run_id=signalforge-20260904T051954Z-2711030a
+```
+
+State transition:
+
+```text
+canonical_items: 74 -> 79
+signals:         11 -> 11
+scheduler_runs:  192 -> 193
+acquisition/evidence/processing: 253 -> 254
+```
+
+S07 persistence:
+
+```text
+canonical=5
+item_kind=REGULATORY_NOTICE:5
+signals=0
+requests/attempts/evidence/processing=1/1/1/1
+discovery_items=0
+PDF requested_url count=0
+requested URL=https://customs.gov.mm/notifications
+SQLite quick_check=ok
+```
+
+Worker cardinality:
+
+```text
+Worker SignalForge Runs: 439 -> 440
+latest Worker Run=signalforge-20260904T051954Z-2711030a / SUCCESS
+```
+
+The Worker Run ID exactly matches the S07 scheduler row.
+
+### Topology / timer restoration
+
+```text
+Bangkok Worker doctor=PASS
+Beijing Worker doctor=PASS
+Beijing /srv/signalforge=ABSENT
+Beijing signalforge-refresh S07=126 / DENY: SignalForge is Bangkok-only
+```
+
+`signalforge-resume` restored the timer and created one persistent wrapper (`440 -> 441`). That wrapper processed due S05A/S13/S20/S21/S22, all with `changed=0` and `signals_created=0`; S07 was not due and was not repeated.
+
+Final state:
+
+```text
+release=edf3e342ad127b4beac93a285bfb0096a1815aaa
+active sources=S05A,S07,S13,S20,S21,S22
+canonical_items=79
+signals=11
+scheduler_runs=198
+acquisition_requests=262
+acquisition_attempts=262
+evidence_envelopes=262
+processing_records=262
+failed_runs=0
+recovery_backlog=0
+Worker SignalForge Runs=441
+timer=enabled/active/waiting
+all six sources=GREEN
+browser_production_approved=false
+```
+
+No Browser-plane invariant from PRD v1.5.1 was violated.
+
+## Production gate — closed
+
+All of the following passed:
 
 1. PR CI success and exact merged SHA deployment to Bangkok only;
 2. controlled timer pause / frozen pre-deploy business counts;
