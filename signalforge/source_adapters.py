@@ -5,6 +5,8 @@ from typing import Callable
 
 from .iwt import parse_tender_detail as parse_iwt_tender_detail
 from .iwt import parse_tender_listing as parse_iwt_tender_listing
+from .moep import parse_tender_detail as parse_moep_tender_detail
+from .moep import parse_tender_listing as parse_moep_tender_listing
 from .mpt import SitemapEntry, parse_sitemap, parse_tender_detail as parse_mpt_tender_detail
 from .railways import parse_tender_detail as parse_railways_tender_detail
 from .railways import parse_tender_listing
@@ -40,6 +42,11 @@ def _parse_iwt_detail(payload: bytes, url: str) -> list[object]:
     return [tender] if tender is not None else []
 
 
+def _parse_moep_detail(payload: bytes, url: str) -> list[object]:
+    tender = parse_moep_tender_detail(payload, url)
+    return [tender] if tender is not None else []
+
+
 ADAPTERS = {
     "mpt": SourceAdapter(
         name="mpt",
@@ -70,6 +77,16 @@ ADAPTERS = {
         canonicalizer_version="iwt-node-date-v1",
         parse_discovery=parse_iwt_tender_listing,
         parse_detail=_parse_iwt_detail,
+    ),
+    "moep": SourceAdapter(
+        name="moep",
+        discovery_content_types=("text/html",),
+        discovery_parser_version="moep-category-v1",
+        detail_parser_version="moep-html-v1",
+        normalizer_version="moep-normalize-v1",
+        canonicalizer_version="moep-content-date-v1",
+        parse_discovery=parse_moep_tender_listing,
+        parse_detail=_parse_moep_detail,
     ),
 }
 
