@@ -271,6 +271,18 @@ JS_RENDER_REQUIRED
      BLOCKED_CAPABILITY / UNSUPPORTED_PENDING_PROVIDER_CONTRACT
 ```
 
+2026-09-04 live re-audit also establishes a concrete network-environment case:
+
+```text
+MPA / MOBA
+Mac direct C0      = GREEN
+Bangkok strict TLS = RED
+```
+
+This must be classified as provider/environment-specific `TLS_FAILURE`, not `JS_RENDER_REQUIRED` and not evidence that Browser execution is required. While Mac provider production is disabled, the correct production disposition is `FAIL / AUDIT / DEFER`; do not bypass TLS and do not create an ad-hoc SignalForge→Mac route merely to make the source green.
+
+Evidence: `docs/verification/MAC-BKK-SOURCE-NETWORK-REAUDIT-2026-09-04.md`.
+
 明确禁止：
 
 ```text

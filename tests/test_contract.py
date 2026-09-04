@@ -84,6 +84,13 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(ird["attachment_policy"]["mode"], "METADATA_ONLY_NON_BLOCKING")
         self.assertFalse(ird["attachment_policy"]["fetch_in_primary_pipeline"])
         self.assertIn("S04", registry.raw["deferred_sources"])
+        self.assertIn("S15A", registry.raw["deferred_sources"])
+        self.assertIn("S15B", registry.raw["deferred_sources"])
+        self.assertIn("S27", registry.raw["deferred_sources"])
+        self.assertIn("Bangkok strict-TLS is RED", registry.raw["deferred_sources"]["S27"])
+        self.assertNotIn("S27", registry.raw["sources"])
+        with self.assertRaisesRegex(ConfigError, "source is not active"):
+            registry.source("S27")
 
         dica = registry.source("S10")
         self.assertEqual(dica["adapter"], "dica_notice")
