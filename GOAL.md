@@ -18,9 +18,22 @@ Expand SignalForge across high-value Myanmar issuer-original sources while prese
 
 ## Current production sources
 
+### S10 — DICA Company and Investment Announcements
+
+- production-enabled on current application release `3f31b937cc8dbe2941e85b1f810f2bd8a9b811fb`;
+- issuer-hosted `ACTIVE_SELECTIVE` company/investment event source;
+- current page-1 baseline produced 12 `REGULATORY_NOTICE` items: 9 `COMPANY_STRIKE_OFF_BATCH`, 1 `COMPANY_COMPLIANCE_NOTICE`, 1 `INVESTMENT_TAX_INCENTIVE`, 1 `INVESTMENT_CAPITAL_CURRENCY`;
+- canonical identity is stable DICA WordPress post ID (`dica-notice:<post_id>`), so publication-date corrections do not create duplicate canonical items;
+- first baseline metrics: `items_parsed=12`, `tenders_parsed=0`, health sample `details_attempted=4`, `details_succeeded=4`, zero customer signals;
+- official PDFs remain metadata-only in P0 and primary acquisition fetched zero PDFs;
+- S10 is the first production source to prove that PDF content would materially improve business detail, so `pdf_value_gate=TRIGGERED`;
+- PDF extraction/runtime packaging remains explicitly `DEFERRED_ZERO_DEPENDENCY`; no pypdf/pdftotext/OCR dependency was added;
+- source health GREEN;
+- evidence: `docs/verification/S10-SOURCE-ONBOARDING-2026-09-04.md`.
+
 ### S12 — IRD Business Tax Announcements
 
-- production-enabled on current application release `d5222d00e81692ae4f4b8ee3d0a3d7ad70618237`;
+- production-enabled; first S12 onboarding release was `d5222d00e81692ae4f4b8ee3d0a3d7ad70618237`;
 - issuer-original `ACTIVE_SELECTIVE` tax/regulatory source;
 - current first page discovers 16 deterministic announcement records; 180-day baseline fetched 14 details and selected 9 business tax notices;
 - canonical domain is `REGULATORY_NOTICE`; categories currently include TAX_REGISTRATION, TAX_FILING, TAX_PAYMENT and TAX_EXEMPTION;
@@ -107,14 +120,15 @@ Expand SignalForge across high-value Myanmar issuer-original sources while prese
 
 ## Current result
 
-> **S05A + S07 + S08A + S12 + S13 + S20 + S21 + S22 = PRODUCTION / GREEN**
+> **S05A + S07 + S08A + S10 + S12 + S13 + S20 + S21 + S22 = PRODUCTION / GREEN**
 
-SignalForge has now proven eight source/domain shapes under the same v1.5 acquisition lifecycle:
+SignalForge has now proven nine source/domain shapes under the same v1.5 acquisition lifecycle:
 
 ```text
 Commerce: one Drupal notice -> zero/one selected REGULATORY_NOTICE + attachment metadata
 Customs Notifications: one listing HTML -> N REGULATORY_NOTICE records, no synthetic detail stage
 Customs Auctions:      one mixed announcements HTML -> selected AUCTION_NOTICE records, award/result excluded
+DICA:                  one WordPress category -> selective event detail -> REGULATORY_NOTICE + PDF metadata
 IRD:                   one announcement list -> selective tax detail fetch -> REGULATORY_NOTICE
 MPT:      one detail page -> zero/one tender
 MOEP:     one category item -> one partial HTML tender + attachment metadata
@@ -155,4 +169,4 @@ business-value audit
 -> checkpoint closure
 ```
 
-The next source should be selected by business value and current audit evidence, not simply by source ID order. S01 National Portal remains deferred as a canonical source because aggregator metadata conflicts with issuer-original evidence. S04 Trade Portal is also deferred for canonical onboarding because it is a multi-agency official aggregator overlapping issuer-original S05A/S07/S12 and needs an explicit cross-source issuer-resolution/equivalence/dedup contract. S05A, S07, S08A and S12 are production-complete. The preferred next issuer-original audit pool now starts with S10 DICA Announcements, followed by the conditional YCDC/MCDC/NPTDC pool only if their identity/PDF/classifier gates pass. S08A tender-award/result content remains a separate future `PROCUREMENT_RESULT` decision.
+The next engineering slice should be selected by business value and current evidence, not source-ID order. S01 National Portal and S04 Trade Portal remain deferred as canonical sources because aggregator metadata/duplication needs an explicit issuer-resolution/equivalence/dedup contract. S05A, S07, S08A, S10 and S12 are production-complete. S10 has now provided the first real production-grade evidence that a supplementary PDF parser would materially improve business detail, but that capability must be a separate reviewed runtime-packaging slice rather than an implicit source-adapter dependency. The next decision is therefore between a dedicated S10 PDF supplementary-runtime PRD/slice and fresh audits of the conditional YCDC/MCDC/NPTDC pool; neither path may bypass its existing gate. S08A tender-award/result content remains a separate future `PROCUREMENT_RESULT` decision.
