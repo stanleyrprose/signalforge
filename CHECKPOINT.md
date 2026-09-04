@@ -767,6 +767,20 @@ Evidence: `docs/verification/S15A-MPA-MANUAL-P0-PHASE-A-2026-09-05.md`.
 
 Evidence: `docs/verification/S15A-MPA-MANUAL-P0-PHASE-B-2026-09-05.md`.
 
+### S15A first real operational tender run — PASS / NO CURRENT ACTIONABLE SIGNAL
+
+- fresh current MPA listing audit confirmed the newest 2026-08-21 / 08-13 / 07-21 records are auction/disposal; the 2026-06-02 Three Tugs record remains PDF-proven `AUCTION_NOTICE`;
+- the newest actual procurement candidate is the 2026-05-29 Port EDI Mini Data Center Infrastructure Refreshment Phase II (1 Lot) tender;
+- fresh LISTING / DETAIL / PDF Mac C0 evidence imported successfully under provider requests `7ebc2c88-... / 8bbcd4f8-... / bd1a016c-...`; stable identity is `mpa:37841` and issuer reference is `MPA-IR&HRD/03-2026`;
+- the first parser pass failed closed as `REVIEW_REQUIRED` because Burmese service text was fragmented by PDF extraction; real issuer evidence justified one narrow deterministic addition, `infrastructure refreshment -> INFRA_REFRESH_EN -> TENDER`, with disposal semantics still higher priority;
+- PR #52 and merged main CI PASS; full suite 96/96 PASS; exact release `6ec3e74b832b5e0033ac571d451cd41f0b69de77` is live on Bangkok with `0ff38409...` retained as rollback;
+- installed-release bundle preview returned `READY_FOR_MANUAL_COMMIT`, `mpa:37841`, `TENDER`, deadline `2026-06-18T13:00:00+06:30`;
+- because the deadline was already expired on 2026-09-05, the operator committed the item without `--emit-signal`; processing `58c4d3c8-...` created the canonical item and zero signals, and repeat returned `ALREADY_COMMITTED`;
+- post-run global canonical/signals are `126/11`; S15A canonical/signals are `2/0`; all 12 automated sources remain GREEN, timer enabled/active and SQLite `quick_check=ok`;
+- operational conclusion: current MPA has no actionable procurement opportunity as of 2026-09-05. Do not emit a synthetic test signal; wait for the first genuinely new, still-open MPA procurement item.
+
+Evidence: `docs/verification/S15A-MPA-FIRST-OPERATIONAL-TENDER-2026-09-05.md`.
+
 ## Frozen acquisition invariants
 
 ```text
@@ -824,7 +838,7 @@ S20, S22, S05A, S07, S08A, S12, S25, S26 and S28 triggered none of these capabil
 4. S01 National Portal stays discovery-aggregator-only until issuer-resolution/equivalence/dedup exists; S04 Trade Portal remains deferred for the same cross-source contract reason;
 5. preserve the newly proven municipal gates: S16 requires identity/locator separation, S17 requires Burmese OCR, S18 requires classifier + OCR; do not force any of them into P0;
 6. keep S10 PDF supplementary extraction as a separate reviewed runtime-packaging slice and promote it only when its incremental commercial value justifies the dependency;
-7. S15A Manual P0 Phase B is production live-verified with one zero-signal canonical baseline item (`mpa:37867`); operate MPA manually at the current low event rate, and do not build unattended remote invocation unless repeated real use proves material operational burden;
+7. S15A Manual P0 is production live-verified through real operation with two zero-signal canonical items (`mpa:37867` auction baseline and expired procurement `mpa:37841`); current listing has no actionable procurement signal, so keep low-frequency manual operation and do not build unattended remote invocation unless repeated real use proves material operational burden;
 8. keep S08A tender-award/result content as a separate future `PROCUREMENT_RESULT` decision;
 9. periodically recheck whether MOEP advertised PDFs become retrievable; only then consider a supplementary PDF parser gate;
 10. keep Direct HTTP first; if a source truly requires Browser, route the requirement only to Mac Browser Plane and block unattended production until a separate Provider Invocation Contract is live-verified;
