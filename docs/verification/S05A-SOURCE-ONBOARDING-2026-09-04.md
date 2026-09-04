@@ -56,7 +56,7 @@ Existing rows are migrated as:
 
 ```text
 item_kind = TENDER
- title = project_name
+title = project_name
 ```
 
 S05A canonical items use:

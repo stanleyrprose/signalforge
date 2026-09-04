@@ -22,8 +22,6 @@ NODE_33037 = "https://commerce.gov.mm/my/article/asipekennyaakhkmaa/33037"
 NODE_33011 = "https://commerce.gov.mm/my/article/asipekennyaakhkmaa-neaakchunr-sttng/33011"
 NODE_32972 = "https://commerce.gov.mm/my/article/asipekennyaakhkmaa/32972"
 NODE_32990 = "https://commerce.gov.mm/my/article/asipekennyaakhkmaa/32990"
-PDF_32972 = "https://commerce.gov.mm/sites/default/files/documents/2026/06/Pa%20Ta%20Ka%20Check%20Certificate%20Option%201_0.pdf"
-
 
 class MapFetcher:
     def __init__(self, mapping: dict[str, bytes]) -> None:
