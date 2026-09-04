@@ -722,7 +722,7 @@ Evidence: `docs/verification/S15A-MPA-PARSER-PREVIEW-2026-09-04.md`.
 
 Evidence: `docs/verification/S15A-MPA-PDF-SUPPLEMENTARY-2026-09-05.md`.
 
-### S15A Manual P0 Phase A — PRODUCTION LIVE PASS / PHASE B DEFERRED
+### S15A Manual P0 Phase A — PRODUCTION LIVE PASS / PHASE B AUTHORIZED
 
 - fresh Mac C0 listing audit still parses 181 MPA rows; observed publication volume is low: 2 records in 30 days, 3 in 60/90 days, 13 in 180 days, 21 in 365 days;
 - current evidence does not justify a Remote Provider Invocation Contract; operator-driven C0 remains the smaller operational design;
@@ -744,6 +744,21 @@ Evidence: `docs/verification/S15A-MPA-PDF-SUPPLEMENTARY-2026-09-05.md`.
 - Manual P0 Phase A is therefore PRODUCTION LIVE PASS. Phase B manual canonical commit is now technically eligible for design but remains a separate explicit authorization boundary.
 
 Evidence: `docs/verification/S15A-MPA-MANUAL-P0-PHASE-A-2026-09-05.md`.
+
+### S15A Manual P0 Phase B — IMPLEMENTATION / TEST PASS, LIVE BASELINE PENDING
+
+- explicit user authorization was received to continue the recommended Manual P0 onboarding after Phase A production live verification;
+- new operator-only `mpa-provider-bundle-commit` reuses the three durable LISTING/DETAIL/PDF provider artifacts and revalidates the same evidence relationship before any write;
+- canonical identity remains `mpa:<wordpress_post_id>` and authoritative canonical evidence digest is the issuer PDF SHA-256;
+- first/manual baseline commits default to zero customer signal; `--emit-signal` is required explicitly for NEW/UPDATED emission when content materially changes;
+- one PDF evidence artifact can be committed once per `mpa-manual-v1` canonicalizer version; repeat returns `ALREADY_COMMITTED` without a second processing row or signal;
+- provider-import rows remain `EVIDENCE_ONLY`; canonical commit writes a separate `SUCCESS` processing row with parser `mpa-pdf-v1`, normalizer/canonicalizer `mpa-manual-v1`;
+- `REVIEW_REQUIRED` bundles fail closed and the commit command is absent from the VPS Worker verb manifest;
+- S15A remains outside the automated scheduler and Mac provider remains `production_enabled=false` / `remote_invocation=false`;
+- targeted Phase B tests 4/4 PASS; full repository suite 95/95 PASS;
+- production gate requires exact-SHA deploy and one Three-Tugs baseline commit without `--emit-signal`, resulting in S15A canonical/signals `1/0`, followed by idempotent repeat.
+
+Evidence: `docs/verification/S15A-MPA-MANUAL-P0-PHASE-B-2026-09-05.md`.
 
 ## Frozen acquisition invariants
 
@@ -792,7 +807,7 @@ Still frozen:
 - Browserless ADR: only after multiple real browser consumers create shared lifecycle/queue/session pain.
 - PDF supplementary adapter: only when issuer HTML lacks business-critical fields whose extraction materially improves the commercial signal or when PDF semantics are required to prevent business misclassification.
 
-S20, S22, S05A, S07, S08A, S12, S25, S26 and S28 triggered none of these capability gates. S10 remains the first source to trigger the PDF supplementary **value** gate because the official PDFs contain company-level and policy-level business facts absent from HTML. S15A now separately triggers a PDF supplementary **classification + business-fields** gate: listing-only semantics can misclassify asset-disposal auctions as procurement tenders and omit deadline/scope/reference facts. S15A deterministic PDF runtime packaging and Manual P0 evidence-bundle processing are now production live-verified, but S15A canonical commit and unattended provider invocation remain deferred. S10 enrichment is still a separate future production extraction decision. Fresh audits make the municipal gates more specific: S16 YCDC requires a stable discovery-identity vs ephemeral transport-locator contract; S17 MCDC requires Burmese image/OCR for current scan-only tender PDFs; S18 NPTDC requires mixed-board segmentation plus image/OCR. None should be bypassed merely to increase source count.
+S20, S22, S05A, S07, S08A, S12, S25, S26 and S28 triggered none of these capability gates. S10 remains the first source to trigger the PDF supplementary **value** gate because the official PDFs contain company-level and policy-level business facts absent from HTML. S15A separately triggers a PDF supplementary **classification + business-fields** gate: listing-only semantics can misclassify asset-disposal auctions as procurement tenders and omit deadline/scope/reference facts. S15A deterministic PDF runtime packaging and Manual P0 evidence-bundle processing are production live-verified; explicit operator-only canonical commit is now authorized/implemented, while unattended provider invocation remains deferred. S10 enrichment is still a separate future production extraction decision. Fresh audits make the municipal gates more specific: S16 YCDC requires a stable discovery-identity vs ephemeral transport-locator contract; S17 MCDC requires Burmese image/OCR for current scan-only tender PDFs; S18 NPTDC requires mixed-board segmentation plus image/OCR. None should be bypassed merely to increase source count.
 
 ## Next
 
@@ -802,7 +817,7 @@ S20, S22, S05A, S07, S08A, S12, S25, S26 and S28 triggered none of these capabil
 4. S01 National Portal stays discovery-aggregator-only until issuer-resolution/equivalence/dedup exists; S04 Trade Portal remains deferred for the same cross-source contract reason;
 5. preserve the newly proven municipal gates: S16 requires identity/locator separation, S17 requires Burmese OCR, S18 requires classifier + OCR; do not force any of them into P0;
 6. keep S10 PDF supplementary extraction as a separate reviewed runtime-packaging slice and promote it only when its incremental commercial value justifies the dependency;
-7. S15A Manual P0 Phase A is complete / production live-verified. Do not build unattended remote invocation at the current low event rate. Treat Phase B explicit idempotent manual canonical commit as a separate authorization/design decision;
+7. S15A Manual P0 Phase B explicit manual canonical commit is authorized/implemented; complete its live zero-signal baseline gate, then operate the source manually at the current low event rate. Do not build unattended remote invocation unless repeated manual use proves operational burden;
 8. keep S08A tender-award/result content as a separate future `PROCUREMENT_RESULT` decision;
 9. periodically recheck whether MOEP advertised PDFs become retrievable; only then consider a supplementary PDF parser gate;
 10. keep Direct HTTP first; if a source truly requires Browser, route the requirement only to Mac Browser Plane and block unattended production until a separate Provider Invocation Contract is live-verified;

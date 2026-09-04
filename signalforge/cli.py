@@ -11,6 +11,7 @@ from .config import Registry, SOURCE_ID_PATTERN, db_path
 from .db import connect, migrate
 from .engine import run_due, run_source
 from .mpa import build_manual_bundle_preview, parse_listing_records, parse_pdf_business_fields, preview_summary
+from .mpa_manual import commit_manual_provider_bundle
 from .provider_bridge import build_provider_request, import_provider_result, load_imported_provider_artifact, write_provider_request
 
 
@@ -241,6 +242,13 @@ def main(argv: list[str] | None = None) -> int:
     mpa_bundle_preview_parser.add_argument("--pdf-provider-request-id", required=True)
     mpa_bundle_preview_parser.add_argument("--database")
     mpa_bundle_preview_parser.add_argument("--evidence-root")
+    mpa_bundle_commit_parser = sub.add_parser("mpa-provider-bundle-commit")
+    mpa_bundle_commit_parser.add_argument("--listing-provider-request-id", required=True)
+    mpa_bundle_commit_parser.add_argument("--detail-provider-request-id", required=True)
+    mpa_bundle_commit_parser.add_argument("--pdf-provider-request-id", required=True)
+    mpa_bundle_commit_parser.add_argument("--emit-signal", action="store_true")
+    mpa_bundle_commit_parser.add_argument("--database")
+    mpa_bundle_commit_parser.add_argument("--evidence-root")
     sub.add_parser("status")
     args = parser.parse_args(argv)
     try:
@@ -318,6 +326,15 @@ def main(argv: list[str] | None = None) -> int:
                 "detail": {"provider_request_id": detail.provider_request_id, "evidence_id": detail.evidence_id, "sha256": detail.sha256},
                 "pdf": {"provider_request_id": pdf.provider_request_id, "evidence_id": pdf.evidence_id, "sha256": pdf.sha256},
             }
+        elif args.cmd == "mpa-provider-bundle-commit":
+            result = commit_manual_provider_bundle(
+                listing_provider_request_id=args.listing_provider_request_id,
+                detail_provider_request_id=args.detail_provider_request_id,
+                pdf_provider_request_id=args.pdf_provider_request_id,
+                emit_signal=bool(args.emit_signal),
+                database=Path(args.database).expanduser() if args.database else None,
+                evidence_directory=Path(args.evidence_root).expanduser() if args.evidence_root else None,
+            )
         else:
             result = status()
         print(json.dumps(result, ensure_ascii=False, sort_keys=True))
