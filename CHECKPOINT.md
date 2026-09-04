@@ -635,9 +635,23 @@ Evidence: `docs/verification/MAC-BKK-SOURCE-NETWORK-REAUDIT-2026-09-04.md`.
 - SignalForge projection remains descriptive/decision-support only: `production_enabled=false`, `invocation_mode=manual_or_future_contract`, no RPC/API/SSH invocation path added;
 - active source execution remains Bangkok Direct HTTP and no existing source routing changed.
 
+### Manual Provider Bridge v0 — IMPLEMENTED / LIVE TEMP-DB PASS
+
+- bridge scope is intentionally narrow: `mac-mm-01`, S15A only, direct C0 fetch only, evidence-only import;
+- `signalforge provider-request S15A` emits a browserctl-compatible request with explicit `signalforge_job_id`, `acquisition_request_id`, `acquisition_attempt_id`, and `provider_request_id` correlation;
+- installed Mac Browser Plane consumed the real S15A request successfully: Browser Job `c082bb94-e001-42ba-adeb-564a7fa40878`, HTTP 200, 252,512-byte HTML, SHA-256 `c016d4efcae50f271e5e6860e1567650ee3d215c4ef7d9d31bd029ed4a0ec810`;
+- `provider-import` validated request/result/artifact provenance and wrote one lifecycle row per existing layer into an isolated temporary DB/evidence root, with processing status `EVIDENCE_ONLY` and zero canonical/signals;
+- repeated import returned `ALREADY_IMPORTED` and created no duplicates;
+- SHA/content-type/request-contract tampering fails closed;
+- `provider-request` / `provider-import` are deliberately absent from the VPS Worker verb manifest, so this does not create unattended SignalForge→Mac invocation;
+- no schema migration, no new daemon/API/queue, no TLS bypass, no S15A source onboarding, and no customer signal creation were introduced.
+
+Evidence/runbook: `docs/MANUAL-PROVIDER-BRIDGE-v0.md`.
+
 ## Frozen acquisition invariants
 
 ```text
+Default active-source production path:
 Source Acquisition Policy
 -> AcquisitionRequest
 -> AcquisitionAttempt
@@ -646,6 +660,17 @@ Source Acquisition Policy
 -> source-specific parser/normalizer/canonicalizer
 -> ProcessingRecord
 -> Canonical / Dedup / Signal
+
+Controlled manual-provider evidence path:
+approved deferred candidate
+-> provider-request
+-> operator transfer
+-> Mac C0
+-> operator transfer
+-> provider-import
+-> EvidenceEnvelope
+-> ProcessingRecord(EVIDENCE_ONLY)
+-> no Canonical / no Signal
 ```
 
 Still frozen:
@@ -666,7 +691,7 @@ Still frozen:
 - Webhook Gate T: only after a real webhook use case and ingress/auth/dedup contract exist.
 - Dedicated identity Gate V: before the first real dedicated Generic Job retirement.
 - Remote Provider ADR: only after a real source proves Bangkok local acquisition insufficient.
-- Mac Browser Provider Invocation Contract: only after a real Browser-required source exists; must be a separate reviewed cross-host contract, not ad-hoc SSH/HTTP/CDP.
+- Mac Browser Provider Invocation Contract: only after repeated manual-provider evidence proves that a real high-value source materially requires the Mac execution environment and the operational burden justifies automation; must be a separate reviewed cross-host contract, not ad-hoc SSH/HTTP/CDP.
 - Browserless ADR: only after multiple real browser consumers create shared lifecycle/queue/session pain.
 - PDF supplementary adapter: only when issuer HTML lacks business-critical fields whose extraction materially improves the commercial signal.
 
