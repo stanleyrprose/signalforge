@@ -1,6 +1,6 @@
 # S15A MPA PDF Supplementary Slice — 2026-09-05
 
-**Status:** `IMPLEMENTATION PASS / S15A ACTIVATION DEFERRED`
+**Status:** `LIVE RUNTIME PASS / S15A ACTIVATION DEFERRED`
 
 ## Purpose
 
@@ -73,6 +73,58 @@ exact-version 4 real PDFs:     4/4 PASS
 ```
 
 Existing Python 3.13 SQLite `ResourceWarning` output is outside this slice and is not caused by the PDF runtime.
+
+## Bangkok live runtime verification
+
+Merged main release:
+
+```text
+f4a3dfd0ae77797b8fd82911fb908097a1dc97d8
+```
+
+Previous rollback release:
+
+```text
+d1f6d1773390767e73747df75e81383e4997f053
+```
+
+The deploy script created the release venv and installed `pypdf==6.16.2` successfully before switching `active`. Post-deploy checks:
+
+```text
+active release:              f4a3dfd0ae77797b8fd82911fb908097a1dc97d8
+active venv pypdf:           6.16.2
+SignalForge status:          PASS / GREEN
+recovery backlog:            0
+timer:                       enabled / active
+browser_production_approved: false
+```
+
+A copied issuer-original Three Tugs PDF was then processed through the **installed Bangkok release**:
+
+```text
+status:                PREVIEW_ONLY
+source_id:             S15A
+classification_status: DETERMINISTIC_PDF
+classification_basis: AUCTION_EN
+final_item_kind:       AUCTION_NOTICE
+deadline_local:        2026-06-25T13:00:00
+deadline_timezone:     Asia/Yangon
+deadline_status:       FOUND
+page_count:            2
+```
+
+Post-smoke state remained:
+
+```text
+S15A deferred:          true
+S15A enabled:           false
+S15A canonical items:   0
+S15A signals:           0
+mac-mm-01 production:   false
+mac-mm-01 remote:       false
+```
+
+The temporary PDF and deployment transfer files were deleted after verification.
 
 ## Hard boundary
 
