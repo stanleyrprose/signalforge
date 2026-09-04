@@ -25,7 +25,7 @@ class ContractTests(unittest.TestCase):
         )
         self.assertEqual(manifest["verbs"]["signalforge-refresh"]["argument"], "source_id")
         self.assertEqual(manifest["grammar"]["source_id"], "^[A-Z][A-Z0-9]{0,15}$")
-        self.assertEqual(manifest["active_source_ids"], ["S13", "S21"])
+        self.assertEqual(manifest["active_source_ids"], ["S13", "S21", "S22"])
 
         registry = Registry.load(ROOT)
         with self.assertRaisesRegex(ConfigError, "invalid source id"):
@@ -48,6 +48,15 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(source["availability_policy"]["collection_rto_seconds"], 1800)
         self.assertEqual(source["availability_policy"]["business_data_rpo_target_seconds"], 900)
         self.assertTrue(all(url.startswith("https://mpt.com.mm/en/") for url in source["bootstrap_seed_urls"]))
+
+        iwt = registry.source("S22")
+        self.assertEqual(iwt["adapter"], "iwt")
+        self.assertEqual(iwt["engine"], "direct_http")
+        self.assertEqual(iwt["discovery_url"], "https://iwt.gov.mm/tenders")
+        self.assertTrue(iwt["discovery_is_tender_only"])
+        self.assertFalse(iwt["first_baseline_customer_signal"])
+        self.assertEqual(iwt["canonical_key"], "issuer_record_id_publication_date")
+        self.assertEqual(iwt["egress_profile"], "mm-intl-datacenter")
 
     def test_deploy_installs_reviewed_refresh_template_and_drains_instances(self) -> None:
         deploy = (ROOT / "deploy" / "deploy-signalforge-release.sh").read_text(encoding="utf-8")

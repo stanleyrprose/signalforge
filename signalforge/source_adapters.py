@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable
 
+from .iwt import parse_tender_detail as parse_iwt_tender_detail
+from .iwt import parse_tender_listing as parse_iwt_tender_listing
 from .mpt import SitemapEntry, parse_sitemap, parse_tender_detail as parse_mpt_tender_detail
 from .railways import parse_tender_detail as parse_railways_tender_detail
 from .railways import parse_tender_listing
@@ -33,6 +35,11 @@ def _parse_mpt_detail(payload: bytes, url: str) -> list[object]:
     return [tender] if tender is not None else []
 
 
+def _parse_iwt_detail(payload: bytes, url: str) -> list[object]:
+    tender = parse_iwt_tender_detail(payload, url)
+    return [tender] if tender is not None else []
+
+
 ADAPTERS = {
     "mpt": SourceAdapter(
         name="mpt",
@@ -53,6 +60,16 @@ ADAPTERS = {
         canonicalizer_version="railways-reference-v1",
         parse_discovery=parse_tender_listing,
         parse_detail=parse_railways_tender_detail,
+    ),
+    "iwt": SourceAdapter(
+        name="iwt",
+        discovery_content_types=("text/html",),
+        discovery_parser_version="iwt-list-v1",
+        detail_parser_version="iwt-v1",
+        normalizer_version="iwt-normalize-v1",
+        canonicalizer_version="iwt-node-date-v1",
+        parse_discovery=parse_iwt_tender_listing,
+        parse_detail=_parse_iwt_detail,
     ),
 }
 
