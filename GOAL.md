@@ -133,11 +133,27 @@ Expand SignalForge across high-value Myanmar issuer-original sources while prese
 - source health GREEN;
 - evidence: `docs/verification/S25-SOURCE-ONBOARDING-2026-09-04.md`.
 
+### S26 — DOMS Medical Procurement Opportunities
+
+- production-enabled on current application release `ae894d092f97843280c92228d6b43eda3bf0336f`;
+- issuer-original `ACTIVE_SELECTIVE` medical-procurement opportunity source at `https://www.doms.gov.mm/category/tender/`;
+- official WordPress category HTML exposes stable `post-<id>` identity; production intentionally stays on HTML even though DOMS REST is available because frozen v1.5 primary target kind remains `HTML`;
+- first production baseline selected exactly 2 opportunity-origin `TENDER` items from the mixed tender-workflow page and created zero customer signals;
+- baseline metrics: `items_parsed=2`, `tenders_parsed=2`, `details_attempted=2`, `details_succeeded=2`;
+- canonical identity is stable WordPress post ID (`doms:<post_id>`); current records are `doms:12634` (`7DMS/2026-2027(L)`) and `doms:12491` (CT/MRI Preventive Maintenance);
+- award/result, Envelope, opening/evaluation and scrutiny-meeting posts are fail-closed excluded from the opportunity slice;
+- reliable deadline is absent from selected HTML and remains `null / unknown`, never inferred from later workflow events or attachments;
+- official PDF links remain metadata-only; first baseline fetched zero PDFs and persisted exactly 3 acquisition lifecycles (category + 2 selected details);
+- bounded parse-health probe preserves same-post `UPDATED` semantics without changing engine/schema;
+- Bangkok + Beijing Worker doctors PASS; Beijing remains SignalForge-free and returns `126 / DENY: SignalForge is Bangkok-only` for S26 refresh;
+- source health GREEN; all eleven production sources GREEN after timer restoration;
+- evidence: `docs/verification/S26-SOURCE-ONBOARDING-2026-09-04.md`.
+
 ## Current result
 
-> **S05A + S07 + S08A + S10 + S12 + S13 + S20 + S21 + S22 + S25 = PRODUCTION / GREEN**
+> **S05A + S07 + S08A + S10 + S12 + S13 + S20 + S21 + S22 + S25 + S26 = PRODUCTION / GREEN**
 
-SignalForge has now proven ten source/domain shapes under the same v1.5 acquisition lifecycle:
+SignalForge has now proven eleven source/domain shapes under the same v1.5 acquisition lifecycle:
 
 ```text
 Commerce: one Drupal notice -> zero/one selected REGULATORY_NOTICE + attachment metadata
@@ -150,6 +166,7 @@ MOEP:     one category item -> one partial HTML tender + attachment metadata
 Railways: one detail page -> N tender rows
 IWT:      one Drupal tender node -> one tender + attachment metadata
 MONPIFER: one official tender table -> N complete TENDER records + PDF metadata, no detail fetch
+DOMS:     one WordPress tender category -> selected opportunity detail HTML -> TENDER + PDF metadata
 ```
 
 All remain inside one Bangkok SignalForge application boundary and the existing Worker operational envelope.
@@ -185,4 +202,4 @@ business-value audit
 -> checkpoint closure
 ```
 
-The next engineering slice should still be selected by business value and current evidence, not source-ID order or a source-count target. S01 National Portal and S04 Trade Portal remain deferred as canonical sources because aggregator metadata/duplication needs an explicit issuer-resolution/equivalence/dedup contract. S16 YCDC now has a concrete identity/transport-locator gate; S17 MCDC and S18 NPTDC require image/OCR capability for current business specifics and remain deferred rather than forcing runtime expansion. S10 remains the only production source with a triggered supplementary-PDF **value** gate, but extraction/runtime packaging must be a separate reviewed slice. Prefer another issuer-original Direct-HTTP source that fits the existing engine before adding schema/OCR/Browser capability; only promote the S10 PDF slice when its incremental business value justifies the new runtime dependency. S08A tender-award/result content remains a separate future `PROCUREMENT_RESULT` decision.
+The next engineering slice should still be selected by business value and current evidence, not source-ID order or a source-count target. S01 National Portal and S04 Trade Portal remain deferred as canonical sources because aggregator metadata/duplication needs an explicit issuer-resolution/equivalence/dedup contract. S16 YCDC now has a concrete identity/transport-locator gate; S17 MCDC and S18 NPTDC require image/OCR capability for current business specifics and remain deferred rather than forcing runtime expansion. Fresh S26 candidate audit also showed Ministry of Industry failing Bangkok DNS and Ministry of Energy carrying current business detail primarily in embedded PDFs; neither justified weakening the existing contract. S10 remains the only production source with a triggered supplementary-PDF **value** gate, but extraction/runtime packaging must be a separate reviewed slice. Prefer another issuer-original Direct-HTTP source that fits the existing engine before adding schema/OCR/Browser capability; only promote the S10 PDF slice when its incremental business value justifies the new runtime dependency. S08A tender-award/result content remains a separate future `PROCUREMENT_RESULT` decision.

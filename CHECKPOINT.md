@@ -1,12 +1,14 @@
 # CHECKPOINT
 
 Date: 2026-09-04 (Asia/Yangon)
-Branch: `main` after S10 DICA Company and Investment Announcements production onboarding closure.
+Branch: `main` after S26 DOMS Medical Procurement Opportunities production onboarding closure.
 
 ## Production releases
 
-- SignalForge current application: `3f31b937cc8dbe2941e85b1f810f2bd8a9b811fb`
-- Immediate SignalForge rollback (S05A + S07 + S08A + S12 + S13 + S20 + S21 + S22): `d5222d00e81692ae4f4b8ee3d0a3d7ad70618237`
+- SignalForge current application: `ae894d092f97843280c92228d6b43eda3bf0336f`
+- Immediate SignalForge rollback (ten-source S05A + S07 + S08A + S10 + S12 + S13 + S20 + S21 + S22 + S25): `930c94641b0699072350dcea9344aa55e930e169`
+- Previous nine-source S05A + S07 + S08A + S10 + S12 + S13 + S20 + S21 + S22 release: `3f31b937cc8dbe2941e85b1f810f2bd8a9b811fb`
+- Previous eight-source S05A + S07 + S08A + S12 + S13 + S20 + S21 + S22 release: `d5222d00e81692ae4f4b8ee3d0a3d7ad70618237`
 - Previous SignalForge S05A + S07 + S08A + S13 + S20 + S21 + S22 release: `cb5291fdfcc13a678f63b53072e39089f8c27258`
 - Previous SignalForge S05A + S07 + S13 + S20 + S21 + S22 release: `edf3e342ad127b4beac93a285bfb0096a1815aaa`
 - Previous SignalForge S05A + S13 + S20 + S21 + S22 release: `3c833d62dcf16ecd9e4b12dafd9ac557417efddb`
@@ -49,26 +51,33 @@ Branch: `main` after S10 DICA Company and Investment Announcements production on
 - S21 source health: GREEN
 - S22 source health: GREEN
 - S22 parse health at baseline: GREEN (`4/4`, ratio `1.0`)
+- S25 source health: GREEN
+- S25 parse health at baseline: GREEN (`1/1`, `BUSINESS_PROCESSING`)
+- S26 source health: GREEN
+- S26 parse health at baseline: GREEN (`2/2`, ratio `1.0`)
+- S26 canonical domain: `TENDER`; baseline `items_parsed=2`, `tenders_parsed=2`, `details_attempted=2`
 - Bangkok `signalforge-run-due.timer`: enabled / active / waiting
 - Beijing SignalForge placement: DISABLED with strict `/srv/signalforge` absence
 - SQLite `PRAGMA quick_check`: ok
 
 ## Current SignalForge business state
 
-Final live state after S10 baseline and timer restoration:
+Final live state after S26 baseline and timer restoration/reconciliation:
 
 ```text
-canonical_items=104
+canonical_items=116
 signals=11
-scheduler_runs=230
-failed_runs=0
+scheduler_runs=367
+failed_runs=1
 recovery_backlog=0
-acquisition_requests=329
-acquisition_attempts=329
-evidence_envelopes=329
-processing_records=329
-Worker SignalForge application Runs=464
+acquisition_requests=495
+acquisition_attempts=495
+evidence_envelopes=494
+processing_records=494
+Worker SignalForge application Runs=532
 ```
+
+The single historical failed run is the pre-existing S10 DICA `CONNECT_TIMEOUT` at `2026-09-04T14:05:13Z`; S10 recovered automatically at `14:15Z` and remained GREEN with `last_error=None` before and after S26 rollout. The failed acquisition correctly has no fake evidence/processing row, hence the durable `495/495/494/494` lifecycle totals.
 
 Per-source canonical/signal state verified during the paused rollout window:
 
@@ -82,6 +91,8 @@ S13 canonical_items=16  / signals=10 / item_kind=TENDER
 S20 canonical_items=6   / signals=1 / item_kind=TENDER
 S21 canonical_items=45  / signals=0 / item_kind=TENDER
 S22 canonical_items=4   / signals=0 / item_kind=TENDER
+S25 canonical_items=10  / signals=0 / item_kind=TENDER
+S26 canonical_items=2   / signals=0 / item_kind=TENDER
 ```
 
 S22 onboarding-owned acquisition lifecycle:
@@ -579,6 +590,30 @@ Evidence: `docs/verification/S10-SOURCE-ONBOARDING-2026-09-04.md`.
 
 Evidence: `docs/verification/S25-SOURCE-ONBOARDING-2026-09-04.md`.
 
+### S26 DOMS Medical Procurement Opportunities Onboarding — PASS
+
+- PR #34 CI PASS and squash-merged;
+- exact production application SHA `ae894d092f97843280c92228d6b43eda3bf0336f` deployed to Bangkok only;
+- immediate rollback is `930c94641b0699072350dcea9344aa55e930e169`;
+- frozen pre-deploy ten-source state: canonical `114`, signals `11`, scheduler runs `358`, acquisition lifecycle `480/480/479/479`, failed `1`, recovery backlog `0`, Worker SignalForge Runs `530`;
+- the one pre-existing failed run was an S10 DICA `CONNECT_TIMEOUT` at `14:05:13Z`; S10 recovered at `14:15Z` and remained GREEN, so it is historical fail-closed evidence rather than an S26 rollout failure;
+- deployment itself changed no business/acquisition counts and left S26 at canonical/signals `0/0` before baseline;
+- first reviewed S26 baseline selected 2 opportunity-origin `TENDER` canonical items and zero customer signals;
+- baseline metrics: `items_parsed=2`, `tenders_parsed=2`, `details_attempted=2`, `details_succeeded=2`, `changed=2`;
+- S26 acquisition lifecycle is exactly `3/3/3/3`: one category HTML + two selected detail HTML pages; PDF requested URL count is zero;
+- production canonical identities are `doms:12634` (`7DMS/2026-2027(L)`) and `doms:12491` (CT/MRI Preventive Maintenance); both deadlines remain unknown/null because issuer HTML does not supply reliable closing evidence;
+- award/result, Envelope, opening/evaluation and scrutiny-meeting posts remain fail-closed excluded from the opportunity slice;
+- manual baseline Worker Run `signalforge-20260904T144640Z-e5ee0dce` correlates exactly to the S26 scheduler row; Worker Runs `530 -> 531`;
+- Bangkok + Beijing `workerctl doctor` PASS;
+- Beijing `/srv/signalforge` remains absent and installed dispatcher returns `126 / DENY: SignalForge is Bangkok-only` for `signalforge-refresh S26`;
+- timer resume created one normal Worker wrapper `signalforge-20260904T145148Z-f0f1b9e9` that processed eight due source jobs (S08A/S10/S12/S13/S20/S21/S22/S25), all `SUCCESS`, `changed=0`, `signals=0`; S26 was not fetched again;
+- final steady state: all eleven sources GREEN, canonical `116`, signals `11`, scheduler runs `367`, acquisition lifecycle `495/495/494/494`, failed `1` (pre-existing recovered S10 timeout), recovery backlog `0`, Worker SignalForge Runs `532`;
+- timer restored enabled / active / waiting; run-due service inactive;
+- `browser_production_approved=false` remains frozen;
+- no JSON-primary contract, schema migration, PDF extraction, OCR, Browser, remote Provider, Worker-runtime or Control-Plane capability was introduced.
+
+Evidence: `docs/verification/S26-SOURCE-ONBOARDING-2026-09-04.md`.
+
 ## Frozen acquisition invariants
 
 ```text
@@ -614,13 +649,13 @@ Still frozen:
 - Browserless ADR: only after multiple real browser consumers create shared lifecycle/queue/session pain.
 - PDF supplementary adapter: only when issuer HTML lacks business-critical fields whose extraction materially improves the commercial signal.
 
-S20, S22, S05A, S07, S08A, S12 and S25 triggered none of these capability gates. S10 remains the first source to trigger the PDF supplementary **value** gate because the official PDFs contain company-level and policy-level business facts absent from HTML. The separate production extraction/runtime-packaging gate remains deferred, so no new dependency or runtime capability has been promoted. Fresh audits now make the municipal gates more specific: S16 YCDC requires a stable discovery-identity vs ephemeral transport-locator contract; S17 MCDC requires Burmese image/OCR for current scan-only tender PDFs; S18 NPTDC requires mixed-board segmentation plus image/OCR. None should be bypassed merely to increase source count.
+S20, S22, S05A, S07, S08A, S12, S25 and S26 triggered none of these capability gates. S10 remains the first source to trigger the PDF supplementary **value** gate because the official PDFs contain company-level and policy-level business facts absent from HTML. The separate production extraction/runtime-packaging gate remains deferred, so no new dependency or runtime capability has been promoted. Fresh audits now make the municipal gates more specific: S16 YCDC requires a stable discovery-identity vs ephemeral transport-locator contract; S17 MCDC requires Burmese image/OCR for current scan-only tender PDFs; S18 NPTDC requires mixed-board segmentation plus image/OCR. None should be bypassed merely to increase source count.
 
 ## Next
 
-1. operate S05A + S07 + S08A + S10 + S12 + S13 + S20 + S21 + S22 + S25 and collect real acquisition/source history;
+1. operate S05A + S07 + S08A + S10 + S12 + S13 + S20 + S21 + S22 + S25 + S26 and collect real acquisition/source history;
 2. choose the next source by business value plus current endpoint quality, not source-ID order or a target source count;
-3. prefer another issuer-original Direct-HTTP source that fits the existing acquisition engine before introducing schema/OCR/Browser capability;
+3. prefer another issuer-original Direct-HTTP source that fits the existing acquisition engine before introducing schema/OCR/Browser capability; S26 candidate audit already ruled out Ministry of Industry on Bangkok DNS and deferred Ministry of Energy because current business detail is primarily embedded-PDF content;
 4. S01 National Portal stays discovery-aggregator-only until issuer-resolution/equivalence/dedup exists; S04 Trade Portal remains deferred for the same cross-source contract reason;
 5. preserve the newly proven municipal gates: S16 requires identity/locator separation, S17 requires Burmese OCR, S18 requires classifier + OCR; do not force any of them into P0;
 6. keep S10 PDF supplementary extraction as a separate reviewed runtime-packaging slice and promote it only when its incremental commercial value justifies the dependency;

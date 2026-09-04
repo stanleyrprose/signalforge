@@ -1,8 +1,8 @@
 # S26 DOMS Medical Procurement Opportunities — Source Onboarding
 
 Date (Asia/Yangon): 2026-09-04
-Phase: PRE-PRODUCTION
-Result: IMPLEMENTATION / TEST / LIVE AUDIT PASS
+Phase: PRODUCTION
+Result: PASS / PRODUCTION COMPLETE
 
 ## Decision
 
@@ -267,21 +267,137 @@ current-live isolated engine: PASS
 Bangkok Direct HTTP: PASS
 ```
 
-## Production gate
+## Production rollout closure
 
-Production remains incomplete until:
+PR #34 passed GitHub `verify` and was squash-merged. The exact production application SHA is:
 
-1. GitHub PR CI passes and the exact squash-merged SHA is deployed to Bangkok only;
-2. the then-current ten-source production state is frozen after a controlled timer pause;
-3. deployment itself changes no business counts;
-4. reviewed `signalforge-refresh S26` succeeds;
-5. baseline reflects the actual current selected opportunity count (expected 2 if issuer state is unchanged) and creates zero customer signals;
-6. detail fetch count equals selected opportunity count and excludes award/evaluation posts;
-7. no PDF URL is requested;
-8. S26 parse health is GREEN;
-9. one manual source refresh maps to exactly one Worker SignalForge Run;
-10. Beijing remains SignalForge-free and rejects `signalforge-refresh S26`;
-11. Bangkok + Beijing Worker doctors pass;
-12. timer returns to enabled/active/waiting and all eleven sources are GREEN;
-13. `browser_production_approved=false` remains unchanged;
-14. no JSON-primary contract, schema migration, PDF/OCR runtime, Browser or unrelated capability is introduced.
+```text
+ae894d092f97843280c92228d6b43eda3bf0336f
+```
+
+Immediate rollback is the previous ten-source application release:
+
+```text
+930c94641b0699072350dcea9344aa55e930e169
+```
+
+The timer was disabled before deployment and no refresh service was active. The frozen pre-deploy production state was:
+
+```text
+canonical_items=114
+signals=11
+scheduler_runs=358
+acquisition_requests=480
+acquisition_attempts=480
+evidence_envelopes=479
+processing_records=479
+failed_runs=1
+recovery_backlog=0
+Worker SignalForge Runs=530
+```
+
+The one pre-existing failed run was S10 at `2026-09-04T14:05:13Z`: a Direct-HTTP `CONNECT_TIMEOUT` against the DICA category page. S10 automatically recovered at `14:15Z`; before the S26 rollout its `last_error` was null, `consecutive_failures=0`, and source health was GREEN. This historical fail-closed record was preserved rather than rewritten.
+
+Exact-SHA deployment succeeded with:
+
+```text
+deployment=success
+release=ae894d092f97843280c92228d6b43eda3bf0336f
+previous=930c94641b0699072350dcea9344aa55e930e169
+timer_preexisting=0
+```
+
+Deployment itself changed no business/acquisition counts. The new manifest exposed eleven active sources while S26 remained uninitialized with canonical/signals `0/0`, as expected before its first baseline.
+
+The first reviewed S26 baseline ran through `signalforge-refresh@S26.service` and produced:
+
+```text
+worker_run_id=signalforge-20260904T144640Z-e5ee0dce
+trigger_type=MANUAL
+status=SUCCESS
+baseline=true
+discovered=2
+candidates=2
+fetched=2
+items=2
+tenders=2
+details_attempted=2
+details_succeeded=2
+changed=2
+signals_created=0
+backlog_remaining=0
+```
+
+Persistence after the baseline:
+
+```text
+canonical_items: 114 -> 116
+signals: 11 -> 11
+scheduler_runs: 358 -> 359
+S26 requests/attempts/evidence/processing=3/3/3/3
+S26 PDF requested_url count=0
+S26 canonical_items=2
+S26 signals=0
+SQLite quick_check=ok
+```
+
+The production canonical keys are exactly:
+
+```text
+doms:12634 -> 7DMS/2026-2027(L), publication_date=2026-08-10, deadline=null
+doms:12491 -> DOMS-POST-12491, publication_date=2026-07-09, deadline=null
+```
+
+Worker cardinality/correlation passed:
+
+```text
+Worker SignalForge Runs: 530 -> 531
+latest run_id=signalforge-20260904T144640Z-e5ee0dce / SUCCESS
+S26 scheduler worker_run_id matches exactly
+```
+
+Topology/runtime gates also passed:
+
+```text
+Bangkok workerctl doctor = PASS
+Beijing workerctl doctor = PASS
+Beijing /srv/signalforge = ABSENT
+Beijing signalforge-refresh S26 = 126 / DENY: SignalForge is Bangkok-only
+browser_production_approved=false
+```
+
+After timer resume, Persistent reconciliation created one normal Worker wrapper:
+
+```text
+signalforge-20260904T145148Z-f0f1b9e9
+```
+
+That single wrapper processed eight due source jobs:
+
+```text
+S08A / S10 / S12 / S13 / S20 / S21 / S22 / S25
+```
+
+All eight were `SUCCESS`, `changed=0`, `signals=0`. S26 was not due and was not fetched again. This again preserves Gate Z: one Worker operational Run can contain N SignalForge business jobs.
+
+Final steady state after reconciliation:
+
+```text
+11/11 sources GREEN
+overall=PASS / GREEN
+canonical_items=116
+signals=11
+scheduler_runs=367
+acquisition_requests=495
+acquisition_attempts=495
+evidence_envelopes=494
+processing_records=494
+failed_runs=1   # pre-existing recovered S10 timeout
+recovery_backlog=0
+Worker SignalForge Runs=532
+timer=enabled / active
+run-due service=inactive
+browser_production_approved=false
+```
+
+No JSON-primary contract, schema migration, PDF extraction, OCR, Browser, remote Provider, Worker-runtime or Control-Plane capability was added for S26. The production application remains pinned to `ae894d092f97843280c92228d6b43eda3bf0336f`; any later documentation-only closure SHA must not be redeployed merely to update facts.
