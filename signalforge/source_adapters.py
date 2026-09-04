@@ -6,6 +6,7 @@ from typing import Callable
 from .commerce import parse_notification_detail as parse_commerce_notification_detail
 from .commerce import parse_notification_listing as parse_commerce_notification_listing
 from .customs import parse_notification_records as parse_customs_notification_records
+from .customs_announcements import parse_auction_records as parse_customs_auction_records
 from .iwt import parse_tender_detail as parse_iwt_tender_detail
 from .iwt import parse_tender_listing as parse_iwt_tender_listing
 from .moep import parse_tender_detail as parse_moep_tender_detail
@@ -122,6 +123,17 @@ ADAPTERS = {
         parse_discovery=_empty_discovery,
         parse_detail=lambda _payload, _url: [],
         parse_discovery_records=parse_customs_notification_records,
+    ),
+    "customs_auction": SourceAdapter(
+        name="customs_auction",
+        discovery_content_types=("text/html",),
+        discovery_parser_version="customs-announcements-auction-v1",
+        detail_parser_version="not-applicable",
+        normalizer_version="customs-auction-normalize-v1",
+        canonicalizer_version="customs-auction-fingerprint-v1",
+        parse_discovery=_empty_discovery,
+        parse_detail=lambda _payload, _url: [],
+        parse_discovery_records=parse_customs_auction_records,
     ),
 }
 
