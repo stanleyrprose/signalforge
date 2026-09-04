@@ -5,6 +5,7 @@ from typing import Callable
 
 from .commerce import parse_notification_detail as parse_commerce_notification_detail
 from .commerce import parse_notification_listing as parse_commerce_notification_listing
+from .customs import parse_notification_records as parse_customs_notification_records
 from .iwt import parse_tender_detail as parse_iwt_tender_detail
 from .iwt import parse_tender_listing as parse_iwt_tender_listing
 from .moep import parse_tender_detail as parse_moep_tender_detail
@@ -19,6 +20,7 @@ class SourceAdapterError(RuntimeError):
 
 
 DiscoveryParser = Callable[[bytes], list[SitemapEntry]]
+DiscoveryRecordParser = Callable[[bytes, str], list[object]]
 DetailParser = Callable[[bytes, str], list[object]]
 
 
@@ -32,6 +34,11 @@ class SourceAdapter:
     canonicalizer_version: str
     parse_discovery: DiscoveryParser
     parse_detail: DetailParser
+    parse_discovery_records: DiscoveryRecordParser | None = None
+
+
+def _empty_discovery(_payload: bytes) -> list[SitemapEntry]:
+    return []
 
 
 def _parse_mpt_detail(payload: bytes, url: str) -> list[object]:
@@ -104,6 +111,17 @@ ADAPTERS = {
         canonicalizer_version="commerce-notice-node-date-v1",
         parse_discovery=parse_commerce_notification_listing,
         parse_detail=_parse_commerce_detail,
+    ),
+    "customs_notice": SourceAdapter(
+        name="customs_notice",
+        discovery_content_types=("text/html",),
+        discovery_parser_version="customs-notification-table-v1",
+        detail_parser_version="not-applicable",
+        normalizer_version="customs-notice-normalize-v1",
+        canonicalizer_version="customs-notice-reference-v1",
+        parse_discovery=_empty_discovery,
+        parse_detail=lambda _payload, _url: [],
+        parse_discovery_records=parse_customs_notification_records,
     ),
 }
 
