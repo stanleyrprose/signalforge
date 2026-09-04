@@ -8,6 +8,8 @@
 **主题：** **Acquisition Policy & Local Contract Foundation**  
 **核心原则：** **Preserve the proven production system; refactor the inside, preserve the outside.**
 
+> **Integration supersession notice (2026-09-04):** Browser / Playwright / Crawlee / Mac Provider 相关未来条款已由 `PRD-v1.5.1-Mac-Browser-Plane-Integration-Amendment.md` 覆盖。v1.5 的 local acquisition、Bangkok-only SignalForge、R0–R2 Direct HTTP、Gate Z cardinality 等已验证生产基线保持不变；旧 VPS Browser/Crawlee R3 不再是等待触发的未来路径，而是 `SUPERSEDED_BY_MAC_BROWSER_PLANE`。后续开发必须同时读取 v1.5.1。
+
 ---
 
 # 0. Revision Decision
@@ -54,8 +56,8 @@ More Myanmar Sources
       ▼
 Observe real friction
       │
-      ├─ JS actually required → Playwright Adoption Gate
-      ├─ Myanmar residential required → Mac Provider ADR
+      ├─ JS actually required → Mac Browser Provider requirement (production disabled until separate contract)
+      ├─ Browser execution → Mac Browser Plane only
       ├─ China acquisition required → Beijing Remote Provider ADR
       └─ shared browser pain → Browserless ADR
 ```
@@ -119,12 +121,12 @@ R5 Bangkok SignalForge            PASS
 条件 Gate：
 
 ```text
-R3 Browser/Crawlee
+R3 VPS Browser/Crawlee — SUPERSEDED_BY_MAC_BROWSER_PLANE
 R6 Webhook
 Gate V Dedicated Identity Retirement
 ```
 
-均为 `NOT TRIGGERED`，而不是 `TODO / FAILED`。
+其中 R6 / Gate V 仍为 `NOT TRIGGERED`；R3 VPS Browser/Crawlee 不再等待触发，状态正式变为 `SUPERSEDED_BY_MAC_BROWSER_PLANE`。
 
 ## 2.2 Rollback Reference
 
@@ -235,9 +237,9 @@ v1.5 不引入 Redis / Celery / central queue / central scheduler / service disc
 
 禁止 `Bangkok unavailable → automatically Beijing`。
 
-## I-11 — Mac Is Not a Production Dependency
+## I-11 — Mac Browser Plane Is Not an Unattended SignalForge Production Dependency
 
-Mac mini 初始继续 `production=false`，并要求 `Mac offline != SignalForge production stops`。
+Mac mini 是 sole Browser Runtime host，但 SignalForge→Mac Browser Provider 当前保持 `production_enabled=false`。继续要求 `Mac offline != SignalForge production stops`；健康的 Bangkok Direct HTTP sources 不得因 Mac 离线而停止。
 
 ## I-12 — Browserless Is Not a Base Dependency
 
@@ -554,7 +556,7 @@ DNS_FAILURE      → bounded retry
 HTTP_429         → bounded retry / Retry-After
 HTTP_403         → review
 TLS_FAILURE      → fail / audit; never certificate bypass; never automatic Browser
-JS_RENDER_REQUIRED → source capability review; do not auto-install Browser
+JS_RENDER_REQUIRED → source capability review; Browser execution may only target Mac Browser Plane, and stays blocked while Mac Provider is production-disabled
 PARSER_DRIFT     → processing re-audit; not Browser
 ```
 
@@ -564,19 +566,21 @@ PARSER_DRIFT     → processing re-audit; not Browser
 
 v1.5 P0 不实现新的 Browser production capability。
 
-只有 `real source + fixture evidence + Direct HTTP insufficient specifically because JS rendering is required` 才进入 Browser Gate。
+只有 `real source + fixture evidence + Direct HTTP insufficient specifically because JS rendering is required` 才能确认 Browser requirement。
 
-首选 Direct Playwright，不是 Browserless。Browserless 只有在 multiple real browser consumers / duplicated lifecycle / remote sessions / queueing/orphan operational pain 等真实 friction 出现后才启动 Future ADR。
+一旦 Browser requirement 被真实证据确认，执行 host 只能是 **Mac Browser Plane**；不得再进入 Bangkok/Beijing Direct Playwright/Crawlee benchmark/soak 路径。当前 Mac Browser Provider 对 SignalForge 保持 `production_enabled=false`，因此 Browser-required source 必须 blocked/unsupported，直到独立 Provider Invocation Contract 设计、评审、实现并 live-verify。
+
+Browserless 只有在 Mac Browser Plane 出现 multiple real browser consumers / duplicated lifecycle / remote sessions / queueing/orphan operational pain 等真实 friction 后才启动 Future ADR；不得把 Browserless 当作跨主机调用捷径。
 
 ---
 
 # 16. Mac mini Role
 
-继续定义为 **Myanmar Residential / Interactive Acquisition Capability**，初始 `production=false`。
+Mac mini 现正式定义为 **sole Browser Runtime host**；Browser Plane 承担 Playwright / Chrome / Browser Use / Chrome DevTools MCP / Browser profiles / session leases / browser evidence / resource governor。
 
 当前用途：source audit / network comparison / residential egress test / interactive debugging / browser investigation / OpenClaw/Hermes local tasks。
 
-Mac 不进入 v1.5 production dependency graph。
+Mac Browser Plane 不拥有 SignalForge Source Registry / DB / Canonical / Signal / Review / Delivery。Mac Browser Provider 对 SignalForge 当前仍为 `production_enabled=false`，且 Mac 不进入 v1.5 unattended production dependency graph。
 
 ---
 
@@ -773,13 +777,13 @@ P0稳定后才考虑：
 
 # 25. Future ADR — Mac Production Provider
 
-触发条件：`real source + Bangkok path insufficient + Myanmar residential path repeatedly succeeds`。届时再验证 network stability / sleep / reboot / power / ISP / resource competition / evidence equivalence / operational recovery。
+旧的 generic “Mac production acquisition provider” 方向由 v1.5.1 收敛为 **Mac Browser Provider**。只有真实 Browser-required source 出现后，才允许单独设计 Provider Invocation Contract；必须覆盖 authentication / source allowlist / SSRF boundary / timeout / idempotency / evidence return / correlation / Mac offline semantics / no public CDP / no arbitrary URL or command injection。当前不得预建。
 
 ---
 
 # 26. Future ADR — Browser Capability
 
-触发：`real source + Direct HTTP insufficient + JS_RENDER_REQUIRED`，然后 Direct Playwright → benchmark → identity isolation → resource Gate → soak → explicit production enable。
+触发：`real source + Direct HTTP insufficient + JS_RENDER_REQUIRED`。确认 Browser requirement 后仅允许指向 **Mac Browser Plane**；VPS Browser/Crawlee R3 已 superseded。若 Mac Browser Provider 仍 `production_enabled=false`，source 必须保持 capability-blocked，不能自动降级为 Bangkok/Beijing Browser。
 
 ---
 
@@ -881,7 +885,9 @@ scheduler_run
 - [ ] Direct HTTP remains default.
 - [ ] Browser is not automatic fallback.
 - [ ] TLS failure never auto-escalates to Browser.
-- [ ] Mac remains non-production.
+- [ ] Mac is the sole Browser Runtime host, while SignalForge→Mac unattended production invocation remains disabled.
+- [ ] VPS Browser/Crawlee R3 is `SUPERSEDED_BY_MAC_BROWSER_PLANE`.
+- [ ] Browser-required sources remain blocked while Mac Browser Provider is `production_enabled=false`.
 - [ ] Browserless remains Future ADR.
 - [ ] No Provider Registry implementation introduced.
 - [ ] No remote Provider transport introduced.
@@ -913,7 +919,7 @@ scheduler_run
 
 ## HS-04 — Browser Production
 
-真实 source requiring browser 前不得启用。
+不得在 Bangkok/Beijing 启用 Browser production。真实 source requiring browser 只能形成 Mac Browser Provider requirement；独立 Provider Invocation Contract live-verify 前不得 unattended production-enable。
 
 ## HS-05 — Browserless
 
@@ -921,7 +927,7 @@ scheduler_run
 
 ## HS-06 — Mac Production Dependency
 
-必须 source-specific production adoption Gate。
+必须独立 Provider Invocation Contract PRD；禁止 ad-hoc SSH / HTTP / public CDP / arbitrary command 或 URL surface。
 
 ## HS-07 — Automatic Cross-zone Failover
 
@@ -938,7 +944,7 @@ scheduler_run
 5. Policy is explicit; production does not dynamically guess strategy.
 6. Failure classification precedes escalation.
 7. Direct HTTP remains boring default.
-8. Browser capability is earned by source evidence.
+8. Browser capability is earned by source evidence and executes only on Mac Browser Plane.
 9. Do not freeze remote-provider abstractions before real remote-provider experience.
 10. Future capability must not redefine current business truth.
 11. Zero regression is a release feature.
@@ -1014,7 +1020,7 @@ production
  Canonical / Dedup / Signal
 ```
 
-v1.5 到这里结束，不包含 Remote Provider / Mac production / Beijing acquisition / Browserless / distributed queue。
+v1.5 到这里结束，不包含 Remote Provider / SignalForge→Mac production invocation / Beijing acquisition / Browserless / distributed queue。Browser runtime host 已由 v1.5.1 固定为 Mac；跨主机 production invocation 仍未实现。
 
 ---
 
@@ -1025,6 +1031,8 @@ v1.5 到这里结束，不包含 Remote Provider / Mac production / Beijing acqu
 > **Use v1.5 only to formalize the local SignalForge acquisition lifecycle.**
 >
 > **Do not introduce federation until a real source forces federation.**
+>
+> **Browser-specific addendum:** Do not implement VPS Browser/Crawlee R3. Browser execution belongs only to Mac Browser Plane; keep the Mac Provider production-disabled until a separate secure invocation contract is proven.
 
 版本主题：
 
