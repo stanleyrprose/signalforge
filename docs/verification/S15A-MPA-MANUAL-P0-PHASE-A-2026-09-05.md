@@ -1,7 +1,7 @@
 # S15A MPA Manual P0 Phase A — Evidence Bundle Preview
 
 Date (Asia/Yangon): 2026-09-05
-Status: IMPLEMENTATION / TEST PASS — LIVE VERIFICATION PENDING
+Status: PRODUCTION LIVE PASS — PHASE B DEFERRED
 
 ## Decision
 
@@ -105,21 +105,173 @@ Full repository test discovery:
 91/91 PASS
 ```
 
-## Production gate
+## Production live verification
 
-Phase A is not complete until the merged exact SHA is live-verified on Bangkok without activating S15A:
+Phase A was deployed and live-verified on Bangkok as exact application release:
 
-1. deploy exact merged SHA through the normal controlled Bangkok release flow;
-2. existing 12 active sources remain GREEN and business canonical/signals do not change due to deployment;
-3. reuse or freshly import one LISTING evidence artifact;
-4. create a bounded DETAIL provider request for one real MPA listing row, execute it manually on Mac C0, transfer/import as `EVIDENCE_ONLY`;
-5. create the bounded PDF provider request from the issuer PDF locator, execute manually on Mac C0, transfer/import as `EVIDENCE_ONLY`;
-6. run `mpa-provider-bundle-preview` on the three imported provider request IDs;
-7. require stable WordPress identity + decisive business semantics + valid evidence relationship;
-8. verify S15A canonical/signals remain `0/0`;
-9. verify only the expected manual provider evidence lifecycles were added;
-10. verify `production_enabled=false`, `remote_invocation=false`, `browser_production_approved=false`;
-11. Beijing remains SignalForge-free and both Worker doctors pass;
-12. timer returns enabled/active and all 12 active sources remain GREEN.
+```text
+bd4e217d0b036a436290462ce9f1393defd00d6c
+```
 
-Only after this gate passes may Phase B — an explicit, idempotent **manual canonical commit** — be designed. Phase B must not automatically turn the Manual Provider Bridge into unattended remote invocation.
+Rollback remained the previous verified release:
+
+```text
+f4a3dfd0ae77797b8fd82911fb908097a1dc97d8
+```
+
+The deployment ran while `signalforge-run-due.timer` was intentionally disabled. Immediately after deploy:
+
+```text
+active release              = bd4e217d0b036a436290462ce9f1393defd00d6c
+SignalForge                 = PASS / GREEN
+12/12 active sources        = GREEN
+browser_production_approved = false
+canonical_items             = 124
+signals                     = 11
+S15A lifecycle              = 1/1/1/1/1
+S15A canonical/signals      = 0/0
+SQLite quick_check          = ok
+```
+
+No business count changed during deployment.
+
+The previously imported LISTING evidence was reused:
+
+```text
+provider_request_id = 74a9b732-6f04-4222-b999-3eac12611647
+evidence_id         = 47e48422-d3c0-431e-b787-a5339285f9a6
+URL                 = https://www.mpa.gov.mm/tenders-and-announcement/
+SHA-256             = c016d4efcae50f271e5e6860e1567650ee3d215c4ef7d9d31bd029ed4a0ec810
+```
+
+A real bounded DETAIL provider request was created for:
+
+```text
+https://www.mpa.gov.mm/announcements/open-tender-invitation-for-three-tugs-2/
+```
+
+and executed manually through Mac Browser Plane C0:
+
+```text
+provider_request_id = 88f20980-9e2f-45c4-a6fe-42da3ed484e2
+Browser Job         = 0a65f464-19de-4c3a-a05f-73f1d50a1e39
+HTTP                = 200
+content-type        = text/html; charset=UTF-8
+bytes               = 100,820
+SHA-256             = 6e90328a949d50e18674ab14aed1d9a1b8a78fa6737513510aec93c34cee6b12
+processing          = EVIDENCE_ONLY
+```
+
+The imported detail deterministically exposed:
+
+```text
+WordPress post ID = 37867
+issuer PDF URL    = https://www.mpa.gov.mm/wp-content/uploads/2026/06/Three-Tug-Tender-Eng.pdf
+```
+
+A real bounded PDF provider request was then created from that issuer locator and executed manually through Mac Browser Plane C0:
+
+```text
+provider_request_id = 9d3aa060-168a-4fcc-9a4c-3262aace2ee1
+Browser Job         = 31a8e346-263a-450f-b521-3931db0b66f5
+HTTP                = 200
+content-type        = application/pdf
+bytes               = 101,698
+SHA-256             = 9a664132a31c682d48d765c44e5b0d83c5e165bb1aebe9cc770b3f26ba30d046
+processing          = EVIDENCE_ONLY
+```
+
+After DETAIL + PDF imports, S15A durable state was exactly:
+
+```text
+scheduler_runs       = 3
+acquisition_requests = 3
+acquisition_attempts = 3
+evidence_envelopes   = 3
+processing_records   = 3
+EVIDENCE_ONLY        = 3
+canonical_items      = 0
+signals              = 0
+```
+
+The two new durable provider evidence directories retained production permissions:
+
+```text
+provider directory   = 0700
+request.json         = 0600
+browser-result.json  = 0600
+response artifact    = 0640
+```
+
+The read-only bundle preview over the three imported provider request IDs returned:
+
+```text
+status                        = READY_FOR_MANUAL_COMMIT
+canonical candidate           = mpa:37867
+identity_status               = WORDPRESS_POST_ID
+listing provisional item_kind = TENDER
+final PDF item_kind           = AUCTION_NOTICE
+classification                = DETERMINISTIC_PDF / AUCTION_EN
+publication_date              = 2026-06-02
+deadline                      = 2026-06-25T13:00:00+06:30
+reference_no                  = MPA-POST-37867
+reference_no_kind             = wordpress_post_id
+```
+
+The PDF evidence explicitly states that the three tugs will be auctioned through an open tender system, so the live evidence chain proves why listing-only classification is unsafe.
+
+No canonical or signal write occurred during bundle preview.
+
+Paused-window integrity checks:
+
+```text
+canonical_items             = 124
+signals                     = 11
+recovery_backlog            = 0
+SQLite quick_check          = ok
+Worker SignalForge Runs     = 583
+mac production_enabled      = false
+mac remote_invocation       = false
+browser_production_approved = false
+Bangkok Worker doctor       = PASS
+Beijing /srv/signalforge    = ABSENT
+Beijing Worker doctor       = PASS
+```
+
+The two manual Mac provider imports did not create VPS Worker Runs.
+
+After verification, the scheduler timer was restored. One normal due-cycle invocation ran and completed:
+
+```text
+timer                       = enabled / active
+run-due service             = inactive
+SignalForge                 = PASS / GREEN
+12/12 active sources        = GREEN
+canonical_items             = 124
+signals                     = 11
+recovery_backlog            = 0
+S15A canonical/signals      = 0/0
+S15A EVIDENCE_ONLY          = 3
+Worker SignalForge Runs     = 584
+```
+
+The `583 -> 584` Worker increment came from the resumed normal scheduler invocation, not from the manual Mac provider evidence path.
+
+## Gate result
+
+**Manual P0 Phase A = PRODUCTION LIVE PASS.**
+
+The following are now proven together in production:
+
+```text
+bounded LISTING / DETAIL / PDF provider request contract
++ manual Mac C0 acquisition
++ EVIDENCE_ONLY durable import
++ stable WordPress identity
++ issuer-PDF relationship validation
++ deterministic PDF business classification
++ read-only bundle candidate generation
++ zero canonical/signal side effect
+```
+
+Phase B remains intentionally separate. An explicit, idempotent **manual canonical commit** may now be designed, but it is not authorized by this Phase A closure. Phase B must not enable unattended Mac invocation or turn S15A into a scheduled active source.
