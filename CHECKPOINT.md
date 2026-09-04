@@ -614,6 +614,19 @@ Evidence: `docs/verification/S25-SOURCE-ONBOARDING-2026-09-04.md`.
 
 Evidence: `docs/verification/S26-SOURCE-ONBOARDING-2026-09-04.md`.
 
+### Mac/Bangkok Source Network Re-Audit — PASS / NO ONBOARDING CHANGE
+
+- read-only live re-audit compared Mac Browser Plane direct C0 observations with Bangkok production-network strict-TLS behavior;
+- control sources remain healthy from Bangkok: MPT S13 `HTTP 200 / ssl_verify_result=0 / 80,226 bytes`; Commerce S05A `HTTP 200 / ssl_verify_result=0 / 108,222 bytes`;
+- MPA S15A/S15B remains environment-split: Mac direct C0 GREEN, Bangkok strict-TLS RED with `curl 60 / ssl_verify_result=20 / unable to get local issuer certificate`;
+- Ministry of Border Affairs Tender is registered as deferred candidate S27: Mac direct C0 GREEN with deterministic `?page=N` pagination, Bangkok strict-TLS RED with the same curl-60 issuer-chain failure;
+- these failures are classified as provider/environment-specific `TLS_FAILURE`, not `JS_RENDER_REQUIRED`;
+- no `-k`/`--insecure`, CA-ignore, Browser escalation, VPS Playwright, or SignalForge→Mac remote invocation was introduced;
+- S13/S05A remain ACTIVE Direct HTTP; S15A/S15B remain deferred; S27 is deferred only; S04 Trade Portal remains deferred for issuer-resolution/dedup rather than network reasons;
+- `browser_production_approved=false` and Mac Provider `production_enabled=false` remain frozen.
+
+Evidence: `docs/verification/MAC-BKK-SOURCE-NETWORK-REAUDIT-2026-09-04.md`.
+
 ## Frozen acquisition invariants
 
 ```text
