@@ -11,6 +11,7 @@ from .dica import parse_announcement_detail as parse_dica_announcement_detail
 from .dica import parse_announcement_listing as parse_dica_announcement_listing
 from .doms import parse_tender_detail as parse_doms_tender_detail
 from .doms import parse_tender_listing as parse_doms_tender_listing
+from .dof import parse_tender_records as parse_dof_tender_records
 from .iwt import parse_tender_detail as parse_iwt_tender_detail
 from .ird import parse_announcement_detail as parse_ird_announcement_detail
 from .ird import parse_announcement_listing as parse_ird_announcement_listing
@@ -197,6 +198,17 @@ ADAPTERS = {
         canonicalizer_version="doms-wordpress-post-id-v1",
         parse_discovery=parse_doms_tender_listing,
         parse_detail=_parse_doms_detail,
+    ),
+    "dof_tender": SourceAdapter(
+        name="dof_tender",
+        discovery_content_types=("text/html",),
+        discovery_parser_version="dof-tender-card-v1",
+        detail_parser_version="not-applicable",
+        normalizer_version="dof-tender-normalize-v1",
+        canonicalizer_version="dof-issuer-alias-v1",
+        parse_discovery=_empty_discovery,
+        parse_detail=lambda _payload, _url: [],
+        parse_discovery_records=parse_dof_tender_records,
     ),
 }
 
