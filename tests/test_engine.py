@@ -327,7 +327,7 @@ class EngineTests(unittest.TestCase):
                 {"SIGNALFORGE_DB": str(db), "SIGNALFORGE_REPO_ROOT": str(ROOT)},
                 clear=False,
             ):
-                health = status()
+                health = status(registry=registry)
             self.assertEqual(health["counts"]["recovery_backlog"], 3)
             self.assertIn(health["sources"][0]["health"]["recovery_backlog_health"], {"YELLOW", "RED"})
 

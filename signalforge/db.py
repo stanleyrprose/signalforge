@@ -8,7 +8,7 @@ from typing import Iterator
 from .config import db_path
 
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 
 @contextmanager
@@ -80,6 +80,8 @@ def migrate(path: Path | None = None) -> None:
             CREATE TABLE IF NOT EXISTS canonical_items (
                 canonical_key TEXT PRIMARY KEY,
                 source_id TEXT NOT NULL,
+                item_kind TEXT NOT NULL DEFAULT 'TENDER',
+                title TEXT,
                 reference_no TEXT NOT NULL,
                 project_name TEXT NOT NULL,
                 publication_date TEXT,
@@ -124,6 +126,7 @@ def migrate(path: Path | None = None) -> None:
                 details_attempted INTEGER NOT NULL DEFAULT 0,
                 details_succeeded INTEGER NOT NULL DEFAULT 0,
                 tenders_parsed INTEGER NOT NULL DEFAULT 0,
+                items_parsed INTEGER NOT NULL DEFAULT 0,
                 error TEXT
             );
             CREATE INDEX IF NOT EXISTS idx_scheduler_source_started
@@ -251,6 +254,14 @@ def migrate(path: Path | None = None) -> None:
         _add_column(conn, "scheduler_runs", "details_attempted INTEGER NOT NULL DEFAULT 0")
         _add_column(conn, "scheduler_runs", "details_succeeded INTEGER NOT NULL DEFAULT 0")
         _add_column(conn, "scheduler_runs", "tenders_parsed INTEGER NOT NULL DEFAULT 0")
+        items_parsed_added = _add_column(conn, "scheduler_runs", "items_parsed INTEGER NOT NULL DEFAULT 0")
+        if items_parsed_added:
+            conn.execute("UPDATE scheduler_runs SET items_parsed=tenders_parsed")
+
+        _add_column(conn, "canonical_items", "item_kind TEXT NOT NULL DEFAULT 'TENDER'")
+        _add_column(conn, "canonical_items", "title TEXT")
+        conn.execute("UPDATE canonical_items SET item_kind='TENDER' WHERE item_kind IS NULL OR item_kind=''")
+        conn.execute("UPDATE canonical_items SET title=project_name WHERE title IS NULL OR title=''")
 
         for acquisition_table in (
             "acquisition_requests",

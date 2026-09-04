@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable
 
+from .commerce import parse_notification_detail as parse_commerce_notification_detail
+from .commerce import parse_notification_listing as parse_commerce_notification_listing
 from .iwt import parse_tender_detail as parse_iwt_tender_detail
 from .iwt import parse_tender_listing as parse_iwt_tender_listing
 from .moep import parse_tender_detail as parse_moep_tender_detail
@@ -47,6 +49,11 @@ def _parse_moep_detail(payload: bytes, url: str) -> list[object]:
     return [tender] if tender is not None else []
 
 
+def _parse_commerce_detail(payload: bytes, url: str) -> list[object]:
+    notice = parse_commerce_notification_detail(payload, url)
+    return [notice] if notice is not None else []
+
+
 ADAPTERS = {
     "mpt": SourceAdapter(
         name="mpt",
@@ -87,6 +94,16 @@ ADAPTERS = {
         canonicalizer_version="moep-content-date-v1",
         parse_discovery=parse_moep_tender_listing,
         parse_detail=_parse_moep_detail,
+    ),
+    "commerce_notice": SourceAdapter(
+        name="commerce_notice",
+        discovery_content_types=("text/html",),
+        discovery_parser_version="commerce-notification-block-v1",
+        detail_parser_version="commerce-notice-html-v1",
+        normalizer_version="commerce-notice-normalize-v1",
+        canonicalizer_version="commerce-notice-node-date-v1",
+        parse_discovery=parse_commerce_notification_listing,
+        parse_detail=_parse_commerce_detail,
     ),
 }
 

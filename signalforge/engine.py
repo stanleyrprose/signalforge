@@ -202,6 +202,10 @@ def _upsert_tender(
     payload = tender.payload()
     payload_json = _json(payload)
     content_hash = _material_hash(payload)
+    item_kind = str(getattr(tender, "item_kind", "TENDER"))
+    if item_kind not in {"TENDER", "REGULATORY_NOTICE"}:
+        raise EngineError(f"unsupported canonical item kind: {item_kind}")
+    title = str(getattr(tender, "title", tender.project_name))
     existing = conn.execute(
         "SELECT content_hash FROM canonical_items WHERE canonical_key=?",
         (tender.canonical_key,),
@@ -211,13 +215,15 @@ def _upsert_tender(
         conn.execute(
             """
             INSERT INTO canonical_items(
-                canonical_key,source_id,reference_no,project_name,publication_date,deadline,location,url,
+                canonical_key,source_id,item_kind,title,reference_no,project_name,publication_date,deadline,location,url,
                 content_hash,evidence_sha256,payload_json,created_at,updated_at
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """,
             (
                 tender.canonical_key,
                 source_id,
+                item_kind,
+                title,
                 tender.reference_no,
                 tender.project_name,
                 tender.publication_date,
@@ -234,10 +240,12 @@ def _upsert_tender(
     elif changed:
         conn.execute(
             """
-            UPDATE canonical_items SET reference_no=?,project_name=?,publication_date=?,deadline=?,location=?,url=?,
+            UPDATE canonical_items SET item_kind=?,title=?,reference_no=?,project_name=?,publication_date=?,deadline=?,location=?,url=?,
                 content_hash=?,evidence_sha256=?,payload_json=?,updated_at=? WHERE canonical_key=?
             """,
             (
+                item_kind,
+                title,
                 tender.reference_no,
                 tender.project_name,
                 tender.publication_date,
@@ -335,7 +343,8 @@ def run_source(
     changed_count = 0
     signals_created = 0
     fetched = 0
-    tenders = 0
+    items_parsed = 0
+    tenders_parsed = 0
     detail_errors = 0
     details_attempted = 0
     details_succeeded = 0
@@ -521,7 +530,10 @@ def run_source(
                 )
                 continue
 
-            tenders += len(parsed_tenders)
+            items_parsed += len(parsed_tenders)
+            tenders_parsed += sum(
+                1 for item in parsed_tenders if str(getattr(item, "item_kind", "TENDER")) == "TENDER"
+            )
             if expected_tender:
                 details_succeeded += 1
             detail_changed = 0
@@ -634,12 +646,12 @@ def run_source(
                 """
                 UPDATE scheduler_runs
                 SET finished_at=?,status='SUCCESS',changed=?,signals_created=?,backlog_remaining=?,
-                    details_attempted=?,details_succeeded=?,tenders_parsed=?,error=?
+                    details_attempted=?,details_succeeded=?,tenders_parsed=?,items_parsed=?,error=?
                 WHERE app_run_id=?
                 """,
                 (
                     observed_at, changed_count, signals_created, backlog_remaining, details_attempted,
-                    details_succeeded, tenders, warning, app_run_id,
+                    details_succeeded, tenders_parsed, items_parsed, warning, app_run_id,
                 ),
             )
 
@@ -657,7 +669,8 @@ def run_source(
             "candidates": len(candidates),
             "fetched": fetched,
             "detail_errors": detail_errors,
-            "tenders": tenders,
+            "items": items_parsed,
+            "tenders": tenders_parsed,
             "details_attempted": details_attempted,
             "details_succeeded": details_succeeded,
             "health_probe": health_probe,
@@ -703,12 +716,12 @@ def run_source(
                 """
                 UPDATE scheduler_runs
                 SET finished_at=?,status='FAILED',changed=?,signals_created=?,backlog_remaining=?,
-                    details_attempted=?,details_succeeded=?,tenders_parsed=?,error=?
+                    details_attempted=?,details_succeeded=?,tenders_parsed=?,items_parsed=?,error=?
                 WHERE app_run_id=?
                 """,
                 (
                     observed_at, changed_count, signals_created, backlog_remaining, details_attempted,
-                    details_succeeded, tenders, error, app_run_id,
+                    details_succeeded, tenders_parsed, items_parsed, error, app_run_id,
                 ),
             )
         raise

@@ -43,6 +43,10 @@ class DatabaseMigrationTests(unittest.TestCase):
                         content_hash TEXT NOT NULL,evidence_sha256 TEXT NOT NULL,payload_json TEXT NOT NULL,
                         created_at TEXT NOT NULL,updated_at TEXT NOT NULL
                     );
+                    INSERT INTO canonical_items VALUES(
+                        'mpt:EXISTING','S13','EXISTING','Existing Tender','2026-09-01',NULL,NULL,
+                        'https://mpt.com.mm/en/existing/','hash','evidence','{}','2026-09-02T12:00:00Z','2026-09-02T12:00:00Z'
+                    );
                     CREATE TABLE signals(
                         signal_id TEXT PRIMARY KEY,source_id TEXT NOT NULL,canonical_key TEXT NOT NULL,
                         signal_type TEXT NOT NULL,created_at TEXT NOT NULL,payload_json TEXT NOT NULL,
@@ -75,13 +79,52 @@ class DatabaseMigrationTests(unittest.TestCase):
                 ).fetchone()
                 versions = [row[0] for row in conn.execute("SELECT version FROM schema_meta ORDER BY version")]
                 scheduler_columns = {row[1] for row in conn.execute("PRAGMA table_info(scheduler_runs)")}
+                canonical_columns = {row[1] for row in conn.execute("PRAGMA table_info(canonical_items)")}
+                canonical = conn.execute("SELECT item_kind,title,project_name FROM canonical_items WHERE canonical_key='mpt:EXISTING'").fetchone()
                 tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
 
             self.assertEqual(discovery, ("2026-09-02T11:00:00+00:00", "2026-09-02T11:00:00+00:00", None, 0))
             self.assertEqual(state, ("2026-09-02T12:00:00Z", "2026-09-02T12:00:00Z", 0, None, None))
-            self.assertEqual(versions, [1, 2, 3, 4])
-            self.assertTrue({"recovery", "outage_window_start", "outage_window_end", "backlog_remaining", "details_attempted", "details_succeeded", "tenders_parsed"} <= scheduler_columns)
+            self.assertEqual(versions, [1, 2, 3, 4, 5])
+            self.assertEqual(canonical, ("TENDER", "Existing Tender", "Existing Tender"))
+            self.assertTrue({"item_kind", "title"} <= canonical_columns)
+            self.assertTrue({"recovery", "outage_window_start", "outage_window_end", "backlog_remaining", "details_attempted", "details_succeeded", "tenders_parsed", "items_parsed"} <= scheduler_columns)
             self.assertTrue({"acquisition_requests", "acquisition_attempts", "evidence_envelopes", "processing_records"} <= tables)
+
+
+    def test_v4_scheduler_history_backfills_items_parsed_from_tenders(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            db = Path(tmp) / "signalforge-v4.db"
+            with sqlite3.connect(db) as conn:
+                conn.executescript(
+                    """
+                    CREATE TABLE schema_meta(version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL);
+                    INSERT INTO schema_meta VALUES (4,'2026-09-04T00:00:00Z');
+                    CREATE TABLE scheduler_runs(
+                        app_run_id TEXT PRIMARY KEY,trigger_id TEXT NOT NULL,trigger_kind TEXT NOT NULL,
+                        source_id TEXT NOT NULL,worker_run_id TEXT NOT NULL,started_at TEXT NOT NULL,
+                        finished_at TEXT,status TEXT NOT NULL,changed INTEGER NOT NULL DEFAULT 0,
+                        signals_created INTEGER NOT NULL DEFAULT 0,baseline INTEGER NOT NULL DEFAULT 0,
+                        recovery INTEGER NOT NULL DEFAULT 0,outage_window_start TEXT,outage_window_end TEXT,
+                        backlog_remaining INTEGER NOT NULL DEFAULT 0,details_attempted INTEGER NOT NULL DEFAULT 0,
+                        details_succeeded INTEGER NOT NULL DEFAULT 0,tenders_parsed INTEGER NOT NULL DEFAULT 0,error TEXT
+                    );
+                    INSERT INTO scheduler_runs(
+                        app_run_id,trigger_id,trigger_kind,source_id,worker_run_id,started_at,status,tenders_parsed
+                    ) VALUES ('run-1','poll:S13:1','POLL','S13','worker-1','2026-09-04T00:00:00Z','SUCCESS',7);
+                    """
+                )
+
+            migrate(db)
+
+            with sqlite3.connect(db) as conn:
+                row = conn.execute(
+                    "SELECT tenders_parsed,items_parsed FROM scheduler_runs WHERE app_run_id='run-1'"
+                ).fetchone()
+                versions = [value[0] for value in conn.execute("SELECT version FROM schema_meta ORDER BY version")]
+
+            self.assertEqual(row, (7, 7))
+            self.assertEqual(versions, [4, 5])
 
 
 if __name__ == "__main__":
