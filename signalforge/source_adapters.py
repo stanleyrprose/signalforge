@@ -13,6 +13,7 @@ from .iwt import parse_tender_detail as parse_iwt_tender_detail
 from .ird import parse_announcement_detail as parse_ird_announcement_detail
 from .ird import parse_announcement_listing as parse_ird_announcement_listing
 from .iwt import parse_tender_listing as parse_iwt_tender_listing
+from .monpifer import parse_tender_records as parse_monpifer_tender_records
 from .moep import parse_tender_detail as parse_moep_tender_detail
 from .moep import parse_tender_listing as parse_moep_tender_listing
 from .mpt import SitemapEntry, parse_sitemap, parse_tender_detail as parse_mpt_tender_detail
@@ -168,6 +169,17 @@ ADAPTERS = {
         parse_discovery=_empty_discovery,
         parse_detail=lambda _payload, _url: [],
         parse_discovery_records=parse_customs_auction_records,
+    ),
+    "monpifer_tender": SourceAdapter(
+        name="monpifer_tender",
+        discovery_content_types=("text/html",),
+        discovery_parser_version="monpifer-tender-table-v1",
+        detail_parser_version="not-applicable",
+        normalizer_version="monpifer-tender-normalize-v1",
+        canonicalizer_version="monpifer-article-alias-v1",
+        parse_discovery=_empty_discovery,
+        parse_detail=lambda _payload, _url: [],
+        parse_discovery_records=parse_monpifer_tender_records,
     ),
 }
 
