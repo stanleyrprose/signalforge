@@ -1,6 +1,6 @@
 # Manual Provider Bridge v0
 
-**Status:** **PRODUCTION EVIDENCE PATH PASS / MANUAL CANONICAL COMMIT IMPLEMENTED** for the controlled S15A Manual P0 path.
+**Status:** **PRODUCTION LIVE PASS — EVIDENCE PATH + MANUAL CANONICAL BASELINE** for the controlled S15A Manual P0 path.
 
 ## Purpose
 
