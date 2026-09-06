@@ -1,8 +1,8 @@
 # S29 DWIR Waterway and River Works Tenders — Source Onboarding
 
 Date (Asia/Yangon): 2026-09-05
-Phase: PRE-PRODUCTION
-Result: PASS / IMPLEMENTATION READY
+Phase: PRODUCTION
+Result: PASS / PRODUCTION COMPLETE
 
 ## Decision
 
@@ -211,17 +211,94 @@ Tests cover:
 - bounded health probe producing exactly one `UPDATED` on a material same-ID edit;
 - zero PDF/image acquisition.
 
-## Production gate
+## Production rollout
 
-S29 is implementation-ready but not production-complete until:
+S29 was deployed and baselined on exact application release:
 
-1. PR CI passes and exact merged SHA is identified;
-2. current Bangkok application is re-read immediately before rollout because parallel work may advance production;
-3. candidate must not downgrade a newer production release;
-4. timer is paused and current business/Worker counters are frozen;
-5. exact SHA deploy causes zero business-state change before baseline;
-6. one reviewed S29 baseline produces the then-current issuer-visible tender set with zero customer signal;
-7. S29 acquisition lifecycle contains only homepage + selected HTML detail requests and no PDF/image fetch;
-8. Worker cardinality/correlation passes;
-9. Beijing remains SignalForge-free and both Worker doctors pass;
-10. timer resumes and all automated sources return GREEN.
+```text
+e62410eb1cc7894f6a5f3305dcf2eab0d99b2bb8
+```
+
+The previous application-code rollback target remains the S15A operational release:
+
+```text
+6ec3e74b832b5e0033ac571d451cd41f0b69de77
+```
+
+The reviewed production baseline completed successfully at `2026-09-04T22:32:21Z`:
+
+```text
+source=S29
+trigger=MANUAL
+baseline=1
+status=SUCCESS
+discovered=4
+items_parsed=4
+tenders_parsed=4
+details_attempted=4
+details_succeeded=4
+changed=4
+signals_created=0
+worker_run_id=signalforge-20260904T223221Z-3f413c30
+```
+
+Durable S29 persistence after baseline:
+
+```text
+canonical_items=4
+signals=0
+requests/attempts/evidence/processing=5/5/5/5
+```
+
+The five EvidenceEnvelopes are exactly one official DWIR homepage acquisition plus four issuer detail HTML requests (`298`, `297`, `296`, `289`). No PDF/image acquisition occurred. Worker DB contains the same `signalforge-20260904T223221Z-3f413c30` run as `SUCCESS`, proving one reviewed source refresh mapped to one Worker operational Run while the five SignalForge acquisitions remained internal business evidence.
+
+## Delayed timer-resume recovery
+
+The S29 baseline itself passed, but the timer was left disabled after the rollout window. By 2026-09-06 all 13 automated sources showed `RED / SOURCE_FRESHNESS_LAG` with approximately 32 hours of freshness age, while every source still had:
+
+```text
+last_error=None
+consecutive_failures=0
+fetch_health=GREEN
+parse_health=GREEN
+recovery_backlog=0
+```
+
+This was an operational pause-aging condition, not a source failure. Bangkok and Beijing Worker doctors both returned `PASS`; Beijing `/srv/signalforge` remained absent and the installed control-plane dispatcher returned:
+
+```text
+signalforge-refresh S29 -> 126 / DENY: SignalForge is Bangkok-only
+```
+
+The Bangkok timer was then resumed through the installed control-plane dispatcher. One Persistent reconciliation Worker Run:
+
+```text
+signalforge-20260906T064322Z-d58fd92b
+```
+
+processed all 13 overdue automated source jobs. Every job returned `SUCCESS / changed=0 / signals=0`, including S29; no baseline was repeated and no synthetic customer signal was emitted.
+
+Final observed production state after reconciliation:
+
+```text
+application_release=e62410eb1cc7894f6a5f3305dcf2eab0d99b2bb8
+automated_sources=13 / all GREEN
+overall=PASS / GREEN
+canonical_items=130
+signals=11
+scheduler_runs=593
+acquisition_requests=772
+acquisition_attempts=772
+evidence_envelopes=771
+processing_records=773
+failed_runs=1          # pre-existing recovered S10 timeout
+recovery_backlog=0
+Worker SignalForge Runs=625
+timer=enabled / active
+run-due=inactive
+browser_production_approved=false
+```
+
+The `772/772/771/773` global lifecycle totals remain consistent with existing history: the one missing evidence envelope is the previously recorded fail-closed S10 timeout, while the extra processing rows include S15A Manual P0 canonical-processing provenance. SQLite and Worker DB `quick_check` remain `ok`.
+
+**Gate result:** S29 is PRODUCTION / GREEN. The delayed timer-resume incident is closed as an operational rollout omission, not a source/data-contract failure.
