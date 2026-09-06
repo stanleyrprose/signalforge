@@ -166,11 +166,26 @@ Expand SignalForge across high-value Myanmar issuer-original sources while prese
 - source health GREEN; all twelve production sources GREEN after timer restoration;
 - evidence: `docs/verification/S28-SOURCE-ONBOARDING-2026-09-04.md`.
 
+### S29 — DWIR Waterway and River Works Tenders
+
+- production-enabled on exact application release `e62410eb1cc7894f6a5f3305dcf2eab0d99b2bb8`; previous application-code rollback target `6ec3e74b832b5e0033ac571d451cd41f0b69de77`;
+- issuer-original `ACTIVE_PRIMARY` tender source uses the lightweight DWIR homepage Latest News surface (`https://www.dwir.gov.mm/`) for discovery and selected issuer detail HTML for business evidence;
+- stable identity uses issuer-native Joomla numeric article ID (`dwir:<article_id>`), excluding slug/date from the key;
+- first production baseline created 4 `TENDER` canonical items and zero customer signals; baseline metrics `items=4`, `tenders=4`, `details=4/4`;
+- persisted acquisition lifecycle is exactly homepage + four HTML details (`5/5/5/5` request/attempt/evidence/processing), with no PDF/image acquisition;
+- HTML scope is authoritative at event level; current deadline remains `null / UNKNOWN_NOT_IN_HTML_TEXT`; embedded base64 images are unparsed/non-blocking;
+- Worker baseline correlation `signalforge-20260904T223221Z-3f413c30` PASS; Bangkok/Beijing Worker doctors PASS and Beijing refresh is denied `126 / Bangkok-only`;
+- delayed post-rollout timer resume was closed on 2026-09-06: one reconciliation Worker wrapper refreshed all 13 overdue automated sources, all `SUCCESS / changed=0 / signals=0`;
+- source health GREEN; 13/13 automated sources GREEN after timer restoration;
+- evidence: `docs/verification/S29-DWIR-SOURCE-ONBOARDING-2026-09-05.md`.
+
 ## Current result
 
-> **S05A + S07 + S08A + S10 + S12 + S13 + S20 + S21 + S22 + S25 + S26 + S28 = PRODUCTION / GREEN**
+> **S05A + S07 + S08A + S10 + S12 + S13 + S20 + S21 + S22 + S25 + S26 + S28 + S29 = PRODUCTION / GREEN**
+>
+> **S15A MPA = Manual P0 canonical source / operator-driven / no unattended scheduling**
 
-SignalForge has now proven twelve source/domain shapes under the same v1.5 acquisition lifecycle:
+SignalForge has now proven thirteen automated source/domain shapes under the same v1.5 acquisition lifecycle, plus the separate S15A Manual P0 canonical path:
 
 ```text
 Commerce: one Drupal notice -> zero/one selected REGULATORY_NOTICE + attachment metadata
@@ -185,6 +200,8 @@ IWT:      one Drupal tender node -> one tender + attachment metadata
 MONPIFER: one official tender table -> N complete TENDER records + PDF metadata, no detail fetch
 DOMS:     one WordPress tender category -> selected opportunity detail HTML -> TENDER + PDF metadata
 DOF:      one official tender-card listing -> N complete TENDER records, no detail/attachment fetch
+DWIR:     one lightweight homepage -> selected Joomla detail HTML -> TENDER, embedded image non-blocking
+MPA:      manual LISTING + DETAIL + PDF evidence bundle -> operator-only canonical TENDER/AUCTION_NOTICE
 ```
 
 All remain inside one Bangkok SignalForge application boundary and the existing Worker operational envelope.

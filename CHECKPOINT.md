@@ -781,6 +781,22 @@ Evidence: `docs/verification/S15A-MPA-MANUAL-P0-PHASE-B-2026-09-05.md`.
 
 Evidence: `docs/verification/S15A-MPA-FIRST-OPERATIONAL-TENDER-2026-09-05.md`.
 
+### S29 DWIR Waterway and River Works — PRODUCTION / GREEN
+
+- exact production application release `e62410eb1cc7894f6a5f3305dcf2eab0d99b2bb8`; previous application-code rollback target `6ec3e74b832b5e0033ac571d451cd41f0b69de77`;
+- issuer-original `ACTIVE_PRIMARY` source uses lightweight `https://www.dwir.gov.mm/` homepage discovery rather than the multi-megabyte category/RSS surfaces;
+- stable canonical identity is `dwir:<joomla_article_id>`; current baseline canonical items are `dwir:289`, `dwir:296`, `dwir:297`, `dwir:298`;
+- first reviewed production baseline: `MANUAL / baseline=1 / SUCCESS`, `items=4`, `tenders=4`, `details=4/4`, `changed=4`, `signals=0`;
+- S29 persistence after baseline is canonical/signals `4/0` and request/attempt/evidence/processing `5/5/5/5`; EvidenceEnvelopes are exactly one homepage + four issuer detail HTML requests, with zero PDF/image acquisition;
+- baseline Worker correlation is exactly `signalforge-20260904T223221Z-3f413c30 / SUCCESS`;
+- rollout timer was inadvertently left disabled after baseline. On 2026-09-06 all automated sources were RED only from `SOURCE_FRESHNESS_LAG` (~32h); fetch/parse remained GREEN, `last_error=None`, `consecutive_failures=0`, backlog 0;
+- Beijing Worker doctor PASS, `/srv/signalforge` absent, and installed dispatcher returns `126 / DENY: SignalForge is Bangkok-only` for S29 refresh; Bangkok Worker doctor PASS;
+- timer resume created one reconciliation Worker Run `signalforge-20260906T064322Z-d58fd92b` covering all 13 overdue automated source jobs; every job returned `SUCCESS / changed=0 / signals=0`;
+- final observed state: 13/13 automated sources GREEN, overall PASS/GREEN, canonical/signals `130/11`, scheduler `593`, acquisition request/attempt/evidence/processing `772/772/771/773`, backlog 0, Worker SignalForge Runs `625`, timer enabled/active, `browser_production_approved=false`;
+- cumulative `failed_runs=1` remains the previously recovered S10 CONNECT_TIMEOUT and is not an S29 regression.
+
+Evidence: `docs/verification/S29-DWIR-SOURCE-ONBOARDING-2026-09-05.md`.
+
 ## Frozen acquisition invariants
 
 ```text
@@ -832,7 +848,7 @@ S20, S22, S05A, S07, S08A, S12, S25, S26 and S28 triggered none of these capabil
 
 ## Next
 
-1. operate S05A + S07 + S08A + S10 + S12 + S13 + S20 + S21 + S22 + S25 + S26 + S28 and collect real acquisition/source history;
+1. operate S05A + S07 + S08A + S10 + S12 + S13 + S20 + S21 + S22 + S25 + S26 + S28 + S29 and collect real acquisition/source history;
 2. choose the next source by business value plus current endpoint quality, not source-ID order or a target source count;
 3. prefer another issuer-original Direct-HTTP source that fits the existing acquisition engine before introducing schema/OCR/Browser capability; S26/S28 audits have already ruled out or deferred Ministry of Industry (Bangkok DNS), Ministry of Energy (embedded PDF), Ministry of Education (image notice) and Tourism (JPG notice) under current capabilities;
 4. S01 National Portal stays discovery-aggregator-only until issuer-resolution/equivalence/dedup exists; S04 Trade Portal remains deferred for the same cross-source contract reason;
