@@ -21,6 +21,8 @@ from .iwt import parse_tender_listing as parse_iwt_tender_listing
 from .monpifer import parse_tender_records as parse_monpifer_tender_records
 from .moep import parse_tender_detail as parse_moep_tender_detail
 from .moep import parse_tender_listing as parse_moep_tender_listing
+from .mofa import parse_tender_detail as parse_mofa_tender_detail
+from .mofa import parse_tender_listing as parse_mofa_tender_listing
 from .mpt import SitemapEntry, parse_sitemap, parse_tender_detail as parse_mpt_tender_detail
 from .railways import parse_tender_detail as parse_railways_tender_detail
 from .railways import parse_tender_listing
@@ -89,6 +91,11 @@ def _parse_doms_detail(payload: bytes, url: str) -> list[object]:
 
 def _parse_dwir_detail(payload: bytes, url: str) -> list[object]:
     tender = parse_dwir_tender_detail(payload, url)
+    return [tender] if tender is not None else []
+
+
+def _parse_mofa_detail(payload: bytes, url: str) -> list[object]:
+    tender = parse_mofa_tender_detail(payload, url)
     return [tender] if tender is not None else []
 
 
@@ -216,6 +223,16 @@ ADAPTERS = {
         parse_discovery=_empty_discovery,
         parse_detail=lambda _payload, _url: [],
         parse_discovery_records=parse_dof_tender_records,
+    ),
+    "mofa_tender": SourceAdapter(
+        name="mofa_tender",
+        discovery_content_types=("text/html",),
+        discovery_parser_version="mofa-announcement-category-v1",
+        detail_parser_version="mofa-wordpress-html-v1",
+        normalizer_version="mofa-tender-normalize-v1",
+        canonicalizer_version="mofa-wordpress-post-id-v1",
+        parse_discovery=parse_mofa_tender_listing,
+        parse_detail=_parse_mofa_detail,
     ),
     "dwir_tender": SourceAdapter(
         name="dwir_tender",

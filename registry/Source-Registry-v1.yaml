@@ -1032,6 +1032,74 @@
         "current_health": "HTML_TEXT_SUFFICIENT_EVENT_LEVEL",
         "fetch_in_primary_pipeline": false
       }
+    },
+    "S30": {
+      "name": "Ministry of Foreign Affairs Procurement Invitations",
+      "adapter": "mofa_tender",
+      "enabled": true,
+      "role": "ACTIVE_SELECTIVE",
+      "audit_status": "GREEN_DIRECT_HTTP_WORDPRESS_HTML_SELECTIVE_TENDER",
+      "item_kind": "TENDER",
+      "network_zone": "myanmar-international",
+      "engine": "direct_http",
+      "landing_url": "https://www.mofa.gov.mm/category/announcement/",
+      "discovery_url": "https://www.mofa.gov.mm/category/announcement/",
+      "discovery_is_tender_only": true,
+      "language": "my-en",
+      "poll_interval_seconds": 1800,
+      "retry_interval_seconds": 300,
+      "priority": 83,
+      "recovery_slo_seconds": 3600,
+      "availability_policy": {
+        "class": "DELAY_TOLERANT_MONITORED",
+        "accepted_collection_outage_seconds": 7200,
+        "collection_rto_seconds": 3600,
+        "business_data_rpo_target_seconds": 1800,
+        "outage_status": "DATA_COLLECTION_DELAYED",
+        "delivery_during_recovery": "CONTINUE_WITH_DEGRADED_HEALTH"
+      },
+      "baseline_lookback_days": 120,
+      "baseline_detail_limit": 10,
+      "delta_detail_limit": 10,
+      "request_timeout_seconds": 30,
+      "request_max_bytes": 3000000,
+      "request_delay_ms": 100,
+      "canonical_key": "wordpress_post_id",
+      "first_baseline_customer_signal": false,
+      "bootstrap_seed_urls": [],
+      "selection_policy_version": 1,
+      "health_policy": {
+        "freshness_yellow_seconds": 3600,
+        "freshness_red_seconds": 5400,
+        "fetch_yellow_failures": 1,
+        "fetch_red_failures": 3,
+        "parse_window_runs": 10,
+        "parse_min_attempts": 2,
+        "parse_yellow_ratio": 0.9,
+        "parse_red_ratio": 0.7,
+        "parse_probe_interval_seconds": 7200
+      },
+      "source_policy_version": 1,
+      "egress_profile": "mm-intl-datacenter",
+      "acquisition_policy": {
+        "enabled": true,
+        "primary": {"method": "DIRECT_HTTP", "target_kind": "HTML"},
+        "supplementary": [],
+        "escalation": {
+          "DNS_FAILURE": {"action": "RETRY"},
+          "CONNECT_TIMEOUT": {"action": "RETRY"},
+          "HTTP_429": {"action": "RETRY"},
+          "HTTP_403": {"action": "REVIEW"},
+          "TLS_FAILURE": {"action": "FAIL"},
+          "JS_RENDER_REQUIRED": {"action": "REVIEW_CAPABILITY"},
+          "PARSER_DRIFT": {"action": "REAUDIT"}
+        }
+      },
+      "attachment_policy": {
+        "mode": "METADATA_ONLY_NON_BLOCKING",
+        "current_health": "AVAILABLE_NOT_FETCHED",
+        "fetch_in_primary_pipeline": false
+      }
     }
   },
   "deferred_sources": {
