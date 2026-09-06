@@ -24,6 +24,8 @@ from .moep import parse_tender_listing as parse_moep_tender_listing
 from .mpt import SitemapEntry, parse_sitemap, parse_tender_detail as parse_mpt_tender_detail
 from .railways import parse_tender_detail as parse_railways_tender_detail
 from .railways import parse_tender_listing
+from .yangon_region import parse_tender_detail as parse_yangon_region_tender_detail
+from .yangon_region import parse_tender_listing as parse_yangon_region_tender_listing
 
 
 class SourceAdapterError(RuntimeError):
@@ -89,6 +91,11 @@ def _parse_doms_detail(payload: bytes, url: str) -> list[object]:
 
 def _parse_dwir_detail(payload: bytes, url: str) -> list[object]:
     tender = parse_dwir_tender_detail(payload, url)
+    return [tender] if tender is not None else []
+
+
+def _parse_yangon_region_detail(payload: bytes, url: str) -> list[object]:
+    tender = parse_yangon_region_tender_detail(payload, url)
     return [tender] if tender is not None else []
 
 
@@ -226,6 +233,16 @@ ADAPTERS = {
         canonicalizer_version="dwir-joomla-article-id-v1",
         parse_discovery=parse_dwir_tender_listing,
         parse_detail=_parse_dwir_detail,
+    ),
+    "yangon_region_tender": SourceAdapter(
+        name="yangon_region_tender",
+        discovery_content_types=("text/html",),
+        discovery_parser_version="yangon-region-wordpress-category-v1",
+        detail_parser_version="yangon-region-structured-html-v1",
+        normalizer_version="yangon-region-tender-normalize-v1",
+        canonicalizer_version="yangon-region-wordpress-post-id-v1",
+        parse_discovery=parse_yangon_region_tender_listing,
+        parse_detail=_parse_yangon_region_detail,
     ),
 }
 
