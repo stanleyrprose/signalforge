@@ -842,6 +842,21 @@ Evidence: `docs/verification/S31-MOEA-SOURCE-ONBOARDING-2026-09-07.md`.
 
 Evidence: `docs/verification/S32-MTE-SOURCE-ONBOARDING-2026-09-07.md`.
 
+### S33 Ministry of Cooperatives and Rural Development Tenders — PRODUCTION / GREEN
+
+- exact production application release `a4d55bf4ad8cf1977b5e874fa9b652d880c2b2a7`; previous application-code rollback target `2edaf3259d168344544f5a5cd09ab1d2c37fe563`;
+- `ACTIVE_SELECTIVE` one-fetch Direct-HTTP listing-complete source uses the structured MCRD tender board; each selected row provides title, explicit closing date, department and primary-document metadata; publication date remains `null`;
+- source-local canonical identity is `mcrd:<closing_date>:<sha256(normalized_title|closing_date|department)[:16]>`; the primary document URL is deliberately excluded from identity and same event identity with a different primary document fails closed for re-audit;
+- reviewed first production baseline: `MANUAL / baseline=1 / SUCCESS`, `items=5`, `tenders=5`, `details=0`, `changed=5`, `signals=0`; current newest row closes `2026-05-15`, so baseline suppression correctly emitted no signal;
+- persistence added exactly one request/attempt/evidence/processing lifecycle; sole EvidenceEnvelope is `text/html` 52,527 bytes, with zero linked PDF/JPEG acquisition;
+- baseline Worker correlation is exactly one `signalforge-20260907T064353Z-74f21b24 / SUCCESS`; SignalForge DB and Worker DB `quick_check=ok`;
+- Bangkok and Beijing Worker doctors PASS; Beijing `/srv/signalforge` remains absent and rejects `signalforge-refresh S33` with `126 / DENY: SignalForge is Bangkok-only`; Mac provider remains `production_enabled=false`, `remote_invocation=false`, `browser_production_approved=false`;
+- fresh S23 Ministry of Construction re-audit found current actionable September 2026 tenders but Bangkok strict TLS fails with an expired issuer certificate, so S23 remains deferred with no certificate bypass;
+- cumulative `failed_runs=4` remains the existing recovered S10/S28/S29 history; S33 added no failure and backlog is zero;
+- timer resume was clean and created no scheduler run because nothing was due at that instant; final state is 17/17 automated sources GREEN, canonical/signals `148/11`, scheduler `1322`, acquisition request/attempt/evidence/processing `1635/1635/1631/1633`, failed_runs 4 historical/recovered, backlog 0, timer enabled/active/waiting, run-due inactive.
+
+Evidence: `docs/verification/S33-MCRD-SOURCE-ONBOARDING-2026-09-07.md`.
+
 ## Frozen acquisition invariants
 
 ```text
@@ -893,9 +908,9 @@ S20, S22, S05A, S07, S08A, S12, S25, S26 and S28 triggered none of these capabil
 
 ## Next
 
-1. operate S05A + S07 + S08A + S10 + S12 + S13 + S20 + S21 + S22 + S25 + S26 + S28 + S29 + S30 + S31 + S32 and collect real acquisition/source history;
+1. operate S05A + S07 + S08A + S10 + S12 + S13 + S20 + S21 + S22 + S25 + S26 + S28 + S29 + S30 + S31 + S32 + S33 and collect real acquisition/source history;
 2. choose the next source by business value plus current endpoint quality, not source-ID order or a target source count;
-3. prefer another issuer-original Direct-HTTP source that fits the existing acquisition engine before introducing schema/OCR/Browser capability; S32 proved MTE event-level procurement can remain HTML-only, while fresh S27 MOBA re-audit still fails Bangkok strict TLS; Ministry of Industry (Bangkok DNS), Ministry of Energy (embedded PDF), Ministry of Education (image notice) and Tourism (JPG notice) remain deferred under current capabilities;
+3. prefer another issuer-original Direct-HTTP source that fits the existing acquisition engine before introducing schema/OCR/Browser capability; S32 proved MTE event-level procurement can remain HTML-only and S33 resolved MCRD weak row identity with a bounded event fingerprint + collision guard; fresh S23 Ministry of Construction re-audit still fails Bangkok strict TLS because the issuer certificate is expired, and S27 MOBA still fails strict TLS; Ministry of Industry (Bangkok DNS), Ministry of Energy (embedded PDF), Ministry of Education (image notice) and Tourism (JPG notice) remain deferred under current capabilities;
 4. S01 National Portal stays discovery-aggregator-only until issuer-resolution/equivalence/dedup exists; S04 Trade Portal remains deferred for the same cross-source contract reason;
 5. preserve the newly proven municipal gates: S16 requires identity/locator separation, S17 requires Burmese OCR, S18 requires classifier + OCR; do not force any of them into P0;
 6. keep S10 PDF supplementary extraction as a separate reviewed runtime-packaging slice and promote it only when its incremental commercial value justifies the dependency;

@@ -215,13 +215,26 @@ Expand SignalForge across high-value Myanmar issuer-original sources while prese
 - timer restoration is clean; 16/16 automated sources GREEN, canonical/signals `143/11`, Mac provider remains locked (`production_enabled=false`, `remote_invocation=false`, `browser_production_approved=false`);
 - evidence: `docs/verification/S32-MTE-SOURCE-ONBOARDING-2026-09-07.md`.
 
+### S33 — Ministry of Cooperatives and Rural Development Tenders
+
+- production-enabled on exact application release `a4d55bf4ad8cf1977b5e874fa9b652d880c2b2a7`; previous application-code rollback target `2edaf3259d168344544f5a5cd09ab1d2c37fe563`;
+- issuer-original `ACTIVE_SELECTIVE` source uses the structured MCRD tender board `https://www.mcrd.gov.mm/index.php?page=dGluZGEmbW8%3D` as one listing-complete Direct-HTTP HTML acquisition;
+- board rows expose title, explicit closing date, department and primary document metadata; publication date is not exposed and remains `null`; linked PDF/JPEG content is never fetched in P0;
+- source-local canonical identity is `mcrd:<closing_date>:<sha256(normalized_title|closing_date|department)[:16]>`; primary document is excluded from identity and acts as a fail-closed collision guard if replaced under the same event identity;
+- first reviewed production baseline was `MANUAL / SUCCESS`, `items=5`, `tenders=5`, `details=0`, `changed=5`, `signals=0`; newest row has deadline `2026-05-15`;
+- baseline persistence added exactly one HTML request/attempt/evidence/processing lifecycle; sole EvidenceEnvelope is 52,527 bytes, with zero linked-document acquisition;
+- Worker correlation `signalforge-20260907T064353Z-74f21b24` is exactly one SUCCESS Worker Run; Bangkok/Beijing Worker doctors PASS, Beijing remains SignalForge-free and rejects S33 refresh with `126 / Bangkok-only`;
+- S23 Ministry of Construction was freshly re-audited because it has current September 2026 tenders, but Bangkok strict TLS still fails because the issuer certificate is expired; it remains deferred with no TLS bypass;
+- cumulative failed_runs remains 4 historical/recovered, backlog 0; timer restoration is clean and 17/17 automated sources are GREEN, canonical/signals `148/11`, Mac provider remains locked (`production_enabled=false`, `remote_invocation=false`, `browser_production_approved=false`);
+- evidence: `docs/verification/S33-MCRD-SOURCE-ONBOARDING-2026-09-07.md`.
+
 ## Current result
 
-> **S05A + S07 + S08A + S10 + S12 + S13 + S20 + S21 + S22 + S25 + S26 + S28 + S29 + S30 + S31 + S32 = PRODUCTION / GREEN**
+> **S05A + S07 + S08A + S10 + S12 + S13 + S20 + S21 + S22 + S25 + S26 + S28 + S29 + S30 + S31 + S32 + S33 = PRODUCTION / GREEN**
 >
 > **S15A MPA = Manual P0 canonical source / operator-driven / no unattended scheduling**
 
-SignalForge has now proven sixteen automated source/domain shapes under the same v1.5 acquisition lifecycle, plus the separate S15A Manual P0 canonical path:
+SignalForge has now proven seventeen automated source/domain shapes under the same v1.5 acquisition lifecycle, plus the separate S15A Manual P0 canonical path:
 
 ```text
 Commerce: one Drupal notice -> zero/one selected REGULATORY_NOTICE + attachment metadata
@@ -240,6 +253,7 @@ DWIR:     one lightweight homepage -> selected Joomla detail HTML -> TENDER, emb
 MOFA:     one mixed Announcement category -> selected WordPress detail HTML -> TENDER + attachment metadata
 MOEA:     one tender archive HTML -> selected invitation records + CMS-comment business fields + PDF metadata
 MTE:      one announcement archive HTML -> buyer-side procurement only, Joomla ID identity, image supplements unparsed
+MCRD:     one structured tender board -> N TENDER rows + explicit closing date + primary-document metadata
 MPA:      manual LISTING + DETAIL + PDF evidence bundle -> operator-only canonical TENDER/AUCTION_NOTICE
 ```
 
