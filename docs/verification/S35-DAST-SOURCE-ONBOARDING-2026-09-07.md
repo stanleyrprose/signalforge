@@ -1,8 +1,8 @@
 # S35 DAST Tenders — Source Onboarding
 
 Date (Asia/Yangon): 2026-09-07
-Phase: PRE-PRODUCTION
-Result: IMPLEMENTATION / TEST / ISOLATED LIVE PASS — PRODUCTION GATE PENDING
+Phase: PRODUCTION
+Result: PRODUCTION / GREEN — LIVE VERIFIED 2026-09-07
 
 ## Selection rationale
 
@@ -205,3 +205,141 @@ S35 introduces no:
 ## Production gate
 
 Promote only after feature PR + CI PASS, exact merged-SHA Bangkok deployment with timer paused, reviewed zero-signal S35 baseline, production evidence/Worker correlation, Bangkok/Beijing doctor and Bangkok-only checks, frozen Mac-provider verification, timer resume and all-source GREEN closure.
+
+
+## Production closure — 2026-09-07
+
+Exact production application release:
+
+```text
+5ad60eabc2a86235db413c37c49e4bbe91378f95
+```
+
+Previous application-code rollback target:
+
+```text
+0f8237916b39daa1c2f85d8309e93ff3ced56238
+```
+
+### Pre-deploy freeze
+
+A natural `signalforge-run-due` invocation was already activating when rollout began. It was allowed to finish normally before the timer was disabled. The reviewed frozen state was:
+
+```text
+automated_sources     = 19 / 19 GREEN
+canonical_items       = 159
+signals               = 11
+scheduler_runs        = 1547
+acquisition_requests  = 1901
+acquisition_attempts  = 1901
+evidence_envelopes    = 1896
+processing_records    = 1898
+failed_runs           = 5
+recovery_backlog      = 0
+timer                 = disabled / inactive
+run-due               = inactive
+active refresh units  = 0
+```
+
+Deploying `5ad60ea...` changed none of these counters. All nineteen pre-existing sources remained GREEN; only new S35 appeared with `baseline=0 / SOURCE_FRESHNESS_LAG / RED`, as expected.
+
+### Reviewed production baseline
+
+```text
+source_id             = S35
+trigger_kind          = MANUAL
+baseline              = 1
+status                = SUCCESS
+items_parsed          = 6
+tenders_parsed        = 6
+details_attempted     = 6
+details_succeeded     = 6
+changed               = 6
+signals_created       = 0
+backlog_remaining     = 0
+worker_run_id         = signalforge-20260907T122630Z-ce3da99b
+```
+
+Production canonical rows and deadlines:
+
+```text
+dast:2631  publication=2026-08-06  deadline=2026-08-14
+dast:2625  publication=2026-07-07  deadline=2026-07-21
+dast:2595  publication=2026-05-08  deadline=2026-05-22
+dast:2578  publication=2026-04-21  deadline=2026-05-07
+dast:2582  publication=2026-04-21  deadline=2026-05-07
+dast:2571  publication=2026-04-21  deadline=2026-05-07
+```
+
+All deadlines were already expired on 2026-09-07, so the zero-signal baseline is correct.
+
+### Production evidence boundary
+
+The baseline added exactly seven HTML acquisition lifecycles: one archive plus six detail pages.
+
+```text
+archive /category/tender/ = 114,471 bytes
+post 2571                  = 96,836 bytes
+post 2582                  = 95,331 bytes
+post 2578                  = 96,203 bytes
+post 2595                  = 96,258 bytes
+post 2625                  = 95,988 bytes
+post 2631                  = 99,264 bytes
+HTTP status                = 200 for all seven
+media type                 = text/html for all seven
+PDF evidence               = 0
+```
+
+SignalForge DB `quick_check=ok`. Linked issuer PDFs remain metadata-only.
+
+### Worker / fleet / provider verification
+
+Worker DB contains exactly one matching operational run:
+
+```text
+run_id       = signalforge-20260907T122630Z-ce3da99b
+application  = signalforge
+process_user = signalforge
+status       = SUCCESS
+exit_code    = 0
+```
+
+Additional boundaries:
+
+```text
+Worker DB quick_check           = ok
+Bangkok workerctl doctor        = PASS
+Beijing workerctl doctor        = PASS
+Beijing /srv/signalforge        = ABSENT
+Beijing signalforge-refresh S35 = 126 / DENY: SignalForge is Bangkok-only
+Mac production_enabled          = false
+Mac remote_invocation           = false
+browser_production_approved     = false
+Mac invocation_mode             = manual_or_future_contract
+canonical_node                  = bangkok
+```
+
+Cumulative `failed_runs` remained `5`; S35 introduced no failure and recovery backlog stayed zero.
+
+### Timer resume and final state
+
+`signalforge-resume` restored the timer. Nothing was due at that instant, so no additional scheduler run was created. Final observed state:
+
+```text
+application_release   = 5ad60eabc2a86235db413c37c49e4bbe91378f95
+automated_sources     = 20 / 20 GREEN
+signalforge_health    = GREEN
+canonical_items       = 165
+signals               = 11
+scheduler_runs        = 1548
+acquisition_requests  = 1908
+acquisition_attempts  = 1908
+evidence_envelopes    = 1903
+processing_records    = 1905
+failed_runs           = 5 (historical / recovered)
+recovery_backlog      = 0
+timer                 = enabled / active
+run-due               = inactive
+```
+
+**Gate result: S35 is PRODUCTION / GREEN.**

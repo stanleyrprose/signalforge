@@ -889,6 +889,21 @@ Evidence: `docs/verification/S16-YCDC-BUILDING-SOURCE-ACTIVATION-2026-09-07.md`.
 
 Evidence: `docs/verification/S34-PTD-SOURCE-ONBOARDING-2026-09-07.md`.
 
+### S35 Department of Advanced Science and Technology Tenders — PRODUCTION / GREEN
+
+- exact production application release `5ad60eabc2a86235db413c37c49e4bbe91378f95`; previous application-code rollback target `0f8237916b39daa1c2f85d8309e93ff3ced56238`;
+- Direct-HTTP issuer archive `https://www.dast.gov.mm/category/tender/` exposes stable native WordPress post IDs; stale `.edu.mm` post/attachment locators are rewritten deterministically to the same issuer's working `.gov.mm` mirror rather than used as a fallback dependency;
+- canonical identity is `dast:<wordpress_post_id>`; publication date and business scope come from issuer HTML, and deadlines are emitted only from explicit HTML submission-language dates; official PDF paths are metadata-only;
+- production baseline: `MANUAL / baseline=1 / SUCCESS`, `items=6`, `tenders=6`, `details=6/6`, `changed=6`, `signals=0`; deadlines are `2631=2026-08-14`, `2625=2026-07-21`, `2595=2026-05-22`, and `2578/2582/2571=2026-05-07`;
+- baseline added exactly seven HTML request/attempt/evidence/processing lifecycles (one archive + six details), zero PDF evidence; SignalForge DB `quick_check=ok`;
+- baseline Worker correlation is exactly one `signalforge-20260907T122630Z-ce3da99b / SUCCESS`; Worker DB `quick_check=ok`;
+- Bangkok and Beijing Worker doctors PASS; Beijing `/srv/signalforge` remains absent and rejects `signalforge-refresh S35` with `126 / DENY: SignalForge is Bangkok-only`; Mac provider remains `production_enabled=false`, `remote_invocation=false`, `browser_production_approved=false`;
+- rollout waited for an already-activating natural `run-due` invocation to finish before disabling the timer; frozen pre-deploy state was 19/19 GREEN with scheduler/acquisition `1547 / 1901`; deployment itself changed no business/acquisition counts;
+- cumulative `failed_runs=5` is unchanged/historical/recovered, backlog 0; timer resume created no extra run because nothing was due; final state is 20/20 GREEN, canonical/signals `165/11`, scheduler `1548`, acquisition request/attempt/evidence/processing `1908/1908/1903/1905`;
+- candidate audit controls: YESC was deliberately not duplicated because S20 MOEP already represents it; LBVD returned repeatable Bangkok HTTP 403 and remains deferred/fail-closed.
+
+Evidence: `docs/verification/S35-DAST-SOURCE-ONBOARDING-2026-09-07.md`.
+
 ## Frozen acquisition invariants
 
 ```text
@@ -940,9 +955,9 @@ S20, S22, S05A, S07, S08A, S12, S25, S26 and S28 triggered none of these capabil
 
 ## Next
 
-1. operate S05A + S07 + S08A + S10 + S12 + S13 + S16 + S20 + S21 + S22 + S25 + S26 + S28 + S29 + S30 + S31 + S32 + S33 + S34 and collect real acquisition/source history;
+1. operate S05A + S07 + S08A + S10 + S12 + S13 + S16 + S20 + S21 + S22 + S25 + S26 + S28 + S29 + S30 + S31 + S32 + S33 + S34 + S35 and collect real acquisition/source history;
 2. choose the next source by business value plus current endpoint quality, not source-ID order or a target source count;
-3. prefer another issuer-original Direct-HTTP source that fits the existing acquisition engine before introducing schema/OCR/Browser capability; S32 proved MTE event-level procurement can remain HTML-only, S33 resolved MCRD weak row identity with a bounded event fingerprint + collision guard, and S16 YCDC Building proved a stable department archive can supersede ephemeral ciphertext locators; S34 PTD proves high-value telecom/ICT procurement can stay HTML-event-level with PDF metadata-only deadlines; OAG is currently image-only for business fields, fresh S23 Ministry of Construction still fails Bangkok strict TLS because the issuer certificate is expired, and S27 MOBA still fails strict TLS; Ministry of Industry (Bangkok DNS), Ministry of Energy (embedded PDF), Ministry of Education (image notice) and Tourism (JPG notice) remain deferred under current capabilities;
+3. prefer another issuer-original Direct-HTTP source that fits the existing acquisition engine before introducing schema/OCR/Browser capability; S32 proved MTE event-level procurement can remain HTML-only, S33 resolved MCRD weak row identity with a bounded event fingerprint + collision guard, and S16 YCDC Building proved a stable department archive can supersede ephemeral ciphertext locators; S34 PTD proves high-value telecom/ICT procurement can stay HTML-event-level with PDF metadata-only deadlines; S35 DAST proves issuer-native WordPress IDs can safely normalize stale issuer-local `.edu.mm` locators onto the same issuer's working `.gov.mm` mirror while keeping scope/deadline HTML-first; OAG is currently image-only for business fields, LBVD is Bangkok HTTP 403, fresh S23 Ministry of Construction still fails Bangkok strict TLS because the issuer certificate is expired, and S27 MOBA still fails strict TLS; Ministry of Industry (Bangkok DNS), Ministry of Energy (embedded PDF), Ministry of Education (image notice) and Tourism (JPG notice) remain deferred under current capabilities;
 4. S01 National Portal stays discovery-aggregator-only until issuer-resolution/equivalence/dedup exists; S04 Trade Portal remains deferred for the same cross-source contract reason;
 5. preserve the remaining municipal gates: S16 Building is now production through the stable numeric archive and should not regress to randomized ciphertext locators; S17 still requires Burmese OCR and S18 still requires classifier + OCR; do not force those remaining capabilities into P0;
 6. keep S10 PDF supplementary extraction as a separate reviewed runtime-packaging slice and promote it only when its incremental commercial value justifies the dependency;
