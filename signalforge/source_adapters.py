@@ -21,6 +21,7 @@ from .iwt import parse_tender_listing as parse_iwt_tender_listing
 from .monpifer import parse_tender_records as parse_monpifer_tender_records
 from .moep import parse_tender_detail as parse_moep_tender_detail
 from .moep import parse_tender_listing as parse_moep_tender_listing
+from .moea import parse_tender_records as parse_moea_tender_records
 from .mofa import parse_tender_detail as parse_mofa_tender_detail
 from .mofa import parse_tender_listing as parse_mofa_tender_listing
 from .mpt import SitemapEntry, parse_sitemap, parse_tender_detail as parse_mpt_tender_detail
@@ -223,6 +224,17 @@ ADAPTERS = {
         parse_discovery=_empty_discovery,
         parse_detail=lambda _payload, _url: [],
         parse_discovery_records=parse_dof_tender_records,
+    ),
+    "moea_tender": SourceAdapter(
+        name="moea_tender",
+        discovery_content_types=("text/html",),
+        discovery_parser_version="moea-tender-archive-card-v1",
+        detail_parser_version="not-applicable",
+        normalizer_version="moea-tender-normalize-v1",
+        canonicalizer_version="moea-archive-event-fingerprint-v1",
+        parse_discovery=_empty_discovery,
+        parse_detail=lambda _payload, _url: [],
+        parse_discovery_records=parse_moea_tender_records,
     ),
     "mofa_tender": SourceAdapter(
         name="mofa_tender",
