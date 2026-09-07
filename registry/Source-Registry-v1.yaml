@@ -1379,6 +1379,75 @@
         "current_health": "STABLE_HTML_ARCHIVE_SCOPE_DEADLINE_CONTACT_FIELDS",
         "fetch_in_primary_pipeline": false
       }
+    },
+    "S34": {
+      "name": "Posts and Telecommunications Department Open Tenders",
+      "adapter": "ptd_tender",
+      "enabled": true,
+      "role": "ACTIVE_SELECTIVE",
+      "audit_status": "GREEN_DIRECT_HTTP_TELECOM_TENDER_CATEGORY_HTML_SCOPE_PDF_METADATA",
+      "item_kind": "TENDER",
+      "network_zone": "myanmar-international",
+      "engine": "direct_http",
+      "landing_url": "https://www.ptd.gov.mm/CatAnnouncements.aspx",
+      "discovery_url": "https://www.ptd.gov.mm/Announcement.aspx?id=jOhwNsVnnrHGITOdpDNvsw%3D%3D",
+      "discovery_is_tender_only": true,
+      "language": "my",
+      "poll_interval_seconds": 900,
+      "retry_interval_seconds": 300,
+      "priority": 98,
+      "recovery_slo_seconds": 1800,
+      "availability_policy": {
+        "class": "DELAY_TOLERANT_MONITORED",
+        "accepted_collection_outage_seconds": 3600,
+        "collection_rto_seconds": 1800,
+        "business_data_rpo_target_seconds": 900,
+        "outage_status": "DATA_COLLECTION_DELAYED",
+        "delivery_during_recovery": "CONTINUE_WITH_DEGRADED_HEALTH"
+      },
+      "baseline_lookback_days": 150,
+      "baseline_detail_limit": 20,
+      "delta_detail_limit": 10,
+      "request_timeout_seconds": 30,
+      "request_max_bytes": 1000000,
+      "request_delay_ms": 150,
+      "canonical_key": "issuer_business_event_fingerprint",
+      "first_baseline_customer_signal": false,
+      "bootstrap_seed_urls": [],
+      "selection_policy_version": 1,
+      "health_policy": {
+        "freshness_yellow_seconds": 1800,
+        "freshness_red_seconds": 2700,
+        "fetch_yellow_failures": 1,
+        "fetch_red_failures": 3,
+        "parse_window_runs": 10,
+        "parse_min_attempts": 2,
+        "parse_yellow_ratio": 0.9,
+        "parse_red_ratio": 0.7,
+        "parse_probe_interval_seconds": 3600,
+        "parse_sample_source": "DETAIL_SCHEDULER"
+      },
+      "source_policy_version": 1,
+      "egress_profile": "mm-intl-datacenter",
+      "acquisition_policy": {
+        "enabled": true,
+        "primary": {"method": "DIRECT_HTTP", "target_kind": "HTML"},
+        "supplementary": [],
+        "escalation": {
+          "DNS_FAILURE": {"action": "RETRY"},
+          "CONNECT_TIMEOUT": {"action": "RETRY"},
+          "HTTP_429": {"action": "RETRY"},
+          "HTTP_403": {"action": "REVIEW"},
+          "TLS_FAILURE": {"action": "FAIL"},
+          "JS_RENDER_REQUIRED": {"action": "REVIEW_CAPABILITY"},
+          "PARSER_DRIFT": {"action": "REAUDIT"}
+        }
+      },
+      "attachment_policy": {
+        "mode": "METADATA_ONLY_NON_BLOCKING",
+        "current_health": "HTML_EVENT_SCOPE_PDF_DEADLINE_UNPARSED",
+        "fetch_in_primary_pipeline": false
+      }
     }
   },
   "deferred_sources": {
