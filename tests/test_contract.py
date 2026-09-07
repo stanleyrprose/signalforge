@@ -25,7 +25,7 @@ class ContractTests(unittest.TestCase):
         )
         self.assertEqual(manifest["verbs"]["signalforge-refresh"]["argument"], "source_id")
         self.assertEqual(manifest["grammar"]["source_id"], "^[A-Z][A-Z0-9]{0,15}$")
-        self.assertEqual(manifest["active_source_ids"], ["S05A", "S07", "S08A", "S10", "S12", "S13", "S16", "S20", "S21", "S22", "S25", "S26", "S28", "S29", "S30", "S31", "S32", "S33", "S34", "S35", "S36"])
+        self.assertEqual(manifest["active_source_ids"], ["S05A", "S07", "S08A", "S10", "S12", "S13", "S16", "S20", "S21", "S22", "S25", "S26", "S28", "S29", "S30", "S31", "S32", "S33", "S34", "S35", "S36", "S37"])
 
         registry = Registry.load(ROOT)
         with self.assertRaisesRegex(ConfigError, "invalid source id"):
@@ -62,6 +62,18 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(source["availability_policy"]["collection_rto_seconds"], 1800)
         self.assertEqual(source["availability_policy"]["business_data_rpo_target_seconds"], 900)
         self.assertTrue(all(url.startswith("https://mpt.com.mm/en/") for url in source["bootstrap_seed_urls"]))
+
+        moi = registry.source("S37")
+        self.assertEqual(moi["adapter"], "moi_tender")
+        self.assertEqual(moi["role"], "ACTIVE_SELECTIVE")
+        self.assertEqual(moi["item_kind"], "TENDER")
+        self.assertEqual(moi["discovery_url"], "https://www.moi.gov.mm/department-announcement")
+        self.assertEqual(moi["canonical_key"], "drupal_node_id")
+        self.assertTrue(moi["discovery_is_tender_only"])
+        self.assertEqual(moi["baseline_lookback_days"], 180)
+        self.assertEqual(moi["health_policy"]["parse_sample_source"], "DETAIL_SCHEDULER")
+        self.assertEqual(moi["attachment_policy"]["mode"], "HTML_ONLY_NO_ATTACHMENT_REQUIRED")
+        self.assertFalse(moi["attachment_policy"]["fetch_in_primary_pipeline"])
 
         doa = registry.source("S36")
         self.assertEqual(doa["adapter"], "doa_tender")
