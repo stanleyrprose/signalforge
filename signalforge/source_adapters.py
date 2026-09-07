@@ -7,6 +7,8 @@ from .commerce import parse_notification_detail as parse_commerce_notification_d
 from .commerce import parse_notification_listing as parse_commerce_notification_listing
 from .customs import parse_notification_records as parse_customs_notification_records
 from .customs_announcements import parse_auction_records as parse_customs_auction_records
+from .dast import parse_tender_detail as parse_dast_tender_detail
+from .dast import parse_tender_listing as parse_dast_tender_listing
 from .dica import parse_announcement_detail as parse_dica_announcement_detail
 from .dica import parse_announcement_listing as parse_dica_announcement_listing
 from .doms import parse_tender_detail as parse_doms_tender_detail
@@ -65,6 +67,11 @@ def _parse_mpt_detail(payload: bytes, url: str) -> list[object]:
     return [tender] if tender is not None else []
 
 
+def _parse_dast_detail(payload: bytes, url: str) -> list[object]:
+    tender = parse_dast_tender_detail(payload, url)
+    return [tender] if tender is not None else []
+
+
 def _parse_ptd_detail(payload: bytes, url: str) -> list[object]:
     tender = parse_ptd_tender_detail(payload, url)
     return [tender] if tender is not None else []
@@ -120,6 +127,16 @@ ADAPTERS = {
         canonicalizer_version="tender-canonical-v1",
         parse_discovery=parse_sitemap,
         parse_detail=_parse_mpt_detail,
+    ),
+    "dast_tender": SourceAdapter(
+        name="dast_tender",
+        discovery_content_types=("text/html",),
+        discovery_parser_version="dast-tender-category-v1",
+        detail_parser_version="dast-tender-html-v1",
+        normalizer_version="dast-tender-normalize-v1",
+        canonicalizer_version="dast-wordpress-post-id-v1",
+        parse_discovery=parse_dast_tender_listing,
+        parse_detail=_parse_dast_detail,
     ),
     "ptd_tender": SourceAdapter(
         name="ptd_tender",

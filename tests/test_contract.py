@@ -25,7 +25,7 @@ class ContractTests(unittest.TestCase):
         )
         self.assertEqual(manifest["verbs"]["signalforge-refresh"]["argument"], "source_id")
         self.assertEqual(manifest["grammar"]["source_id"], "^[A-Z][A-Z0-9]{0,15}$")
-        self.assertEqual(manifest["active_source_ids"], ["S05A", "S07", "S08A", "S10", "S12", "S13", "S16", "S20", "S21", "S22", "S25", "S26", "S28", "S29", "S30", "S31", "S32", "S33", "S34"])
+        self.assertEqual(manifest["active_source_ids"], ["S05A", "S07", "S08A", "S10", "S12", "S13", "S16", "S20", "S21", "S22", "S25", "S26", "S28", "S29", "S30", "S31", "S32", "S33", "S34", "S35"])
 
         registry = Registry.load(ROOT)
         with self.assertRaisesRegex(ConfigError, "invalid source id"):
@@ -62,6 +62,17 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(source["availability_policy"]["collection_rto_seconds"], 1800)
         self.assertEqual(source["availability_policy"]["business_data_rpo_target_seconds"], 900)
         self.assertTrue(all(url.startswith("https://mpt.com.mm/en/") for url in source["bootstrap_seed_urls"]))
+
+        dast = registry.source("S35")
+        self.assertEqual(dast["adapter"], "dast_tender")
+        self.assertEqual(dast["role"], "ACTIVE_SELECTIVE")
+        self.assertEqual(dast["item_kind"], "TENDER")
+        self.assertEqual(dast["discovery_url"], "https://www.dast.gov.mm/category/tender/")
+        self.assertEqual(dast["canonical_key"], "wordpress_post_id")
+        self.assertEqual(dast["baseline_lookback_days"], 180)
+        self.assertEqual(dast["health_policy"]["parse_sample_source"], "DETAIL_SCHEDULER")
+        self.assertEqual(dast["attachment_policy"]["mode"], "METADATA_ONLY_NON_BLOCKING")
+        self.assertFalse(dast["attachment_policy"]["fetch_in_primary_pipeline"])
 
         ptd = registry.source("S34")
         self.assertEqual(ptd["adapter"], "ptd_tender")
