@@ -904,6 +904,21 @@ Evidence: `docs/verification/S34-PTD-SOURCE-ONBOARDING-2026-09-07.md`.
 
 Evidence: `docs/verification/S35-DAST-SOURCE-ONBOARDING-2026-09-07.md`.
 
+### S36 Department of Agriculture Procurement Announcements — PRODUCTION / GREEN
+
+- exact production application release `1561d6f5e53026b8f651e1aa40d9e52a3f6ee541`; previous application-code rollback target `5ad60eabc2a86235db413c37c49e4bbe91378f95`;
+- issuer-original mixed DOA announcement board is Direct-HTTP GREEN and listing-complete at event/scope level; stable numeric `article_id` is the canonical identity, visible listing date is publication evidence, and scan/image detail is explicitly unfetched/non-blocking;
+- opportunity classifier requires tender plus buyer/works semantics and excludes award/result and seller-side sale/auction/lease language; canonical identity is `doa:<article_id>`; deadlines remain `null` because they are not exposed as trustworthy listing HTML;
+- production baseline: `MANUAL / baseline=1 / SUCCESS`, `items=6`, `tenders=6`, `details=0`, `changed=6`, `signals=0`; current scope includes hall construction, Desktop i5 x45, construction, HPLC/PDA laboratory equipment and ISO Lab renovation, plus one older procurement still present on the issuer board;
+- baseline added exactly one HTML request/attempt/evidence/processing lifecycle, artifact `78,597` bytes, zero non-HTML evidence; SignalForge DB `quick_check=ok`;
+- baseline Worker correlation is exactly one `signalforge-20260907T134030Z-0b687ac4 / SUCCESS`; Worker DB `quick_check=ok`;
+- Bangkok and Beijing Worker doctors PASS; Beijing `/srv/signalforge` remains absent and rejects `signalforge-refresh S36` with `126 / DENY: SignalForge is Bangkok-only`; Mac provider remains `production_enabled=false`, `remote_invocation=false`, `browser_production_approved=false`;
+- frozen pre-deploy state was 20/20 GREEN with canonical/signals `165/11`, scheduler `1599`, acquisition request/attempt/evidence/processing `1970/1970/1965/1967`; deployment itself changed no counters;
+- cumulative `failed_runs=5` is unchanged/historical/recovered and backlog remains zero; timer resume immediately started one normal reconciliation because existing sources were due, and that run completed without changing canonical/signals/failed/backlog; final state is 21/21 GREEN, canonical/signals `171/11`, scheduler `1603`, acquisition request/attempt/evidence/processing `1976/1976/1971/1973`, timer enabled/active, run-due inactive;
+- fresh candidate control: DMH is transport-GREEN but current procurement specifics remain PDF/image dependent; OAG remains image/scan dependent, so neither opens an OCR/PDF gate in P0.
+
+Evidence: `docs/verification/S36-DOA-SOURCE-ONBOARDING-2026-09-07.md`.
+
 ## Frozen acquisition invariants
 
 ```text
@@ -955,9 +970,9 @@ S20, S22, S05A, S07, S08A, S12, S25, S26 and S28 triggered none of these capabil
 
 ## Next
 
-1. operate S05A + S07 + S08A + S10 + S12 + S13 + S16 + S20 + S21 + S22 + S25 + S26 + S28 + S29 + S30 + S31 + S32 + S33 + S34 + S35 and collect real acquisition/source history;
+1. operate S05A + S07 + S08A + S10 + S12 + S13 + S16 + S20 + S21 + S22 + S25 + S26 + S28 + S29 + S30 + S31 + S32 + S33 + S34 + S35 + S36 and collect real acquisition/source history;
 2. choose the next source by business value plus current endpoint quality, not source-ID order or a target source count;
-3. prefer another issuer-original Direct-HTTP source that fits the existing acquisition engine before introducing schema/OCR/Browser capability; S32 proved MTE event-level procurement can remain HTML-only, S33 resolved MCRD weak row identity with a bounded event fingerprint + collision guard, and S16 YCDC Building proved a stable department archive can supersede ephemeral ciphertext locators; S34 PTD proves high-value telecom/ICT procurement can stay HTML-event-level with PDF metadata-only deadlines; S35 DAST proves issuer-native WordPress IDs can safely normalize stale issuer-local `.edu.mm` locators onto the same issuer's working `.gov.mm` mirror while keeping scope/deadline HTML-first; OAG is currently image-only for business fields, LBVD is Bangkok HTTP 403, fresh S23 Ministry of Construction still fails Bangkok strict TLS because the issuer certificate is expired, and S27 MOBA still fails strict TLS; Ministry of Industry (Bangkok DNS), Ministry of Energy (embedded PDF), Ministry of Education (image notice) and Tourism (JPG notice) remain deferred under current capabilities;
+3. prefer another issuer-original Direct-HTTP source that fits the existing acquisition engine before introducing schema/OCR/Browser capability; S32 proved MTE event-level procurement can remain HTML-only, S33 resolved MCRD weak row identity with a bounded event fingerprint + collision guard, and S16 YCDC Building proved a stable department archive can supersede ephemeral ciphertext locators; S34 PTD proves high-value telecom/ICT procurement can stay HTML-event-level with PDF metadata-only deadlines; S35 DAST proves issuer-native WordPress IDs can safely normalize stale issuer-local `.edu.mm` locators onto the same issuer's working `.gov.mm` mirror while keeping scope/deadline HTML-first; S36 DOA proves a business-complete listing title can form the canonical event envelope while scan/image detail stays optional; DMH and OAG remain PDF/image dependent, LBVD is Bangkok HTTP 403, fresh S23 Ministry of Construction still fails Bangkok strict TLS because the issuer certificate is expired, and S27 MOBA still fails strict TLS; Ministry of Industry (Bangkok DNS), Ministry of Energy (embedded PDF), Ministry of Education (image notice) and Tourism (JPG notice) remain deferred under current capabilities;
 4. S01 National Portal stays discovery-aggregator-only until issuer-resolution/equivalence/dedup exists; S04 Trade Portal remains deferred for the same cross-source contract reason;
 5. preserve the remaining municipal gates: S16 Building is now production through the stable numeric archive and should not regress to randomized ciphertext locators; S17 still requires Burmese OCR and S18 still requires classifier + OCR; do not force those remaining capabilities into P0;
 6. keep S10 PDF supplementary extraction as a separate reviewed runtime-packaging slice and promote it only when its incremental commercial value justifies the dependency;

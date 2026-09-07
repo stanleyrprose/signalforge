@@ -1,8 +1,8 @@
 # S36 Department of Agriculture Procurement Announcements — Source Onboarding
 
 Date (Asia/Yangon): 2026-09-07
-Phase: PRE-PRODUCTION
-Result: IMPLEMENTATION / TEST / ISOLATED LIVE PASS — PRODUCTION GATE PENDING
+Phase: PRODUCTION
+Result: PRODUCTION / GREEN — LIVE VERIFIED 2026-09-07
 
 ## Fresh source-audit decision
 
@@ -258,3 +258,151 @@ S36 adds no:
 ## Production gate
 
 Promote only after feature PR + CI PASS, exact merged-SHA Bangkok deployment with scheduler timer paused, reviewed zero-signal S36 baseline, production EvidenceEnvelope/Worker correlation, Bangkok/Beijing doctor and Bangkok-only verification, frozen Mac-provider verification, timer resume and all-source GREEN closure.
+
+
+## Production closure — 2026-09-07
+
+Exact production application release:
+
+```text
+1561d6f5e53026b8f651e1aa40d9e52a3f6ee541
+```
+
+Previous application-code rollback target:
+
+```text
+5ad60eabc2a86235db413c37c49e4bbe91378f95
+```
+
+### Pre-deploy freeze
+
+Immediately before rollout the scheduler was idle, so the timer was disabled without interrupting a Worker Run. Frozen state:
+
+```text
+automated_sources     = 20 / 20 GREEN
+canonical_items       = 165
+signals               = 11
+scheduler_runs        = 1599
+acquisition_requests  = 1970
+acquisition_attempts  = 1970
+evidence_envelopes    = 1965
+processing_records    = 1967
+failed_runs           = 5
+recovery_backlog      = 0
+timer                 = disabled / inactive
+run-due               = inactive
+active refresh units  = 0
+```
+
+Deploying `1561d6f...` changed none of these counters. All twenty existing sources remained GREEN; only new S36 appeared as `baseline=0 / SOURCE_FRESHNESS_LAG / RED`, which is the expected pre-baseline state.
+
+### Reviewed production baseline
+
+```text
+source_id             = S36
+trigger_kind          = MANUAL
+baseline              = 1
+status                = SUCCESS
+items_parsed          = 6
+tenders_parsed        = 6
+details_attempted     = 0
+details_succeeded     = 0
+changed               = 6
+signals_created       = 0
+backlog_remaining     = 0
+worker_run_id         = signalforge-20260907T134030Z-0b687ac4
+```
+
+Baseline moved only the expected counters:
+
+```text
+canonical_items       165 -> 171
+scheduler_runs        1599 -> 1600
+requests/attempts     1970 -> 1971
+evidence_envelopes    1965 -> 1966
+processing_records    1967 -> 1968
+signals               11 -> 11
+failed_runs           5 -> 5
+recovery_backlog      0 -> 0
+```
+
+### Production evidence boundary
+
+S36 production baseline created exactly one EvidenceEnvelope:
+
+```text
+requested_url = https://www.doa.gov.mm/doa/index.php?route=cms/category&path=22
+HTTP status   = 200
+media type    = text/html
+artifact      = 78,597 bytes
+non-HTML      = 0
+```
+
+No detail page, image, PDF, OCR or Browser acquisition was performed. SignalForge DB `quick_check=ok`.
+
+Production canonical rows:
+
+```text
+doa:574  publication=2026-05-18  deadline=null  multipurpose hall construction
+doa:560  publication=2026-05-18  deadline=null  Desktop Computer i5 x45
+doa:558  publication=2026-05-18  deadline=null  construction works
+doa:573  publication=2026-05-18  deadline=null  Cylinder + HPLC (PDA-Detector)
+doa:559  publication=2026-05-18  deadline=null  ISO Lab major renovation
+doa:333  publication=2024-06-20  deadline=null  six types of foreign paper procurement
+```
+
+The malformed issuer trailing quote on article `559` is absent from both DB title and payload after normalization.
+
+### Worker / fleet / provider verification
+
+Worker DB contains exactly one matching operational run:
+
+```text
+run_id       = signalforge-20260907T134030Z-0b687ac4
+application  = signalforge
+process_user = signalforge
+status       = SUCCESS
+exit_code    = 0
+```
+
+Additional boundaries:
+
+```text
+Worker DB quick_check           = ok
+Bangkok workerctl doctor        = PASS
+Beijing workerctl doctor        = PASS
+Beijing /srv/signalforge        = ABSENT
+Beijing signalforge-refresh S36 = 126 / DENY: SignalForge is Bangkok-only
+Mac production_enabled          = false
+Mac remote_invocation           = false
+browser_production_approved     = false
+Mac invocation_mode             = manual_or_future_contract
+canonical_node                  = bangkok
+```
+
+Cumulative `failed_runs` remained `5`; S36 introduced no failure and recovery backlog stayed zero.
+
+### Timer resume and final state
+
+`signalforge-resume` re-enabled the timer. In this rollout, several existing sources were already due, so resume immediately launched one normal `run-due` service invocation. It was allowed to finish. The invocation produced no new canonical item, signal, failed run or backlog.
+
+Final observed state after that natural reconciliation:
+
+```text
+application_release   = 1561d6f5e53026b8f651e1aa40d9e52a3f6ee541
+automated_sources     = 21 / 21 GREEN
+signalforge_health    = GREEN
+canonical_items       = 171
+signals               = 11
+scheduler_runs        = 1603
+acquisition_requests  = 1976
+acquisition_attempts  = 1976
+evidence_envelopes    = 1971
+processing_records    = 1973
+failed_runs           = 5 (historical / recovered)
+recovery_backlog      = 0
+timer                 = enabled / active
+run-due               = inactive
+```
+
+**Gate result: S36 is PRODUCTION / GREEN.**
