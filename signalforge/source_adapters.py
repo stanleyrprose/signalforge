@@ -24,6 +24,7 @@ from .moep import parse_tender_listing as parse_moep_tender_listing
 from .moea import parse_tender_records as parse_moea_tender_records
 from .mofa import parse_tender_detail as parse_mofa_tender_detail
 from .mofa import parse_tender_listing as parse_mofa_tender_listing
+from .mcrd import parse_tender_records as parse_mcrd_tender_records
 from .mte import parse_tender_records as parse_mte_tender_records
 from .mpt import SitemapEntry, parse_sitemap, parse_tender_detail as parse_mpt_tender_detail
 from .railways import parse_tender_detail as parse_railways_tender_detail
@@ -236,6 +237,17 @@ ADAPTERS = {
         parse_discovery=_empty_discovery,
         parse_detail=lambda _payload, _url: [],
         parse_discovery_records=parse_moea_tender_records,
+    ),
+    "mcrd_tender": SourceAdapter(
+        name="mcrd_tender",
+        discovery_content_types=("text/html",),
+        discovery_parser_version="mcrd-tender-board-v1",
+        detail_parser_version="not-applicable",
+        normalizer_version="mcrd-tender-normalize-v1",
+        canonicalizer_version="mcrd-board-event-fingerprint-v1",
+        parse_discovery=_empty_discovery,
+        parse_detail=lambda _payload, _url: [],
+        parse_discovery_records=parse_mcrd_tender_records,
     ),
     "mte_tender": SourceAdapter(
         name="mte_tender",
