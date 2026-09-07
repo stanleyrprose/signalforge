@@ -1,8 +1,8 @@
 # S34 PTD Telecom Tenders — Source Onboarding
 
 Date (Asia/Yangon): 2026-09-07
-Phase: PRE-PRODUCTION
-Result: IMPLEMENTATION / TEST / ISOLATED LIVE PASS — PRODUCTION GATE PENDING
+Phase: PRODUCTION
+Result: PRODUCTION / GREEN — LIVE VERIFIED 2026-09-07
 
 ## Selection rationale
 
@@ -194,3 +194,138 @@ S34 may be promoted only after:
 8. Bangkok/Beijing Worker doctors PASS and Beijing remains SignalForge-free / rejects S34;
 9. Mac provider production flags remain frozen;
 10. timer resumes and all-source health is GREEN.
+
+
+## Production closure — 2026-09-07
+
+S34 passed the production gate on exact merged application release:
+
+```text
+0f8237916b39daa1c2f85d8309e93ff3ced56238
+```
+
+Previous application-code rollback target:
+
+```text
+794e0190d1d878d92e9a0580a28b93b6c82dada0
+```
+
+### Frozen pre-deploy state
+
+```text
+automated_sources     = 18 / 18 GREEN
+canonical_items       = 153
+signals               = 11
+scheduler_runs        = 1456
+acquisition_requests  = 1792
+acquisition_attempts  = 1792
+evidence_envelopes    = 1787
+processing_records    = 1789
+failed_runs           = 5
+recovery_backlog      = 0
+timer                 = enabled / active
+run-due               = inactive
+active refresh units  = 0
+```
+
+The timer was disabled before deployment. Deploying `0f823791...` changed none of those counters; all eighteen pre-existing sources stayed GREEN and only new S34 appeared as expected with `baseline=0 / SOURCE_FRESHNESS_LAG / RED`.
+
+### Reviewed production baseline
+
+```text
+source_id             = S34
+trigger_kind          = MANUAL
+baseline              = 1
+status                = SUCCESS
+items_parsed          = 6
+tenders_parsed        = 6
+details_attempted     = 6
+details_succeeded     = 6
+changed               = 6
+signals_created       = 0
+backlog_remaining     = 0
+worker_run_id         = signalforge-20260907T102115Z-c639cb75
+```
+
+Production canonical keys:
+
+```text
+ptd:2026-07-31:a683b1bfdd91b4c7
+ptd:2026-07-30:2cc7b9918c60651f
+ptd:2026-07-30:5fa9f5303e79d570
+ptd:2026-06-23:d3580760420bf8bc
+ptd:2026-05-26:739549b4ad40ffc5
+ptd:2026-05-19:da5f996299cbbc95
+```
+
+All deadlines remain `null`; first-baseline signal suppression correctly produced zero customer signals.
+
+### Production evidence boundary
+
+The baseline added exactly seven acquisition lifecycles: one tender-category HTML plus six selected detail HTML pages. Production evidence was:
+
+```text
+category HTML = 85,873 bytes
+detail HTML   = 72,366 / 72,456 / 61,496 / 66,211 / 73,298 / 72,176 bytes
+HTTP status   = 200 for all seven
+media type    = text/html for all seven
+PDF evidence  = 0
+```
+
+The linked official tender PDFs remain metadata only. SignalForge DB `quick_check=ok`.
+
+### Worker / fleet / provider verification
+
+Worker DB contains exactly one matching operational run:
+
+```text
+run_id       = signalforge-20260907T102115Z-c639cb75
+application  = signalforge
+process_user = signalforge
+status       = SUCCESS
+exit_code    = 0
+```
+
+Additional boundaries:
+
+```text
+Bangkok workerctl doctor        = PASS
+Beijing workerctl doctor        = PASS
+Beijing /srv/signalforge        = ABSENT
+Beijing signalforge-refresh S34 = 126 / DENY: SignalForge is Bangkok-only
+Worker DB quick_check           = ok
+Mac production_enabled          = false
+Mac remote_invocation           = false
+browser_production_approved     = false
+Mac invocation_mode             = manual_or_future_contract
+canonical_node                  = bangkok
+```
+
+No PDF parser, OCR, Browser, TLS bypass, schema migration, cross-host provider transport or new Worker capability was introduced.
+
+### Failed-run history
+
+Cumulative `failed_runs` remained `5` before and after S34 rollout. They are the already-recovered S10, S28, two S29 and S25 transport failures; S34 added no failure and recovery backlog remains zero.
+
+### Timer resume and final state
+
+`signalforge-resume` restored the scheduler. No source was due at that exact instant, so no additional scheduler run was created. Final observed state:
+
+```text
+application_release   = 0f8237916b39daa1c2f85d8309e93ff3ced56238
+automated_sources     = 19 / 19 GREEN
+signalforge_health    = GREEN
+canonical_items       = 159
+signals               = 11
+scheduler_runs        = 1457
+acquisition_requests  = 1799
+acquisition_attempts  = 1799
+evidence_envelopes    = 1794
+processing_records    = 1796
+failed_runs           = 5 (historical / recovered)
+recovery_backlog      = 0
+timer                 = enabled / active
+run-due               = inactive
+```
+
+**Gate result: S34 is PRODUCTION / GREEN.**

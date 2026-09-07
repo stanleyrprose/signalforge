@@ -241,13 +241,26 @@ Expand SignalForge across high-value Myanmar issuer-original sources while prese
 - timer restoration is clean; 18/18 automated sources GREEN, canonical/signals `153/11`, Mac provider remains locked (`production_enabled=false`, `remote_invocation=false`, `browser_production_approved=false`);
 - evidence: `docs/verification/S16-YCDC-BUILDING-SOURCE-ACTIVATION-2026-09-07.md`.
 
+### S34 — Posts and Telecommunications Department Open Tenders
+
+- production-enabled on exact application release `0f8237916b39daa1c2f85d8309e93ff3ced56238`; previous application-code rollback target `794e0190d1d878d92e9a0580a28b93b6c82dada0`;
+- issuer-original `ACTIVE_SELECTIVE` source uses the PTD tender category and selected detail HTML, excluding tender-winner/award/result stages; current business scope includes RF-monitoring recovery equipment, RF spare parts, Bago monitoring-station equipment, monitoring-vehicle equipment, Nay Pyi Taw/Pathein construction and `.mm Root DNS` / second-level DNS operations and maintenance;
+- publication dates come from explicit HTML `Posted on` fields; deadlines remain `null` because deadline/rule details are in linked official PDFs that remain metadata-only and are never fetched in P0;
+- canonical identity is `ptd:<publication_date>:<sha256(publication_date|normalized_scope_summary)[:16]>`; opaque encoded PTD detail locators are transport/audit metadata rather than business identity, allowing same-day generic-title tenders to remain distinct by scope;
+- reviewed first production baseline was `MANUAL / SUCCESS`, `items=6`, `tenders=6`, `details=6/6`, `changed=6`, `signals=0`;
+- baseline persistence added exactly seven HTML request/attempt/evidence/processing lifecycles (one category + six details), with zero PDF evidence; SignalForge DB `quick_check=ok`;
+- Worker correlation `signalforge-20260907T102115Z-c639cb75` is exactly one SUCCESS Worker Run; Bangkok/Beijing Worker doctors PASS, Beijing remains SignalForge-free and rejects S34 refresh with `126 / Bangkok-only`;
+- cumulative failed_runs remains 5 historical/recovered, backlog 0; timer restoration is clean and 19/19 automated sources are GREEN, canonical/signals `159/11`, Mac provider remains locked (`production_enabled=false`, `remote_invocation=false`, `browser_production_approved=false`);
+- OAG remains deferred because current tender business fields are scan/JPG-only and would require a separately approved Burmese image/OCR capability;
+- evidence: `docs/verification/S34-PTD-SOURCE-ONBOARDING-2026-09-07.md`.
+
 ## Current result
 
-> **S05A + S07 + S08A + S10 + S12 + S13 + S16 + S20 + S21 + S22 + S25 + S26 + S28 + S29 + S30 + S31 + S32 + S33 = PRODUCTION / GREEN**
+> **S05A + S07 + S08A + S10 + S12 + S13 + S16 + S20 + S21 + S22 + S25 + S26 + S28 + S29 + S30 + S31 + S32 + S33 + S34 = PRODUCTION / GREEN**
 >
 > **S15A MPA = Manual P0 canonical source / operator-driven / no unattended scheduling**
 
-SignalForge has now proven eighteen automated source/domain shapes under the same v1.5 acquisition lifecycle, plus the separate S15A Manual P0 canonical path:
+SignalForge has now proven nineteen automated source/domain shapes under the same v1.5 acquisition lifecycle, plus the separate S15A Manual P0 canonical path:
 
 ```text
 Commerce: one Drupal notice -> zero/one selected REGULATORY_NOTICE + attachment metadata
@@ -268,6 +281,7 @@ MOEA:     one tender archive HTML -> selected invitation records + CMS-comment b
 MTE:      one announcement archive HTML -> buyer-side procurement only, Joomla ID identity, image supplements unparsed
 MCRD:     one structured tender board -> N TENDER rows + explicit closing date + primary-document metadata
 YCDC Building: one stable numeric department archive -> selected PPP/building implementation TENDER rows, lease/sale/auction excluded
+PTD:      one tender category -> selected telecom/ICT detail HTML -> TENDER + PDF metadata, award/result excluded
 MPA:      manual LISTING + DETAIL + PDF evidence bundle -> operator-only canonical TENDER/AUCTION_NOTICE
 ```
 
@@ -304,4 +318,4 @@ business-value audit
 -> checkpoint closure
 ```
 
-The next engineering slice should still be selected by business value and current evidence, not source-ID order or a source-count target. S01 National Portal and S04 Trade Portal remain deferred as canonical sources because aggregator metadata/duplication needs an explicit issuer-resolution/equivalence/dedup contract. S16 YCDC Building has now closed its old identity/transport-locator gate through the stable numeric department archive; the generic randomized ciphertext YCDC tender transport remains unused. S17 MCDC and S18 NPTDC still require image/OCR capability for current business specifics and remain deferred rather than forcing runtime expansion. Fresh S26 candidate audit also showed Ministry of Industry failing Bangkok DNS and Ministry of Energy carrying current business detail primarily in embedded PDFs; S28 audit additionally found current Ministry of Education and Tourism tender specifics to be image-based. None justified weakening the existing contract. PDF gates are source-specific: S10 triggered an enrichment/value gate, while S15A triggered a classification + business-fields gate because listing-only semantics can misclassify disposal auctions as procurement tenders. S15A deterministic PDF runtime packaging, Manual P0 Phase A, and Phase B manual canonical commit are now production live-verified on Bangkok. MPA is usable as a low-frequency operator-driven canonical source with stable `mpa:<wordpress_post_id>` identity, explicit zero-signal baseline behavior, and no scheduled S15A activation. Fresh MPA activity remains low (2 records/30d, 3/90d, 13/180d), so a Remote Provider Invocation Contract is still not justified; unattended Mac invocation remains unapproved. Continue operating S15A manually until repeated real use proves material operator burden. S10 enrichment remains a separate future parser-use-case decision, and S08A tender-award/result content remains a separate future `PROCUREMENT_RESULT` decision.
+The next engineering slice should still be selected by business value and current evidence, not source-ID order or a source-count target. S01 National Portal and S04 Trade Portal remain deferred as canonical sources because aggregator metadata/duplication needs an explicit issuer-resolution/equivalence/dedup contract. S16 YCDC Building has now closed its old identity/transport-locator gate through the stable numeric department archive; the generic randomized ciphertext YCDC tender transport remains unused. S17 MCDC and S18 NPTDC still require image/OCR capability for current business specifics and remain deferred rather than forcing runtime expansion. S34 PTD now proves high-value telecom/ICT procurement can remain HTML-event-level even when deadlines live in PDF; OAG remains deferred because its current business fields are scan/JPG-only. Fresh S26 candidate audit also showed Ministry of Industry failing Bangkok DNS and Ministry of Energy carrying current business detail primarily in embedded PDFs; S28 audit additionally found current Ministry of Education and Tourism tender specifics to be image-based. None justified weakening the existing contract. PDF gates are source-specific: S10 triggered an enrichment/value gate, while S15A triggered a classification + business-fields gate because listing-only semantics can misclassify disposal auctions as procurement tenders. S15A deterministic PDF runtime packaging, Manual P0 Phase A, and Phase B manual canonical commit are now production live-verified on Bangkok. MPA is usable as a low-frequency operator-driven canonical source with stable `mpa:<wordpress_post_id>` identity, explicit zero-signal baseline behavior, and no scheduled S15A activation. Fresh MPA activity remains low (2 records/30d, 3/90d, 13/180d), so a Remote Provider Invocation Contract is still not justified; unattended Mac invocation remains unapproved. Continue operating S15A manually until repeated real use proves material operator burden. S10 enrichment remains a separate future parser-use-case decision, and S08A tender-award/result content remains a separate future `PROCUREMENT_RESULT` decision.
