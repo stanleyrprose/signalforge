@@ -202,13 +202,26 @@ Expand SignalForge across high-value Myanmar issuer-original sources while prese
 - timer-resume reconciliation was clean; 15/15 automated sources GREEN, canonical/signals `141/11`, backlog 0, Mac provider remains locked (`production_enabled=false`, `remote_invocation=false`, `browser_production_approved=false`);
 - evidence: `docs/verification/S31-MOEA-SOURCE-ONBOARDING-2026-09-07.md`.
 
+### S32 — Myanma Timber Enterprise Procurement Invitations
+
+- production-enabled on exact application release `2edaf3259d168344544f5a5cd09ab1d2c37fe563`; previous application-code rollback target `f751c8f13ae86740a227ba2cd00518d68cde2edc`;
+- issuer-original `ACTIVE_SELECTIVE` source uses `https://mte.gov.mm/index.php/en/annoucements` as a one-fetch listing-complete HTML archive;
+- classification requires explicit buyer-side procurement semantics and excludes MTE timber/open-tender sale or auction semantics, so `Open Tender` alone is never promoted to procurement;
+- canonical identity is issuer-native Joomla article ID (`mte:<article_id>`); current selected records are `mte:1600` service procurement and historical `mte:1415` diesel procurement;
+- reviewed first baseline was `MANUAL / SUCCESS`, `items=2`, `tenders=2`, `details=0`, `changed=2`, `signals=0`; publication date and deadline remain `null` because issuer HTML does not expose trustworthy values and image supplements are not parsed;
+- baseline persistence added exactly one HTML acquisition lifecycle; the sole EvidenceEnvelope is the 46,158-byte announcement archive page, with zero detail/image acquisition;
+- Worker correlation `signalforge-20260907T060955Z-b9a81d4d` is exactly one SUCCESS Worker Run; Bangkok/Beijing Worker doctors PASS, Beijing remains SignalForge-free and rejects S32 refresh with `126 / Bangkok-only`;
+- cumulative failed_runs=4 is historical/recovered: prior S10/S28 timeouts plus two S29 DWIR transport failures (522 + timeout) that recovered with subsequent SUCCESS runs; backlog remains 0;
+- timer restoration is clean; 16/16 automated sources GREEN, canonical/signals `143/11`, Mac provider remains locked (`production_enabled=false`, `remote_invocation=false`, `browser_production_approved=false`);
+- evidence: `docs/verification/S32-MTE-SOURCE-ONBOARDING-2026-09-07.md`.
+
 ## Current result
 
-> **S05A + S07 + S08A + S10 + S12 + S13 + S20 + S21 + S22 + S25 + S26 + S28 + S29 + S30 + S31 = PRODUCTION / GREEN**
+> **S05A + S07 + S08A + S10 + S12 + S13 + S20 + S21 + S22 + S25 + S26 + S28 + S29 + S30 + S31 + S32 = PRODUCTION / GREEN**
 >
 > **S15A MPA = Manual P0 canonical source / operator-driven / no unattended scheduling**
 
-SignalForge has now proven fifteen automated source/domain shapes under the same v1.5 acquisition lifecycle, plus the separate S15A Manual P0 canonical path:
+SignalForge has now proven sixteen automated source/domain shapes under the same v1.5 acquisition lifecycle, plus the separate S15A Manual P0 canonical path:
 
 ```text
 Commerce: one Drupal notice -> zero/one selected REGULATORY_NOTICE + attachment metadata
@@ -226,6 +239,7 @@ DOF:      one official tender-card listing -> N complete TENDER records, no deta
 DWIR:     one lightweight homepage -> selected Joomla detail HTML -> TENDER, embedded image non-blocking
 MOFA:     one mixed Announcement category -> selected WordPress detail HTML -> TENDER + attachment metadata
 MOEA:     one tender archive HTML -> selected invitation records + CMS-comment business fields + PDF metadata
+MTE:      one announcement archive HTML -> buyer-side procurement only, Joomla ID identity, image supplements unparsed
 MPA:      manual LISTING + DETAIL + PDF evidence bundle -> operator-only canonical TENDER/AUCTION_NOTICE
 ```
 

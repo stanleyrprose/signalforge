@@ -827,6 +827,21 @@ Evidence: `docs/verification/S30-MOFA-SOURCE-ONBOARDING-2026-09-06.md`.
 
 Evidence: `docs/verification/S31-MOEA-SOURCE-ONBOARDING-2026-09-07.md`.
 
+### S32 Myanma Timber Enterprise Procurement Invitations — PRODUCTION / GREEN
+
+- exact production application release `2edaf3259d168344544f5a5cd09ab1d2c37fe563`; previous application-code rollback target `f751c8f13ae86740a227ba2cd00518d68cde2edc`;
+- `ACTIVE_SELECTIVE` Direct-HTTP listing-complete source uses the MTE announcement archive and requires explicit buyer-side procurement semantics; timber/open-tender sale/auction events and ambiguous title-only open tenders are excluded;
+- canonical identity is issuer-native Joomla article ID (`mte:<article_id>`); selected production baseline records are `mte:1600` (visible tender no. `၁/၂၆-၂၇`, transportation service procurement) and `mte:1415` (diesel procurement);
+- publication date and deadline are deliberately `null`: archive HTML exposes neither trustworthy field and S32 does not infer them from collection time/URL slug or parse image supplements;
+- reviewed first production baseline: `MANUAL / baseline=1 / SUCCESS`, `items=2`, `tenders=2`, `details=0`, `changed=2`, `signals=0`;
+- persistence added exactly one request/attempt/evidence/processing lifecycle; sole EvidenceEnvelope is `text/html` 46,158 bytes, with zero detail/image acquisition;
+- baseline Worker correlation is exactly one `signalforge-20260907T060955Z-b9a81d4d / SUCCESS`; SignalForge DB and Worker DB `quick_check=ok`;
+- Bangkok and Beijing Worker doctors PASS; Beijing `/srv/signalforge` remains absent and rejects `signalforge-refresh S32` with `126 / DENY: SignalForge is Bangkok-only`; Mac provider remains `production_enabled=false`, `remote_invocation=false`, `browser_production_approved=false`;
+- pre-rollout cumulative `failed_runs=4` includes two new S29 DWIR failures (HTTP 522 at ~05:10Z and read timeout at ~05:20Z); S29 recovered at ~05:30Z and again ~06:05Z with `SUCCESS / changed=0 / signals=0`, so all four failures are historical/recovered and backlog is zero;
+- timer resume was clean and created no run because no source was due at that instant; final state is 16/16 automated sources GREEN, canonical/signals `143/11`, scheduler `1301`, acquisition request/attempt/evidence/processing `1609/1609/1605/1607`, failed_runs 4 historical/recovered, backlog 0, timer enabled/active, run-due inactive.
+
+Evidence: `docs/verification/S32-MTE-SOURCE-ONBOARDING-2026-09-07.md`.
+
 ## Frozen acquisition invariants
 
 ```text
@@ -878,9 +893,9 @@ S20, S22, S05A, S07, S08A, S12, S25, S26 and S28 triggered none of these capabil
 
 ## Next
 
-1. operate S05A + S07 + S08A + S10 + S12 + S13 + S20 + S21 + S22 + S25 + S26 + S28 + S29 + S30 + S31 and collect real acquisition/source history;
+1. operate S05A + S07 + S08A + S10 + S12 + S13 + S20 + S21 + S22 + S25 + S26 + S28 + S29 + S30 + S31 + S32 and collect real acquisition/source history;
 2. choose the next source by business value plus current endpoint quality, not source-ID order or a target source count;
-3. prefer another issuer-original Direct-HTTP source that fits the existing acquisition engine before introducing schema/OCR/Browser capability; S26/S28 audits have already ruled out or deferred Ministry of Industry (Bangkok DNS), Ministry of Energy (embedded PDF), Ministry of Education (image notice) and Tourism (JPG notice) under current capabilities;
+3. prefer another issuer-original Direct-HTTP source that fits the existing acquisition engine before introducing schema/OCR/Browser capability; S32 proved MTE event-level procurement can remain HTML-only, while fresh S27 MOBA re-audit still fails Bangkok strict TLS; Ministry of Industry (Bangkok DNS), Ministry of Energy (embedded PDF), Ministry of Education (image notice) and Tourism (JPG notice) remain deferred under current capabilities;
 4. S01 National Portal stays discovery-aggregator-only until issuer-resolution/equivalence/dedup exists; S04 Trade Portal remains deferred for the same cross-source contract reason;
 5. preserve the newly proven municipal gates: S16 requires identity/locator separation, S17 requires Burmese OCR, S18 requires classifier + OCR; do not force any of them into P0;
 6. keep S10 PDF supplementary extraction as a separate reviewed runtime-packaging slice and promote it only when its incremental commercial value justifies the dependency;
