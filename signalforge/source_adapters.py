@@ -27,6 +27,8 @@ from .mofa import parse_tender_listing as parse_mofa_tender_listing
 from .mcrd import parse_tender_records as parse_mcrd_tender_records
 from .mte import parse_tender_records as parse_mte_tender_records
 from .mpt import SitemapEntry, parse_sitemap, parse_tender_detail as parse_mpt_tender_detail
+from .ptd import parse_tender_detail as parse_ptd_tender_detail
+from .ptd import parse_tender_listing as parse_ptd_tender_listing
 from .railways import parse_tender_detail as parse_railways_tender_detail
 from .railways import parse_tender_listing
 from .ycdc_building import parse_tender_records as parse_ycdc_building_tender_records
@@ -60,6 +62,11 @@ def _empty_discovery(_payload: bytes) -> list[SitemapEntry]:
 
 def _parse_mpt_detail(payload: bytes, url: str) -> list[object]:
     tender = parse_mpt_tender_detail(payload, url)
+    return [tender] if tender is not None else []
+
+
+def _parse_ptd_detail(payload: bytes, url: str) -> list[object]:
+    tender = parse_ptd_tender_detail(payload, url)
     return [tender] if tender is not None else []
 
 
@@ -113,6 +120,16 @@ ADAPTERS = {
         canonicalizer_version="tender-canonical-v1",
         parse_discovery=parse_sitemap,
         parse_detail=_parse_mpt_detail,
+    ),
+    "ptd_tender": SourceAdapter(
+        name="ptd_tender",
+        discovery_content_types=("text/html",),
+        discovery_parser_version="ptd-tender-category-v1",
+        detail_parser_version="ptd-tender-html-v1",
+        normalizer_version="ptd-tender-normalize-v1",
+        canonicalizer_version="ptd-business-event-fingerprint-v1",
+        parse_discovery=parse_ptd_tender_listing,
+        parse_detail=_parse_ptd_detail,
     ),
     "railways": SourceAdapter(
         name="railways",
