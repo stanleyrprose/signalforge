@@ -29,6 +29,7 @@ from .mte import parse_tender_records as parse_mte_tender_records
 from .mpt import SitemapEntry, parse_sitemap, parse_tender_detail as parse_mpt_tender_detail
 from .railways import parse_tender_detail as parse_railways_tender_detail
 from .railways import parse_tender_listing
+from .ycdc_building import parse_tender_records as parse_ycdc_building_tender_records
 
 
 class SourceAdapterError(RuntimeError):
@@ -237,6 +238,17 @@ ADAPTERS = {
         parse_discovery=_empty_discovery,
         parse_detail=lambda _payload, _url: [],
         parse_discovery_records=parse_moea_tender_records,
+    ),
+    "ycdc_building_tender": SourceAdapter(
+        name="ycdc_building_tender",
+        discovery_content_types=("text/html",),
+        discovery_parser_version="ycdc-building-stable-archive-v1",
+        detail_parser_version="not-applicable",
+        normalizer_version="ycdc-building-normalize-v1",
+        canonicalizer_version="ycdc-building-event-fingerprint-v1",
+        parse_discovery=_empty_discovery,
+        parse_detail=lambda _payload, _url: [],
+        parse_discovery_records=parse_ycdc_building_tender_records,
     ),
     "mcrd_tender": SourceAdapter(
         name="mcrd_tender",
