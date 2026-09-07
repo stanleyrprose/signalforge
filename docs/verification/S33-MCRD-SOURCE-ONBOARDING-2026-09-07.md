@@ -1,8 +1,8 @@
 # S33 Ministry of Cooperatives and Rural Development Tenders — Source Onboarding
 
 Date (Asia/Yangon): 2026-09-07
-Phase: PRE-PRODUCTION
-Result: IMPLEMENTATION / TEST / ISOLATED LIVE PASS — PRODUCTION GATE PENDING
+Phase: PRODUCTION
+Result: PRODUCTION / GREEN — LIVE VERIFIED 2026-09-07
 
 ## Source decision
 
@@ -262,3 +262,168 @@ S33 may be promoted only after:
 10. timer resumes and final all-source health is GREEN.
 
 No additional capability is authorized by S33.
+
+
+## Production closure — 2026-09-07
+
+S33 passed the production gate on exact merged application release:
+
+```text
+a4d55bf4ad8cf1977b5e874fa9b652d880c2b2a7
+```
+
+Previous application-code rollback target:
+
+```text
+2edaf3259d168344544f5a5cd09ab1d2c37fe563
+```
+
+### Frozen pre-deploy state
+
+Immediately before rollout, Bangkok was healthy and idle:
+
+```text
+application_release   = 2edaf3259d168344544f5a5cd09ab1d2c37fe563
+automated_sources     = 16 / 16 GREEN
+canonical_items       = 143
+signals               = 11
+scheduler_runs        = 1321
+acquisition_requests  = 1634
+acquisition_attempts  = 1634
+evidence_envelopes    = 1630
+processing_records    = 1632
+failed_runs           = 4
+recovery_backlog      = 0
+timer                 = enabled / active
+run-due               = inactive
+active refresh units  = 0
+```
+
+The timer was then disabled and no active run/refresh unit remained. Deploying `a4d55bf...` changed none of those business/acquisition counters. S33 appeared exactly as expected with `baseline=0 / SOURCE_FRESHNESS_LAG / RED`, while every pre-existing source remained GREEN.
+
+### Reviewed first production baseline
+
+The reviewed control path executed:
+
+```text
+signalforge-refresh S33
+```
+
+and returned:
+
+```text
+source_id             = S33
+trigger_kind          = MANUAL
+baseline              = 1
+status                = SUCCESS
+items_parsed          = 5
+tenders_parsed        = 5
+details_attempted     = 0
+details_succeeded     = 0
+changed               = 5
+signals_created       = 0
+backlog_remaining     = 0
+worker_run_id         = signalforge-20260907T064353Z-74f21b24
+```
+
+The five production canonical rows are:
+
+```text
+mcrd:2026-05-15:8980d452a32f4599  deadline=2026-05-15
+mcrd:2025-06-20:bee5d62c81b1641c  deadline=2025-06-20
+mcrd:2025-05-23:c97c5f1d56c267a1  deadline=2025-05-23
+mcrd:2024-05-14:04e465d2c06af2cd  deadline=2024-05-14
+mcrd:2023-05-19:1ce78c99645badfa  deadline=2023-05-19
+```
+
+All `publication_date` values remain `null`. The newest board event was already closed at baseline time, and first-baseline suppression correctly produced zero customer signals.
+
+### Production evidence boundary
+
+The baseline added exactly one acquisition lifecycle. The sole S33 EvidenceEnvelope is:
+
+```text
+requested_url = https://www.mcrd.gov.mm/index.php?page=dGluZGEmbW8%3D
+http_status   = 200
+media_type    = text/html
+artifact_bytes= 52527
+```
+
+Production persistence after baseline:
+
+```text
+S33 canonical_items = 5
+S33 signals         = 0
+requests/attempts/evidence/processing increment = 1/1/1/1
+linked PDF/JPEG acquisitions = 0
+SignalForge SQLite quick_check = ok
+```
+
+The primary tender-information links remain metadata only. No linked document or synthetic detail request was introduced.
+
+### Worker and host-boundary verification
+
+Worker DB contains exactly one row for the baseline Worker Run:
+
+```text
+run_id       = signalforge-20260907T064353Z-74f21b24
+application  = signalforge
+process_user = signalforge
+status       = SUCCESS
+exit_code    = 0
+```
+
+Additional boundaries:
+
+```text
+Bangkok workerctl doctor        = PASS
+Beijing workerctl doctor        = PASS
+Beijing /srv/signalforge        = ABSENT
+Beijing signalforge-refresh S33 = 126 / DENY: SignalForge is Bangkok-only
+Worker DB quick_check           = ok
+Mac production_enabled          = false
+Mac remote_invocation           = false
+browser_production_approved     = false
+Mac invocation_mode             = manual_or_future_contract
+canonical_node                  = bangkok
+```
+
+S33 therefore introduced no PDF/JPEG acquisition, OCR, Browser, TLS bypass, remote-provider transport, schema migration or new Worker runtime capability.
+
+### Failed-run history
+
+Cumulative `failed_runs` remained `4` before and after S33 rollout. They are the already-reviewed historical/recovered failures:
+
+```text
+S10  DICA  read timeout
+S28  DOF   read timeout
+S29  DWIR  HTTP 522
+S29  DWIR  read timeout
+```
+
+No S33 failure was added and recovery backlog remains zero.
+
+### Timer resume and final state
+
+`signalforge-resume` restored the scheduler. No source was due at that exact instant, so resume created no artificial scheduler run. The timer returned to `enabled / active / waiting`, with `run-due` inactive.
+
+Final observed state:
+
+```text
+application_release   = a4d55bf4ad8cf1977b5e874fa9b652d880c2b2a7
+automated_sources     = 17 / 17 GREEN
+signalforge_health    = GREEN
+canonical_items       = 148
+signals               = 11
+scheduler_runs        = 1322
+acquisition_requests  = 1635
+acquisition_attempts  = 1635
+evidence_envelopes    = 1631
+processing_records    = 1633
+failed_runs           = 4 (historical / recovered)
+recovery_backlog      = 0
+timer                 = enabled / active / waiting
+run-due               = inactive
+```
+
+**Gate result: S33 is PRODUCTION / GREEN.**
