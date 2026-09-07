@@ -797,6 +797,21 @@ Evidence: `docs/verification/S15A-MPA-FIRST-OPERATIONAL-TENDER-2026-09-05.md`.
 
 Evidence: `docs/verification/S29-DWIR-SOURCE-ONBOARDING-2026-09-05.md`.
 
+### S30 MOFA Procurement Invitations — PRODUCTION / GREEN
+
+- exact production application release `61d6984bf0efd05dddcac0791bba00cf741f3052`; previous application-code rollback target `e62410eb1cc7894f6a5f3305dcf2eab0d99b2bb8`;
+- `ACTIVE_SELECTIVE` Direct-HTTP source uses the MOFA Announcement category and selected WordPress detail HTML; stable identity is `mofa:<wordpress_post_id>`;
+- reviewed first production baseline: `MANUAL / baseline=1 / SUCCESS`, `items=2`, `tenders=2`, `details=2/2`, `changed=2`, `signals=0`; canonical items are `mofa:59800` (2026-09-04) and `mofa:56952` (2026-06-23), both with deadline `null`;
+- persistence is canonical/signals `2/0` and request/attempt/evidence/processing `3/3/3/3`; all three EvidenceEnvelopes are HTML (category + 2 details), with zero PDF/JPG/PNG acquisition;
+- baseline Worker correlation is exactly one `signalforge-20260907T031617Z-36a3d084 / SUCCESS`; Worker DB and SignalForge DB `quick_check=ok`;
+- Bangkok and Beijing Worker doctors PASS; Beijing `/srv/signalforge` is absent and its dispatcher rejects `signalforge-refresh S30` with `126 / DENY: SignalForge is Bangkok-only`;
+- Mac provider remains `production_enabled=false`, `remote_invocation=false`, `browser_production_approved=false`, invocation mode `manual_or_future_contract`;
+- timer resume created reconciliation Worker Run `signalforge-20260907T032122Z-3892216e` covering S13/S20/S21/S22, all `SUCCESS / changed=0 / signals=0`;
+- final observed state: 14/14 automated sources GREEN, overall PASS/GREEN, canonical/signals `132/11`, scheduler `1207`, acquisition request/attempt/evidence/processing `1501/1501/1499/1501`, backlog 0, timer enabled/active, run-due inactive;
+- cumulative `failed_runs=2` consists of recovered S10 and S28 read timeouts; S28 resumed SUCCESS about ten minutes after its 2026-09-06 timeout and remained healthy.
+
+Evidence: `docs/verification/S30-MOFA-SOURCE-ONBOARDING-2026-09-06.md`.
+
 ## Frozen acquisition invariants
 
 ```text
@@ -848,7 +863,7 @@ S20, S22, S05A, S07, S08A, S12, S25, S26 and S28 triggered none of these capabil
 
 ## Next
 
-1. operate S05A + S07 + S08A + S10 + S12 + S13 + S20 + S21 + S22 + S25 + S26 + S28 + S29 and collect real acquisition/source history;
+1. operate S05A + S07 + S08A + S10 + S12 + S13 + S20 + S21 + S22 + S25 + S26 + S28 + S29 + S30 and collect real acquisition/source history;
 2. choose the next source by business value plus current endpoint quality, not source-ID order or a target source count;
 3. prefer another issuer-original Direct-HTTP source that fits the existing acquisition engine before introducing schema/OCR/Browser capability; S26/S28 audits have already ruled out or deferred Ministry of Industry (Bangkok DNS), Ministry of Energy (embedded PDF), Ministry of Education (image notice) and Tourism (JPG notice) under current capabilities;
 4. S01 National Portal stays discovery-aggregator-only until issuer-resolution/equivalence/dedup exists; S04 Trade Portal remains deferred for the same cross-source contract reason;
