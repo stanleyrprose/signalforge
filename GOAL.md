@@ -179,13 +179,24 @@ Expand SignalForge across high-value Myanmar issuer-original sources while prese
 - source health GREEN; 13/13 automated sources GREEN after timer restoration;
 - evidence: `docs/verification/S29-DWIR-SOURCE-ONBOARDING-2026-09-05.md`.
 
+### S30 — MOFA Procurement Invitations
+
+- production-enabled on exact application release `61d6984bf0efd05dddcac0791bba00cf741f3052`; previous application-code rollback target `e62410eb1cc7894f6a5f3305dcf2eab0d99b2bb8`;
+- issuer-original `ACTIVE_SELECTIVE` source uses `https://www.mofa.gov.mm/category/announcement/` plus selected WordPress detail HTML;
+- stable canonical identity is WordPress post ID (`mofa:<post_id>`); first production baseline created `mofa:59800` and `mofa:56952`;
+- first reviewed baseline was `MANUAL / SUCCESS`, `items=2`, `tenders=2`, `details=2/2`, `changed=2`, `signals=0`;
+- acquisition lifecycle is exactly category + two HTML details (`3/3/3/3` request/attempt/evidence/processing), with zero PDF/JPG/PNG acquisition; attachment URLs/names remain metadata only and missing deadlines remain `null`;
+- Worker correlation `signalforge-20260907T031617Z-36a3d084` is exactly one SUCCESS Worker Run; Bangkok/Beijing Worker doctors PASS, Beijing remains SignalForge-free and rejects S30 refresh with `126 / Bangkok-only`;
+- timer-resume reconciliation was clean; 14/14 automated sources GREEN, backlog 0, Mac provider remains locked (`production_enabled=false`, `remote_invocation=false`, `browser_production_approved=false`);
+- evidence: `docs/verification/S30-MOFA-SOURCE-ONBOARDING-2026-09-06.md`.
+
 ## Current result
 
-> **S05A + S07 + S08A + S10 + S12 + S13 + S20 + S21 + S22 + S25 + S26 + S28 + S29 = PRODUCTION / GREEN**
+> **S05A + S07 + S08A + S10 + S12 + S13 + S20 + S21 + S22 + S25 + S26 + S28 + S29 + S30 = PRODUCTION / GREEN**
 >
 > **S15A MPA = Manual P0 canonical source / operator-driven / no unattended scheduling**
 
-SignalForge has now proven thirteen automated source/domain shapes under the same v1.5 acquisition lifecycle, plus the separate S15A Manual P0 canonical path:
+SignalForge has now proven fourteen automated source/domain shapes under the same v1.5 acquisition lifecycle, plus the separate S15A Manual P0 canonical path:
 
 ```text
 Commerce: one Drupal notice -> zero/one selected REGULATORY_NOTICE + attachment metadata
@@ -201,6 +212,7 @@ MONPIFER: one official tender table -> N complete TENDER records + PDF metadata,
 DOMS:     one WordPress tender category -> selected opportunity detail HTML -> TENDER + PDF metadata
 DOF:      one official tender-card listing -> N complete TENDER records, no detail/attachment fetch
 DWIR:     one lightweight homepage -> selected Joomla detail HTML -> TENDER, embedded image non-blocking
+MOFA:     one mixed Announcement category -> selected WordPress detail HTML -> TENDER + attachment metadata
 MPA:      manual LISTING + DETAIL + PDF evidence bundle -> operator-only canonical TENDER/AUCTION_NOTICE
 ```
 

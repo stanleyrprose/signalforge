@@ -1,8 +1,8 @@
 # S30 MOFA Procurement Invitations — Source Onboarding
 
 Date (Asia/Yangon): 2026-09-06  
-Phase: PRE-PRODUCTION  
-Result: IMPLEMENTATION / TEST PASS — PRODUCTION GATE PENDING
+Phase: PRODUCTION
+Result: PRODUCTION / GREEN — LIVE VERIFIED 2026-09-07
 
 ## Source decision
 
@@ -223,3 +223,113 @@ S30 may be promoted only after:
 10. timer resumes enabled/active and post-resume reconciliation is clean.
 
 No additional runtime capability is authorized by S30.
+
+
+## Production closure — 2026-09-07
+
+S30 passed the production gate on exact merged application release:
+
+```text
+61d6984bf0efd05dddcac0791bba00cf741f3052
+```
+
+The previous application-code rollback target is:
+
+```text
+e62410eb1cc7894f6a5f3305dcf2eab0d99b2bb8
+```
+
+### Frozen pre-deploy state
+
+Immediately before deployment the Bangkok timer was paused and there were no active `run-due` or source-refresh units. The frozen application state was:
+
+```text
+canonical_items       = 130
+signals               = 11
+scheduler_runs        = 1202
+acquisition_requests  = 1494
+acquisition_attempts  = 1494
+evidence_envelopes    = 1492
+processing_records    = 1494
+recovery_backlog      = 0
+automated_sources     = 13 / 13 GREEN
+```
+
+Deploying the exact merged SHA changed none of those business/acquisition counters. Before baseline, S30 correctly appeared as uninitialized/freshness RED while every pre-existing source remained GREEN.
+
+### Reviewed first production baseline
+
+The baseline ran through the reviewed `signalforge-refresh S30` control-plane path and returned:
+
+```text
+source_id             = S30
+trigger_kind          = MANUAL
+baseline              = 1
+status                = SUCCESS
+items_parsed          = 2
+tenders_parsed        = 2
+details_attempted     = 2
+details_succeeded     = 2
+changed               = 2
+signals_created       = 0
+backlog_remaining     = 0
+worker_run_id         = signalforge-20260907T031617Z-36a3d084
+```
+
+Exactly two canonical records were persisted:
+
+```text
+mofa:59800  TENDER  2026-09-04  deadline=null
+mofa:56952  TENDER  2026-06-23  deadline=null
+```
+
+S30 persisted exactly three acquisition lifecycles: the Announcement category plus the two selected issuer detail pages. All three EvidenceEnvelopes are `text/html`; there is no PDF/JPG/PNG acquisition. `S30 signals = 0` and SignalForge SQLite `quick_check = ok`.
+
+The Worker database contains exactly one row for `signalforge-20260907T031617Z-36a3d084`, with `application=signalforge`, `process_user=signalforge`, `status=SUCCESS`, and `exit_code=0`. This proves one reviewed S30 refresh mapped to one Worker operational Run while the three acquisitions remained internal SignalForge evidence.
+
+### Boundary verification
+
+```text
+Bangkok workerctl doctor       = PASS
+Beijing workerctl doctor       = PASS
+Beijing /srv/signalforge       = ABSENT
+Beijing signalforge-refresh S30= 126 / DENY: SignalForge is Bangkok-only
+Worker DB quick_check          = ok
+Mac production_enabled         = false
+Mac remote_invocation          = false
+browser_production_approved    = false
+canonical_node                 = bangkok
+```
+
+The production registry still reports `invocation_mode=manual_or_future_contract`. S30 introduced no Browser, OCR, TLS bypass, proxy fallback, remote-provider or new runtime capability.
+
+### Timer resume and reconciliation
+
+Resuming the reviewed timer triggered one normal due-run Worker wrapper:
+
+```text
+signalforge-20260907T032122Z-3892216e
+```
+
+It reconciled S13, S20, S21 and S22; all four returned `SUCCESS / changed=0 / signals=0`. Final observed production state:
+
+```text
+application_release   = 61d6984bf0efd05dddcac0791bba00cf741f3052
+automated_sources     = 14 / 14 GREEN
+signalforge_health    = GREEN
+canonical_items       = 132
+signals               = 11
+scheduler_runs        = 1207
+acquisition_requests  = 1501
+acquisition_attempts  = 1501
+evidence_envelopes    = 1499
+processing_records    = 1501
+failed_runs           = 2
+recovery_backlog      = 0
+timer                 = enabled / active
+run-due               = inactive
+```
+
+`failed_runs=2` is cumulative history, not an S30 regression: the earlier S10 read timeout had already recovered, and a 2026-09-06 S28/DOF read timeout was followed by a successful S28 poll about ten minutes later and continued successful polls thereafter.
+
+**Gate result: S30 is PRODUCTION / GREEN.**
