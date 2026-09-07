@@ -25,7 +25,7 @@ class ContractTests(unittest.TestCase):
         )
         self.assertEqual(manifest["verbs"]["signalforge-refresh"]["argument"], "source_id")
         self.assertEqual(manifest["grammar"]["source_id"], "^[A-Z][A-Z0-9]{0,15}$")
-        self.assertEqual(manifest["active_source_ids"], ["S05A", "S07", "S08A", "S10", "S12", "S13", "S20", "S21", "S22", "S25", "S26", "S28", "S29", "S30"])
+        self.assertEqual(manifest["active_source_ids"], ["S05A", "S07", "S08A", "S10", "S12", "S13", "S20", "S21", "S22", "S25", "S26", "S28", "S29", "S30", "S31"])
 
         registry = Registry.load(ROOT)
         with self.assertRaisesRegex(ConfigError, "invalid source id"):
@@ -150,6 +150,18 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(dof["acquisition_policy"]["primary"], {"method": "DIRECT_HTTP", "target_kind": "HTML"})
         self.assertEqual(dof["attachment_policy"]["mode"], "METADATA_ONLY_NON_BLOCKING")
         self.assertFalse(dof["attachment_policy"]["fetch_in_primary_pipeline"])
+
+        moea = registry.source("S31")
+        self.assertEqual(moea["adapter"], "moea_tender")
+        self.assertEqual(moea["role"], "ACTIVE_SELECTIVE")
+        self.assertEqual(moea["item_kind"], "TENDER")
+        self.assertTrue(moea["listing_complete_business_records"])
+        self.assertEqual(moea["canonical_key"], "issuer_archive_event_fingerprint")
+        self.assertEqual(moea["discovery_url"], "https://portal.moea.gov.mm/index.php?page=ORwuBwpT")
+        self.assertEqual(moea["health_policy"]["parse_sample_source"], "BUSINESS_PROCESSING")
+        self.assertEqual(moea["acquisition_policy"]["primary"], {"method": "DIRECT_HTTP", "target_kind": "HTML"})
+        self.assertEqual(moea["attachment_policy"]["mode"], "METADATA_ONLY_NON_BLOCKING")
+        self.assertFalse(moea["attachment_policy"]["fetch_in_primary_pipeline"])
 
     def test_deploy_installs_reviewed_refresh_template_and_drains_instances(self) -> None:
         deploy = (ROOT / "deploy" / "deploy-signalforge-release.sh").read_text(encoding="utf-8")
