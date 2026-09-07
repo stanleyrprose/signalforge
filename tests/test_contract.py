@@ -25,7 +25,7 @@ class ContractTests(unittest.TestCase):
         )
         self.assertEqual(manifest["verbs"]["signalforge-refresh"]["argument"], "source_id")
         self.assertEqual(manifest["grammar"]["source_id"], "^[A-Z][A-Z0-9]{0,15}$")
-        self.assertEqual(manifest["active_source_ids"], ["S05A", "S07", "S08A", "S10", "S12", "S13", "S20", "S21", "S22", "S25", "S26", "S28", "S29", "S30", "S31", "S32"])
+        self.assertEqual(manifest["active_source_ids"], ["S05A", "S07", "S08A", "S10", "S12", "S13", "S20", "S21", "S22", "S25", "S26", "S28", "S29", "S30", "S31", "S32", "S33"])
 
         registry = Registry.load(ROOT)
         with self.assertRaisesRegex(ConfigError, "invalid source id"):
@@ -174,6 +174,18 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(mte["acquisition_policy"]["primary"], {"method": "DIRECT_HTTP", "target_kind": "HTML"})
         self.assertEqual(mte["attachment_policy"]["mode"], "EMBEDDED_IMAGE_UNPARSED_NON_BLOCKING")
         self.assertFalse(mte["attachment_policy"]["fetch_in_primary_pipeline"])
+
+        mcrd = registry.source("S33")
+        self.assertEqual(mcrd["adapter"], "mcrd_tender")
+        self.assertEqual(mcrd["role"], "ACTIVE_SELECTIVE")
+        self.assertEqual(mcrd["item_kind"], "TENDER")
+        self.assertTrue(mcrd["listing_complete_business_records"])
+        self.assertEqual(mcrd["canonical_key"], "issuer_board_event_fingerprint")
+        self.assertEqual(mcrd["discovery_url"], "https://www.mcrd.gov.mm/index.php?page=dGluZGEmbW8%3D")
+        self.assertEqual(mcrd["health_policy"]["parse_sample_source"], "BUSINESS_PROCESSING")
+        self.assertEqual(mcrd["acquisition_policy"]["primary"], {"method": "DIRECT_HTTP", "target_kind": "HTML"})
+        self.assertEqual(mcrd["attachment_policy"]["mode"], "METADATA_ONLY_NON_BLOCKING")
+        self.assertFalse(mcrd["attachment_policy"]["fetch_in_primary_pipeline"])
 
     def test_deploy_installs_reviewed_refresh_template_and_drains_instances(self) -> None:
         deploy = (ROOT / "deploy" / "deploy-signalforge-release.sh").read_text(encoding="utf-8")
