@@ -812,6 +812,21 @@ Evidence: `docs/verification/S29-DWIR-SOURCE-ONBOARDING-2026-09-05.md`.
 
 Evidence: `docs/verification/S30-MOFA-SOURCE-ONBOARDING-2026-09-06.md`.
 
+### S31 MOEA Procurement Invitations — PRODUCTION / GREEN
+
+- exact production application release `f751c8f13ae86740a227ba2cd00518d68cde2edc`; previous application-code rollback target `61d6984bf0efd05dddcac0791bba00cf741f3052`;
+- `ACTIVE_SELECTIVE` Direct-HTTP listing-complete source uses the MOEA tender archive; business narrative is recovered from issuer CMS HTML comments while PDF links remain metadata-only;
+- selection includes procurement invitation/call records, excludes tender award/result stages and clearly non-procurement lease/auction records; explicit deadlines are emitted only from an HTML-comment `နောက်ဆုံး` final-date marker;
+- source-local stable-enough archive identity is `moea:<publication_date>:<sha256(date+normalized_title)[:16]>`; title correction can create a new identity because the issuer exposes no native row ID, while same identity + different attachment fails closed;
+- reviewed first production baseline: `MANUAL / baseline=1 / SUCCESS`, `items=9`, `tenders=9`, `details=0`, `changed=9`, `signals=0`; newest selected record is 2026-07-27 with deadline `2026-08-07`;
+- persistence after baseline is canonical/signals `9/0` and request/attempt/evidence/processing `1/1/1/1`; the single EvidenceEnvelope is `text/html` 90,396 bytes and PDF evidence count is zero;
+- baseline Worker correlation is exactly one `signalforge-20260907T040008Z-4db411d6 / SUCCESS`; Worker DB and SignalForge DB `quick_check=ok`;
+- Bangkok and Beijing Worker doctors PASS; Beijing `/srv/signalforge` remains absent and rejects `signalforge-refresh S31` with `126 / DENY: SignalForge is Bangkok-only`; Mac provider remains `production_enabled=false`, `remote_invocation=false`, `browser_production_approved=false`;
+- timer resume created reconciliation Worker Run `signalforge-20260907T040055Z-db7c468a` for S05A/S07/S08A/S10/S12/S25/S26/S28/S29; all nine returned `SUCCESS / changed=0 / signals=0`;
+- final observed state: 15/15 automated sources GREEN, overall PASS/GREEN, canonical/signals `141/11`, scheduler `1235`, acquisition request/attempt/evidence/processing `1532/1532/1530/1532`, failed_runs 2 historical/recovered, backlog 0, timer enabled/active, run-due inactive.
+
+Evidence: `docs/verification/S31-MOEA-SOURCE-ONBOARDING-2026-09-07.md`.
+
 ## Frozen acquisition invariants
 
 ```text
@@ -863,7 +878,7 @@ S20, S22, S05A, S07, S08A, S12, S25, S26 and S28 triggered none of these capabil
 
 ## Next
 
-1. operate S05A + S07 + S08A + S10 + S12 + S13 + S20 + S21 + S22 + S25 + S26 + S28 + S29 + S30 and collect real acquisition/source history;
+1. operate S05A + S07 + S08A + S10 + S12 + S13 + S20 + S21 + S22 + S25 + S26 + S28 + S29 + S30 + S31 and collect real acquisition/source history;
 2. choose the next source by business value plus current endpoint quality, not source-ID order or a target source count;
 3. prefer another issuer-original Direct-HTTP source that fits the existing acquisition engine before introducing schema/OCR/Browser capability; S26/S28 audits have already ruled out or deferred Ministry of Industry (Bangkok DNS), Ministry of Energy (embedded PDF), Ministry of Education (image notice) and Tourism (JPG notice) under current capabilities;
 4. S01 National Portal stays discovery-aggregator-only until issuer-resolution/equivalence/dedup exists; S04 Trade Portal remains deferred for the same cross-source contract reason;
