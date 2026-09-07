@@ -1310,6 +1310,75 @@
         "current_health": "HTML_BOARD_BUSINESS_FIELDS_COMPLETE_PRIMARY_DOCUMENT_METADATA_ONLY",
         "fetch_in_primary_pipeline": false
       }
+    },
+    "S16": {
+      "name": "YCDC Engineering Department (Building) Tender Opportunities",
+      "adapter": "ycdc_building_tender",
+      "enabled": true,
+      "role": "ACTIVE_SELECTIVE",
+      "audit_status": "GREEN_DIRECT_HTTP_STABLE_DEPARTMENT_ARCHIVE_SELECTIVE_PPP_BUILDING",
+      "item_kind": "TENDER",
+      "network_zone": "myanmar-international",
+      "engine": "direct_http",
+      "landing_url": "https://www.ycdc.gov.mm/frontend_engineering_building_detail/1",
+      "discovery_url": "https://www.ycdc.gov.mm/frontend_engineering_building_detail/1",
+      "listing_complete_business_records": true,
+      "language": "my",
+      "poll_interval_seconds": 1800,
+      "retry_interval_seconds": 300,
+      "priority": 88,
+      "recovery_slo_seconds": 3600,
+      "availability_policy": {
+        "class": "DELAY_TOLERANT_MONITORED",
+        "accepted_collection_outage_seconds": 7200,
+        "collection_rto_seconds": 3600,
+        "business_data_rpo_target_seconds": 1800,
+        "outage_status": "DATA_COLLECTION_DELAYED",
+        "delivery_during_recovery": "CONTINUE_WITH_DEGRADED_HEALTH"
+      },
+      "baseline_lookback_days": 0,
+      "baseline_detail_limit": 0,
+      "delta_detail_limit": 0,
+      "request_timeout_seconds": 30,
+      "request_max_bytes": 1000000,
+      "request_delay_ms": 0,
+      "canonical_key": "issuer_archive_event_fingerprint",
+      "first_baseline_customer_signal": false,
+      "bootstrap_seed_urls": [],
+      "selection_policy_version": 1,
+      "health_policy": {
+        "freshness_yellow_seconds": 3600,
+        "freshness_red_seconds": 5400,
+        "fetch_yellow_failures": 1,
+        "fetch_red_failures": 3,
+        "parse_window_runs": 10,
+        "parse_min_attempts": 1,
+        "parse_yellow_ratio": 0.9,
+        "parse_red_ratio": 0.7,
+        "parse_probe_interval_seconds": 7200,
+        "parse_sample_source": "BUSINESS_PROCESSING"
+      },
+      "source_policy_version": 1,
+      "egress_profile": "mm-intl-datacenter",
+      "acquisition_policy": {
+        "enabled": true,
+        "primary": {"method": "DIRECT_HTTP", "target_kind": "HTML"},
+        "supplementary": [],
+        "escalation": {
+          "DNS_FAILURE": {"action": "RETRY"},
+          "CONNECT_TIMEOUT": {"action": "RETRY"},
+          "HTTP_429": {"action": "RETRY"},
+          "HTTP_403": {"action": "REVIEW"},
+          "TLS_FAILURE": {"action": "FAIL"},
+          "JS_RENDER_REQUIRED": {"action": "REVIEW_CAPABILITY"},
+          "PARSER_DRIFT": {"action": "REAUDIT"}
+        }
+      },
+      "attachment_policy": {
+        "mode": "HTML_ONLY_NO_ATTACHMENT_REQUIRED",
+        "current_health": "STABLE_HTML_ARCHIVE_SCOPE_DEADLINE_CONTACT_FIELDS",
+        "fetch_in_primary_pipeline": false
+      }
     }
   },
   "deferred_sources": {
@@ -1317,7 +1386,6 @@
     "S04": "Myanmar National Trade Portal Legal Documents — DEFER canonical onboarding; official multi-agency aggregator overlaps issuer-original S05A/S07/S12 and requires cross-source issuer-resolution/dedup contract",
     "S15A": "MPA Tender Category — DEFER automated production scheduling; Mac direct C0 + bounded Manual Provider Bridge LISTING/DETAIL/PDF path are GREEN while Bangkok strict-TLS remains RED (curl 60 / issuer chain incomplete); deterministic PDF classification and explicit operator-only manual canonical commit are authorized/implemented, but acquisition remains manual and mac-mm-01 remote invocation remains disabled; do not bypass TLS or add unattended Mac automation at the current low event rate",
     "S15B": "MPA legacy Tender URL — DEFER under the same Bangkok RED-TLS / Mac GREEN acquisition boundary and S15A onboarding decision",
-    "S16": "YCDC — DEFER; HTML business value is strong but department tender locators are randomized Laravel ciphertext on every request; requires explicit stable discovery-identity vs transport-locator contract before onboarding",
     "S17": "MCDC — DEFER; current issuer-original tender posts are stable but business details are scan-only PDFs (0 extracted text in fresh audit), so onboarding requires a separately approved Burmese image/OCR capability",
     "S18": "NPTDC — DEFER; correct legacy PHP board path is Direct-HTTP reachable when literal parentheses are preserved, but tender specifics are image-based and the mixed 3MB board still requires classifier + image/OCR capability",
     "S19": "MOEP E-Tender — EXCLUDED R0 RED-TLS",

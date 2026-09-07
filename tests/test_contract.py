@@ -25,7 +25,7 @@ class ContractTests(unittest.TestCase):
         )
         self.assertEqual(manifest["verbs"]["signalforge-refresh"]["argument"], "source_id")
         self.assertEqual(manifest["grammar"]["source_id"], "^[A-Z][A-Z0-9]{0,15}$")
-        self.assertEqual(manifest["active_source_ids"], ["S05A", "S07", "S08A", "S10", "S12", "S13", "S20", "S21", "S22", "S25", "S26", "S28", "S29", "S30", "S31", "S32", "S33"])
+        self.assertEqual(manifest["active_source_ids"], ["S05A", "S07", "S08A", "S10", "S12", "S13", "S16", "S20", "S21", "S22", "S25", "S26", "S28", "S29", "S30", "S31", "S32", "S33"])
 
         registry = Registry.load(ROOT)
         with self.assertRaisesRegex(ConfigError, "invalid source id"):
@@ -62,6 +62,18 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(source["availability_policy"]["collection_rto_seconds"], 1800)
         self.assertEqual(source["availability_policy"]["business_data_rpo_target_seconds"], 900)
         self.assertTrue(all(url.startswith("https://mpt.com.mm/en/") for url in source["bootstrap_seed_urls"]))
+
+        ycdc = registry.source("S16")
+        self.assertEqual(ycdc["adapter"], "ycdc_building_tender")
+        self.assertEqual(ycdc["role"], "ACTIVE_SELECTIVE")
+        self.assertEqual(ycdc["item_kind"], "TENDER")
+        self.assertTrue(ycdc["listing_complete_business_records"])
+        self.assertEqual(ycdc["canonical_key"], "issuer_archive_event_fingerprint")
+        self.assertEqual(ycdc["discovery_url"], "https://www.ycdc.gov.mm/frontend_engineering_building_detail/1")
+        self.assertEqual(ycdc["health_policy"]["parse_sample_source"], "BUSINESS_PROCESSING")
+        self.assertEqual(ycdc["acquisition_policy"]["primary"], {"method": "DIRECT_HTTP", "target_kind": "HTML"})
+        self.assertEqual(ycdc["attachment_policy"]["mode"], "HTML_ONLY_NO_ATTACHMENT_REQUIRED")
+        self.assertNotIn("S16", registry.raw["deferred_sources"])
 
         iwt = registry.source("S22")
         self.assertEqual(iwt["adapter"], "iwt")
