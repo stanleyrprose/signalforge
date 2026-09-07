@@ -190,13 +190,25 @@ Expand SignalForge across high-value Myanmar issuer-original sources while prese
 - timer-resume reconciliation was clean; 14/14 automated sources GREEN, backlog 0, Mac provider remains locked (`production_enabled=false`, `remote_invocation=false`, `browser_production_approved=false`);
 - evidence: `docs/verification/S30-MOFA-SOURCE-ONBOARDING-2026-09-06.md`.
 
+### S31 — MOEA Procurement Invitations
+
+- production-enabled on exact application release `f751c8f13ae86740a227ba2cd00518d68cde2edc`; previous application-code rollback target `61d6984bf0efd05dddcac0791bba00cf741f3052`;
+- issuer-original `ACTIVE_SELECTIVE` source uses the MOEA tender archive `https://portal.moea.gov.mm/index.php?page=ORwuBwpT`; one HTML card includes title/date/location/PDF metadata while the issuer CMS comment contains business narrative;
+- listing-complete selective classifier includes procurement invitations while excluding tender awards/results and lease/auction records; official PDFs are never fetched;
+- source-local canonical identity is `moea:<publication_date>:<event_fingerprint>` from publication date + normalized title, with same-identity/different-attachment collision fail-closed behavior;
+- reviewed first baseline was `MANUAL / SUCCESS`, `items=9`, `tenders=9`, `details=0`, `changed=9`, `signals=0`; newest 2026-07-27 event has explicit HTML-comment deadline `2026-08-07`;
+- baseline persistence is canonical/signals `9/0` and request/attempt/evidence/processing `1/1/1/1`; the sole EvidenceEnvelope is the 90,396-byte HTML archive page and PDF evidence is zero;
+- Worker correlation `signalforge-20260907T040008Z-4db411d6` is exactly one SUCCESS Worker Run; Bangkok/Beijing Worker doctors PASS, Beijing remains SignalForge-free and rejects S31 refresh with `126 / Bangkok-only`;
+- timer-resume reconciliation was clean; 15/15 automated sources GREEN, canonical/signals `141/11`, backlog 0, Mac provider remains locked (`production_enabled=false`, `remote_invocation=false`, `browser_production_approved=false`);
+- evidence: `docs/verification/S31-MOEA-SOURCE-ONBOARDING-2026-09-07.md`.
+
 ## Current result
 
-> **S05A + S07 + S08A + S10 + S12 + S13 + S20 + S21 + S22 + S25 + S26 + S28 + S29 + S30 = PRODUCTION / GREEN**
+> **S05A + S07 + S08A + S10 + S12 + S13 + S20 + S21 + S22 + S25 + S26 + S28 + S29 + S30 + S31 = PRODUCTION / GREEN**
 >
 > **S15A MPA = Manual P0 canonical source / operator-driven / no unattended scheduling**
 
-SignalForge has now proven fourteen automated source/domain shapes under the same v1.5 acquisition lifecycle, plus the separate S15A Manual P0 canonical path:
+SignalForge has now proven fifteen automated source/domain shapes under the same v1.5 acquisition lifecycle, plus the separate S15A Manual P0 canonical path:
 
 ```text
 Commerce: one Drupal notice -> zero/one selected REGULATORY_NOTICE + attachment metadata
@@ -213,6 +225,7 @@ DOMS:     one WordPress tender category -> selected opportunity detail HTML -> T
 DOF:      one official tender-card listing -> N complete TENDER records, no detail/attachment fetch
 DWIR:     one lightweight homepage -> selected Joomla detail HTML -> TENDER, embedded image non-blocking
 MOFA:     one mixed Announcement category -> selected WordPress detail HTML -> TENDER + attachment metadata
+MOEA:     one tender archive HTML -> selected invitation records + CMS-comment business fields + PDF metadata
 MPA:      manual LISTING + DETAIL + PDF evidence bundle -> operator-only canonical TENDER/AUCTION_NOTICE
 ```
 
