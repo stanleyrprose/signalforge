@@ -1,8 +1,8 @@
 # S16 YCDC Engineering Department (Building) — Stable Archive Activation
 
 Date (Asia/Yangon): 2026-09-07
-Phase: PRE-PRODUCTION
-Result: IMPLEMENTATION / TEST / ISOLATED LIVE PASS — PRODUCTION GATE PENDING
+Phase: PRODUCTION
+Result: PRODUCTION / GREEN — LIVE VERIFIED 2026-09-07
 
 ## Why S16 is being reopened
 
@@ -245,3 +245,165 @@ S16 may be promoted only after:
 8. Bangkok/Beijing Worker doctors PASS and Beijing remains SignalForge-free / denies S16 refresh;
 9. Mac provider flags remain frozen;
 10. timer resumes and final all-source health is GREEN.
+
+
+## Production closure — 2026-09-07
+
+S16 passed the production gate on exact merged application release:
+
+```text
+794e0190d1d878d92e9a0580a28b93b6c82dada0
+```
+
+Previous application-code rollback target:
+
+```text
+a4d55bf4ad8cf1977b5e874fa9b652d880c2b2a7
+```
+
+### Frozen pre-deploy state
+
+Immediately before rollout, Bangkok was healthy and idle:
+
+```text
+application_release   = a4d55bf4ad8cf1977b5e874fa9b652d880c2b2a7
+automated_sources     = 17 / 17 GREEN
+canonical_items       = 148
+signals               = 11
+scheduler_runs        = 1414
+acquisition_requests  = 1746
+acquisition_attempts  = 1746
+evidence_envelopes    = 1741
+processing_records    = 1743
+failed_runs           = 5
+recovery_backlog      = 0
+timer                 = enabled / active
+run-due               = inactive
+active refresh units  = 0
+```
+
+The timer was disabled and no active `run-due` or refresh unit remained. Deploying `794e019...` changed none of those counters. Immediately after deployment, S16 correctly appeared as `baseline=0 / SOURCE_FRESHNESS_LAG / RED`; all seventeen pre-existing automated sources remained GREEN.
+
+### Reviewed first production baseline
+
+The reviewed control path executed:
+
+```text
+signalforge-refresh S16
+```
+
+and returned:
+
+```text
+source_id             = S16
+trigger_kind          = MANUAL
+baseline              = 1
+status                = SUCCESS
+items_parsed          = 5
+tenders_parsed        = 5
+details_attempted     = 0
+details_succeeded     = 0
+changed               = 5
+signals_created       = 0
+backlog_remaining     = 0
+worker_run_id         = signalforge-20260907T091305Z-669065f6
+```
+
+Production canonical rows are:
+
+```text
+ycdc-building:2026-02-27:350a78fc50e80f42
+ycdc-building:2024-11-27:41b637c17955c917
+ycdc-building:2024-10-24:79210266b25cf7b7
+ycdc-building:2024-09-18:2b48abda67d39612
+ycdc-building:2024-06-21:47833d4849dd7cb1
+```
+
+All `publication_date` values remain `null`. The newest selected PPP/building implementation record was already closed on `2026-02-27`, so first-baseline suppression correctly produced zero customer signals. The newer `2026-08-10` YCDC notice remains excluded because it is a lease/concession opportunity rather than a PPP/building implementation event.
+
+### Production evidence boundary
+
+The baseline added exactly one acquisition lifecycle. The sole S16 EvidenceEnvelope is:
+
+```text
+requested_url = https://www.ycdc.gov.mm/frontend_engineering_building_detail/1
+http_status   = 200
+media_type    = text/html
+artifact_bytes= 60673
+```
+
+Production persistence immediately after baseline:
+
+```text
+S16 canonical_items = 5
+S16 signals         = 0
+requests/attempts/evidence/processing increment = 1/1/1/1
+detail acquisitions = 0
+attachment acquisitions = 0
+SignalForge SQLite quick_check = ok
+```
+
+No randomized ciphertext tender locator, detail page, PDF/JPG, Browser or OCR acquisition was used.
+
+### Worker and host-boundary verification
+
+Worker DB contains exactly one matching operational Run:
+
+```text
+run_id       = signalforge-20260907T091305Z-669065f6
+application  = signalforge
+process_user = signalforge
+status       = SUCCESS
+exit_code    = 0
+```
+
+Additional verification:
+
+```text
+Bangkok workerctl doctor        = PASS
+Beijing workerctl doctor        = PASS
+Beijing /srv/signalforge        = ABSENT
+Beijing signalforge-refresh S16 = 126 / DENY: SignalForge is Bangkok-only
+Worker DB quick_check           = ok
+Mac production_enabled          = false
+Mac remote_invocation           = false
+browser_production_approved     = false
+Mac invocation_mode             = manual_or_future_contract
+canonical_node                  = bangkok
+```
+
+No Browser, OCR, PDF/image pipeline, TLS bypass, schema migration, cross-host transport or new Worker capability was introduced.
+
+### Failed-run audit
+
+The cumulative `failed_runs` count was already `5` before S16 deployment. The fifth entry is a recovered S25 MONPIFER transport failure, not an S16 regression:
+
+```text
+2026-09-07T08:30Z  S25  HTTP 522
+2026-09-07T08:40Z  S25  SUCCESS / changed=0 / signals=0
+```
+
+The prior four historical/recovered failures remain S10, S28 and two S29 events. Recovery backlog is zero and S25 health is GREEN.
+
+### Timer resume and final state
+
+`signalforge-resume` restored the scheduler. No source was due at that exact instant, so no artificial scheduler run was created. Final state after restoration:
+
+```text
+application_release   = 794e0190d1d878d92e9a0580a28b93b6c82dada0
+automated_sources     = 18 / 18 GREEN
+signalforge_health    = GREEN
+canonical_items       = 153
+signals               = 11
+scheduler_runs        = 1415
+acquisition_requests  = 1747
+acquisition_attempts  = 1747
+evidence_envelopes    = 1742
+processing_records    = 1744
+failed_runs           = 5 (all historical/recovered)
+recovery_backlog      = 0
+timer                 = enabled / active
+run-due               = inactive
+```
+
+**Gate result: S16 is PRODUCTION / GREEN.**
