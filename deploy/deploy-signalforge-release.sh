@@ -72,7 +72,7 @@ if [ ! -d "$FINAL" ]; then
   install -d -m 0755 -o root -g root "$STAGE"
   cp -a "$SOURCE"/. "$STAGE"/
   rm -rf "$STAGE/.git" "$STAGE/.ai-bridge" "$STAGE/__pycache__"
-  chmod 0755 "$STAGE/bin/signalforge"
+  chmod 0755 "$STAGE/bin/signalforge" "$STAGE/bin/signalforge-provider-dispatcher"
   python3 -m compileall -q "$STAGE/signalforge"
   chown -R root:root "$STAGE"
   chmod -R go-w "$STAGE"
