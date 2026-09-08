@@ -1080,3 +1080,20 @@ This section supersedes the S27-only current checkpoint above without rewriting 
 - Final SignalForge state: `PASS / GREEN`, canonical items 193, signals 34, recovery backlog 0. S25 recovered naturally to GREEN at parse 9/10 without artificial refreshes.
 
 Evidence: `docs/verification/S39-MINISTRY-OF-ENERGY-SOURCE-ONBOARDING-2026-09-08.md`.
+
+## Authoritative S40 current checkpoint — 2026-09-08
+
+This section supersedes the S39-only current application checkpoint above while preserving historical records.
+
+- SignalForge production remains Bangkok-only; Beijing is outside the production topology and is not a per-source rollout gate.
+- Active application release is `9980584b7deec660d16e5f202ff0056117df88f6`; immediate rollback target is `b8de9b0e2916b8e21f6bf6f7a1df66ce6e5f204b`.
+- S40 Ministry of Labour is a Bangkok Direct HTTP `ACTIVE_SELECTIVE` watcher on `https://www.mol.gov.mm/tender/` page 1 only. No Mac Provider change, Browser, OCR, JSON acquisition or multi-page production discovery was introduced.
+- Current page 1 contains only workflow/result-stage tender posts, so first baseline correctly produced zero business items rather than admitting awards/technical-qualified rows.
+- First baseline Worker `signalforge-20260908T163346Z-05f65b51`, app `b2b3f5ff-4802-441c-9b28-c1efe819d65b`: `SUCCESS / discovered=0 / candidates=0 / changed=0 / signals=0 / backlog=0`.
+- Durable S40 state: canonical 0, signals 0, pending 0, acquisition `DISCOVERY=1`, EvidenceEnvelope 1, processing SUCCESS 1, DB quick check `ok`; no detail or PDF production acquisition occurred because no current opportunity exists.
+- Historical issuer page-2 fixtures prove opportunity-stage selection and required same-origin text-PDF parsing for Smart ID Card Printing (`2026-07-14 16:30`) and medical equipment (`2026-07-13 16:30`, Electric High Speed Drill + Fibroscan); those records are not production backfilled.
+- S40 source health is GREEN: fetch/freshness/recovery GREEN, consecutive failures 0, last error null; parse is honestly `UNKNOWN / PARSE_SAMPLE_INSUFFICIENT` until a real current opportunity supplies a production detail sample.
+- Bangkok timer is enabled/active. Timer Worker `signalforge-20260908T163503Z-f6e89982` completed `run-due` SUCCESS on the new release; S40 correctly returned NOT_DUE until `2026-09-08T17:03:46.458201Z`.
+- Overall SignalForge remains `PASS / GREEN`, canonical items 193, signals 34, recovery backlog 0.
+
+Evidence: `docs/verification/S40-MINISTRY-OF-LABOUR-SOURCE-ONBOARDING-2026-09-08.md`.
