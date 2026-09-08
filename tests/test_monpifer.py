@@ -51,6 +51,26 @@ class MonpiferParserTests(unittest.TestCase):
         self.assertIsNone(first.tender_department)
         self.assertEqual(items[1].tender_department, "စီမံကိန်းစိစစ်ရေးနှင့် တိုးတက်မှုအစီရင်ခံရေးဦးစီးဌာန")
 
+    def test_drupal_index_php_links_preserve_article_identity_and_attachment_metadata(self) -> None:
+        html = (FIXTURES / "monpifer_tenders.html").read_bytes()
+        html = html.replace(
+            b'href="/sites/default/files/tender_pdf/',
+            b'href="/index.php/sites/default/files/tender_pdf/',
+        ).replace(
+            b'href="/my/ministry-article/',
+            b'href="/index.php/my/ministry-article/',
+        )
+        items = parse_tender_records(html)
+        self.assertEqual(len(items), 2)
+        first = items[0]
+        self.assertEqual(first.source_record_id, "current-tender-2")
+        self.assertEqual(first.canonical_key, "monpifer:current-tender-2")
+        self.assertEqual(first.url, "https://www.monpifer.gov.mm/my/ministry-article/current-tender-2")
+        self.assertEqual(
+            first.attachment_url,
+            "https://www.monpifer.gov.mm/index.php/sites/default/files/tender_pdf/2026/07/Tender_0.pdf",
+        )
+
     def test_parser_fails_closed_when_table_shape_has_no_open_tender(self) -> None:
         with self.assertRaises(MonpiferParseError):
             parse_tender_records(b"<table><tr><td>07/14/2026 - 16:00</td><td>News</td></tr></table>")
