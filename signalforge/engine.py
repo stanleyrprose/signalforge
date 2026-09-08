@@ -712,8 +712,11 @@ def run_source(
                         attachment_captures.append(attachment_capture)
                         attachment_payloads.append((attachment_url, attachment_capture.payload))
                 except Exception:
-                    detail_errors += 1
-                    continue
+                    if required_count > 0:
+                        detail_errors += 1
+                        continue
+                    attachment_captures.clear()
+                    attachment_payloads.clear()
                 if len(attachment_captures) == 1:
                     processing_capture = attachment_captures[0]
                     evidence_digest = processing_capture.sha256

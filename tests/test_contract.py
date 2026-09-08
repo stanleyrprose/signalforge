@@ -249,6 +249,18 @@ class ContractTests(unittest.TestCase):
         self.assertFalse(monpifer["attachment_policy"]["fetch_in_primary_pipeline"])
         self.assertNotIn("S25", registry.raw["deferred_sources"])
 
+        mofa = registry.source("S30")
+        self.assertEqual(mofa["adapter"], "mofa_tender")
+        self.assertEqual(mofa["engine"], "direct_http")
+        self.assertEqual(mofa["attachment_policy"]["mode"], "OPTIONAL_SINGLE_TEXT_PDF_ENRICHMENT")
+        self.assertTrue(mofa["attachment_policy"]["fetch_in_primary_pipeline"])
+        self.assertEqual(mofa["attachment_policy"]["required_primary_attachments"], 0)
+        self.assertEqual(mofa["attachment_policy"]["max_primary_attachments"], 1)
+        self.assertEqual(
+            mofa["acquisition_policy"]["supplementary"],
+            [{"method": "DIRECT_HTTP", "target_kind": "PDF", "required": False, "max_count": 1, "same_origin_only": True}],
+        )
+
         doms = registry.source("S26")
         self.assertEqual(doms["adapter"], "doms_tender")
         self.assertEqual(doms["role"], "ACTIVE_SELECTIVE")

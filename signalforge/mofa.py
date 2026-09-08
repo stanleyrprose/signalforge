@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import io
 import re
 from dataclasses import dataclass
+from datetime import datetime
 from html.parser import HTMLParser
 from urllib.parse import quote, unquote, urljoin, urlparse, urlsplit, urlunsplit
+
+from pypdf import PdfReader
 
 from .mpt import SitemapEntry, normalize_text
 
@@ -12,6 +16,9 @@ MOFA_LIST_URL = f"{MOFA_BASE_URL}/category/announcement/"
 MOFA_ISSUER = "Ministry of Foreign Affairs, Myanmar"
 MOFA_HOSTS = {"mofa.gov.mm", "www.mofa.gov.mm"}
 SELECTION_POLICY_VERSION = 1
+_MYANMAR_DIGITS = str.maketrans("၀၁၂၃၄၅၆၇၈၉", "0123456789")
+_DATE_RE = re.compile(r"(?P<day>\d{1,2})\s*-\s*(?P<month>\d{1,2})\s*-\s*(?P<year>20\d{2})")
+_TIME_RE = re.compile(r"(?<!\d)(?P<hour>\d{1,2})\D{0,8}(?P<minute>\d{2})(?!\d)")
 
 _OPEN_TENDER_TOKENS = (
     "အိတ်ဖွင့်တင်ဒါခေါ်ယူခြင်း",
@@ -176,9 +183,10 @@ class MofaTender:
     attachment_name: str | None
     attachment_url: str | None
     url: str
+    deadline: str | None = None
+    deadline_time: str | None = None
 
     item_kind = "TENDER"
-    deadline = None
     location = None
 
     @property
@@ -198,6 +206,7 @@ class MofaTender:
         return f"mofa:{self.source_record_id}"
 
     def payload(self) -> dict[str, object]:
+        enriched = self.deadline is not None
         return {
             "item_kind": self.item_kind,
             "issuer": MOFA_ISSUER,
@@ -206,15 +215,20 @@ class MofaTender:
             "reference_no_kind": self.reference_no_kind,
             "source_record_id": self.source_record_id,
             "publication_date": self.publication_date,
-            "deadline": None,
-            "deadline_evidence": "UNKNOWN_NOT_IN_HTML_TEXT",
+            "deadline": self.deadline,
+            "deadline_time": self.deadline_time,
+            "deadline_evidence": (
+                "OFFICIAL_TEXT_NATIVE_PDF_CLOSE_DATE_TIME" if enriched else "UNKNOWN_NOT_IN_HTML_TEXT"
+            ),
             "scope_summary": self.scope_summary,
             "attachment_name": self.attachment_name,
             "attachment_url": self.attachment_url,
-            "attachment_policy": "METADATA_ONLY_NON_BLOCKING",
+            "attachment_policy": "OPTIONAL_TEXT_PDF_ENRICHMENT" if enriched else "METADATA_ONLY_NON_BLOCKING",
             "selection_policy_version": SELECTION_POLICY_VERSION,
             "business_stage": "OPPORTUNITY",
-            "detail_completeness": "HTML_EVENT_METADATA_ATTACHMENT_ONLY",
+            "detail_completeness": (
+                "HTML_EVENT_PLUS_TEXT_PDF_SCOPE_DEADLINE" if enriched else "HTML_EVENT_METADATA_ATTACHMENT_ONLY"
+            ),
             "url": self.url,
         }
 
@@ -323,3 +337,91 @@ def parse_tender_detail(html_bytes: bytes, page_url: str) -> MofaTender | None:
         attachment_url=parser.attachment_url,
         url=canonical_url,
     )
+
+
+def extract_tender_pdf_urls(html_bytes: bytes, page_url: str) -> list[str]:
+    tender = parse_tender_detail(html_bytes, page_url)
+    if tender is None or not tender.attachment_url or not tender.attachment_url.lower().endswith(".pdf"):
+        return []
+    return [tender.attachment_url]
+
+
+def _pdf_deadline(text: str) -> tuple[str | None, str | None]:
+    translated = text.translate(_MYANMAR_DIGITS)
+    candidates: list[datetime] = []
+    for date_match in _DATE_RE.finditer(translated):
+        tail = translated[date_match.end(): date_match.end() + 60]
+        time_match = _TIME_RE.search(tail)
+        if time_match is None:
+            continue
+        try:
+            candidate = datetime(
+                int(date_match.group("year")),
+                int(date_match.group("month")),
+                int(date_match.group("day")),
+                int(time_match.group("hour")),
+                int(time_match.group("minute")),
+            )
+        except ValueError:
+            continue
+        candidates.append(candidate)
+    if not candidates:
+        return None, None
+    deadline = max(candidates)
+    return deadline.date().isoformat(), deadline.strftime("%H:%M")
+
+
+def _pdf_scope_summary(base_scope: str | None, text: str) -> str | None:
+    parts: list[str] = []
+    if base_scope:
+        parts.append(base_scope)
+    for raw in text.translate(_MYANMAR_DIGITS).splitlines():
+        value = normalize_text(raw)
+        if not value or not re.search(r"[A-Za-z]", value):
+            continue
+        lower = value.lower()
+        if "http://" in lower or "https://" in lower or "website" in lower:
+            continue
+        parts.append(value)
+    summary = " | ".join(dict.fromkeys(parts))
+    return summary[:2400] if summary else None
+
+
+def parse_tender_detail_with_attachments(
+    html_bytes: bytes,
+    page_url: str,
+    attachments: list[tuple[str, bytes]],
+) -> list[object]:
+    base = parse_tender_detail(html_bytes, page_url)
+    if base is None:
+        return []
+    if not attachments:
+        return [base]
+    if len(attachments) != 1 or base.attachment_url is None:
+        raise MofaParseError("MOFA optional attachment set is invalid")
+    attachment_url, pdf_bytes = attachments[0]
+    if attachment_url != base.attachment_url:
+        raise MofaParseError("MOFA attachment URL mismatch")
+    try:
+        reader = PdfReader(io.BytesIO(pdf_bytes))
+        text = "\n".join((page.extract_text() or "") for page in reader.pages)
+    except Exception:
+        return [base]
+    if not normalize_text(text):
+        return [base]
+    deadline, deadline_time = _pdf_deadline(text)
+    if deadline is None:
+        return [base]
+    return [
+        MofaTender(
+            source_record_id=base.source_record_id,
+            title=base.title,
+            publication_date=base.publication_date,
+            scope_summary=_pdf_scope_summary(base.scope_summary, text),
+            attachment_name=base.attachment_name,
+            attachment_url=base.attachment_url,
+            url=base.url,
+            deadline=deadline,
+            deadline_time=deadline_time,
+        )
+    ]
