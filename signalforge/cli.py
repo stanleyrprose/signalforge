@@ -13,6 +13,7 @@ from .engine import run_due, run_source
 from .mpa import build_manual_bundle_preview, parse_listing_records, parse_pdf_business_fields, preview_summary
 from .mpa_manual import commit_manual_provider_bundle
 from .provider_bridge import build_provider_request, import_provider_result, load_imported_provider_artifact, write_provider_request
+from .provider_r3 import prepare_r3_gate, r3_gate_status
 
 
 def _parse_iso(value: str | None) -> datetime | None:
@@ -231,6 +232,12 @@ def main(argv: list[str] | None = None) -> int:
     provider_import_parser.add_argument("--artifact")
     provider_import_parser.add_argument("--database")
     provider_import_parser.add_argument("--evidence-root")
+    provider_r3_prepare_parser = sub.add_parser("provider-r3-prepare")
+    provider_r3_prepare_parser.add_argument("--database")
+    provider_r3_prepare_parser.add_argument("--contract")
+    provider_r3_status_parser = sub.add_parser("provider-r3-status")
+    provider_r3_status_parser.add_argument("gate_id")
+    provider_r3_status_parser.add_argument("--database")
     mpa_preview_parser = sub.add_parser("mpa-preview")
     mpa_preview_parser.add_argument("--html", required=True)
     mpa_preview_parser.add_argument("--limit", type=int, default=30)
@@ -280,6 +287,16 @@ def main(argv: list[str] | None = None) -> int:
                 artifact_path=Path(args.artifact).expanduser() if args.artifact else None,
                 database=Path(args.database).expanduser() if args.database else None,
                 evidence_directory=Path(args.evidence_root).expanduser() if args.evidence_root else None,
+            )
+        elif args.cmd == "provider-r3-prepare":
+            result = prepare_r3_gate(
+                database=Path(args.database).expanduser() if args.database else None,
+                contract_path=Path(args.contract).expanduser() if args.contract else None,
+            )
+        elif args.cmd == "provider-r3-status":
+            result = r3_gate_status(
+                args.gate_id,
+                database=Path(args.database).expanduser() if args.database else None,
             )
         elif args.cmd == "mpa-preview":
             if args.limit < 0:
