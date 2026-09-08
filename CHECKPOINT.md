@@ -996,3 +996,74 @@ S20, S22, S05A, S07, S08A, S12, S25, S26 and S28 triggered none of these capabil
 9. periodically recheck whether MOEP advertised PDFs become retrievable; only then consider a supplementary PDF parser gate;
 10. keep Direct HTTP first; if a source truly requires Browser, route the requirement only to Mac Browser Plane and block unattended production until a separate Provider Invocation Contract is live-verified;
 11. run the next cross-repo consistency review by 2026-12-03 or an earlier contract-change trigger.
+
+## PIC v1 R3 pre-credential checkpoint — 2026-09-08
+
+This section supersedes the older remote-provider deferral language above for implementation status while preserving the production-disable boundary.
+
+### Merged software baseline
+
+- SignalForge PIC R0/R1/R1B/R1C/R1D plus the isolated R3 evidence-only harness are merged to `main` through `443e0f456a2320468527ac48160b6f69f8e24814`.
+- Mac Browser Plane Provider Agent R2 plus portable cross-host evidence packaging are merged to `main` through `ae199e78f58b8f029feb0eb2f7b8837c7bebafd9`.
+- SignalForge full local suite after R3 harness: `191 passed`.
+- Mac Browser Plane full local suite after portable-evidence fix: `47 passed`.
+- Mac merged runtime was reinstalled into `/Users/xu/agent-browser-runtime/app/venv`; `browserctl doctor` returned `READY`, and `mac-browser-provider-agent --help` verified the installed Provider Agent entrypoint.
+
+Production authority is still unchanged:
+
+```text
+browser_production_approved=false
+mac-mm-01 production_enabled=false
+mac-mm-01 remote_invocation=false
+S38 absent from production Source Registry
+```
+
+The R3-only contract is `registry/Provider-Invocation-Contract-v1-r3-evidence-only.json`; it remains top-level `enabled=false`, authorizes only verification source `S38`, pins the exact Industry announcements URL, and has no scheduler/canonical/signal path.
+
+### Mac local live smoke on real R3 target
+
+Target:
+
+```text
+https://www.industrymsme.gov.mm/announcements
+```
+
+Merged release runtime live results:
+
+- C0 `browser_fetch`: PASS, HTTP 200, `88628` bytes, job `659403e1-8e69-4599-9b9d-3e29d622e47e`;
+- C1 `browser_render`: PASS, HTTP 200, engine `c1-playwright`, job `941ce1ac-bffc-49fe-b059-b98e2c29122a`;
+- C2 `browser_inspect`: PASS, HTTP 200, engine `c2-readonly-inspect`, accessibility tree `810` nodes, job `dfa7d271-13de-4fa3-a28f-decbfb6ac3fb`;
+- C3 `browser_use`: PASS, HTTP 200, engine `c3-browser-use`, deterministic one-step `snapshot`, ARIA evidence produced, `partial_effect_possible=false`, job `57bef256-c9e6-4c1e-92dc-c5c90afd4096`.
+
+The current page exposed issuer-native tender links including `/announcements/1040` dated `08-Sep-2026`, proving the target is live and commercially relevant rather than a synthetic smoke fixture.
+
+### Bangkok pre-R3 observation
+
+Existing `vps-control-plane` GitHub Actions restricted channel successfully executed `signalforge-status` on Bangkok in workflow run `34212839666`.
+
+Observed boundary/state:
+
+- `browser_production_approved=false` remained frozen;
+- recovery backlog `0`;
+- canonical/signals `174/13`;
+- the control-plane SSH/forced-command channel itself is healthy;
+- overall SignalForge health was `RED` because pre-existing source `S25` had 13 consecutive `MonpiferParseError: no recognized MONPIFER tender rows` failures. This S25 issue predates and is unrelated to PIC/C3 work and must not be silently folded into the PIC scope.
+
+No R3 ProviderRequests were enqueued on the Bangkok production DB in this checkpoint.
+
+### Deployment / credential boundary
+
+The merged R3 software has **not** been deployed to Bangkok by this execution. CodexPro's controlled shell cannot reuse the operator's normal Mac admin SSH identity (`root@43.133.101.242` returned public-key authentication failure), and SignalForge has no existing GitHub Actions application-deploy verb or pre-registered Worker deploy job. The existing `deploy` verb in `vps-control-plane` deploys the VPS agent release, not SignalForge.
+
+Do not solve this by broadening the privileged dispatcher or copying an administrative private key into the automation context.
+
+The next real R3 step remains a Hard Stop requiring explicit credential/permission authorization:
+
+1. deploy exact merged SignalForge SHA `443e0f456a2320468527ac48160b6f69f8e24814` to Bangkok through an already-authorized admin deployment channel, keeping all provider production flags false;
+2. create/use a dedicated non-root Bangkok provider SSH identity;
+3. create a new dedicated Mac -> Bangkok provider key rather than reusing the administrative/root key;
+4. bind that key to `/srv/signalforge/active/bin/signalforge-provider-dispatcher` with forced-command restrictions and no PTY/forwarding/user-rc;
+5. start the Mac Provider Agent first, then issue `signalforge provider-r3-prepare` on Bangkok and verify all four C0/C1/C2/C3 requests with `provider-r3-status <gate_id>` within the 180-second request TTL;
+6. require zero S38 scheduler runs, canonical items and signals before R3 can be marked PASS.
+
+R4 production enablement remains forbidden until this real BKK-origin R3 gate passes.
