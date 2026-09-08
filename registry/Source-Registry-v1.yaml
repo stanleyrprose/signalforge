@@ -2084,6 +2084,112 @@
         "current_health": "HTML_SCOPE_AND_DEADLINE_NO_ATTACHMENT",
         "fetch_in_primary_pipeline": false
       }
+    },
+    "S27": {
+      "name": "Ministry of Border Affairs Tender Opportunities",
+      "adapter": "moba_tender",
+      "enabled": true,
+      "role": "ACTIVE_SELECTIVE",
+      "audit_status": "GREEN_MAC_PROVIDER_C0_HTML_SCOPE_DEADLINE_BKK_STRICT_TLS_RED",
+      "item_kind": "TENDER",
+      "network_zone": "mac-direct",
+      "engine": "provider",
+      "provider_id": "mac-mm-01",
+      "provider_capability": "C0_FETCH",
+      "provider_target_roles": {
+        "DISCOVERY": "LISTING",
+        "HTML": "DETAIL"
+      },
+      "landing_url": "https://moba.gov.mm/my/tender",
+      "discovery_url": "https://moba.gov.mm/my/tender",
+      "discovery_is_tender_only": true,
+      "language": "my",
+      "poll_interval_seconds": 1800,
+      "retry_interval_seconds": 300,
+      "priority": 85,
+      "recovery_slo_seconds": 3600,
+      "availability_policy": {
+        "class": "DELAY_TOLERANT_MONITORED",
+        "accepted_collection_outage_seconds": 7200,
+        "collection_rto_seconds": 3600,
+        "business_data_rpo_target_seconds": 1800,
+        "outage_status": "DATA_COLLECTION_DELAYED",
+        "delivery_during_recovery": "CONTINUE_WITH_DEGRADED_HEALTH"
+      },
+      "baseline_lookback_days": 180,
+      "baseline_detail_limit": 20,
+      "delta_detail_limit": 6,
+      "request_timeout_seconds": 90,
+      "request_max_bytes": 1000000,
+      "request_delay_ms": 100,
+      "canonical_key": "issuer_drupal_tender_node_id",
+      "first_baseline_customer_signal": false,
+      "bootstrap_seed_urls": [],
+      "selection_policy_version": 1,
+      "health_policy": {
+        "freshness_yellow_seconds": 3600,
+        "freshness_red_seconds": 5400,
+        "fetch_yellow_failures": 1,
+        "fetch_red_failures": 3,
+        "parse_window_runs": 10,
+        "parse_min_attempts": 2,
+        "parse_yellow_ratio": 0.9,
+        "parse_red_ratio": 0.7,
+        "parse_probe_interval_seconds": 7200,
+        "parse_sample_source": "BUSINESS_PROCESSING"
+      },
+      "source_policy_version": 1,
+      "egress_profile": "mac-direct",
+      "acquisition_policy": {
+        "enabled": true,
+        "primary": {
+          "method": "MAC_BROWSER_PROVIDER",
+          "provider_id": "mac-mm-01",
+          "capability": "C0_FETCH",
+          "target_kind": "HTML"
+        },
+        "supplementary": [],
+        "escalation": {
+          "PROVIDER_TIMEOUT": {
+            "action": "RETRY"
+          },
+          "PROVIDER_REQUEST_EXPIRED": {
+            "action": "RETRY"
+          },
+          "PROVIDER_POLICY_REJECTED": {
+            "action": "FAIL"
+          },
+          "PROVIDER_CONTRACT_MISMATCH": {
+            "action": "FAIL"
+          },
+          "PROVIDER_LEASE_CONFLICT": {
+            "action": "RETRY"
+          },
+          "PROVIDER_RESULT_INVALID": {
+            "action": "FAIL"
+          },
+          "PROVIDER_ARTIFACT_HASH_MISMATCH": {
+            "action": "FAIL"
+          },
+          "PROVIDER_IDEMPOTENCY_CONFLICT": {
+            "action": "FAIL"
+          },
+          "TLS_FAILURE": {
+            "action": "FAIL"
+          },
+          "JS_RENDER_REQUIRED": {
+            "action": "REVIEW_CAPABILITY"
+          },
+          "PARSER_DRIFT": {
+            "action": "REAUDIT"
+          }
+        }
+      },
+      "attachment_policy": {
+        "mode": "METADATA_ONLY_NON_BLOCKING",
+        "current_health": "HTML_TITLE_SCOPE_AND_DEADLINE_PDF_METADATA_ONLY",
+        "fetch_in_primary_pipeline": false
+      }
     }
   },
   "deferred_sources": {
@@ -2095,7 +2201,6 @@
     "S18": "NPTDC — DEFER; correct legacy PHP board path is Direct-HTTP reachable when literal parentheses are preserved, but tender specifics are image-based and the mixed 3MB board still requires classifier + image/OCR capability",
     "S19": "MOEP E-Tender — EXCLUDED R0 RED-TLS",
     "S23": "Ministry of Construction — EXCLUDED until compliant TLS/endpoint repaired",
-    "S24": "National Portal / highways fallback — fallback only",
-    "S27": "Ministry of Border Affairs Tenders — DEFER; Mac direct C0 is GREEN and pagination is deterministic ?page=N, but 2026-09-04 Bangkok strict-TLS is RED (curl 60 / issuer chain incomplete); do not bypass TLS or activate SignalForge→Mac remote invocation merely to onboard this source"
+    "S24": "National Portal / highways fallback — fallback only"
   }
 }

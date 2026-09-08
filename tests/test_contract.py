@@ -25,7 +25,7 @@ class ContractTests(unittest.TestCase):
         )
         self.assertEqual(manifest["verbs"]["signalforge-refresh"]["argument"], "source_id")
         self.assertEqual(manifest["grammar"]["source_id"], "^[A-Z][A-Z0-9]{0,15}$")
-        self.assertEqual(manifest["active_source_ids"], ["S05A", "S07", "S08A", "S10", "S12", "S13", "S16", "S20", "S21", "S22", "S25", "S26", "S28", "S29", "S30", "S31", "S32", "S33", "S34", "S35", "S36", "S37", "S38"])
+        self.assertEqual(manifest["active_source_ids"], ["S05A", "S07", "S08A", "S10", "S12", "S13", "S16", "S20", "S21", "S22", "S25", "S26", "S28", "S29", "S30", "S31", "S32", "S33", "S34", "S35", "S36", "S37", "S27", "S38"])
 
         registry = Registry.load(ROOT)
         with self.assertRaisesRegex(ConfigError, "invalid source id"):
@@ -83,10 +83,37 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(industry["egress_profile"], "mac-direct")
         self.assertEqual(industry["health_policy"]["parse_sample_source"], "BUSINESS_PROCESSING")
         self.assertFalse(industry["first_baseline_customer_signal"])
+        moba = registry.source("S27")
+        self.assertEqual(moba["adapter"], "moba_tender")
+        self.assertEqual(moba["engine"], "provider")
+        self.assertEqual(moba["provider_id"], "mac-mm-01")
+        self.assertEqual(moba["provider_capability"], "C0_FETCH")
+        self.assertEqual(moba["provider_target_roles"], {"DISCOVERY": "LISTING", "HTML": "DETAIL"})
+        self.assertEqual(moba["discovery_url"], "https://moba.gov.mm/my/tender")
+        self.assertEqual(moba["canonical_key"], "issuer_drupal_tender_node_id")
+        self.assertEqual(moba["health_policy"]["parse_sample_source"], "BUSINESS_PROCESSING")
+        self.assertEqual(moba["attachment_policy"]["mode"], "METADATA_ONLY_NON_BLOCKING")
+        self.assertFalse(moba["attachment_policy"]["fetch_in_primary_pipeline"])
+        self.assertNotIn("S27", registry.raw["deferred_sources"])
+
         enabled = registry.enabled_sources()
-        self.assertEqual(enabled[-1][0], "S38")
-        self.assertTrue(all(source["engine"] == "direct_http" for _sid, source in enabled[:-1]))
+        self.assertEqual([sid for sid, _source in enabled[-2:]], ["S27", "S38"])
+        self.assertTrue(all(source["engine"] == "direct_http" for _sid, source in enabled[:-2]))
+        self.assertTrue(all(source["engine"] == "provider" for _sid, source in enabled[-2:]))
         self.assertFalse(moi["attachment_policy"]["fetch_in_primary_pipeline"])
+
+        provider_contract = json.loads((ROOT / "registry" / "Provider-Invocation-Contract-v1.json").read_text())
+        self.assertEqual(provider_contract["source_policies"]["S27"]["allowed_capabilities"], ["C0_FETCH"])
+        self.assertEqual(
+            provider_contract["source_policies"]["S27"]["targets"]["LISTING"]["exact_urls"],
+            ["https://moba.gov.mm/my/tender"],
+        )
+        detail_policy = provider_contract["source_policies"]["S27"]["targets"]["DETAIL"]
+        self.assertEqual(detail_policy["https_host"], "moba.gov.mm")
+        self.assertEqual(detail_policy["path_prefix"], "/my/tender/")
+        self.assertEqual(detail_policy["capabilities"], ["C0_FETCH"])
+        self.assertFalse(detail_policy["allow_query"])
+        self.assertFalse(detail_policy["allow_fragment"])
 
         doa = registry.source("S36")
         self.assertEqual(doa["adapter"], "doa_tender")
@@ -172,11 +199,6 @@ class ContractTests(unittest.TestCase):
         self.assertIn("S04", registry.raw["deferred_sources"])
         self.assertIn("S15A", registry.raw["deferred_sources"])
         self.assertIn("S15B", registry.raw["deferred_sources"])
-        self.assertIn("S27", registry.raw["deferred_sources"])
-        self.assertIn("Bangkok strict-TLS is RED", registry.raw["deferred_sources"]["S27"])
-        self.assertNotIn("S27", registry.raw["sources"])
-        with self.assertRaisesRegex(ConfigError, "source is not active"):
-            registry.source("S27")
 
         dica = registry.source("S10")
         self.assertEqual(dica["adapter"], "dica_notice")

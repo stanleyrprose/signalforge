@@ -142,7 +142,7 @@ class Registry:
                 if roles != {"DISCOVERY": "LISTING", "HTML": "DETAIL"}:
                     raise ConfigError(f"Provider source target-role projection invalid: {source_id}")
                 if source.get("provider_capability") != "C0_FETCH":
-                    raise ConfigError(f"First provider-backed source must use C0_FETCH: {source_id}")
+                    raise ConfigError(f"Provider source must use C0_FETCH under the current production contract: {source_id}")
                 provider.append((source_id, source))
                 continue
             raise ConfigError(f"unsupported active source engine: {source_id}")
