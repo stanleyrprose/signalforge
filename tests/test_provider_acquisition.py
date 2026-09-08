@@ -59,6 +59,7 @@ class ProviderAcquisitionTests(unittest.TestCase):
                     now=NOW + timedelta(seconds=2),
                 )
 
+            stale_scheduler_observed_at = (NOW - timedelta(minutes=10)).isoformat().replace("+00:00", "Z")
             capture = acquire_provider_bytes(
                 database=database,
                 scheduler_run_id="11111111-1111-4111-8111-111111111111",
@@ -72,9 +73,10 @@ class ProviderAcquisitionTests(unittest.TestCase):
                 timeout_seconds=30,
                 max_bytes=1_000_000,
                 expected_content_types=["text/html"],
-                observed_at=NOW.isoformat().replace("+00:00", "Z"),
+                observed_at=stale_scheduler_observed_at,
                 poll_interval_seconds=0.05,
                 sleeper=service_once,
+                request_now=NOW,
             )
             self.assertEqual(capture.payload, artifact)
             with connect(database) as conn:
@@ -90,6 +92,10 @@ class ProviderAcquisitionTests(unittest.TestCase):
             self.assertEqual(evidence["fetch_method"], "PROVIDER_C0_FETCH")
             self.assertEqual(evidence["final_url"], URL)
             self.assertEqual(evidence["artifact_sha256"], hashlib.sha256(artifact).hexdigest())
+            with connect(database) as conn:
+                provider = conn.execute("SELECT created_at,request_json FROM provider_requests WHERE source_id=?", ("S38",)).fetchone()
+            self.assertEqual(provider["created_at"], NOW.isoformat().replace("+00:00", "Z"))
+            self.assertIn(NOW.isoformat().replace("+00:00", "Z"), provider["request_json"])
 
 
 if __name__ == "__main__":
