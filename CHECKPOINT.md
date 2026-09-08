@@ -1064,3 +1064,19 @@ This section supersedes the older pre-R4 state above without rewriting historica
 - S27 rollout exposed a deploy root-mode bug when a 0700 `mktemp -d` source was copied with `cp -a`. Rollback preserved the old active release and timer OFF. Candidate root was normalized to 0755, exact-SHA deploy then succeeded, and the deploy script is hardened to normalize `$STAGE` after copy.
 
 Evidence: `docs/verification/S27-MOBA-PROVIDER-SOURCE-ONBOARDING-2026-09-08.md`.
+
+## Authoritative S39 / current topology checkpoint — 2026-09-08
+
+This section supersedes the S27-only current checkpoint above without rewriting historical verification records.
+
+- SignalForge production topology is **Bangkok-only**. Beijing has no SignalForge production role and is no longer a per-source onboarding/rollout gate; historical Beijing zero-footprint checks remain historical evidence only.
+- S39 Ministry of Energy is production-enabled on exact application release `b8de9b0e2916b8e21f6bf6f7a1df66ce6e5f204b` and uses Bangkok Direct HTTP only; Mac Browser Provider configuration was not changed.
+- S39 source shape: listing HTML -> numeric detail HTML -> exactly one required same-origin text-native official PDF; parser performs no network I/O.
+- First baseline Worker `signalforge-20260908T154731Z-b8e83d7f`, app `e9ca4a06-d058-44fb-a5b4-c1d5e84fa54f`: `SUCCESS / discovered=4 / details=4/4 / changed=4 / signals=0 / backlog=0`.
+- Durable S39 state: canonical 4, signals 0, pending 0, acquisition targets `DISCOVERY=1 / HTML=4 / PDF=4`, EvidenceEnvelope 9, detail business processing 4/4 SUCCESS, PDF Evidence hashes match all canonical evidence hashes, DB quick check `ok`.
+- S39 health: GREEN; fetch GREEN, freshness GREEN, parse 4/4, consecutive failures 0, last error null.
+- Deployment hardening was live re-verified: a 0700 `mktemp -d` rollout source produced a final 0755 release root and deployed successfully.
+- Bangkok timer is enabled/active. Timer-triggered Worker `signalforge-20260908T155715Z-fce090b1` completed `run-due` SUCCESS; S39 correctly remained NOT_DUE until `2026-09-08T16:17:31.274994Z` rather than being artificially forced.
+- Final SignalForge state: `PASS / GREEN`, canonical items 193, signals 34, recovery backlog 0. S25 recovered naturally to GREEN at parse 9/10 without artificial refreshes.
+
+Evidence: `docs/verification/S39-MINISTRY-OF-ENERGY-SOURCE-ONBOARDING-2026-09-08.md`.
