@@ -214,6 +214,7 @@ def acquire_provider_bytes(
     capability: str = ProviderCapability.C0_FETCH.value,
     poll_interval_seconds: float = 0.5,
     sleeper: Callable[[float], None] = time.sleep,
+    request_now: datetime | None = None,
 ) -> AcquisitionCapture:
     if reason not in REQUEST_REASONS:
         raise ValueError(f"unsupported acquisition reason: {reason}")
@@ -228,7 +229,7 @@ def acquire_provider_bytes(
     request_id = str(uuid.uuid4())
     attempt_id = str(uuid.uuid4())
     app_job_ref = _app_job_ref(source_id, url)
-    requested_time = datetime.fromisoformat(observed_at.replace("Z", "+00:00")).astimezone(UTC)
+    requested_time = (request_now or datetime.now(UTC)).astimezone(UTC)
     ttl_seconds = min(int(contract["limits"]["max_request_ttl_seconds"]), max(timeout_seconds + 30, 60))
 
     with connect(database) as conn, conn:
