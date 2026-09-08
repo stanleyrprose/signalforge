@@ -3,7 +3,7 @@
   "contract_name": "provider-invocation-v1",
   "provider_id": "mac-mm-01",
   "transport": "pull_ssh_v1",
-  "enabled": false,
+  "enabled": true,
   "allowed_capabilities": [
     "C0_FETCH",
     "C1_RENDER",
@@ -29,5 +29,41 @@
     "off_host_redirect_allowed": false,
     "personal_chrome_profile_allowed": false
   },
-  "source_policies": {}
+  "source_policies": {
+    "S38": {
+      "enabled": true,
+      "source_policy_version": 1,
+      "allowed_capabilities": [
+        "C0_FETCH"
+      ],
+      "targets": {
+        "LISTING": {
+          "exact_urls": [
+            "https://www.industrymsme.gov.mm/announcements"
+          ],
+          "capabilities": [
+            "C0_FETCH"
+          ],
+          "max_bytes": 1000000,
+          "max_run_seconds": 90
+        },
+        "DETAIL": {
+          "https_host": "www.industrymsme.gov.mm",
+          "path_prefix": "/announcements/",
+          "capabilities": [
+            "C0_FETCH"
+          ],
+          "max_bytes": 1000000,
+          "max_run_seconds": 90,
+          "allow_query": false,
+          "allow_fragment": false,
+          "final_url_policy": {
+            "mode": "APPROVED_HOST_PATH",
+            "https_host": "www.industrymsme.gov.mm",
+            "path_prefix": "/announcements/"
+          }
+        }
+      }
+    }
+  }
 }

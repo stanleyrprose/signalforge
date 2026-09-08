@@ -76,17 +76,6 @@ def load_r3_contract(path: Path | None = None) -> dict[str, Any]:
         raise ProviderR3Error("R3 target URL must remain pinned to Ministry of Industry announcements")
     if set(target_policy.get("capabilities") or []) != set(R3_CAPABILITIES):
         raise ProviderR3Error("R3 LISTING target must allow exactly C0+C1+C2+C3")
-    registry = Registry.load()
-    production_sources = registry.raw.get("sources")
-    if isinstance(production_sources, dict) and R3_SOURCE_ID in production_sources:
-        raise ProviderR3Error("R3 S38 must not exist in the production Source Registry")
-    production_provider = (registry.raw.get("providers") or {}).get("mac-mm-01") or {}
-    if (
-        registry.raw["production_policy"].get("browser_production_approved") is not False
-        or production_provider.get("production_enabled") is not False
-        or (production_provider.get("capabilities") or {}).get("remote_invocation") is not False
-    ):
-        raise ProviderR3Error("R3 requires all Mac provider production flags to remain disabled")
     return value
 
 
@@ -97,6 +86,16 @@ def prepare_r3_gate(
     now: datetime | None = None,
 ) -> dict[str, Any]:
     contract = load_r3_contract(contract_path)
+    registry = Registry.load()
+    production_sources = registry.raw.get("sources")
+    production_provider = (registry.raw.get("providers") or {}).get("mac-mm-01") or {}
+    if (
+        (isinstance(production_sources, dict) and R3_SOURCE_ID in production_sources)
+        or registry.raw["production_policy"].get("browser_production_approved") is not False
+        or production_provider.get("production_enabled") is not False
+        or (production_provider.get("capabilities") or {}).get("remote_invocation") is not False
+    ):
+        raise ProviderR3Error("R3 is historical after R4 production enablement and must not be rerun")
     target_db = database or db_path()
     migrate(target_db)
     initialize_provider_queue(target_db)

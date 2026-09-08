@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Callable
 
 from .acquisition_contract import ProcessingFailure, request_reason
-from .acquisition_runtime import acquire_local_bytes, record_processing
+from .acquisition_runtime import acquire_local_bytes, acquire_provider_bytes, record_processing
 from .config import Registry, db_path, evidence_root
 from .db import connect, migrate
 from .http import fetch_bytes
@@ -277,6 +277,49 @@ def _upsert_tender(
     return changed, signal_count
 
 
+def _acquire_source_bytes(
+    *,
+    source: dict,
+    database: Path,
+    scheduler_run_id: str,
+    source_id: str,
+    reason: str,
+    target_kind: str,
+    url: str,
+    expected_content_types: list[str],
+    observed_at: str,
+    fetcher: Fetcher,
+):
+    common = {
+        "database": database,
+        "scheduler_run_id": scheduler_run_id,
+        "source_id": source_id,
+        "source_policy_version": int(source["source_policy_version"]),
+        "reason": reason,
+        "egress_profile": str(source["egress_profile"]),
+        "target_kind": target_kind,
+        "url": url,
+        "timeout_seconds": int(source["request_timeout_seconds"]),
+        "max_bytes": int(source["request_max_bytes"]),
+        "expected_content_types": expected_content_types,
+        "observed_at": observed_at,
+    }
+    engine = source.get("engine")
+    if engine == "direct_http":
+        return acquire_local_bytes(**common, fetcher=fetcher)
+    if engine == "provider":
+        roles = source.get("provider_target_roles") or {}
+        target_role = roles.get(target_kind)
+        if not isinstance(target_role, str) or not target_role:
+            raise EngineError(f"provider target role missing for {source_id} {target_kind}")
+        return acquire_provider_bytes(
+            **common,
+            target_role=target_role,
+            capability=str(source.get("provider_capability", "C0_FETCH")),
+        )
+    raise EngineError(f"unsupported source engine: {source_id}")
+
+
 def run_source(
     source_id: str,
     *,
@@ -352,17 +395,14 @@ def run_source(
     health_probe_url: str | None = None
     backlog_remaining = 0
     try:
-        sitemap_capture = acquire_local_bytes(
+        sitemap_capture = _acquire_source_bytes(
+            source=source,
             database=database,
             scheduler_run_id=app_run_id,
             source_id=source_id,
-            source_policy_version=int(source["source_policy_version"]),
             reason=request_reason(trigger_kind),
-            egress_profile=str(source["egress_profile"]),
             target_kind="DISCOVERY",
             url=str(source["discovery_url"]),
-            timeout_seconds=int(source["request_timeout_seconds"]),
-            max_bytes=int(source["request_max_bytes"]),
             expected_content_types=list(adapter.discovery_content_types),
             observed_at=observed_at,
             fetcher=fetcher,
@@ -594,17 +634,14 @@ def run_source(
             if index and delay:
                 sleeper(delay)
             try:
-                detail_capture = acquire_local_bytes(
+                detail_capture = _acquire_source_bytes(
+                    source=source,
                     database=database,
                     scheduler_run_id=app_run_id,
                     source_id=source_id,
-                    source_policy_version=int(source["source_policy_version"]),
                     reason=request_reason(trigger_kind, health_probe=entry.url == health_probe_url),
-                    egress_profile=str(source["egress_profile"]),
                     target_kind="HTML",
                     url=entry.url,
-                    timeout_seconds=int(source["request_timeout_seconds"]),
-                    max_bytes=int(source["request_max_bytes"]),
                     expected_content_types=["text/html"],
                     observed_at=observed_at,
                     fetcher=fetcher,

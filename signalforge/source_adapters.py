@@ -20,6 +20,8 @@ from .dwir import parse_tender_listing as parse_dwir_tender_listing
 from .iwt import parse_tender_detail as parse_iwt_tender_detail
 from .ird import parse_announcement_detail as parse_ird_announcement_detail
 from .ird import parse_announcement_listing as parse_ird_announcement_listing
+from .industry import parse_tender_detail as parse_industry_tender_detail
+from .industry import parse_tender_listing as parse_industry_tender_listing
 from .iwt import parse_tender_listing as parse_iwt_tender_listing
 from .monpifer import parse_tender_records as parse_monpifer_tender_records
 from .moep import parse_tender_detail as parse_moep_tender_detail
@@ -77,6 +79,11 @@ def _parse_dast_detail(payload: bytes, url: str) -> list[object]:
 
 def _parse_ptd_detail(payload: bytes, url: str) -> list[object]:
     tender = parse_ptd_tender_detail(payload, url)
+    return [tender] if tender is not None else []
+
+
+def _parse_industry_detail(payload: bytes, url: str) -> list[object]:
+    tender = parse_industry_tender_detail(payload, url)
     return [tender] if tender is not None else []
 
 
@@ -166,6 +173,16 @@ ADAPTERS = {
         canonicalizer_version="railways-reference-v1",
         parse_discovery=parse_tender_listing,
         parse_detail=parse_railways_tender_detail,
+    ),
+    "industry_tender": SourceAdapter(
+        name="industry_tender",
+        discovery_content_types=("text/html",),
+        discovery_parser_version="industry-announcement-list-v1",
+        detail_parser_version="industry-announcement-detail-v1",
+        normalizer_version="industry-tender-normalize-v1",
+        canonicalizer_version="industry-announcement-id-v1",
+        parse_discovery=parse_industry_tender_listing,
+        parse_detail=_parse_industry_detail,
     ),
     "iwt": SourceAdapter(
         name="iwt",
