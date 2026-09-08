@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "contract_name": "provider-invocation-v1",
+  "provider_id": "mac-mm-01",
+  "transport": "pull_ssh_v1",
+  "enabled": false,
+  "allowed_capabilities": [
+    "C0_FETCH",
+    "C1_RENDER",
+    "C2_INSPECT",
+    "C3_BROWSER_USE"
+  ],
+  "tool_map": {
+    "C0_FETCH": "browser_fetch",
+    "C1_RENDER": "browser_render",
+    "C2_INSPECT": "browser_inspect",
+    "C3_BROWSER_USE": "browser_use"
+  },
+  "limits": {
+    "max_run_seconds": 180,
+    "max_request_ttl_seconds": 180,
+    "max_bytes": 16777216
+  },
+  "security": {
+    "https_only": true,
+    "arbitrary_url_allowed": false,
+    "arbitrary_shell_allowed": false,
+    "public_mac_listener_allowed": false,
+    "off_host_redirect_allowed": false,
+    "personal_chrome_profile_allowed": false
+  },
+  "source_policies": {}
+}
