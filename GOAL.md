@@ -7,7 +7,7 @@ Expand SignalForge across high-value Myanmar issuer-original sources while prese
 ## Frozen production boundary
 
 - SignalForge production remains Bangkok-only.
-- Beijing remains Generic Worker only and SignalForge-free.
+- Beijing is outside the current SignalForge production topology: it is not a SignalForge node, replica, standby, acquisition provider, source runtime, or per-source rollout gate. Historical Beijing zero-footprint checks remain historical evidence only and are not repeated for new source onboarding.
 - Direct HTTP remains the default production acquisition method.
 - One SignalForge scheduler/service invocation creates one Worker operational Run; source/business jobs and acquisition attempts remain internal SignalForge state.
 - `AcquisitionRequest` and `AcquisitionAttempt` are not Worker Runs.
@@ -395,3 +395,15 @@ First production baseline: `SUCCESS / discovered=7 / candidates=6 / details=6/6 
 Beijing remains SignalForge-free and its current forced dispatcher rejects `signalforge-refresh S27` with `126 / DENY: SignalForge is Bangkok-only`. Bangkok timer is restored enabled/active and the immediate scheduler run completed SUCCESS.
 
 The rollout also exposed a deploy packaging mode bug: `cp -a SOURCE/. STAGE/` can copy a restrictive `mktemp -d` root mode onto the staged release. Rollback worked and production never switched to the untraversable candidate. The deploy script is hardened to normalize `$STAGE` to 0755 after the copy. Full details: `docs/verification/S27-MOBA-PROVIDER-SOURCE-ONBOARDING-2026-09-08.md`.
+
+## S39 Ministry of Energy Direct HTTP + required PDF production closure — 2026-09-08
+
+S39 Ministry of Energy is **PRODUCTION / GREEN / COMPLETE** on exact implementation release `b8de9b0e2916b8e21f6bf6f7a1df66ce6e5f204b`. It is a Bangkok Direct HTTP source and does not use the Mac Browser Provider.
+
+The reviewed source shape is one HTML listing, numeric `/tenders/<id>` detail HTML, and exactly one required same-origin text-native official PDF per detail. The engine owns both HTML and PDF acquisition/evidence; the parser performs no network I/O. Supplementary PDF acquisition is fail-closed, Direct-HTTP-only, bounded to one required same-origin PDF, and is not authorized for Provider sources.
+
+First production baseline Worker `signalforge-20260908T154731Z-b8e83d7f`, app `e9ca4a06-d058-44fb-a5b4-c1d5e84fa54f`: `SUCCESS / discovered=4 / details=4/4 / changed=4 / signals=0 / backlog=0`. Durable S39 state is canonical 4, signals 0, acquisition targets `DISCOVERY=1 / HTML=4 / PDF=4`, evidence 9, business processing 4/4 SUCCESS, canonical evidence hashes all matched PDF EvidenceEnvelope hashes, and DB quick check `ok`.
+
+S39 health is GREEN (`fetch=GREEN / freshness=GREEN / parse=4/4 / recovery backlog=0`). The timer is restored enabled/active; timer-triggered Worker `signalforge-20260908T155715Z-fce090b1` completed the full `run-due` invocation SUCCESS, with S39 correctly `NOT_DUE` until its natural `2026-09-08T16:17:31.274994Z` schedule. No DB mutation was used to force an unattended sample early.
+
+Final SignalForge status is now **PASS / GREEN** with canonical items `193`, signals `34`, recovery backlog `0`; S25 also recovered naturally to GREEN at `9/10 = 0.9` without artificial refreshes. Live verification: `docs/verification/S39-MINISTRY-OF-ENERGY-SOURCE-ONBOARDING-2026-09-08.md`.
