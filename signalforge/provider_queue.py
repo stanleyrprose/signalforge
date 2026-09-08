@@ -67,6 +67,12 @@ def initialize_provider_queue(database: Path) -> None:
                 completed_at TEXT,
                 result_sha256 TEXT,
                 browser_job_id TEXT,
+                result_media_type TEXT,
+                result_artifact_bytes INTEGER,
+                result_artifact_path TEXT,
+                result_final_url TEXT,
+                result_http_status INTEGER,
+                result_request_sha256 TEXT,
                 failure_class TEXT
             );
             CREATE INDEX IF NOT EXISTS idx_provider_requests_claim
@@ -284,6 +290,12 @@ def complete_provider_claim(
     result_sha256: str,
     browser_job_id: str,
     database: Path,
+    result_media_type: str | None = None,
+    result_artifact_bytes: int | None = None,
+    result_artifact_path: str | None = None,
+    result_final_url: str | None = None,
+    result_http_status: int | None = None,
+    result_request_sha256: str | None = None,
     now: datetime | None = None,
 ) -> dict[str, Any]:
     if not _valid_sha256(result_sha256):
@@ -328,10 +340,13 @@ def complete_provider_claim(
         conn.execute(
             """
             UPDATE provider_requests
-            SET state='SUCCEEDED',completed_at=?,result_sha256=?,browser_job_id=?,claim_token_sha256=NULL
+            SET state='SUCCEEDED',completed_at=?,result_sha256=?,browser_job_id=?,
+                result_media_type=?,result_artifact_bytes=?,result_artifact_path=?,result_final_url=?,
+                result_http_status=?,result_request_sha256=?,claim_token_sha256=NULL
             WHERE provider_request_id=?
             """,
-            (now_text, result_sha256, browser_job_id, provider_request_id),
+            (now_text, result_sha256, browser_job_id, result_media_type, result_artifact_bytes,
+             result_artifact_path, result_final_url, result_http_status, result_request_sha256, provider_request_id),
         )
         conn.execute(
             """

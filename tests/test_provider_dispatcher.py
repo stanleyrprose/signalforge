@@ -97,21 +97,11 @@ class ProviderDispatcherTests(unittest.TestCase):
         with self.assertRaisesRegex(ProviderDispatcherError, "accepts no payload"):
             dispatch("provider-status-v1", {}, database=self.db, now=NOW)
 
-    def test_complete_requires_exact_fields_and_accepts_current_claim(self) -> None:
-        item = request()
-        enqueue_provider_request(item, contract=contract(), database=self.db, now=NOW)
-        claimed = dispatch("provider-claim-v1", database=self.db, now=NOW)
-        base = {
-            "provider_request_id": item["provider_request_id"],
-            "provider_attempt_id": claimed["provider_attempt_id"],
-            "claim_token": claimed["claim_token"],
-            "result_sha256": "a" * 64,
-            "browser_job_id": "browser-job-1",
-        }
-        with self.assertRaisesRegex(ProviderDispatcherError, "fields"):
-            dispatch("provider-complete-v1", {**base, "provider_id": "evil"}, database=self.db, now=NOW + timedelta(seconds=1))
-        result = dispatch("provider-complete-v1", base, database=self.db, now=NOW + timedelta(seconds=1))
-        self.assertEqual(result["status"], "ACCEPTED")
+    def test_submit_is_reserved_for_binary_stream_boundary(self) -> None:
+        with self.assertRaisesRegex(ProviderDispatcherError, "binary stream boundary"):
+            dispatch("provider-submit-v1", database=self.db, now=NOW)
+        with self.assertRaisesRegex(ProviderDispatcherError, "unsupported"):
+            dispatch("provider-complete-v1", database=self.db, now=NOW)
 
     def test_fail_requires_exact_fields(self) -> None:
         item = request()
@@ -126,7 +116,7 @@ class ProviderDispatcherTests(unittest.TestCase):
         result = dispatch("provider-fail-v1", payload, database=self.db, now=NOW + timedelta(seconds=1))
         self.assertEqual(result["state"], "FAILED")
 
-    def test_no_command_accepts_provider_id_from_client(self) -> None:
+    def test_no_json_command_accepts_provider_id_from_client(self) -> None:
         item = request()
         enqueue_provider_request(item, contract=contract(), database=self.db, now=NOW)
         claimed = dispatch("provider-claim-v1", database=self.db, now=NOW)
@@ -134,12 +124,11 @@ class ProviderDispatcherTests(unittest.TestCase):
             "provider_request_id": item["provider_request_id"],
             "provider_attempt_id": claimed["provider_attempt_id"],
             "claim_token": claimed["claim_token"],
-            "result_sha256": "b" * 64,
-            "browser_job_id": "browser-job-2",
+            "failure_class": "PROVIDER_NOT_READY",
             "provider_id": "other-provider",
         }
         with self.assertRaisesRegex(ProviderDispatcherError, "fields"):
-            dispatch("provider-complete-v1", payload, database=self.db, now=NOW + timedelta(seconds=1))
+            dispatch("provider-fail-v1", payload, database=self.db, now=NOW + timedelta(seconds=1))
 
 
 if __name__ == "__main__":

@@ -209,7 +209,7 @@ class ProviderInvocationContractTests(unittest.TestCase):
     def test_contract_rejects_capability_or_security_drift(self) -> None:
         missing_c3 = contract()
         missing_c3["allowed_capabilities"].remove("C3_BROWSER_USE")
-        with self.assertRaisesRegex(ProviderInvocationError, "C0\+C1\+C2\+C3"):
+        with self.assertRaisesRegex(ProviderInvocationError, r"C0\+C1\+C2\+C3"):
             validate_contract_projection(missing_c3)
         unsafe = copy.deepcopy(contract())
         unsafe["security"]["arbitrary_url_allowed"] = True

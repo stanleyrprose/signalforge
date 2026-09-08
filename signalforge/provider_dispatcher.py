@@ -9,6 +9,7 @@ from typing import Any, TextIO
 
 from .config import db_path
 from .provider_invocation import PIC_PROVIDER_ID
+from .provider_result import ProviderResultError, accept_result_stream
 from .provider_queue import (
     ProviderQueueError,
     claim_next_provider_request,
@@ -22,7 +23,7 @@ MAX_STDIN_BYTES = 64 * 1024
 ALLOWED_COMMANDS = {
     "provider-claim-v1",
     "provider-status-v1",
-    "provider-complete-v1",
+    "provider-submit-v1",
     "provider-fail-v1",
 }
 
@@ -67,26 +68,8 @@ def dispatch(
             raise ProviderDispatcherError("provider-status-v1 accepts no payload")
         return provider_queue_status(provider_id=PIC_PROVIDER_ID, database=target_db, now=observed_now)
 
-    if command == "provider-complete-v1":
-        body = _strict_payload(
-            payload,
-            {
-                "provider_request_id",
-                "provider_attempt_id",
-                "claim_token",
-                "result_sha256",
-                "browser_job_id",
-            },
-        )
-        return complete_provider_claim(
-            provider_request_id=str(body["provider_request_id"]),
-            provider_attempt_id=str(body["provider_attempt_id"]),
-            claim_token=str(body["claim_token"]),
-            result_sha256=str(body["result_sha256"]),
-            browser_job_id=str(body["browser_job_id"]),
-            database=target_db,
-            now=observed_now,
-        )
+    if command == "provider-submit-v1":
+        raise ProviderDispatcherError("provider-submit-v1 requires binary stream boundary")
 
     if command == "provider-fail-v1":
         body = _strict_payload(
@@ -129,13 +112,17 @@ def main() -> int:
         return 126
     try:
         payload = None
-        if original_command in {"provider-complete-v1", "provider-fail-v1"}:
+        if original_command == "provider-submit-v1":
+            result = accept_result_stream(sys.stdin.buffer, database=db_path())
+            print(json.dumps(result, ensure_ascii=False, sort_keys=True), flush=True)
+            return 0
+        if original_command == "provider-fail-v1":
             payload = _read_stdin_json(sys.stdin)
         elif original_command in {"provider-claim-v1", "provider-status-v1"}:
             # Do not consume arbitrary client data for no-payload commands.
             payload = None
         result = dispatch(original_command, payload)
-    except (ProviderDispatcherError, ProviderQueueError) as exc:
+    except (ProviderDispatcherError, ProviderQueueError, ProviderResultError) as exc:
         print(json.dumps({"status": "DENY", "error": str(exc)}, sort_keys=True), flush=True)
         return 126
     except Exception as exc:
