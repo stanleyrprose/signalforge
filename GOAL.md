@@ -371,3 +371,13 @@ R5 source `S38` is Ministry of Industry `https://www.industrymsme.gov.mm/announc
 Fresh Mac acquisition on 2026-09-08 found 16 current tender listings. Detail `1036` is HTML-complete with publication `2026-09-03`, Chemical Reagent + Sample Gas scope, and explicit deadline `2026-09-24 16:00`. No PDF/OCR/JS-render capability is required for the first production source.
 
 Implementation status in the feature branch: SignalForge full suite `197 passed`; Mac Provider Agent launchd/production projection implementation is under test. Production runtime deployment, first zero-signal S38 baseline, Mac-offline isolation, timer resume, and final checkpoint remain required before R4/R5 can be called live-complete.
+
+## PIC v1 R4/R5 production closure — 2026-09-08
+
+R4 Provider Production Enable and R5 first Provider-backed source are **COMPLETE / PASS**. S38 Ministry of Industry is now unattended production through `Bangkok durable queue -> Mac restricted pull SSH -> local MCP stdio -> C0 -> Bangkok evidence -> parser/canonical/signal`. Production authorization remains source/URL/capability bounded; S38 is C0-only and there is no generic Direct HTTP failure fallback.
+
+Final releases: Mac Browser Plane runtime source `7a13bcb1ab8acf0a69585bbddc0a6d88cd56d9ea`; Bangkok SignalForge `1d88b54d22f43e818a055a5c605a14c728816aad`. The production timer is enabled/active. The unattended S38 recovery run at `2026-09-08T14:20:54.213550Z` was `POLL / SUCCESS / changed=0 / signals=0 / backlog=0`, with `consecutive_failures=0` afterwards. Final S38 health is GREEN with business-processing parse sample 10/10, 8 canonical tender records, zero S38 customer signals, zero pending backlog, and DB quick check `ok`.
+
+Live rollout found and closed four production semantics bugs rather than masking them: ProviderRequest TTL reused scheduler time (#85), Provider Agent slept between backlog jobs (#31 in mac-browser-plane), one source exception aborted later due sources (#86), and S38 used the wrong parse-health sample surface (#87). See `docs/verification/PIC-R4-R5-PRODUCTION-CLOSURE-2026-09-08.md` for evidence, offline isolation, rollback boundaries, and exact counters.
+
+Overall SignalForge remains `DEGRADED / RED` only because S25 still has historical MONPIFER parse failures in its rolling 10-sample window (currently 6/10) despite current fetch/freshness success, zero consecutive failures, and no current error. Do not brush this green with artificial refreshes; allow the window to recover naturally.
