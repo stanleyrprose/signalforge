@@ -32,6 +32,9 @@ from .moep import parse_tender_listing as parse_moep_tender_listing
 from .moea import parse_tender_records as parse_moea_tender_records
 from .mofa import parse_tender_detail as parse_mofa_tender_detail
 from .mofa import parse_tender_listing as parse_mofa_tender_listing
+from .mol import extract_tender_pdf_urls as extract_mol_tender_pdf_urls
+from .mol import parse_tender_detail_with_attachments as parse_mol_tender_detail_with_attachments
+from .mol import parse_tender_listing as parse_mol_tender_listing
 from .moi import parse_tender_detail as parse_moi_tender_detail
 from .moi import parse_tender_listing as parse_moi_tender_listing
 from .moba import parse_tender_detail as parse_moba_tender_detail
@@ -151,6 +154,10 @@ def _parse_energy_detail_without_attachment(_payload: bytes, _url: str) -> list[
     raise SourceAdapterError("energy_tender requires its reviewed PDF attachment parser")
 
 
+def _parse_mol_detail_without_attachment(_payload: bytes, _url: str) -> list[object]:
+    raise SourceAdapterError("mol_tender requires its reviewed PDF attachment parser")
+
+
 ADAPTERS = {
     "mpt": SourceAdapter(
         name="mpt",
@@ -223,6 +230,18 @@ ADAPTERS = {
         parse_detail=_parse_energy_detail_without_attachment,
         extract_detail_attachments=extract_energy_tender_pdf_urls,
         parse_detail_with_attachments=parse_energy_tender_detail_with_attachments,
+    ),
+    "mol_tender": SourceAdapter(
+        name="mol_tender",
+        discovery_content_types=("text/html",),
+        discovery_parser_version="mol-content-view-page1-v1",
+        detail_parser_version="mol-html-plus-text-pdf-v1",
+        normalizer_version="mol-tender-normalize-v1",
+        canonicalizer_version="mol-wordpress-post-id-v1",
+        parse_discovery=parse_mol_tender_listing,
+        parse_detail=_parse_mol_detail_without_attachment,
+        extract_detail_attachments=extract_mol_tender_pdf_urls,
+        parse_detail_with_attachments=parse_mol_tender_detail_with_attachments,
     ),
     "iwt": SourceAdapter(
         name="iwt",

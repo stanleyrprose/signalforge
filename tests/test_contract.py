@@ -25,7 +25,7 @@ class ContractTests(unittest.TestCase):
         )
         self.assertEqual(manifest["verbs"]["signalforge-refresh"]["argument"], "source_id")
         self.assertEqual(manifest["grammar"]["source_id"], "^[A-Z][A-Z0-9]{0,15}$")
-        self.assertEqual(manifest["active_source_ids"], ["S05A", "S07", "S08A", "S10", "S12", "S13", "S16", "S20", "S21", "S22", "S25", "S26", "S28", "S29", "S30", "S31", "S32", "S33", "S34", "S35", "S36", "S37", "S39", "S27", "S38"])
+        self.assertEqual(manifest["active_source_ids"], ["S05A", "S07", "S08A", "S10", "S12", "S13", "S16", "S20", "S21", "S22", "S25", "S26", "S28", "S29", "S30", "S31", "S32", "S33", "S34", "S35", "S36", "S37", "S39", "S40", "S27", "S38"])
 
         registry = Registry.load(ROOT)
         with self.assertRaisesRegex(ConfigError, "invalid source id"):
@@ -111,8 +111,19 @@ class ContractTests(unittest.TestCase):
             [{"method": "DIRECT_HTTP", "target_kind": "PDF", "required": True, "max_count": 1, "same_origin_only": True}],
         )
 
+        labour = registry.source("S40")
+        self.assertEqual(labour["adapter"], "mol_tender")
+        self.assertEqual(labour["engine"], "direct_http")
+        self.assertEqual(labour["role"], "ACTIVE_SELECTIVE")
+        self.assertEqual(labour["discovery_url"], "https://www.mol.gov.mm/tender/")
+        self.assertEqual(labour["canonical_key"], "wordpress_post_id")
+        self.assertEqual(labour["health_policy"]["parse_sample_source"], "BUSINESS_PROCESSING")
+        self.assertEqual(labour["attachment_policy"]["mode"], "SINGLE_TEXT_PDF_REQUIRED")
+        self.assertEqual(labour["bootstrap_seed_urls"], [])
+        self.assertEqual(labour["acquisition_policy"]["supplementary"], energy["acquisition_policy"]["supplementary"])
+
         enabled = registry.enabled_sources()
-        self.assertEqual([sid for sid, _source in enabled[-3:]], ["S39", "S27", "S38"])
+        self.assertEqual([sid for sid, _source in enabled[-4:]], ["S39", "S40", "S27", "S38"])
         self.assertTrue(all(source["engine"] == "direct_http" for _sid, source in enabled[:-2]))
         self.assertTrue(all(source["engine"] == "provider" for _sid, source in enabled[-2:]))
         self.assertFalse(moi["attachment_policy"]["fetch_in_primary_pipeline"])
