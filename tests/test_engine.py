@@ -11,7 +11,7 @@ from unittest.mock import patch
 
 from signalforge.cli import status
 from signalforge.config import Registry
-from signalforge.engine import run_source
+from signalforge.engine import run_due, run_source
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -52,6 +52,31 @@ class FixtureFetcher:
         if url == MPT4U_URL:
             return b"<html><h1>MPT4U</h1><p>consumer page</p></html>"
         raise AssertionError(f"unexpected fetch: {url}")
+
+
+class RunDueIsolationTests(unittest.TestCase):
+    def test_one_source_exception_does_not_block_later_sources(self) -> None:
+        class FakeRegistry:
+            def enabled_sources(self):
+                return [("S28", {}), ("S29", {}), ("S38", {})]
+
+        registry = FakeRegistry()
+        with patch(
+            "signalforge.engine.run_source",
+            side_effect=[
+                {"source_id": "S28", "status": "SUCCESS"},
+                RuntimeError("all bounded detail candidates failed"),
+                {"source_id": "S38", "status": "SUCCESS"},
+            ],
+        ) as mocked:
+            result = run_due(registry=registry)
+
+        self.assertEqual(mocked.call_count, 3)
+        self.assertEqual([item["source_id"] for item in result["results"]], ["S28", "S29", "S38"])
+        self.assertEqual(result["results"][1]["status"], "FAILED")
+        self.assertIn("all bounded detail candidates failed", result["results"][1]["error"])
+        self.assertEqual(result["results"][2]["status"], "SUCCESS")
+        self.assertEqual(result["status"], "FAILED")
 
 
 class EngineTests(unittest.TestCase):

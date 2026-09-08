@@ -906,6 +906,15 @@ def run_due(**kwargs) -> dict[str, object]:  # type: ignore[no-untyped-def]
     registry = kwargs.pop("registry", None) or Registry.load()
     results = []
     for source_id, _source in registry.enabled_sources():
-        results.append(run_source(source_id, registry=registry, **kwargs))
+        try:
+            results.append(run_source(source_id, registry=registry, **kwargs))
+        except Exception as exc:
+            results.append(
+                {
+                    "source_id": source_id,
+                    "status": "FAILED",
+                    "error": f"{type(exc).__name__}: {exc}"[:300],
+                }
+            )
     failures = [item for item in results if item.get("status") == "FAILED"]
     return {"status": "FAILED" if failures else "SUCCESS", "results": results}
