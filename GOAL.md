@@ -407,3 +407,15 @@ First production baseline Worker `signalforge-20260908T154731Z-b8e83d7f`, app `e
 S39 health is GREEN (`fetch=GREEN / freshness=GREEN / parse=4/4 / recovery backlog=0`). The timer is restored enabled/active; timer-triggered Worker `signalforge-20260908T155715Z-fce090b1` completed the full `run-due` invocation SUCCESS, with S39 correctly `NOT_DUE` until its natural `2026-09-08T16:17:31.274994Z` schedule. No DB mutation was used to force an unattended sample early.
 
 Final SignalForge status is now **PASS / GREEN** with canonical items `193`, signals `34`, recovery backlog `0`; S25 also recovered naturally to GREEN at `9/10 = 0.9` without artificial refreshes. Live verification: `docs/verification/S39-MINISTRY-OF-ENERGY-SOURCE-ONBOARDING-2026-09-08.md`.
+
+## S40 Ministry of Labour production watcher closure — 2026-09-08
+
+S40 Ministry of Labour is **PRODUCTION WATCHER / GREEN / COMPLETE** on exact application release `9980584b7deec660d16e5f202ff0056117df88f6`. It is Bangkok Direct HTTP only and does not change Mac Browser Provider policy.
+
+The deliberately narrow production discovery surface is issuer page 1 `https://www.mol.gov.mm/tender/`. Current page 1 contains ten workflow/result-stage posts, all correctly excluded; therefore the first live baseline is intentionally `SUCCESS / discovered=0 / canonical=0 / signals=0 / backlog=0`. The official Content Views `?_page=2` surface is used only as regression evidence and is not a production backfill path, avoiding a generic multi-page discovery subsystem for one source.
+
+Historical issuer-original invitation fixtures prove the already-live S39 required same-origin text-PDF path works for future MOL opportunities: Smart ID Card Printing (`mol:43883`) parses deadline `2026-07-14 16:30`, and medical equipment (`mol:43840`) parses Electric High Speed Drill + Fibroscan with deadline `2026-07-13 16:30`. Award/result/technical-qualified stages are fail-closed excluded. The Myanmar evening `4:30` marker is explicitly regression-tested so it cannot be misread as `04:30`.
+
+Production baseline Worker `signalforge-20260908T163346Z-05f65b51`, app `b2b3f5ff-4802-441c-9b28-c1efe819d65b` persisted exactly one DISCOVERY acquisition/evidence/processing lifecycle, zero detail/PDF acquisitions, zero canonical, zero signals and DB quick check `ok`. Source health is GREEN; parse is honestly `UNKNOWN / PARSE_SAMPLE_INSUFFICIENT` until a real page-1 opportunity provides the first production detail sample.
+
+Bangkok timer is restored enabled/active. Timer Worker `signalforge-20260908T163503Z-f6e89982` completed `run-due` SUCCESS on the new release, with S40 correctly `NOT_DUE` until its natural `2026-09-08T17:03:46.458201Z` schedule. Overall SignalForge remains `PASS / GREEN`, canonical `193`, signals `34`, recovery backlog `0`. Live verification: `docs/verification/S40-MINISTRY-OF-LABOUR-SOURCE-ONBOARDING-2026-09-08.md`.
