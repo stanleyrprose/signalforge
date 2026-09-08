@@ -1047,3 +1047,20 @@ The recovery refresh emitted 10 `UPDATED` signals because transport/attachment m
 ### Next
 
 R3 no longer blocks the Provider Invocation Contract. The next PIC slice is R4 Provider Production Enable, but it must deliberately change the frozen production flags and must not be conflated with this evidence-only gate. Until R4 is separately reviewed/executed, healthy production acquisition remains Direct HTTP-first and the Mac provider remains non-production.
+
+## Authoritative current provider/source checkpoint — 2026-09-08
+
+This section supersedes the older pre-R4 state above without rewriting historical evidence.
+
+- PIC R4/R5 is production-live. Mac Browser Provider uses dedicated restricted pull SSH + local MCP stdio; no public Mac listener and no generic Direct-HTTP failure fallback.
+- S38 Ministry of Industry is the first provider-backed source and remains production GREEN / C0-only.
+- S27 Ministry of Border Affairs is now the second explicit provider-backed source on implementation SHA `29cdf90554c61bfcdc8bfb6cf4fba16c597652c9`.
+- Fresh S27 network split remains: Bangkok strict TLS 6/6 curl-60, Mac C0 listing/detail HTTP 200. Production policy is therefore explicit provider routing, not fallback.
+- S27 allowlist: exact `https://moba.gov.mm/my/tender` LISTING, same-host `/my/tender/<id>` DETAIL, C0 only, query/fragment denied, PDF metadata-only.
+- S27 first production baseline: Worker `signalforge-20260908T151231Z-d816f1d3`, app `9621ea2a-3c8c-4206-93c8-07f5e1d3c2b6`, `SUCCESS / discovered=7 / candidates=6 / details=6/6 / changed=6 / signals=0 / backlog=0`.
+- Durable S27 state: canonical 6, signals 0, provider SUCCEEDED 7/non-success 0, evidence 7, processing SUCCESS 7, DB quick check `ok`; source health GREEN / parse 6 of 6.
+- Beijing `/srv/signalforge` remains absent and `/usr/local/sbin/gha-root-dispatch` rejects `signalforge-refresh S27` with exit 126 / `DENY: SignalForge is Bangkok-only`.
+- Bangkok timer is restored enabled/active. Immediate timer-triggered scheduler Worker `signalforge-20260908T151524Z-ddbdc70c` completed SUCCESS; S27 correctly returned NOT_DUE until `2026-09-08T15:42:32.230651Z`.
+- S27 rollout exposed a deploy root-mode bug when a 0700 `mktemp -d` source was copied with `cp -a`. Rollback preserved the old active release and timer OFF. Candidate root was normalized to 0755, exact-SHA deploy then succeeded, and the deploy script is hardened to normalize `$STAGE` after copy.
+
+Evidence: `docs/verification/S27-MOBA-PROVIDER-SOURCE-ONBOARDING-2026-09-08.md`.
