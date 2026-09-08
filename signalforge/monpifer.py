@@ -25,13 +25,20 @@ def _attr(attrs, name: str) -> str | None:  # type: ignore[no-untyped-def]
     return None
 
 
+def _issuer_path(path: str) -> str:
+    if path.startswith("/index.php/"):
+        return path[len("/index.php") :]
+    return path
+
+
 def _official_article_url(url: str) -> str | None:
     parsed = urlparse(url)
     if parsed.scheme != "https" or parsed.netloc.lower() not in MONPIFER_HOSTS:
         return None
-    if not parsed.path.startswith("/my/ministry-article/"):
+    path = _issuer_path(parsed.path)
+    if not path.startswith("/my/ministry-article/"):
         return None
-    alias = parsed.path.rstrip("/").rsplit("/", 1)[-1]
+    alias = path.rstrip("/").rsplit("/", 1)[-1]
     if not alias:
         return None
     return f"https://www.monpifer.gov.mm/my/ministry-article/{alias}"
@@ -41,9 +48,10 @@ def _official_pdf_url(url: str) -> str | None:
     parsed = urlparse(url)
     if parsed.scheme != "https" or parsed.netloc.lower() not in MONPIFER_HOSTS:
         return None
-    if not parsed.path.startswith("/sites/default/files/tender_pdf/"):
+    path = _issuer_path(parsed.path)
+    if not path.startswith("/sites/default/files/tender_pdf/"):
         return None
-    if not parsed.path.lower().endswith(".pdf"):
+    if not path.lower().endswith(".pdf"):
         return None
     return url
 
