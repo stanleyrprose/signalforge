@@ -31,6 +31,8 @@ from .mofa import parse_tender_detail as parse_mofa_tender_detail
 from .mofa import parse_tender_listing as parse_mofa_tender_listing
 from .moi import parse_tender_detail as parse_moi_tender_detail
 from .moi import parse_tender_listing as parse_moi_tender_listing
+from .moba import parse_tender_detail as parse_moba_tender_detail
+from .moba import parse_tender_listing as parse_moba_tender_listing
 from .mcrd import parse_tender_records as parse_mcrd_tender_records
 from .mte import parse_tender_records as parse_mte_tender_records
 from .mpt import SitemapEntry, parse_sitemap, parse_tender_detail as parse_mpt_tender_detail
@@ -133,6 +135,11 @@ def _parse_mofa_detail(payload: bytes, url: str) -> list[object]:
     return [tender] if tender is not None else []
 
 
+def _parse_moba_detail(payload: bytes, url: str) -> list[object]:
+    tender = parse_moba_tender_detail(payload, url)
+    return [tender] if tender is not None else []
+
+
 ADAPTERS = {
     "mpt": SourceAdapter(
         name="mpt",
@@ -183,6 +190,16 @@ ADAPTERS = {
         canonicalizer_version="industry-announcement-id-v1",
         parse_discovery=parse_industry_tender_listing,
         parse_detail=_parse_industry_detail,
+    ),
+    "moba_tender": SourceAdapter(
+        name="moba_tender",
+        discovery_content_types=("text/html",),
+        discovery_parser_version="moba-tender-table-v1",
+        detail_parser_version="moba-tender-node-v1",
+        normalizer_version="moba-tender-normalize-v1",
+        canonicalizer_version="moba-drupal-node-id-v1",
+        parse_discovery=parse_moba_tender_listing,
+        parse_detail=_parse_moba_detail,
     ),
     "iwt": SourceAdapter(
         name="iwt",

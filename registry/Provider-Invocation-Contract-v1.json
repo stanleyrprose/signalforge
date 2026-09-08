@@ -64,6 +64,41 @@
           }
         }
       }
+    },
+    "S27": {
+      "enabled": true,
+      "source_policy_version": 1,
+      "allowed_capabilities": [
+        "C0_FETCH"
+      ],
+      "targets": {
+        "LISTING": {
+          "exact_urls": [
+            "https://moba.gov.mm/my/tender"
+          ],
+          "capabilities": [
+            "C0_FETCH"
+          ],
+          "max_bytes": 1000000,
+          "max_run_seconds": 90
+        },
+        "DETAIL": {
+          "https_host": "moba.gov.mm",
+          "path_prefix": "/my/tender/",
+          "capabilities": [
+            "C0_FETCH"
+          ],
+          "max_bytes": 1000000,
+          "max_run_seconds": 90,
+          "allow_query": false,
+          "allow_fragment": false,
+          "final_url_policy": {
+            "mode": "APPROVED_HOST_PATH",
+            "https_host": "moba.gov.mm",
+            "path_prefix": "/my/tender/"
+          }
+        }
+      }
     }
   }
 }
