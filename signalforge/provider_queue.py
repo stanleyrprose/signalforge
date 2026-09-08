@@ -166,7 +166,34 @@ def _recover_leases_and_expire(conn: sqlite3.Connection, now: datetime) -> None:
     ).fetchall()
     for row in stale:
         attempt_id = row["current_provider_attempt_id"]
-        if attempt_id:
+        request_row = conn.execute(
+            "SELECT request_json FROM provider_requests WHERE provider_request_id=?",
+            (str(row["provider_request_id"]),),
+        ).fetchone()
+        retry_allowed = True
+        if request_row is not None:
+            try:
+                request = json.loads(str(request_row["request_json"]))
+            except json.JSONDecodeError:
+                request = {}
+            if request.get("capability") == "C3_BROWSER_USE":
+                plan = request.get("interaction_plan")
+                retry_allowed = isinstance(plan, dict) and plan.get("retry_safe") is True
+        if not retry_allowed:
+            if attempt_id:
+                conn.execute(
+                    "UPDATE provider_attempts SET state='FAILED',failure_class='PROVIDER_LEASE_EXPIRED_NO_RETRY',finished_at=? WHERE provider_attempt_id=? AND state='CLAIMED'",
+                    (now_text, str(attempt_id)),
+                )
+            conn.execute(
+                """
+                UPDATE provider_requests
+                SET state='FAILED',completed_at=?,failure_class='PROVIDER_LEASE_EXPIRED_NO_RETRY',claim_token_sha256=NULL
+                WHERE provider_request_id=? AND state='CLAIMED'
+                """,
+                (now_text, str(row["provider_request_id"])),
+            )
+        elif attempt_id:
             conn.execute(
                 "UPDATE provider_attempts SET state='LEASE_EXPIRED',finished_at=? WHERE provider_attempt_id=? AND state='CLAIMED'",
                 (now_text, str(attempt_id)),

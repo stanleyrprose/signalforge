@@ -58,12 +58,12 @@ def contract() -> dict:
     }
 
 
-def new_request(*, now: datetime = NOW, ttl: int = 90, capability: str = "C0_FETCH") -> dict:
+def new_request(*, now: datetime = NOW, ttl: int = 90, capability: str = "C0_FETCH", retry_safe: bool = False) -> dict:
     interaction = None
     if capability == "C3_BROWSER_USE":
         interaction = {
             "side_effect_class": "READ_ONLY_NAVIGATION",
-            "retry_safe": False,
+            "retry_safe": retry_safe,
             "steps": [{"action": "snapshot"}, {"action": "screenshot"}],
         }
     return build_provider_request(
@@ -137,6 +137,26 @@ class ProviderQueueTests(unittest.TestCase):
         with sqlite3.connect(self.db) as conn:
             state = conn.execute("SELECT state FROM provider_attempts WHERE provider_attempt_id=?", (first["provider_attempt_id"],)).fetchone()[0]
         self.assertEqual(state, "LEASE_EXPIRED")
+
+    def test_c3_non_retry_safe_lease_expiry_fails_without_requeue(self) -> None:
+        request = new_request(ttl=180, capability="C3_BROWSER_USE", retry_safe=False)
+        enqueue_provider_request(request, contract=contract(), database=self.db, now=NOW)
+        claimed = claim_next_provider_request(provider_id="mac-mm-01", database=self.db, now=NOW, lease_seconds=30)
+        next_claim = claim_next_provider_request(provider_id="mac-mm-01", database=self.db, now=NOW + timedelta(seconds=31), lease_seconds=30)
+        self.assertEqual(next_claim["status"], "NO_WORK")
+        with sqlite3.connect(self.db) as conn:
+            request_state = conn.execute("SELECT state,failure_class FROM provider_requests WHERE provider_request_id=?", (request["provider_request_id"],)).fetchone()
+            attempt_state = conn.execute("SELECT state,failure_class FROM provider_attempts WHERE provider_attempt_id=?", (claimed["provider_attempt_id"],)).fetchone()
+        self.assertEqual(request_state, ("FAILED", "PROVIDER_LEASE_EXPIRED_NO_RETRY"))
+        self.assertEqual(attempt_state, ("FAILED", "PROVIDER_LEASE_EXPIRED_NO_RETRY"))
+
+    def test_c3_explicit_retry_safe_lease_can_be_reclaimed(self) -> None:
+        request = new_request(ttl=180, capability="C3_BROWSER_USE", retry_safe=True)
+        enqueue_provider_request(request, contract=contract(), database=self.db, now=NOW)
+        first = claim_next_provider_request(provider_id="mac-mm-01", database=self.db, now=NOW, lease_seconds=30)
+        second = claim_next_provider_request(provider_id="mac-mm-01", database=self.db, now=NOW + timedelta(seconds=31), lease_seconds=30)
+        self.assertEqual(second["provider_request_id"], request["provider_request_id"])
+        self.assertNotEqual(first["provider_attempt_id"], second["provider_attempt_id"])
 
     def test_request_expiry_removes_work_from_claim_queue(self) -> None:
         request = new_request(ttl=30)

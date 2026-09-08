@@ -10,6 +10,7 @@ from typing import Any, BinaryIO
 
 from .config import evidence_root
 from .db import connect
+from .provider_invocation import ProviderInvocationError, validate_final_url_policy
 from .provider_queue import ProviderQueueError, complete_provider_claim, initialize_provider_queue
 
 RESULT_MANIFEST_MAX_BYTES = 16 * 1024
@@ -86,8 +87,10 @@ def _validate_claim_metadata(manifest: dict[str, Any], *, database: Path) -> dic
     request = json.loads(str(row["request_json"]))
     if str(request.get("mcp_tool")) != str(manifest["mcp_tool"]):
         raise ProviderResultError("provider result MCP tool mismatch")
-    if str(request.get("requested_url")) != str(manifest["final_url"]):
-        raise ProviderResultError("provider result final URL mismatch")
+    try:
+        validate_final_url_policy(request.get("final_url_policy"), str(manifest["final_url"]))
+    except ProviderInvocationError as exc:
+        raise ProviderResultError(str(exc)) from exc
     return dict(row)
 
 def accept_result_stream(stream: BinaryIO, *, database: Path, evidence_directory: Path | None = None, now: datetime | None = None) -> dict[str, Any]:

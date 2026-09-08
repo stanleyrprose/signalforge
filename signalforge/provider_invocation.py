@@ -48,7 +48,7 @@ C3_ALLOWED_ACTIONS = {
     "wait",
     "type",
     "select",
-    "scroll",
+    "press",
     "screenshot",
 }
 
@@ -197,6 +197,61 @@ def _validate_url(target: dict[str, Any], requested_url: str) -> None:
         raise ProviderInvocationError("provider URL fragment is not approved")
 
 
+def _final_url_policy(target: dict[str, Any], requested_url: str) -> dict[str, Any]:
+    raw = target.get("final_url_policy")
+    if raw is None:
+        return {"mode": "EXACT_REQUESTED", "url": requested_url}
+    if not isinstance(raw, dict):
+        raise ProviderInvocationError("provider final_url_policy must be an object")
+    mode = raw.get("mode")
+    if mode == "EXACT_REQUESTED":
+        return {"mode": "EXACT_REQUESTED", "url": requested_url}
+    if mode == "APPROVED_HOST_PATH":
+        host = raw.get("https_host")
+        prefix = raw.get("path_prefix")
+        if not isinstance(host, str) or not host or not isinstance(prefix, str) or not prefix.startswith("/"):
+            raise ProviderInvocationError("provider APPROVED_HOST_PATH policy invalid")
+        return {
+            "mode": "APPROVED_HOST_PATH",
+            "https_host": host,
+            "path_prefix": prefix,
+            "allow_query": raw.get("allow_query") is True,
+            "allow_fragment": raw.get("allow_fragment") is True,
+        }
+    raise ProviderInvocationError("provider final_url_policy mode unsupported")
+
+
+def validate_final_url_policy(policy: object, final_url: str) -> None:
+    if not isinstance(policy, dict) or not isinstance(final_url, str):
+        raise ProviderInvocationError("provider final URL policy/input invalid")
+    mode = policy.get("mode")
+    if mode == "EXACT_REQUESTED":
+        if final_url != policy.get("url"):
+            raise ProviderInvocationError("provider final URL violates exact policy")
+        return
+    if mode != "APPROVED_HOST_PATH":
+        raise ProviderInvocationError("provider final URL policy mode unsupported")
+    parsed = urlparse(final_url)
+    if (
+        parsed.scheme != "https"
+        or parsed.hostname != policy.get("https_host")
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.port not in (None, 443)
+    ):
+        raise ProviderInvocationError("provider final URL violates approved host boundary")
+    decoded = unquote(parsed.path)
+    if ".." in decoded.split("/"):
+        raise ProviderInvocationError("provider final URL path traversal is forbidden")
+    prefix = policy.get("path_prefix")
+    if not isinstance(prefix, str) or not parsed.path.startswith(prefix):
+        raise ProviderInvocationError("provider final URL violates approved path boundary")
+    if parsed.query and policy.get("allow_query") is not True:
+        raise ProviderInvocationError("provider final URL query is not approved")
+    if parsed.fragment and policy.get("allow_fragment") is not True:
+        raise ProviderInvocationError("provider final URL fragment is not approved")
+
+
 def _validate_interaction_plan(capability: str, plan: object) -> None:
     if capability != ProviderCapability.C3_BROWSER_USE.value:
         if plan is not None:
@@ -269,6 +324,9 @@ def validate_provider_request(
     if not isinstance(requested_url, str):
         raise ProviderInvocationError("provider request requested_url missing")
     _validate_url(target, requested_url)
+    expected_final_policy = _final_url_policy(target, requested_url)
+    if request.get("final_url_policy") != expected_final_policy:
+        raise ProviderInvocationError("provider request final URL policy mismatch")
 
     limits = contract["limits"]
     max_bytes = request.get("max_bytes")
@@ -323,6 +381,11 @@ def build_provider_request(
     ttl_seconds: int = 90,
 ) -> dict[str, Any]:
     validate_contract_projection(contract)
+    source_policy = _source_policy(contract, source_id)
+    targets = source_policy.get("targets")
+    target = targets.get(target_role) if isinstance(targets, dict) else None
+    if not isinstance(target, dict):
+        raise ProviderInvocationError("provider request target_role is not authorized")
     observed_now = (now or datetime.now(UTC)).astimezone(UTC)
     provider_request_id = str(uuid.uuid4())
     request = {
@@ -338,6 +401,7 @@ def build_provider_request(
         "mcp_tool": CAPABILITY_TOOL_MAP.get(capability),
         "target_role": target_role,
         "requested_url": requested_url,
+        "final_url_policy": _final_url_policy(target, requested_url),
         "max_bytes": max_bytes,
         "max_run_seconds": max_run_seconds,
         "requested_at": observed_now.isoformat().replace("+00:00", "Z"),
