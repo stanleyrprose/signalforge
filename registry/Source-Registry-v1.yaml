@@ -2190,6 +2190,106 @@
         "current_health": "HTML_TITLE_SCOPE_AND_DEADLINE_PDF_METADATA_ONLY",
         "fetch_in_primary_pipeline": false
       }
+    },
+    "S39": {
+      "name": "Ministry of Energy Collective Tenders",
+      "adapter": "energy_tender",
+      "enabled": true,
+      "role": "ACTIVE_PRIMARY",
+      "audit_status": "GREEN_DIRECT_HTTP_HTML_ID_PUBLICATION_TEXT_PDF_SCOPE_DEADLINE",
+      "item_kind": "TENDER",
+      "network_zone": "myanmar-international",
+      "engine": "direct_http",
+      "landing_url": "https://energy.gov.mm/tenders",
+      "discovery_url": "https://energy.gov.mm/tenders",
+      "discovery_is_tender_only": true,
+      "language": "my",
+      "poll_interval_seconds": 1800,
+      "retry_interval_seconds": 300,
+      "priority": 88,
+      "recovery_slo_seconds": 3600,
+      "availability_policy": {
+        "class": "DELAY_TOLERANT_MONITORED",
+        "accepted_collection_outage_seconds": 7200,
+        "collection_rto_seconds": 3600,
+        "business_data_rpo_target_seconds": 1800,
+        "outage_status": "DATA_COLLECTION_DELAYED",
+        "delivery_during_recovery": "CONTINUE_WITH_DEGRADED_HEALTH"
+      },
+      "baseline_lookback_days": 180,
+      "baseline_detail_limit": 4,
+      "delta_detail_limit": 4,
+      "request_timeout_seconds": 30,
+      "request_max_bytes": 2000000,
+      "request_delay_ms": 100,
+      "canonical_key": "issuer_tender_record_id",
+      "first_baseline_customer_signal": false,
+      "bootstrap_seed_urls": [],
+      "selection_policy_version": 1,
+      "health_policy": {
+        "freshness_yellow_seconds": 3600,
+        "freshness_red_seconds": 5400,
+        "fetch_yellow_failures": 1,
+        "fetch_red_failures": 3,
+        "parse_window_runs": 10,
+        "parse_min_attempts": 2,
+        "parse_yellow_ratio": 0.9,
+        "parse_red_ratio": 0.7,
+        "parse_probe_interval_seconds": 7200,
+        "parse_sample_source": "BUSINESS_PROCESSING"
+      },
+      "source_policy_version": 1,
+      "egress_profile": "mm-intl-datacenter",
+      "acquisition_policy": {
+        "enabled": true,
+        "primary": {
+          "method": "DIRECT_HTTP",
+          "target_kind": "HTML"
+        },
+        "supplementary": [
+          {
+            "method": "DIRECT_HTTP",
+            "target_kind": "PDF",
+            "required": true,
+            "max_count": 1,
+            "same_origin_only": true
+          }
+        ],
+        "escalation": {
+          "DNS_FAILURE": {
+            "action": "RETRY"
+          },
+          "CONNECT_TIMEOUT": {
+            "action": "RETRY"
+          },
+          "HTTP_429": {
+            "action": "RETRY"
+          },
+          "HTTP_403": {
+            "action": "REVIEW"
+          },
+          "TLS_FAILURE": {
+            "action": "FAIL"
+          },
+          "JS_RENDER_REQUIRED": {
+            "action": "REVIEW_CAPABILITY"
+          },
+          "PDF_PARSE_FAILURE": {
+            "action": "REAUDIT"
+          },
+          "PARSER_DRIFT": {
+            "action": "REAUDIT"
+          }
+        }
+      },
+      "attachment_policy": {
+        "mode": "SINGLE_TEXT_PDF_REQUIRED",
+        "current_health": "TEXT_NATIVE_PDF_SCOPE_AND_DEADLINE",
+        "fetch_in_primary_pipeline": true,
+        "required_primary_attachments": 1,
+        "max_primary_attachments": 1,
+        "same_origin_only": true
+      }
     }
   },
   "deferred_sources": {

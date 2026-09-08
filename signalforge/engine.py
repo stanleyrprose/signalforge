@@ -7,6 +7,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Callable
+from urllib.parse import urlparse
 
 from .acquisition_contract import ProcessingFailure, request_reason
 from .acquisition_runtime import acquire_local_bytes, acquire_provider_bytes, record_processing
@@ -177,14 +178,23 @@ def _recovery_context(state, now: datetime, source: dict, *, baseline: bool) -> 
     return True, window_start, _iso(now)
 
 
-def _write_evidence(source_id: str, html: bytes, digest: str, root: Path | None = None) -> Path:
+def _write_evidence(
+    source_id: str,
+    payload: bytes,
+    digest: str,
+    root: Path | None = None,
+    *,
+    suffix: str = ".html",
+) -> Path:
+    if suffix not in {".html", ".pdf"}:
+        raise ValueError(f"unsupported evidence suffix: {suffix}")
     target_root = root or evidence_root()
     directory = target_root / source_id
     directory.mkdir(parents=True, exist_ok=True)
-    target = directory / f"{digest}.html"
+    target = directory / f"{digest}{suffix}"
     if not target.exists():
-        tmp = target.with_suffix(".html.part")
-        tmp.write_bytes(html)
+        tmp = target.with_suffix(f"{suffix}.part")
+        tmp.write_bytes(payload)
         tmp.replace(target)
         target.chmod(0o640)
     return target
@@ -652,12 +662,71 @@ def run_source(
 
             html = detail_capture.payload
             evidence_digest = detail_capture.sha256
+            processing_capture = detail_capture
+            attachment_captures = []
+            attachment_payloads: list[tuple[str, bytes]] = []
+
+            if adapter.extract_detail_attachments is not None:
+                attachment_policy = source.get("attachment_policy") or {}
+                required_count = int(attachment_policy.get("required_primary_attachments", 0))
+                max_count = int(attachment_policy.get("max_primary_attachments", 0))
+                if attachment_policy.get("fetch_in_primary_pipeline") is not True or max_count < 1:
+                    detail_errors += 1
+                    continue
+                try:
+                    attachment_urls = adapter.extract_detail_attachments(html, entry.url)
+                except Exception:
+                    detail_errors += 1
+                    continue
+                if len(attachment_urls) < required_count or len(attachment_urls) > max_count:
+                    detail_errors += 1
+                    continue
+                if attachment_policy.get("same_origin_only") is True:
+                    detail_origin = urlparse(entry.url)
+                    same_origin = all(
+                        (lambda parsed: (
+                            parsed.scheme == detail_origin.scheme
+                            and parsed.hostname == detail_origin.hostname
+                            and (parsed.port or (443 if parsed.scheme == "https" else 80))
+                            == (detail_origin.port or (443 if detail_origin.scheme == "https" else 80))
+                        ))(urlparse(attachment_url))
+                        for attachment_url in attachment_urls
+                    )
+                    if not same_origin:
+                        detail_errors += 1
+                        continue
+                try:
+                    for attachment_url in attachment_urls:
+                        attachment_capture = _acquire_source_bytes(
+                            source=source,
+                            database=database,
+                            scheduler_run_id=app_run_id,
+                            source_id=source_id,
+                            reason=request_reason(trigger_kind, health_probe=entry.url == health_probe_url),
+                            target_kind="PDF",
+                            url=attachment_url,
+                            expected_content_types=["application/pdf"],
+                            observed_at=observed_at,
+                            fetcher=fetcher,
+                        )
+                        attachment_captures.append(attachment_capture)
+                        attachment_payloads.append((attachment_url, attachment_capture.payload))
+                except Exception:
+                    detail_errors += 1
+                    continue
+                if len(attachment_captures) == 1:
+                    processing_capture = attachment_captures[0]
+                    evidence_digest = processing_capture.sha256
+
             try:
-                parsed_tenders = adapter.parse_detail(html, entry.url)
+                if adapter.parse_detail_with_attachments is not None:
+                    parsed_tenders = adapter.parse_detail_with_attachments(html, entry.url, attachment_payloads)
+                else:
+                    parsed_tenders = adapter.parse_detail(html, entry.url)
             except Exception:
                 record_processing(
                     database=database,
-                    capture=detail_capture,
+                    capture=processing_capture,
                     source_id=source_id,
                     observed_at=observed_at,
                     parser_version=adapter.detail_parser_version,
@@ -667,7 +736,11 @@ def run_source(
                     items_found=0,
                     canonical_items=0,
                     signals_created=0,
-                    failure=ProcessingFailure.HTML_PARSE_FAILURE,
+                    failure=(
+                        ProcessingFailure.PDF_PARSE_FAILURE
+                        if adapter.parse_detail_with_attachments is not None
+                        else ProcessingFailure.HTML_PARSE_FAILURE
+                    ),
                 )
                 detail_errors += 1
                 continue
@@ -692,7 +765,7 @@ def run_source(
             if not parsed_tenders:
                 record_processing(
                     database=database,
-                    capture=detail_capture,
+                    capture=processing_capture,
                     source_id=source_id,
                     observed_at=observed_at,
                     parser_version=adapter.detail_parser_version,
@@ -714,7 +787,15 @@ def run_source(
             detail_changed = 0
             detail_signals = 0
             try:
-                _write_evidence(source_id, html, evidence_digest, evidence)
+                _write_evidence(source_id, html, detail_capture.sha256, evidence)
+                for attachment_capture in attachment_captures:
+                    _write_evidence(
+                        source_id,
+                        attachment_capture.payload,
+                        attachment_capture.sha256,
+                        evidence,
+                        suffix=".pdf",
+                    )
                 with connect(database) as conn, conn:
                     canonical_marker = parsed_tenders[0].canonical_key if len(parsed_tenders) == 1 else None
                     conn.execute(
@@ -735,7 +816,7 @@ def run_source(
             except Exception:
                 record_processing(
                     database=database,
-                    capture=detail_capture,
+                    capture=processing_capture,
                     source_id=source_id,
                     observed_at=observed_at,
                     parser_version=adapter.detail_parser_version,
@@ -750,7 +831,7 @@ def run_source(
                 raise
             record_processing(
                 database=database,
-                capture=detail_capture,
+                capture=processing_capture,
                 source_id=source_id,
                 observed_at=observed_at,
                 parser_version=adapter.detail_parser_version,

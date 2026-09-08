@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <meta name="csrf-token" content="TwHjcNcu5in1vufPaziLa9yUdTtO5uVFSlq2q53U">
+
+
+    <link rel="stylesheet" href="https://energy.gov.mm/css/libs/bootstrap.min.css">
+    <link rel="stylesheet" href="https://energy.gov.mm/css/libs/swiper.css">
+    <link rel="stylesheet" href="https://energy.gov.mm/css/customs/carousel.css">
+    <link rel="stylesheet" href="https://energy.gov.mm/css/customs/style.css">
+
+    
+    <link rel="stylesheet" href="https://energy.gov.mm/fontawesome-free-6.4.0-web/css/all.min.css">
+
+    <link rel="stylesheet" href="https://energy.gov.mm/image-viewer/css/lightgallery.css">
+
+    <link rel="shortcut icon" href="https://energy.gov.mm/assets/images/common/moeNew.png">
+
+    <title>Ministry of Energy | Home</title>
+<meta name="description" content="MOE Description"/>
+
+<meta property="og:type" content="website" />
+<meta property="og:url" content="/" />
+<meta property="og:title" content="Home" />
+<meta property="og:description" content="MOE Description" />
+<meta property="og:image" content="/" />        <link rel="stylesheet" href="https://energy.gov.mm/css/customs/pages/service.css">
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-30W03DS09X"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'G-30W03DS09X');
+    </script>
+</head>
+<body class="position-relative">
+    <div id="search-model" class="p-2" style="width: 100vw;height: 100vh;top: 0;left: 0;position: fixed;z-index : 10000; background-color : #111111b0;display: none;">
+    <div style="width: 100%;height:100%;" class="close-model d-flex flex-column justify-content-center align-items-center">
+        <button class="mb-5" style="width: 80px;
+        height: 80px;border-radius: 40px;border : none;outline : none;background-color: #A05A2C"><i style="color: #FFFF00" class="fa-solid fa-xmark fs-3"></i></button>
+        
+        <form action="https://energy.gov.mm/search" class="model-action app-search-form">
+            <input name="keyword" type="text" placeholder="Search here" class="px-3">
+
+            <button>
+                <i class="fa-solid fa-magnifying-glass"></i>
+            </button>
+        </form>
+    </div>
+</div>
+    <div id="language-model" class="p-2" style="width: 100vw;height: 100vh;top: 0;left: 0;position: fixed;z-index : 10000; background-color : #111111b0;display: none;">
+    <div style="width: 100%;height:100%;" class="close-model d-flex flex-column justify-content-center align-items-center">
+        <button class="mb-5" style="width: 80px;
+        height: 80px;border-radius: 40px;border : none;outline : none;background-color: #A05A2C"><i style="color: #FFFF00" class="fa-solid fa-xmark fs-3"></i></button>
+        
+        <div class="d-flex flex-column align-items-center justify-content-center py-3 model-action app-language-box">
+            <h5 class="mb-5">Choose Language</h5>
+            <div style="width: 100%;" class="d-flex flex-column flex-md-row justify-content-center align-items-center mb-5">
+                <a href="https://energy.gov.mm/lang/en">
+                    <button  class="active" ><img src="https://energy.gov.mm/assets/icons/eng_flag.png" alt="">English</button>
+                </a>
+                <a href="https://energy.gov.mm/lang/mm">
+                    <button ><img src="https://energy.gov.mm/assets/icons/mm_flag.png" alt="">Myanmar</button>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+    <nav id="header-nav" class="nav p-0 d-flex flex-cloumn flex-xl-row justify-content-start align-items-center" style="position: absolute; top: 0; left: 0; right: 0; background-color: rgba(255, 255, 255, 0); z-index: 100;">
+    <div class="logo-cover d-none d-xl-flex">
+        <a href=""><img class="logo" src="https://energy.gov.mm/assets/images/common/moeNew.png" /></a>
+    </div>
+    
+
+    <div class="mobile-menu d-flex justify-content-between align-items-center d-xl-none px-3">
+        <div class="d-flex justify-content-center align-items-center">
+            <li><a href="" class="searchBtn"><img class="nav_icon1 me-3 searchBtn" src="https://energy.gov.mm/assets/images/common/moeNew.png" /></a></li>
+            <li><a href="#" class="searchBtn"><img class="nav_icon1 me-3 searchBtn" src="https://energy.gov.mm/assets/images/common/Search.png" /></a></li>
+            <li><a href="#" class="languageBtn"><img class="nav_icon2" src="https://energy.gov.mm/assets/images/common/Change Language.png" /></a></li>
+        </div>
+        <button id="burger-menu" class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarToggleExternalContent" aria-controls="navbarToggleExternalContent" aria-expanded="false" aria-label="Toggle navigation">
+            <i id="burger" class="fa-solid fa-bars fs-2"></i>
+            <i id="cross" class="fa-solid fa-times fs-2"></i>
+        </button>
+    </div>
+
+    <ul class="d-none d-xl-flex flex-row align-items-center justify-content-between navs">
+                                    <li class="nav-item"><a href="https://energy.gov.mm" style="" >Home</a></li>
+                                            <li class="dropdown nav-item">
+                <a class="dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false" style="" >
+                    About Us
+                </a>
+                <ul class="dropdown-menu">
+                                            <li>
+                            <a class="dropdown-item" href="https://energy.gov.mm/about_us/who_we_are">
+                            Who We Are
+                            </a>
+                        </li>
+                                            <li>
+                            <a class="dropdown-item" href="https://energy.gov.mm/about_us/our_history">
+                            Our History
+                            </a>
+                        </li>
+                                    </ul>
+            </li>
+                                                <li class="dropdown nav-item">
+                    <a class="dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false" style="" >
+                        Head Office
+                    </a>
+                    <ul class="dropdown-menu">
+                                                    <li>
+                                <a class="dropdown-item" href="https://energy.gov.mm/head_office/1">
+                                Union Minister&#039;s Office
+                                </a>
+                            </li>
+                                                    <li>
+                                <a class="dropdown-item" href="https://energy.gov.mm/head_office/2">
+                                Oil &amp; Gas Planning Department
+                                </a>
+                            </li>
+                                                    <li>
+                                <a class="dropdown-item" href="https://energy.gov.mm/head_office/3">
+                                Petroleum Products Regulatory Department
+                                </a>
+                            </li>
+                                                    <li>
+                                <a class="dropdown-item" href="https://energy.gov.mm/head_office/4">
+                                Myanma Oil &amp; Gas Enterprise
+                                </a>
+                            </li>
+                                                    <li>
+                                <a class="dropdown-item" href="https://energy.gov.mm/head_office/5">
+                                Myanma Petrochemical Enterprise
+                                </a>
+                            </li>
+                                            </ul>
+                </li>
+                                                <li class="nav-item"><a href="https://energy.gov.mm/news" style="" >News</a></li>
+                                                <li class="nav-item"><a href="https://energy.gov.mm/energy_statistics" style="" >Energy Statistics</a></li>
+                                                <li class="nav-item"><a href="https://energy.gov.mm/tenders" style="" >Tender</a></li>
+                                                <li class="nav-item"><a href="https://energy.gov.mm/laws" style="" >Law</a></li>
+                                            <li class="dropdown nav-item">
+                <a class="dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false" style="" >
+                    Contact Us
+                </a>
+                <ul class="dropdown-menu">
+                                            <li>
+                            <a class="dropdown-item" href="https://energy.gov.mm/contact_us">
+                            Contact Us
+                            </a>
+                        </li>
+                                            <li>
+                            <a class="dropdown-item" href="https://energy.gov.mm/suggest_letter">
+                            Suggest Letter
+                            </a>
+                        </li>
+                                            <li>
+                            <a class="dropdown-item" href="https://energy.gov.mm/complaint_letter">
+                            Complaint Letter
+                            </a>
+                        </li>
+                                    </ul>
+            </li>
+                                            <li class="dropdown nav-item">
+                <a class="dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false" style="" >
+                    More
+                </a>
+                <ul class="dropdown-menu">
+                                            <li>
+                            <a class="dropdown-item" href="https://energy.gov.mm/services">
+                            Services
+                            </a>
+                        </li>
+                                            <li>
+                            <a class="dropdown-item" href="https://energy.gov.mm/hluttaw">
+                            Hluttaw Section
+                            </a>
+                        </li>
+                                            <li>
+                            <a class="dropdown-item" href="https://energy.gov.mm/csrs">
+                            Corporate Social Responsibility
+                            </a>
+                        </li>
+                                            <li>
+                            <a class="dropdown-item" href="https://energy.gov.mm/statements">
+                            Statements to Public
+                            </a>
+                        </li>
+                                    </ul>
+            </li>
+                    
+        <li><a href="#" class="searchBtn"><img class="nav_icon1 d-none d-xl-block" src="https://energy.gov.mm/assets/images/common/Search.png" /></a></li>
+        <li><a href="#" class="languageBtn"><img class="nav_icon2 d-none d-xl-block" src="https://energy.gov.mm/assets/images/common/Change Language.png" /></a></li>
+    </ul>
+
+    <ul class="collapse mobile-menus d-xl-none" id="navbarToggleExternalContent">
+
+                                    <li class="nav-item"><a href="https://energy.gov.mm">Home</a></li>
+                                                <li class="dropdown nav-item">
+                    <a class="navbar-toggler navbar-toggler-inner d-flex justify-content-between" type="button" data-bs-toggle="collapse" data-bs-target="#testDropdown" aria-controls="testDropdown" aria-expanded="false" aria-label="Toggle navigation">
+                        About Us
+                        <div class="arrow-up"></div>
+                    </a>
+                </li>
+                <div class="collapse mobile-navs" id="testDropdown">
+                                        <li>
+                        <a class="dropdown-item" href="https://energy.gov.mm/about_us/who_we_are">
+                            Who We Are
+                        </a>
+                    </li>
+                                        <li>
+                        <a class="dropdown-item" href="https://energy.gov.mm/about_us/our_history">
+                            Our History
+                        </a>
+                    </li>
+                                    </div>
+                                                <li class="dropdown nav-item">
+                    <a class="navbar-toggler navbar-toggler-inner d-flex justify-content-between" type="button" data-bs-toggle="collapse" data-bs-target="#navbarToggleExternalContent2" aria-controls="navbarToggleExternalContent2" aria-expanded="false" aria-label="Toggle navigation">
+                        Head Office
+                        <div class="arrow-up"></div>
+                    </a>
+                </li>
+                <div class="collapse mobile-navs" id="navbarToggleExternalContent2">
+                                        <li>
+                        <a class="dropdown-item" href="https://energy.gov.mm/head_office/1">
+                        Union Minister&#039;s Office
+                        </a>
+                    </li>
+                                    <li>
+                        <a class="dropdown-item" href="https://energy.gov.mm/head_office/2">
+                        Oil &amp; Gas Planning Department
+                        </a>
+                    </li>
+                                    <li>
+                        <a class="dropdown-item" href="https://energy.gov.mm/head_office/3">
+                        Petroleum Products Regulatory Department
+                        </a>
+                    </li>
+                                    <li>
+                        <a class="dropdown-item" href="https://energy.gov.mm/head_office/4">
+                        Myanma Oil &amp; Gas Enterprise
+                        </a>
+                    </li>
+                                    <li>
+                        <a class="dropdown-item" href="https://energy.gov.mm/head_office/5">
+                        Myanma Petrochemical Enterprise
+                        </a>
+                    </li>
+                                </div>
+                                                <li class="nav-item"><a href="https://energy.gov.mm/news">News</a></li>
+                                                <li class="nav-item"><a href="https://energy.gov.mm/energy_statistics">Energy Statistics</a></li>
+                                                <li class="nav-item"><a href="https://energy.gov.mm/tenders">Tender</a></li>
+                                                <li class="nav-item"><a href="https://energy.gov.mm/laws">Law</a></li>
+                                                <li class="dropdown nav-item">
+                    <a class="navbar-toggler navbar-toggler-inner d-flex justify-content-between" type="button" data-bs-toggle="collapse" data-bs-target="#testDropdown" aria-controls="testDropdown" aria-expanded="false" aria-label="Toggle navigation">
+                        Contact Us
+                        <div class="arrow-up"></div>
+                    </a>
+                </li>
+                <div class="collapse mobile-navs" id="testDropdown">
+                                        <li>
+                        <a class="dropdown-item" href="https://energy.gov.mm/contact_us">
+                            Contact Us
+                        </a>
+                    </li>
+                                        <li>
+                        <a class="dropdown-item" href="https://energy.gov.mm/suggest_letter">
+                            Suggest Letter
+                        </a>
+                    </li>
+                                        <li>
+                        <a class="dropdown-item" href="https://energy.gov.mm/complaint_letter">
+                            Complaint Letter
+                        </a>
+                    </li>
+                                    </div>
+                                                <li class="dropdown nav-item">
+                    <a class="navbar-toggler navbar-toggler-inner d-flex justify-content-between" type="button" data-bs-toggle="collapse" data-bs-target="#testDropdown" aria-controls="testDropdown" aria-expanded="false" aria-label="Toggle navigation">
+                        More
+                        <div class="arrow-up"></div>
+                    </a>
+                </li>
+                <div class="collapse mobile-navs" id="testDropdown">
+                                        <li>
+                        <a class="dropdown-item" href="https://energy.gov.mm/services">
+                            Services
+                        </a>
+                    </li>
+                                        <li>
+                        <a class="dropdown-item" href="https://energy.gov.mm/hluttaw">
+                            Hluttaw Section
+                        </a>
+                    </li>
+                                        <li>
+                        <a class="dropdown-item" href="https://energy.gov.mm/csrs">
+                            Corporate Social Responsibility
+                        </a>
+                    </li>
+                                        <li>
+                        <a class="dropdown-item" href="https://energy.gov.mm/statements">
+                            Statements to Public
+                        </a>
+                    </li>
+                                    </div>
+                            <div class="d-flex px-4 justify-content-between align-items-center mt-5 mobile-social">
+            <a href=""><i class="fa-brands fa-facebook fs-2"></i></a>
+            <a href=""><i class="fa-brands fa-twitter fs-2"></i></a>
+            <a href=""><i class="fa-brands fa-instagram fs-2"></i></a>
+            <a href=""><i class="fa-brands fa-linkedin fs-2"></i></a>
+            <a href=""><i class="fa-sharp fa-solid fa-paper-plane fs-2"></i></a>
+        </div>
+    </ul>
+</nav>
+
+    <header class="masthead" style="background-image: url('https://energy.gov.mm/assets/images/banners/service_background.png')">
+    <div class="container h-100">
+        <div class="row h-100 align-items-center">
+            <div class="col-12 text-center">
+                <h1 class="fw-heavy text-white pt-3 mb-3" style="text-shadow: 0.5px 1px #000000;">Tenders</h1>
+                <span class="text-white" style="text-shadow: 0.5px 0.5px #000000;">
+                    <b> <a class="news_link" href="/">Home</a> <i class="fas fa-chevron-right small"></i>
+                                                    <a class="news_link" href="https://energy.gov.mm/tenders">Tenders</a> <i
+                                class="fas fa-chevron-right small"></i>
+                            <span style="color: #FFFF00;">detail</span>
+                                            </b>
+                </span>
+            </div>
+        </div>
+    </div>
+</header>
+
+    <section class="py-5">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-8 col-12">
+                    <h1 style="font-weight: bold;font-size: 28px;line-height:45px;" class="main-color">
+                        လျှပ်စစ်နှင့်စွမ်းအင်ဝန်ကြီးဌာန၊(အိတ်ဖွင့်တင်ဒါခေါ်ယူခြင်း) (၂၇/၂၀၂၆-၂၀၂၇)
+                    </h1>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-8 col-12">
+                    
+                    <div class="main-color py-3">
+                        <i class="fas fa-calendar-alt"></i>
+                        <span>04<sup>th</sup> Sep 2026</span>
+                        <p>
+                            <p>လျှပ်စစ်နှင့်စွမ်းအင်ဝန်ကြီးဌာန၊(အိတ်ဖွင့်တင်ဒါခေါ်ယူခြင်း) (၂၇/၂၀၂၆-၂၀၂၇)</p>
+                        </p>
+                                                                                    <embed src="/storage/tenders/ZN0mM90uR0Ik1KJNCSY8GbcyK1YAgs8BMmbMxUvG.pdf" type="application/pdf" width="100%" height="600px">
+                             
+                                            </div>
+                </div>
+                <div class="col-md-4 col-12">
+                    <h1 class="section-title brown mb-5" style="">Other Tenders</h1>
+                                            <div class="row spin">
+                            <div class="col-1">
+                                <img class="spin-image" src="https://energy.gov.mm/assets/icons/tender_icon.png"
+                                    alt="" style="width:30px">
+                            </div>
+                            <div class="col-11  ps-4">
+                                <a href="https://energy.gov.mm/tenders/235">
+                                    <p class="main-color" style="font-weight:bold;"> လျှပ်စစ်နှင့်စွမ်းအင်ဝန်ကြီးဌာန၊(အိတ်ဖွင့်တင်ဒါခေါ်ယူခြင်း) (၂၇/၂၀၂၆-၂၀၂၇)</p>
+                                </a>
+                            </div>
+                        </div>
+                                            <div class="row spin">
+                            <div class="col-1">
+                                <img class="spin-image" src="https://energy.gov.mm/assets/icons/tender_icon.png"
+                                    alt="" style="width:30px">
+                            </div>
+                            <div class="col-11  ps-4">
+                                <a href="https://energy.gov.mm/tenders/233">
+                                    <p class="main-color" style="font-weight:bold;"> လျှပ်စစ်နှင့်စွမ်းအင်ဝန်ကြီးဌာန၊ရေနံနှင့်သဘာဝဓာတ်ငွေ့စီမံရေးဦးစီးဌာန၊အိတ်ဖွင့်တင်ဒါခေါ်ယူခြင်း(၂၄/၂၀...</p>
+                                </a>
+                            </div>
+                        </div>
+                                            <div class="row spin">
+                            <div class="col-1">
+                                <img class="spin-image" src="https://energy.gov.mm/assets/icons/tender_icon.png"
+                                    alt="" style="width:30px">
+                            </div>
+                            <div class="col-11  ps-4">
+                                <a href="https://energy.gov.mm/tenders/234">
+                                    <p class="main-color" style="font-weight:bold;"> လျှပ်စစ်နှင့်စွမ်းအင်ဝန်ကြီးဌာန၊ မြန်မာ့ရေနံဓာတုဗေဒလုပ်ငန်း၊အိတ်ဖွင့်တင်ဒါခေါ်ယူခြင်း(၂၅/၂၀၂၆-၂၀၂၇)</p>
+                                </a>
+                            </div>
+                        </div>
+                                            <div class="row spin">
+                            <div class="col-1">
+                                <img class="spin-image" src="https://energy.gov.mm/assets/icons/tender_icon.png"
+                                    alt="" style="width:30px">
+                            </div>
+                            <div class="col-11  ps-4">
+                                <a href="https://energy.gov.mm/tenders/232">
+                                    <p class="main-color" style="font-weight:bold;"> လျှပ်စစ်နှင့်စွမ်းအင်ဝန်ကြီးဌာန (အိတ်ဖွင့်တင်ဒါခေါ်ယူခြင်း) ( ၂၃ /၂၀၂၆-၂၀၂၇)</p>
+                                </a>
+                            </div>
+                        </div>
+                    
+                    <h1 class="section-title brown mb-5" style="">Tender Winner Lists</h1>                    
+                                            <div class="row spin">
+                            <div class="col-1">
+                                <img class="spin-image" src="https://energy.gov.mm/assets/icons/tender_icon.png"
+                                    alt="" style="width:30px">
+                            </div>
+                            <div class="col-11 ps-4">
+                                <a href="https://energy.gov.mm/tender_win_list/291">
+                                    <p class="main-color" style="font-weight:bold;">လျှပ်စစ်နှင့်စွမ်းအင်ဝန်ကြီးဌာန၊‌ရေနံထွက်ပစ္စည်းကြီးကြပ်စစ်ဆေးရေးဦးစီးဌာန၊တင်ဒါအောင်မြင်သည့်ကုမ္ပဏီမ...</p>
+                                </a>
+                            </div>
+                        </div>
+                                            <div class="row spin">
+                            <div class="col-1">
+                                <img class="spin-image" src="https://energy.gov.mm/assets/icons/tender_icon.png"
+                                    alt="" style="width:30px">
+                            </div>
+                            <div class="col-11 ps-4">
+                                <a href="https://energy.gov.mm/tender_win_list/294">
+                                    <p class="main-color" style="font-weight:bold;">လျှပ်စစ်နှင့်စွမ်းအင်ဝန်ကြီးဌာန၊ ပြည်ထောင်စုဝန်ကြီးရုံး(စွမ်းအင်) တင်ဒါအောင်မြင်သူများစာရင်း</p>
+                                </a>
+                            </div>
+                        </div>
+                                            <div class="row spin">
+                            <div class="col-1">
+                                <img class="spin-image" src="https://energy.gov.mm/assets/icons/tender_icon.png"
+                                    alt="" style="width:30px">
+                            </div>
+                            <div class="col-11 ps-4">
+                                <a href="https://energy.gov.mm/tender_win_list/123">
+                                    <p class="main-color" style="font-weight:bold;">မြန်မာ့ရေနံနှင့်သဘာဝဓာတ်ငွေ့လုပ်ငန်း ၊ တင်ဒါအောင်မြင်သူများစာရင်း</p>
+                                </a>
+                            </div>
+                        </div>
+                                            <div class="row spin">
+                            <div class="col-1">
+                                <img class="spin-image" src="https://energy.gov.mm/assets/icons/tender_icon.png"
+                                    alt="" style="width:30px">
+                            </div>
+                            <div class="col-11 ps-4">
+                                <a href="https://energy.gov.mm/tender_win_list/122">
+                                    <p class="main-color" style="font-weight:bold;">မြန်မာ့ရေနံနှင့်သဘာဝဓာတ်ငွေ့လုပ်ငန်း ၊ တင်ဒါအောင်မြင်သူများစာရင်း</p>
+                                </a>
+                            </div>
+                        </div>
+                                    </div>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+    <div class="footer-bottom-area">
+        <div style="width: 100%;background-color: #ffffff !important;">
+            <img style="width: 100%;" src="https://energy.gov.mm/assets/images/background/Footer Vector.png" alt="">
+        </div>
+        <div class="container footer-cover pb-4">
+            <div class="row">
+                <div class="col-lg-7 mb-3 mb-lg-0">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div>
+                                <h4 class="mb-0">Our Address</h4>
+                                <hr class="new4 mt-2 border-top-0 w-50">
+                                <li><a href="#">(067) 3411048</a></li>
+                                <li><a href="#">Office No.6,Nay Pyi Taw</a></li>
+                                <li><a href="#">info@energy.gov.mm</a></li>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div>
+                                <h4 class="mb-0">Quick Links</h4>
+                                <hr class="new4 mt-2 border-top-0 w-50">
+                                <li><a href="https://energy.gov.mm/about_us/who_we_are">AboutUs</a></li>
+                                <li><a href="https://energy.gov.mm/contact_us">Contact Us</a></li>
+                                <li><a href="https://energy.gov.mm/privacy_policy">Privacy Policy</a></li>
+                                <li><a href="https://energy.gov.mm/terms_and_conditions">Terms &amp; Conditions</a></li>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div>
+                                <h4 class="mb-0">Our References</h4>
+                                <hr class="new4 mt-2 border-top-0 w-50">
+
+
+                                <li><a href="https://energy.gov.mm/laws">Laws &amp; Regulations</a></li>
+                                <li><a href="#">Pyidaungsu Font</a></li>
+
+                                <li><a href="https://energy.gov.mm/sitemap">Site Map</a></li>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div>
+                                <h4 class="mb-0">Our Visitor</h4>
+                                <hr class="new4 mt-2 border-top-0 w-50">
+                                <li><a href="#">Today : 397</a></li>
+                                <li><a href="#">Total: 286285</a></li>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-5 mt-5">
+                    <div class="d-flex flex-column justify-content-end align-items-start align-items-md-end">
+                        
+                        <a href="https://energy.gov.mm/app_download/app_download">
+                            <img src="https://energy.gov.mm/assets/images/common/Mobile Download.png" alt="">
+                            
+                        </a>
+
+                        <div style="width: 100%" class="d-flex align-items-center py-1 text-white justify-content-md-end border-bottom mb-3">
+                            <div class="p-2">Follow Us On</div>
+                            <div class="d-flex">
+                                <div class="p-2"><img src="https://energy.gov.mm/assets/icons/social/Facebook logo.png" /></div>
+                                <div class="p-2"><img src="https://energy.gov.mm/assets/icons/social/Twitter logo.png" /></div>
+                                <div class="p-2"><img src="https://energy.gov.mm/assets/icons/social/instagram logo.png" /></div>
+                                <div class="p-2"><img src="https://energy.gov.mm/assets/icons/social/Linkedin logo.png" /></div>
+                                <div class="p-2"><img src="https://energy.gov.mm/assets/icons/social/Telegram logo.png" /></div>
+                            </div>
+                        </div>
+
+                        <p> Copyright © 2023 Ministry of Electricity and Energy, Myanmar. All rights reserved.</p>
+                    </div>
+                </div>
+
+
+
+                
+            </div>
+        </div>
+    </div>
+</footer>
+
+<!-- Start scrollUp  -->
+
+<!-- End scrollUp  -->
+
+    
+    <script src="https://energy.gov.mm/js/libs/jquery.js"></script>
+    <script src="https://energy.gov.mm/js/libs/bootstrap.min.js"></script>
+    <script src="https://energy.gov.mm/js/libs/swiper.js"></script>
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <script src="https://www.google.com/recaptcha/api.js"></script>
+
+    
+    <script src="https://energy.gov.mm/image-viewer/js/lightgallery-all.min.js"></script>
+    
+
+    
+    <script src="https://unpkg.com/@dotlottie/player-component@latest/dist/dotlottie-player.mjs" type="module"></script>
+
+    <script>
+        AOS.init({
+            duration: 1500
+        });
+
+        $(document).ready(function () {
+            $('.dropdown').hover(function () {
+                $(this).addClass('show');
+                $(this).find('.dropdown-menu').addClass('show');
+            }, function () {
+                $(this).removeClass('show');
+                $(this).find('.dropdown-menu').removeClass('show');
+            });
+
+            // Show the loader
+            $('#loader').show();
+
+            let loaderHidden = false;
+
+            setTimeout(function() {
+                if (!loaderHidden) {
+                    $('#loader').css('opacity', 0);
+                    setTimeout(function() {
+                        $('#loader').hide();
+                    }, 500);
+                }
+            }, 3500);
+
+        });
+
+        $(document).ready(function (){
+            //nav effect
+            const nav = $('#header-nav');
+            $(window).scroll(function (event) {
+                var scroll = $(window).scrollTop();
+                if (scroll > 300) {
+                    nav.addClass('shadow-5 animate-sticky');
+                } else {
+                    nav.removeClass('shadow-5 animate-sticky')
+                }
+            });
+
+            // Assuming you have an iframe element with id "myIframe"
+            // var iframe = document.querySelectorAll(".videoPlayer");
+
+            // iframe.forEach(element => {
+            //     // Get the document object inside the iframe
+            //     var iframeDocument = element.contentDocument || element.contentWindow.document;
+
+            //     // Access the video tag inside the iframe document
+            //     var video = iframeDocument.querySelector("video");
+
+            //     // Ensure autoplay is removed
+            //     video.removeAttribute('autoplay');
+            //     video?.pause();
+
+            //     // Add a CSS class to the video tag
+            //     if (video) {
+            //         video.style.height = '100%';
+            //     }
+            // });
+            var iframes = document.querySelectorAll(".videoPlayer");
+
+            iframes.forEach(function(iframe) {
+                // Add an onload event to ensure the iframe content is fully loaded
+                iframe.onload = function() {
+                    try {
+                        var iframeDocument = iframe.contentDocument || iframe.contentWindow.document;
+
+                        // Access the video tag inside the iframe document
+                        var video = iframeDocument.querySelector("video");
+
+                        if (video) {
+                            // Ensure autoplay is removed
+                            video.removeAttribute('autoplay');
+                            video.pause();
+
+                            // Add a CSS class to the video tag
+                            video.style.height = '100%';
+                        }
+                    } catch (error) {
+                        console.error("Cannot access iframe content due to cross-origin restrictions or other issues.");
+                    }
+                };
+            });
+
+
+
+            $('.searchBtn').click(function() {
+                $('body').css('overflow','hidden')
+                $('#search-model').addClass('d-flex')
+                $('#search-model').removeClass('d-none')
+            })
+
+            $('.languageBtn').click(function() {
+                $('body').css('overflow','hidden')
+                $('#language-model').addClass('d-flex')
+                $('#language-model').removeClass('d-none')
+            })
+
+            $('.close-model').click(function() {
+                $('body').css('overflow','auto')
+                $('#search-model').addClass('d-none')
+                $('#search-model').removeClass('d-flex')
+                $('#language-model').addClass('d-none')
+                $('#language-model').removeClass('d-flex')
+            })
+
+            $('.model-action').on('click', function(event) {
+                event.stopPropagation();
+            });
+
+            $('#cross').hide();
+
+            $('#burger-menu').on('click', function() {
+                let mob = $('#burger-menu');
+                if (mob.hasClass('collapsed')) {
+                    $('#burger').show();
+                    $('#cross').hide();
+                } else {
+                    $('#burger').hide();
+                    $('#cross').show();
+                }
+
+            })
+        });
+    </script>
+</body>
+</html>

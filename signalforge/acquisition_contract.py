@@ -105,6 +105,20 @@ def validate_source_acquisition_policy(source_id: str, source: dict[str, Any]) -
     supplementary = policy.get("supplementary")
     if not isinstance(supplementary, list):
         raise AcquisitionContractError(f"acquisition supplementary policy must be a list: {source_id}")
+    for item in supplementary:
+        if not isinstance(item, dict):
+            raise AcquisitionContractError(f"supplementary acquisition policy entry invalid: {source_id}")
+        if engine != "direct_http":
+            raise AcquisitionContractError(f"provider source supplementary acquisition is not authorized: {source_id}")
+        if item.get("method") != "DIRECT_HTTP" or item.get("target_kind") != "PDF":
+            raise AcquisitionContractError(f"supplementary acquisition must be Direct HTTP PDF: {source_id}")
+        if item.get("same_origin_only") is not True:
+            raise AcquisitionContractError(f"supplementary PDF must be same-origin: {source_id}")
+        if not isinstance(item.get("required"), bool):
+            raise AcquisitionContractError(f"supplementary PDF required flag missing: {source_id}")
+        max_count = item.get("max_count")
+        if not isinstance(max_count, int) or max_count < 1 or max_count > 4:
+            raise AcquisitionContractError(f"supplementary PDF max_count invalid: {source_id}")
 
     escalation = policy.get("escalation")
     if not isinstance(escalation, dict):
