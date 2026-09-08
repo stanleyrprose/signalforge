@@ -32,6 +32,14 @@ class AcquisitionFailure(str, Enum):
     CONTENT_TYPE_MISMATCH = "CONTENT_TYPE_MISMATCH"
     CONTENT_VALIDATION_FAILURE = "CONTENT_VALIDATION_FAILURE"
     TRANSPORT_UNKNOWN = "TRANSPORT_UNKNOWN"
+    PROVIDER_TIMEOUT = "PROVIDER_TIMEOUT"
+    PROVIDER_REQUEST_EXPIRED = "PROVIDER_REQUEST_EXPIRED"
+    PROVIDER_POLICY_REJECTED = "PROVIDER_POLICY_REJECTED"
+    PROVIDER_CONTRACT_MISMATCH = "PROVIDER_CONTRACT_MISMATCH"
+    PROVIDER_LEASE_CONFLICT = "PROVIDER_LEASE_CONFLICT"
+    PROVIDER_RESULT_INVALID = "PROVIDER_RESULT_INVALID"
+    PROVIDER_ARTIFACT_HASH_MISMATCH = "PROVIDER_ARTIFACT_HASH_MISMATCH"
+    PROVIDER_IDEMPOTENCY_CONFLICT = "PROVIDER_IDEMPOTENCY_CONFLICT"
 
 
 class ProcessingFailure(str, Enum):
@@ -65,9 +73,18 @@ def validate_source_acquisition_policy(source_id: str, source: dict[str, Any]) -
     if not isinstance(version, int) or version < 1:
         raise AcquisitionContractError(f"invalid source_policy_version: {source_id}")
 
+    engine = source.get("engine")
     egress_profile = source.get("egress_profile")
-    if egress_profile != "mm-intl-datacenter":
-        raise AcquisitionContractError(f"v1.5 local source must use mm-intl-datacenter: {source_id}")
+    if engine == "direct_http":
+        if egress_profile != "mm-intl-datacenter":
+            raise AcquisitionContractError(f"Direct HTTP source must use mm-intl-datacenter: {source_id}")
+    elif engine == "provider":
+        if egress_profile != "mac-direct":
+            raise AcquisitionContractError(f"Provider source must use mac-direct: {source_id}")
+        if source.get("provider_id") != "mac-mm-01":
+            raise AcquisitionContractError(f"Provider source must use mac-mm-01: {source_id}")
+    else:
+        raise AcquisitionContractError(f"unsupported acquisition engine: {source_id}")
 
     policy = source.get("acquisition_policy")
     if not isinstance(policy, dict) or policy.get("enabled") is not True:
@@ -76,10 +93,14 @@ def validate_source_acquisition_policy(source_id: str, source: dict[str, Any]) -
     primary = policy.get("primary")
     if not isinstance(primary, dict):
         raise AcquisitionContractError(f"acquisition primary policy missing: {source_id}")
-    if primary.get("method") != "DIRECT_HTTP":
-        raise AcquisitionContractError(f"v1.5 P0 primary method must be DIRECT_HTTP: {source_id}")
+    expected_method = "DIRECT_HTTP" if engine == "direct_http" else "MAC_BROWSER_PROVIDER"
+    if primary.get("method") != expected_method:
+        raise AcquisitionContractError(f"primary acquisition method mismatch for {source_id}: expected {expected_method}")
     if primary.get("target_kind") != "HTML":
-        raise AcquisitionContractError(f"v1.5 P0 primary target_kind must be HTML: {source_id}")
+        raise AcquisitionContractError(f"primary target_kind must be HTML: {source_id}")
+    if engine == "provider":
+        if primary.get("provider_id") != "mac-mm-01" or primary.get("capability") != "C0_FETCH":
+            raise AcquisitionContractError(f"provider primary policy must pin mac-mm-01 C0_FETCH: {source_id}")
 
     supplementary = policy.get("supplementary")
     if not isinstance(supplementary, list):

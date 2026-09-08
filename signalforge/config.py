@@ -52,16 +52,16 @@ class Registry:
             raise ConfigError("R5 SignalForge canonical node must be bangkok")
         if policy.get("default_engine") != "direct_http" or policy.get("tls_verification_required") is not True:
             raise ConfigError("R5 production must be Direct HTTP with TLS verification")
-        if policy.get("browser_production_approved") is not False:
-            raise ConfigError("R5 browser production must remain disabled")
+        if policy.get("browser_production_approved") is not True:
+            raise ConfigError("PIC R4 browser production approval must be enabled")
         providers = value.get("providers") or {}
         mac_provider = providers.get("mac-mm-01") if isinstance(providers, dict) else None
         if not isinstance(mac_provider, dict):
             raise ConfigError("Mac Browser Provider capability projection missing")
         if mac_provider.get("provider_type") != "browser" or mac_provider.get("runtime") != "mac-browser-plane-r1":
             raise ConfigError("invalid Mac Browser Provider identity")
-        if mac_provider.get("production_enabled") is not False or mac_provider.get("invocation_mode") != "manual_or_future_contract":
-            raise ConfigError("Mac Browser Provider production invocation must remain disabled")
+        if mac_provider.get("production_enabled") is not True or mac_provider.get("invocation_mode") != "pull_ssh_v1":
+            raise ConfigError("Mac Browser Provider production invocation must use pull_ssh_v1")
         network = mac_provider.get("network") or {}
         if network.get("direct") is not True or network.get("southeast_asia") is not False or network.get("china") is not False:
             raise ConfigError("Mac Browser Provider network projection must remain R1 direct-only")
@@ -76,7 +76,7 @@ class Registry:
             "persistent_profile": True,
             "screenshot": True,
             "binary_artifact": True,
-            "remote_invocation": False,
+            "remote_invocation": True,
             "headed_human_takeover": False,
         }
         if any(capabilities.get(name) is not expected for name, expected in required_capabilities.items()):
@@ -124,16 +124,29 @@ class Registry:
         return cls(value)
 
     def enabled_sources(self) -> list[tuple[str, dict[str, Any]]]:
-        result: list[tuple[str, dict[str, Any]]] = []
+        direct: list[tuple[str, dict[str, Any]]] = []
+        provider: list[tuple[str, dict[str, Any]]] = []
         for source_id, source in sorted((self.raw.get("sources") or {}).items()):
             if not isinstance(source, dict) or source.get("enabled") is not True:
                 continue
-            if source.get("engine") != "direct_http":
-                raise ConfigError(f"active R5 source must use direct_http: {source_id}")
-            if source.get("network_zone") != "myanmar-international":
-                raise ConfigError(f"active R5 source must route to Bangkok zone: {source_id}")
-            result.append((source_id, source))
-        return result
+            engine = source.get("engine")
+            if engine == "direct_http":
+                if source.get("network_zone") != "myanmar-international":
+                    raise ConfigError(f"Direct HTTP source must route to Bangkok zone: {source_id}")
+                direct.append((source_id, source))
+                continue
+            if engine == "provider":
+                if source.get("network_zone") != "mac-direct" or source.get("provider_id") != "mac-mm-01":
+                    raise ConfigError(f"Provider source must route only to mac-mm-01 direct network: {source_id}")
+                roles = source.get("provider_target_roles")
+                if roles != {"DISCOVERY": "LISTING", "HTML": "DETAIL"}:
+                    raise ConfigError(f"Provider source target-role projection invalid: {source_id}")
+                if source.get("provider_capability") != "C0_FETCH":
+                    raise ConfigError(f"First provider-backed source must use C0_FETCH: {source_id}")
+                provider.append((source_id, source))
+                continue
+            raise ConfigError(f"unsupported active source engine: {source_id}")
+        return direct + provider
 
     def source(self, source_id: str) -> dict[str, Any]:
         if not SOURCE_ID_PATTERN.fullmatch(source_id):

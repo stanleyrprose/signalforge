@@ -218,8 +218,9 @@ class MpaPreviewTests(unittest.TestCase):
         registry = Registry.load(ROOT)
         self.assertIn("S15A", registry.raw["deferred_sources"])
         self.assertNotIn("S15A", {source_id for source_id, _source in registry.enabled_sources()})
-        self.assertFalse(registry.raw["providers"]["mac-mm-01"]["production_enabled"])
-        self.assertFalse(registry.raw["providers"]["mac-mm-01"]["capabilities"]["remote_invocation"])
+        self.assertTrue(registry.raw["providers"]["mac-mm-01"]["production_enabled"])
+        self.assertEqual(registry.raw["providers"]["mac-mm-01"]["invocation_mode"], "pull_ssh_v1")
+        self.assertTrue(registry.raw["providers"]["mac-mm-01"]["capabilities"]["remote_invocation"])
 
 
 if __name__ == "__main__":

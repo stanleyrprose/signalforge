@@ -77,17 +77,17 @@ def _manual_candidate(registry: Registry, source_id: str) -> tuple[dict[str, Any
     provider = providers.get(provider_id) if isinstance(providers, dict) and isinstance(provider_id, str) else None
     if not isinstance(provider, dict):
         raise ProviderBridgeError("manual provider bridge provider missing")
-    if provider.get("production_enabled") is not False:
-        raise ProviderBridgeError("manual bridge requires provider production_enabled=false")
-    if provider.get("invocation_mode") != "manual_or_future_contract":
-        raise ProviderBridgeError("manual bridge requires manual_or_future_contract provider")
+    if not isinstance(provider.get("production_enabled"), bool):
+        raise ProviderBridgeError("manual bridge provider production state invalid")
+    if provider.get("invocation_mode") not in {"manual_or_future_contract", "pull_ssh_v1"}:
+        raise ProviderBridgeError("manual bridge provider invocation mode unsupported")
     if (provider.get("network") or {}).get("direct") is not True:
         raise ProviderBridgeError("manual bridge requires direct Mac network capability")
     capabilities = provider.get("capabilities") or {}
     if capabilities.get("c0_fetch") is not True or capabilities.get("c0_raw_artifact") is not True:
         raise ProviderBridgeError("manual bridge v0 requires Mac C0 fetch/raw artifact capability")
-    if capabilities.get("remote_invocation") is not False:
-        raise ProviderBridgeError("manual bridge v0 must not enable remote invocation")
+    if not isinstance(capabilities.get("remote_invocation"), bool):
+        raise ProviderBridgeError("manual bridge provider remote capability state invalid")
 
     candidates = bridge.get("candidates")
     candidate = candidates.get(source_id) if isinstance(candidates, dict) else None

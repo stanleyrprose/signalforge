@@ -25,7 +25,7 @@ class ContractTests(unittest.TestCase):
         )
         self.assertEqual(manifest["verbs"]["signalforge-refresh"]["argument"], "source_id")
         self.assertEqual(manifest["grammar"]["source_id"], "^[A-Z][A-Z0-9]{0,15}$")
-        self.assertEqual(manifest["active_source_ids"], ["S05A", "S07", "S08A", "S10", "S12", "S13", "S16", "S20", "S21", "S22", "S25", "S26", "S28", "S29", "S30", "S31", "S32", "S33", "S34", "S35", "S36", "S37"])
+        self.assertEqual(manifest["active_source_ids"], ["S05A", "S07", "S08A", "S10", "S12", "S13", "S16", "S20", "S21", "S22", "S25", "S26", "S28", "S29", "S30", "S31", "S32", "S33", "S34", "S35", "S36", "S37", "S38"])
 
         registry = Registry.load(ROOT)
         with self.assertRaisesRegex(ConfigError, "invalid source id"):
@@ -33,15 +33,15 @@ class ContractTests(unittest.TestCase):
         with self.assertRaisesRegex(ConfigError, "source is not active"):
             registry.source("S99")
 
-    def test_r5_registry_is_bangkok_direct_http_only(self) -> None:
+    def test_r4_r5_registry_keeps_direct_http_default_and_enables_bounded_mac_provider(self) -> None:
         registry = Registry.load(ROOT)
         self.assertEqual(registry.raw["production_policy"]["canonical_node"], "bangkok")
-        self.assertFalse(registry.raw["production_policy"]["browser_production_approved"])
+        self.assertTrue(registry.raw["production_policy"]["browser_production_approved"])
         mac_provider = registry.raw["providers"]["mac-mm-01"]
         self.assertEqual(mac_provider["provider_type"], "browser")
         self.assertEqual(mac_provider["runtime"], "mac-browser-plane-r1")
-        self.assertFalse(mac_provider["production_enabled"])
-        self.assertEqual(mac_provider["invocation_mode"], "manual_or_future_contract")
+        self.assertTrue(mac_provider["production_enabled"])
+        self.assertEqual(mac_provider["invocation_mode"], "pull_ssh_v1")
         self.assertTrue(mac_provider["network"]["direct"])
         self.assertFalse(mac_provider["network"]["southeast_asia"])
         self.assertFalse(mac_provider["network"]["china"])
@@ -50,7 +50,7 @@ class ContractTests(unittest.TestCase):
         self.assertFalse(mac_provider["capabilities"]["c1_generic_interaction"])
         self.assertTrue(mac_provider["capabilities"]["c2_readonly_inspect"])
         self.assertFalse(mac_provider["capabilities"]["c3_browser_agent"])
-        self.assertFalse(mac_provider["capabilities"]["remote_invocation"])
+        self.assertTrue(mac_provider["capabilities"]["remote_invocation"])
         source = registry.source("S13")
         self.assertEqual(source["engine"], "direct_http")
         self.assertEqual(source["network_zone"], "myanmar-international")
@@ -73,6 +73,18 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(moi["baseline_lookback_days"], 180)
         self.assertEqual(moi["health_policy"]["parse_sample_source"], "DETAIL_SCHEDULER")
         self.assertEqual(moi["attachment_policy"]["mode"], "HTML_ONLY_NO_ATTACHMENT_REQUIRED")
+
+        industry = registry.source("S38")
+        self.assertEqual(industry["engine"], "provider")
+        self.assertEqual(industry["provider_id"], "mac-mm-01")
+        self.assertEqual(industry["provider_capability"], "C0_FETCH")
+        self.assertEqual(industry["provider_target_roles"], {"DISCOVERY": "LISTING", "HTML": "DETAIL"})
+        self.assertEqual(industry["network_zone"], "mac-direct")
+        self.assertEqual(industry["egress_profile"], "mac-direct")
+        self.assertFalse(industry["first_baseline_customer_signal"])
+        enabled = registry.enabled_sources()
+        self.assertEqual(enabled[-1][0], "S38")
+        self.assertTrue(all(source["engine"] == "direct_http" for _sid, source in enabled[:-1]))
         self.assertFalse(moi["attachment_policy"]["fetch_in_primary_pipeline"])
 
         doa = registry.source("S36")

@@ -6,9 +6,11 @@ import tempfile
 import unittest
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from unittest.mock import patch
 
 from signalforge.provider_queue import claim_next_provider_request, complete_provider_claim
-from signalforge.provider_r3 import R3_CAPABILITIES, R3_URL, load_r3_contract, prepare_r3_gate, r3_gate_status
+from signalforge.config import Registry
+from signalforge.provider_r3 import ProviderR3Error, R3_CAPABILITIES, R3_URL, load_r3_contract, prepare_r3_gate, r3_gate_status
 
 
 NOW = datetime(2026, 9, 8, 9, 30, tzinfo=UTC)
@@ -24,18 +26,30 @@ class ProviderR3Tests(unittest.TestCase):
     def tearDown(self) -> None:
         self.tmp.cleanup()
 
+    def _pre_r4_registry(self) -> Registry:
+        return Registry(raw={
+            "production_policy": {"browser_production_approved": False},
+            "providers": {"mac-mm-01": {"production_enabled": False, "capabilities": {"remote_invocation": False}}},
+            "sources": {},
+        })
+
     def test_contract_is_isolated_and_production_disabled(self) -> None:
         contract = load_r3_contract(self.contract_path)
         self.assertIs(contract["enabled"], False)
         self.assertEqual(contract["verification_mode"], "EVIDENCE_ONLY")
         self.assertEqual(set(contract["source_policies"]), {"S38"})
 
+    def test_r4_production_state_blocks_r3_rerun(self) -> None:
+        with self.assertRaisesRegex(ProviderR3Error, "historical after R4"):
+            prepare_r3_gate(database=self.db, contract_path=self.contract_path, now=NOW)
+
     def test_release_deploy_makes_provider_dispatcher_executable(self) -> None:
         deploy = (Path(__file__).resolve().parents[1] / "deploy" / "deploy-signalforge-release.sh").read_text(encoding="utf-8")
         self.assertIn('chmod 0755 "$STAGE/bin/signalforge" "$STAGE/bin/signalforge-provider-dispatcher"', deploy)
 
     def test_prepare_enqueues_exactly_c0_c1_c2_c3_without_business_side_effects(self) -> None:
-        prepared = prepare_r3_gate(database=self.db, contract_path=self.contract_path, now=NOW)
+        with patch("signalforge.provider_r3.Registry.load", return_value=self._pre_r4_registry()):
+            prepared = prepare_r3_gate(database=self.db, contract_path=self.contract_path, now=NOW)
         self.assertEqual(prepared["status"], "R3_EVIDENCE_ONLY_PREPARED")
         self.assertIs(prepared["provider_contract_enabled"], False)
         self.assertIs(prepared["customer_signal_path_enabled"], False)
@@ -46,7 +60,8 @@ class ProviderR3Tests(unittest.TestCase):
         self.assertTrue(all(item["state"] == "PENDING" for item in status["capabilities"].values()))
 
     def test_status_pass_requires_four_verified_durable_results(self) -> None:
-        prepared = prepare_r3_gate(database=self.db, contract_path=self.contract_path, now=NOW)
+        with patch("signalforge.provider_r3.Registry.load", return_value=self._pre_r4_registry()):
+            prepared = prepare_r3_gate(database=self.db, contract_path=self.contract_path, now=NOW)
         gate_id = prepared["gate_id"]
         engine_map = {
             "C1_RENDER": "c1-playwright",
