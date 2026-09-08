@@ -63,8 +63,8 @@ def acquire_local_bytes(
 ) -> AcquisitionCapture:
     if reason not in REQUEST_REASONS:
         raise ValueError(f"unsupported acquisition reason: {reason}")
-    if target_kind not in {"DISCOVERY", "HTML"}:
-        raise ValueError(f"unsupported v1.5 local target kind: {target_kind}")
+    if target_kind not in {"DISCOVERY", "HTML", "PDF"}:
+        raise ValueError(f"unsupported local target kind: {target_kind}")
     if not expected_content_types or not all(isinstance(item, str) and item for item in expected_content_types):
         raise ValueError("expected_content_types must be non-empty strings")
 

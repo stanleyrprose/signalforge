@@ -53,6 +53,23 @@ class AcquisitionContractTests(unittest.TestCase):
         with self.assertRaisesRegex(AcquisitionContractError, "TLS_FAILURE must fail closed"):
             validate_source_acquisition_policy("S13", bad)
 
+    def test_s39_supplementary_pdf_policy_is_required_same_origin_and_bounded(self) -> None:
+        registry = Registry.load(ROOT)
+        source = registry.source("S39")
+        self.assertEqual(
+            source["acquisition_policy"]["supplementary"],
+            [{"method": "DIRECT_HTTP", "target_kind": "PDF", "required": True, "max_count": 1, "same_origin_only": True}],
+        )
+        bad = copy.deepcopy(source)
+        bad["acquisition_policy"]["supplementary"][0]["same_origin_only"] = False
+        with self.assertRaisesRegex(AcquisitionContractError, "supplementary PDF must be same-origin"):
+            validate_source_acquisition_policy("S39", bad)
+
+        bad = copy.deepcopy(source)
+        bad["acquisition_policy"]["supplementary"][0]["max_count"] = 5
+        with self.assertRaisesRegex(AcquisitionContractError, "max_count invalid"):
+            validate_source_acquisition_policy("S39", bad)
+
     def test_acquisition_failure_classification_is_failure_aware(self) -> None:
         self.assertEqual(classify_acquisition_failure(TimeoutError("timed out")), AcquisitionFailure.CONNECT_TIMEOUT)
         self.assertEqual(classify_acquisition_failure(ssl.SSLError("certificate verify failed")), AcquisitionFailure.TLS_FAILURE)

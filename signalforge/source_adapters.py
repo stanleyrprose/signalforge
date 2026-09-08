@@ -17,6 +17,9 @@ from .doms import parse_tender_listing as parse_doms_tender_listing
 from .dof import parse_tender_records as parse_dof_tender_records
 from .dwir import parse_tender_detail as parse_dwir_tender_detail
 from .dwir import parse_tender_listing as parse_dwir_tender_listing
+from .energy import extract_tender_pdf_urls as extract_energy_tender_pdf_urls
+from .energy import parse_tender_detail_with_attachments as parse_energy_tender_detail_with_attachments
+from .energy import parse_tender_listing as parse_energy_tender_listing
 from .iwt import parse_tender_detail as parse_iwt_tender_detail
 from .ird import parse_announcement_detail as parse_ird_announcement_detail
 from .ird import parse_announcement_listing as parse_ird_announcement_listing
@@ -50,6 +53,8 @@ class SourceAdapterError(RuntimeError):
 DiscoveryParser = Callable[[bytes], list[SitemapEntry]]
 DiscoveryRecordParser = Callable[[bytes, str], list[object]]
 DetailParser = Callable[[bytes, str], list[object]]
+DetailAttachmentExtractor = Callable[[bytes, str], list[str]]
+DetailWithAttachmentsParser = Callable[[bytes, str, list[tuple[str, bytes]]], list[object]]
 
 
 @dataclass(frozen=True)
@@ -63,6 +68,8 @@ class SourceAdapter:
     parse_discovery: DiscoveryParser
     parse_detail: DetailParser
     parse_discovery_records: DiscoveryRecordParser | None = None
+    extract_detail_attachments: DetailAttachmentExtractor | None = None
+    parse_detail_with_attachments: DetailWithAttachmentsParser | None = None
 
 
 def _empty_discovery(_payload: bytes) -> list[SitemapEntry]:
@@ -140,6 +147,10 @@ def _parse_moba_detail(payload: bytes, url: str) -> list[object]:
     return [tender] if tender is not None else []
 
 
+def _parse_energy_detail_without_attachment(_payload: bytes, _url: str) -> list[object]:
+    raise SourceAdapterError("energy_tender requires its reviewed PDF attachment parser")
+
+
 ADAPTERS = {
     "mpt": SourceAdapter(
         name="mpt",
@@ -200,6 +211,18 @@ ADAPTERS = {
         canonicalizer_version="moba-drupal-node-id-v1",
         parse_discovery=parse_moba_tender_listing,
         parse_detail=_parse_moba_detail,
+    ),
+    "energy_tender": SourceAdapter(
+        name="energy_tender",
+        discovery_content_types=("text/html",),
+        discovery_parser_version="energy-tender-card-v1",
+        detail_parser_version="energy-html-plus-text-pdf-v1",
+        normalizer_version="energy-tender-normalize-v1",
+        canonicalizer_version="energy-tender-id-v1",
+        parse_discovery=parse_energy_tender_listing,
+        parse_detail=_parse_energy_detail_without_attachment,
+        extract_detail_attachments=extract_energy_tender_pdf_urls,
+        parse_detail_with_attachments=parse_energy_tender_detail_with_attachments,
     ),
     "iwt": SourceAdapter(
         name="iwt",
