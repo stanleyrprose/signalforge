@@ -14,7 +14,7 @@ Expand SignalForge across high-value Myanmar issuer-original sources while prese
 - Worker DB has no SignalForge source/canonical/acquisition business semantics.
 - Source adapters follow real issuer shape; there is no universal tender parser requirement.
 - TLS/HTTP failures stay fail-closed and do not silently become certificate bypass or Browser escalation.
-- Browser execution belongs only to the Mac Browser Plane; VPS Browser/Crawlee R3 is superseded. SignalForge→Mac unattended production invocation remains disabled until a separate Provider Invocation Contract is approved; Browserless/PDF/distributed coordination remain evidence-triggered future capabilities.
+- Browser execution belongs only to the Mac Browser Plane; VPS Browser/Crawlee R3 is superseded. SignalForge→Mac unattended production invocation is permitted only through the live-reviewed PIC pull-SSH contract and explicit source/URL/capability allowlists; there is no generic HTTP/TLS failure fallback. Browserless/PDF/distributed coordination remain evidence-triggered future capabilities.
 
 ## Current production sources
 
@@ -381,3 +381,17 @@ Final releases: Mac Browser Plane runtime source `7a13bcb1ab8acf0a69585bbddc0a6d
 Live rollout found and closed four production semantics bugs rather than masking them: ProviderRequest TTL reused scheduler time (#85), Provider Agent slept between backlog jobs (#31 in mac-browser-plane), one source exception aborted later due sources (#86), and S38 used the wrong parse-health sample surface (#87). See `docs/verification/PIC-R4-R5-PRODUCTION-CLOSURE-2026-09-08.md` for evidence, offline isolation, rollback boundaries, and exact counters.
 
 Overall SignalForge remains `DEGRADED / RED` only because S25 still has historical MONPIFER parse failures in its rolling 10-sample window (currently 6/10) despite current fetch/freshness success, zero consecutive failures, and no current error. Do not brush this green with artificial refreshes; allow the window to recover naturally.
+
+## S27 MOBA Provider C0 production closure — 2026-09-08
+
+S27 Ministry of Border Affairs is now the second explicit provider-backed production source and is **PRODUCTION / GREEN** on exact implementation release `29cdf90554c61bfcdc8bfb6cf4fba16c597652c9`.
+
+Fresh Bangkok strict HTTPS remained RED on both listing and detail with 6/6 curl-60 issuer-chain failures, while fresh Mac Browser Plane C0 returned HTTP 200 for the 84,281-byte listing and 56,479-byte detail 3475. The prior S27 re-audit gate is now satisfied because PIC R4/R5 already exists independently in production; no provider was created solely for MOBA.
+
+Production authorization is limited to C0, the exact listing `https://moba.gov.mm/my/tender`, and same-host `/my/tender/<id>` detail paths. Query/fragment, C1/C2/C3, PDF primary fetch, TLS bypass and automatic Direct-HTTP failure fallback remain disallowed. Canonical identity is issuer-native Drupal tender node ID (`moba:<id>`); opportunity rows are selected while award/result rows are excluded.
+
+First production baseline: `SUCCESS / discovered=7 / candidates=6 / details=6/6 / changed=6 / signals=0 / backlog=0`. Durable state is six S27 canonical items, zero S27 signals, seven provider requests all SUCCEEDED, seven EvidenceEnvelopes, seven successful processing records, and DB quick check `ok`. S27 health is GREEN with parse 6/6.
+
+Beijing remains SignalForge-free and its current forced dispatcher rejects `signalforge-refresh S27` with `126 / DENY: SignalForge is Bangkok-only`. Bangkok timer is restored enabled/active and the immediate scheduler run completed SUCCESS.
+
+The rollout also exposed a deploy packaging mode bug: `cp -a SOURCE/. STAGE/` can copy a restrictive `mktemp -d` root mode onto the staged release. Rollback worked and production never switched to the untraversable candidate. The deploy script is hardened to normalize `$STAGE` to 0755 after the copy. Full details: `docs/verification/S27-MOBA-PROVIDER-SOURCE-ONBOARDING-2026-09-08.md`.

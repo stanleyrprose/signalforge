@@ -71,6 +71,10 @@ refresh_busy="$(systemctl list-units --type=service --state=active,activating --
 if [ ! -d "$FINAL" ]; then
   install -d -m 0755 -o root -g root "$STAGE"
   cp -a "$SOURCE"/. "$STAGE"/
+  # cp -a SOURCE/. may preserve a restrictive SOURCE root mode onto STAGE
+  # (for example mktemp -d creates 0700). Normalize the release root so the
+  # dedicated signalforge user can traverse and execute the reviewed runtime.
+  chmod 0755 "$STAGE"
   rm -rf "$STAGE/.git" "$STAGE/.ai-bridge" "$STAGE/__pycache__"
   chmod 0755 "$STAGE/bin/signalforge" "$STAGE/bin/signalforge-provider-dispatcher"
   python3 -m compileall -q "$STAGE/signalforge"

@@ -286,6 +286,7 @@ class ContractTests(unittest.TestCase):
         self.assertIn("generated/applications/signalforge/signalforge-refresh@.service", deploy)
         self.assertIn("/etc/systemd/system/signalforge-refresh@.service", deploy)
         self.assertIn("signalforge-refresh@*.service", deploy)
+        self.assertIn('chmod 0755 "$STAGE"', deploy)
         self.assertIn("systemd-analyze verify", deploy)
 
     def test_worker_application_correlation_is_fail_closed(self) -> None:
