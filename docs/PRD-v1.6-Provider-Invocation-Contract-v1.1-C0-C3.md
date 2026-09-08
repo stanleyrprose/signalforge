@@ -101,7 +101,7 @@ Read-only browser diagnostics/inspection. It must not mutate account/site state.
 
 Deterministic Browser Use interaction is authorized for unattended SignalForge work when the source policy explicitly permits it.
 
-C3 does **not** authorize an unrestricted autonomous Browser Agent. Each request must carry a bounded interaction plan classified as `READ_ONLY_NAVIGATION`. Permitted plan actions are bounded navigation/inspection operations such as snapshot, navigate, click, wait, type, select, scroll and screenshot. Arbitrary JavaScript, shell, command execution, purchasing, messaging, account changes, destructive actions or external business-state mutation are outside PIC v1.1.
+C3 does **not** authorize an unrestricted autonomous Browser Agent. Each request must carry a bounded interaction plan classified as `READ_ONLY_NAVIGATION`. Permitted plan actions are bounded navigation/inspection operations such as snapshot, navigate, click, wait, type, select, press and screenshot. Arbitrary JavaScript, shell, command execution, purchasing, messaging, account changes, destructive actions or external business-state mutation are outside PIC v1.1.
 
 C3 must declare `retry_safe` explicitly. A C3 plan that is not demonstrably retry-safe must not be automatically replayed after ambiguous partial execution.
 

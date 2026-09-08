@@ -12,6 +12,7 @@ from signalforge.provider_invocation import (
     build_provider_request,
     request_sha256,
     validate_contract_projection,
+    validate_final_url_policy,
     validate_provider_request,
 )
 
@@ -137,6 +138,50 @@ class ProviderInvocationContractTests(unittest.TestCase):
                 "C3_BROWSER_USE",
                 interaction_plan={"side_effect_class": "WRITE", "retry_safe": False, "steps": [{"action": "click"}]},
             )
+
+    def test_c3_action_subset_matches_mac_mcp_pic_boundary(self) -> None:
+        plan = {
+            "side_effect_class": "READ_ONLY_NAVIGATION",
+            "retry_safe": False,
+            "steps": [{"action": "press", "key": "Escape"}],
+        }
+        request = build("C3_BROWSER_USE", interaction_plan=plan)
+        self.assertEqual(request["interaction_plan"]["steps"][0]["action"], "press")
+        with self.assertRaisesRegex(ProviderInvocationError, "not authorized"):
+            build(
+                "C3_BROWSER_USE",
+                interaction_plan={
+                    "side_effect_class": "READ_ONLY_NAVIGATION",
+                    "retry_safe": False,
+                    "steps": [{"action": "scroll"}],
+                },
+            )
+
+    def test_final_url_policy_can_allow_bounded_same_issuer_navigation(self) -> None:
+        value = contract()
+        target = value["source_policies"]["S38"]["targets"]["LISTING"]
+        target.pop("exact_urls")
+        target.update({
+            "https_host": "www.industrymsme.gov.mm",
+            "path_prefix": "/",
+            "allow_query": False,
+            "allow_fragment": False,
+            "final_url_policy": {
+                "mode": "APPROVED_HOST_PATH",
+                "https_host": "www.industrymsme.gov.mm",
+                "path_prefix": "/",
+            },
+        })
+        ids_value = ids()
+        request = build_provider_request(
+            contract=value, source_id="S38", source_policy_version=1, capability="C1_RENDER",
+            target_role="LISTING", requested_url="https://www.industrymsme.gov.mm/announcements",
+            max_bytes=1_000_000, max_run_seconds=45, now=NOW, ttl_seconds=90, **ids_value,
+        )
+        self.assertEqual(request["final_url_policy"]["mode"], "APPROVED_HOST_PATH")
+        validate_final_url_policy(request["final_url_policy"], "https://www.industrymsme.gov.mm/announcements/123")
+        with self.assertRaisesRegex(ProviderInvocationError, "host"):
+            validate_final_url_policy(request["final_url_policy"], "https://example.com/announcements/123")
 
     def test_c3_rejects_arbitrary_execution_fields(self) -> None:
         with self.assertRaisesRegex(ProviderInvocationError, "arbitrary execution"):
