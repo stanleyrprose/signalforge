@@ -53,7 +53,7 @@ def _official_pdf_url(url: str) -> str | None:
         return None
     if not path.lower().endswith(".pdf"):
         return None
-    return url
+    return f"https://www.monpifer.gov.mm{path}"
 
 
 def _article_alias(article_url: str) -> str:

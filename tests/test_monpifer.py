@@ -68,7 +68,7 @@ class MonpiferParserTests(unittest.TestCase):
         self.assertEqual(first.url, "https://www.monpifer.gov.mm/my/ministry-article/current-tender-2")
         self.assertEqual(
             first.attachment_url,
-            "https://www.monpifer.gov.mm/index.php/sites/default/files/tender_pdf/2026/07/Tender_0.pdf",
+            "https://www.monpifer.gov.mm/sites/default/files/tender_pdf/2026/07/Tender_0.pdf",
         )
 
     def test_parser_fails_closed_when_table_shape_has_no_open_tender(self) -> None:
@@ -98,7 +98,23 @@ class MonpiferEngineTests(unittest.TestCase):
             self.assertEqual(first["signals_created"], 0)
             self.assertEqual(first_fetcher.calls, [LIST_URL])
 
-            changed_html = baseline_html.replace(
+            equivalent_html = baseline_html.replace(
+                b'href="/sites/default/files/tender_pdf/',
+                b'href="/index.php/sites/default/files/tender_pdf/',
+            )
+            equivalent_fetcher = MapFetcher(equivalent_html)
+            equivalent = run_source(
+                "S25", registry=registry, now=datetime(2026, 9, 4, 10, 20, tzinfo=UTC),
+                fetcher=equivalent_fetcher, sleeper=lambda _s: None, force=True,
+                database=db, evidence=base / "evidence", worker_context={"run_id": "monpifer-url-equivalent"},
+            )
+            self.assertFalse(equivalent["baseline"])
+            self.assertEqual(equivalent["items"], 2)
+            self.assertEqual(equivalent["changed"], 0)
+            self.assertEqual(equivalent["signals_created"], 0)
+            self.assertEqual(equivalent_fetcher.calls, [LIST_URL])
+
+            changed_html = equivalent_html.replace(
                 b"07/14/2026 - 16:00",
                 b"07/15/2026 - 16:00",
                 1,
@@ -128,7 +144,7 @@ class MonpiferEngineTests(unittest.TestCase):
             self.assertEqual(len(rows), 2)
             self.assertTrue(all(row[1] == "TENDER" for row in rows))
             self.assertEqual(signal, ("UPDATED", "monpifer:current-tender-2"))
-            self.assertEqual(lifecycle, (2, 2, 2, 2))
+            self.assertEqual(lifecycle, (3, 3, 3, 3))
             self.assertEqual(pdf_requests, 0)
 
 
