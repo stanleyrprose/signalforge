@@ -1207,7 +1207,7 @@
       "adapter": "mofa_tender",
       "enabled": true,
       "role": "ACTIVE_SELECTIVE",
-      "audit_status": "GREEN_DIRECT_HTTP_WORDPRESS_HTML_SELECTIVE_TENDER",
+      "audit_status": "GREEN_DIRECT_HTTP_WORDPRESS_HTML_OPTIONAL_TEXT_PDF_ENRICHMENT",
       "item_kind": "TENDER",
       "network_zone": "myanmar-international",
       "engine": "direct_http",
@@ -1256,7 +1256,15 @@
           "method": "DIRECT_HTTP",
           "target_kind": "HTML"
         },
-        "supplementary": [],
+        "supplementary": [
+          {
+            "method": "DIRECT_HTTP",
+            "target_kind": "PDF",
+            "required": false,
+            "max_count": 1,
+            "same_origin_only": true
+          }
+        ],
         "escalation": {
           "DNS_FAILURE": {
             "action": "RETRY"
@@ -1278,13 +1286,19 @@
           },
           "PARSER_DRIFT": {
             "action": "REAUDIT"
+          },
+          "PDF_PARSE_FAILURE": {
+            "action": "REAUDIT"
           }
         }
       },
       "attachment_policy": {
-        "mode": "METADATA_ONLY_NON_BLOCKING",
-        "current_health": "AVAILABLE_NOT_FETCHED",
-        "fetch_in_primary_pipeline": false
+        "mode": "OPTIONAL_SINGLE_TEXT_PDF_ENRICHMENT",
+        "current_health": "TEXT_PDF_WHEN_AVAILABLE_HTML_METADATA_FALLBACK",
+        "fetch_in_primary_pipeline": true,
+        "required_primary_attachments": 0,
+        "max_primary_attachments": 1,
+        "same_origin_only": true
       }
     },
     "S31": {

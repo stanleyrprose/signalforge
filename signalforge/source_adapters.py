@@ -30,7 +30,9 @@ from .monpifer import parse_tender_records as parse_monpifer_tender_records
 from .moep import parse_tender_detail as parse_moep_tender_detail
 from .moep import parse_tender_listing as parse_moep_tender_listing
 from .moea import parse_tender_records as parse_moea_tender_records
+from .mofa import extract_tender_pdf_urls as extract_mofa_tender_pdf_urls
 from .mofa import parse_tender_detail as parse_mofa_tender_detail
+from .mofa import parse_tender_detail_with_attachments as parse_mofa_tender_detail_with_attachments
 from .mofa import parse_tender_listing as parse_mofa_tender_listing
 from .mol import extract_tender_pdf_urls as extract_mol_tender_pdf_urls
 from .mol import parse_tender_detail_with_attachments as parse_mol_tender_detail_with_attachments
@@ -416,11 +418,13 @@ ADAPTERS = {
         name="mofa_tender",
         discovery_content_types=("text/html",),
         discovery_parser_version="mofa-announcement-category-v1",
-        detail_parser_version="mofa-wordpress-html-v1",
+        detail_parser_version="mofa-wordpress-html-optional-text-pdf-v2",
         normalizer_version="mofa-tender-normalize-v1",
         canonicalizer_version="mofa-wordpress-post-id-v1",
         parse_discovery=parse_mofa_tender_listing,
         parse_detail=_parse_mofa_detail,
+        extract_detail_attachments=extract_mofa_tender_pdf_urls,
+        parse_detail_with_attachments=parse_mofa_tender_detail_with_attachments,
     ),
     "dwir_tender": SourceAdapter(
         name="dwir_tender",
