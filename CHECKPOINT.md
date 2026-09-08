@@ -996,3 +996,54 @@ S20, S22, S05A, S07, S08A, S12, S25, S26 and S28 triggered none of these capabil
 9. periodically recheck whether MOEP advertised PDFs become retrievable; only then consider a supplementary PDF parser gate;
 10. keep Direct HTTP first; if a source truly requires Browser, route the requirement only to Mac Browser Plane and block unattended production until a separate Provider Invocation Contract is live-verified;
 11. run the next cross-repo consistency review by 2026-12-03 or an earlier contract-change trigger.
+
+## PIC v1 R3 live closure — 2026-09-08
+
+This section is the authoritative R3 live closure and supersedes any earlier pre-credential status.
+
+### Result
+
+**PIC v1 R3 = LIVE PASS.** The real Bangkok-origin path was verified end-to-end for C0/C1/C2/C3 against verification-only S38 and `https://www.industrymsme.gov.mm/announcements`.
+
+Gate:
+
+```text
+gate_id = 26ece5bb-fe15-47ae-a6b0-a7b4882d778f
+C0_FETCH        SUCCEEDED / verified
+C1_RENDER       SUCCEEDED / verified
+C2_INSPECT      SUCCEEDED / verified
+C3_BROWSER_USE  SUCCEEDED / verified
+provider queue  SUCCEEDED=4; all other states=0
+S38 scheduler_runs=0
+S38 canonical_items=0
+S38 signals=0
+```
+
+Evidence: `docs/verification/PIC-V1-R3-LIVE-PASS-2026-09-08.md`.
+
+### Host credential boundary
+
+A dedicated BKK user `signalforge-provider` and a new Mac-only Ed25519 provider key were installed. The public-key fingerprint is `SHA256:0m4dyyxo63gHlh5H4HbCDNEPPU2FQIUIGR1DinKnfJQ`.
+
+The provider key is forced through `/usr/local/libexec/signalforge-provider-ssh-dispatch`, accepts only the four PIC dispatcher verbs, and can sudo only those exact forms to the existing `signalforge` identity. An arbitrary `id` command was live-denied with exit 126. The provider credential disable/restore path was also live verified.
+
+Administrative/root SSH credentials are not used by the unattended Provider Agent.
+
+### Software / production state
+
+- BKK SignalForge exact deployed application release: `aafa4195d2b747226a379e668911f7f686287c78`;
+- previous rollback release: `d12d70d39794af32e67725700f344f8b50248bb0`;
+- Mac Browser Plane post-gate doctor: `READY`;
+- `browser_production_approved=false` remains frozen;
+- R3 isolated contract remains evidence-only / top-level disabled;
+- R4 production enablement has **not** been performed.
+
+### S25 recovery note
+
+The MONPIFER `/index.php/` path regression is fixed and a real post-deploy S25 refresh succeeded with 10 parsed tenders and `consecutive_failures=0`. Its rolling parse-health window remains RED temporarily because it contains old failures; do not manufacture GREEN by repeated refreshes.
+
+The recovery refresh emitted 10 `UPDATED` signals because transport/attachment metadata changed with the issuer path shape. No destructive cleanup was performed. Treat this as a separate signal-noise/equivalence review item before altering historical production records.
+
+### Next
+
+R3 no longer blocks the Provider Invocation Contract. The next PIC slice is R4 Provider Production Enable, but it must deliberately change the frozen production flags and must not be conflated with this evidence-only gate. Until R4 is separately reviewed/executed, healthy production acquisition remains Direct HTTP-first and the Mac provider remains non-production.
