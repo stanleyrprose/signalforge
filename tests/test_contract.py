@@ -81,6 +81,7 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(industry["provider_target_roles"], {"DISCOVERY": "LISTING", "HTML": "DETAIL"})
         self.assertEqual(industry["network_zone"], "mac-direct")
         self.assertEqual(industry["egress_profile"], "mac-direct")
+        self.assertEqual(industry["health_policy"]["parse_sample_source"], "BUSINESS_PROCESSING")
         self.assertFalse(industry["first_baseline_customer_signal"])
         enabled = registry.enabled_sources()
         self.assertEqual(enabled[-1][0], "S38")
