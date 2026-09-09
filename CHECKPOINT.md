@@ -1161,3 +1161,20 @@ This checkpoint supersedes the local-only current-opportunities runtime snapshot
 - No public HTTP API, new listener/daemon, arbitrary remote shell, DB write path, scheduler mutation, Browser capability, Provider capability, or delivery subsystem was introduced.
 
 Evidence: `docs/verification/OPPORTUNITIES-CONTROL-READ-PRODUCTION-CLOSURE-2026-09-09.md`.
+
+## Authoritative opportunity-qualification checkpoint — 2026-09-09
+
+This checkpoint supersedes the closed-read-only runtime snapshot for current opportunity presentation while preserving all earlier closures as historical evidence.
+
+- Active Bangkok SignalForge release: `08153c47b1efc67c85776f551da2e1130b2d1c63`; immediate rollback target `5e599801be58a58ce983e61d2b1564c6ef6a83a9`.
+- Deployment archive SHA256: `927ddc89a778c88e20261abd83ec015a404bc33c0812409d359edec2378dc9d5`, identical locally and on Bangkok.
+- PR #106 adds read-time Opportunity Qualification policy v1 only. No canonical/signal write, schema, scheduler, acquisition, Browser, Provider or Control Plane contract change.
+- Full suite: `224 passed`; targeted qualification/opportunity tests: `6 passed`; whitespace gate PASS.
+- Overall production: `PASS / GREEN`; canonical `194`; signals `44`; recovery backlog `0`; DB quick check `ok`; Bangkok timer enabled/active.
+- Current view remains nine signal-backed opportunities: `8 OPEN + 1 UNKNOWN`. Trust distribution is `A=8 / B=1 / C=0`; priority is `HIGH=3 / MEDIUM=5 / REVIEW=1 / LOW=0`.
+- HIGH: `industry:1022` because it is A-grade and <=72h remaining; `energy:235` and `mofa:59800` because they are A-grade ICT opportunities. MEDIUM contains the other five A-grade Industry opportunities. `doms:12735` remains `B / REVIEW / MEDICAL / deadline UNKNOWN`.
+- Evidence semantics are explicit: Industry uses `OFFICIAL_HTML_VIA_PROVIDER`; Energy and MOFA use `OFFICIAL_HTML_PLUS_TEXT_PDF`; DOMS uses `OFFICIAL_HTML` with partial completeness.
+- Existing closed dispatcher `signalforge-opportunities` returned `PASS`, qualification policy version 1 and the same nine qualified rows. No Control Plane deployment was required.
+- Qualification remains deterministic/non-ML and does not infer missing facts. Relevance v1 regression explicitly rejects false ENERGY matches from `PowerEdge`, ordinary `Power Supply`, `Engine Power`, and ordinary `Electrical Spare Parts`.
+
+Evidence: `docs/verification/OPPORTUNITY-QUALIFICATION-V1-PRODUCTION-CLOSURE-2026-09-09.md`.
