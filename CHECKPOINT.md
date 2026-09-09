@@ -1097,3 +1097,18 @@ This section supersedes the S39-only current application checkpoint above while 
 - Overall SignalForge remains `PASS / GREEN`, canonical items 193, signals 34, recovery backlog 0.
 
 Evidence: `docs/verification/S40-MINISTRY-OF-LABOUR-SOURCE-ONBOARDING-2026-09-08.md`.
+
+## Authoritative signal-quality checkpoint — S25 + S30 — 2026-09-09
+
+This checkpoint supersedes the S40-only application checkpoint for current production state without rewriting historical source-onboarding evidence.
+
+- Active Bangkok application release: `38ba382bd132769dd89e784331f06c3ae7e3392a`; timer enabled/active; DB quick check `ok`.
+- Overall SignalForge: `PASS / GREEN`; canonical items `193`; signals `35`; recovery backlog `0`; all current sources GREEN.
+- S25 MONPIFER signal noise from equivalent `/index.php/sites/...` vs `/sites/...` PDF URLs is fixed at source-parser normalization boundary by PR #96 / `a7e979743cfe092c7af20ed6a460fb5c74c4b75a`. Production live verification parsed the same 10 tenders with `changed=0 / signals=0`; historical noisy signals remain preserved.
+- S30 MOFA optional text-PDF enrichment is production live on PR #97 / `38ba382bd132769dd89e784331f06c3ae7e3392a`. It is Bangkok Direct HTTP only; same-origin PDF, max one, optional; PDF failure falls back to HTML metadata; S39/S40 required-PDF contracts remain fail-closed.
+- Current `mofa:59800` is a still-actionable ICT tender published 2026-09-04. Normal unattended scheduler processing at `2026-09-08T17:50:03.314007Z` enriched it to deadline `2026-09-18 16:30` and scope including Data Server / PowerEdge R750-XS / Windows Server 2025 / Microsoft SQL Server 2022, then emitted exactly one `UPDATED` signal.
+- The canonical evidence SHA is `aad5b2c3e51ffc289edb5018254f364896b01d14bee8fa3be7e362e756e130c7`. All four S30 PDF acquisition artifacts observed through the current snapshot match that SHA; repeated later PDF probes produced no duplicate customer signal.
+- Product priority: continue business-value audits of existing production sources for semantic noise and missing deadline/scope before adding S41/S42 merely to increase source count. Resume source expansion when a genuine issuer coverage gap has higher expected value.
+- Beijing remains outside SignalForge production topology and is not part of this checkpoint or future per-source quality audits.
+
+Evidence: `docs/verification/SIGNAL-QUALITY-S25-S30-PRODUCTION-CLOSURE-2026-09-09.md`.
