@@ -33,6 +33,7 @@ def verb_manifest() -> dict[str, object]:
         "provider": "signalforge",
         "verbs": {
             "signalforge-status": {"helper_command": "status", "argument": None},
+            "signalforge-opportunities": {"helper_command": "opportunities", "argument": None},
             "signalforge-run-due": {"helper_command": "run-due", "argument": None},
             "signalforge-refresh": {"helper_command": "refresh-source", "argument": "source_id"},
             "signalforge-pause": {"helper_command": None, "argument": None},

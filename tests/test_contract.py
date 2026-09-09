@@ -21,7 +21,7 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(manifest["verb_manifest_version"], 1)
         self.assertEqual(
             set(manifest["verbs"]),
-            {"signalforge-status", "signalforge-run-due", "signalforge-refresh", "signalforge-pause", "signalforge-resume"},
+            {"signalforge-status", "signalforge-opportunities", "signalforge-run-due", "signalforge-refresh", "signalforge-pause", "signalforge-resume"},
         )
         self.assertEqual(manifest["verbs"]["signalforge-refresh"]["argument"], "source_id")
         self.assertEqual(manifest["grammar"]["source_id"], "^[A-Z][A-Z0-9]{0,15}$")
