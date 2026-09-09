@@ -1211,3 +1211,18 @@ This checkpoint supersedes the briefing-only runtime snapshot for current delive
 - Hard gate remaining: operator-local configuration of bot token and target chat ID on Bangkok, followed by reviewed first delivery, receipt/idempotency verification and explicit timer enable.
 
 Evidence: `docs/verification/TELEGRAM-DELIVERY-V1-CREDENTIAL-GATE-2026-09-09.md`.
+
+## Authoritative Telegram Delivery v1 production checkpoint — 2026-09-09
+
+This checkpoint supersedes the prior Telegram credential-gate checkpoint for current delivery state while preserving that checkpoint as historical evidence.
+
+- Active Bangkok SignalForge release: `489d05f5b36189dc8292b51032edf49e0e102b4d`; immediate rollback target `a61f9f7e7ef0af9be22bafd778f17bfe5f3a5ebc`.
+- Telegram secret file exists locally on Bangkok with `0640 root:signalforge`; credential values are not stored in Git or this checkpoint.
+- First real Telegram delivery completed SUCCESS and sent four attention events: `industry:1022 ACT_NOW`, `energy:235 PRIORITIZE`, `mofa:59800 PRIORITIZE`, `doms:12735 REVIEW`. Provider message IDs were `3,4,5,6`; delivery receipts became `4`.
+- Immediate second delivery returned `PASS / pending_count=0 / sent_count=0`; receipt count remained `4`. Same signal/action state therefore does not repeat.
+- Delivery identity remains `channel + canonical_key + latest_signal_id + attention_action`; new Signals and action escalation remain eligible to notify. Transport semantics are `AT_LEAST_ONCE_WITH_SUCCESS_RECEIPT_DEDUP`.
+- `signalforge-telegram-deliver.timer` is now enabled/active. `signalforge-run-due.timer` remains enabled/active.
+- Final production: `PASS / GREEN`; canonical `194`; signals `44`; recovery backlog `0`; DB quick check `ok`; Telegram receipts `4`.
+- No public API, webhook, inbound bot command handler, Browser change, Provider change, Beijing dependency or MEDIUM-watchlist delivery was introduced.
+
+Evidence: `docs/verification/TELEGRAM-DELIVERY-V1-PRODUCTION-CLOSURE-2026-09-09.md`.
