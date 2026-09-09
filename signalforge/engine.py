@@ -200,6 +200,86 @@ def _write_evidence(
     return target
 
 
+def _actionable_deadline_utc(payload: dict[str, object]) -> datetime | None:
+    raw_deadline = payload.get("deadline")
+    if not isinstance(raw_deadline, str) or not raw_deadline:
+        return None
+    try:
+        if "T" in raw_deadline:
+            parsed = datetime.fromisoformat(raw_deadline.replace("Z", "+00:00"))
+            if parsed.tzinfo is None:
+                return None
+            return parsed.astimezone(UTC)
+        deadline_time = payload.get("deadline_time")
+        if not isinstance(deadline_time, str) or len(deadline_time) != 5 or deadline_time[2] != ":":
+            return None
+        parsed = datetime.fromisoformat(f"{raw_deadline}T{deadline_time}:00+06:30")
+        return parsed.astimezone(UTC)
+    except ValueError:
+        return None
+
+
+def _reconcile_actionable_baseline_signals(
+    conn,  # type: ignore[no-untyped-def]
+    *,
+    source_id: str,
+    source: dict,
+    now: datetime,
+    observed_at: str,
+) -> int:
+    policy = source.get("actionable_baseline_signal_policy") or {}
+    if policy.get("enabled") is not True:
+        return 0
+    min_remaining = int(policy["min_remaining_seconds"])
+    max_signals = int(policy["max_signals_per_run"])
+    eligible: list[tuple[datetime, str, dict[str, object]]] = []
+    for row in conn.execute(
+        "SELECT canonical_key,payload_json FROM canonical_items WHERE source_id=? AND item_kind='TENDER'",
+        (source_id,),
+    ):
+        if conn.execute(
+            "SELECT 1 FROM signals WHERE source_id=? AND canonical_key=? LIMIT 1",
+            (source_id, row["canonical_key"]),
+        ).fetchone() is not None:
+            continue
+        try:
+            payload = json.loads(str(row["payload_json"]))
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(payload, dict) or payload.get("business_stage") != "OPPORTUNITY":
+            continue
+        deadline = _actionable_deadline_utc(payload)
+        if deadline is None or (deadline - now).total_seconds() < min_remaining:
+            continue
+        eligible.append((deadline, str(row["canonical_key"]), payload))
+
+    promoted = 0
+    for _deadline, canonical_key, payload in sorted(eligible, key=lambda item: (item[0], item[1]))[:max_signals]:
+        signal_payload = _json(
+            {
+                "signal_type": "NEW",
+                "signal_reason": "ACTIONABLE_BASELINE_RECONCILIATION",
+                "canonical_key": canonical_key,
+                **payload,
+            }
+        )
+        cursor = conn.execute(
+            """
+            INSERT INTO signals(signal_id,source_id,canonical_key,signal_type,created_at,payload_json)
+            SELECT ?,?,?,?,?,?
+            WHERE NOT EXISTS(
+                SELECT 1 FROM signals WHERE source_id=? AND canonical_key=?
+            )
+            """,
+            (
+                str(uuid.uuid4()), source_id, canonical_key, "NEW", observed_at, signal_payload,
+                source_id, canonical_key,
+            ),
+        )
+        promoted += max(0, int(cursor.rowcount or 0))
+    return promoted
+
+
 def _upsert_tender(
     conn,  # type: ignore[no-untyped-def]
     *,
@@ -496,6 +576,14 @@ def run_source(
             next_due = _iso(now + timedelta(seconds=int(source["poll_interval_seconds"])))
 
             with connect(database) as conn, conn:
+                if not baseline:
+                    signals_created += _reconcile_actionable_baseline_signals(
+                        conn,
+                        source_id=source_id,
+                        source=source,
+                        now=now,
+                        observed_at=observed_at,
+                    )
                 conn.execute(
                     """
                     INSERT INTO source_state(
@@ -862,6 +950,14 @@ def run_source(
         recovery_window_end = None if reconciliation_complete else outage_end
 
         with connect(database) as conn, conn:
+            if not baseline:
+                signals_created += _reconcile_actionable_baseline_signals(
+                    conn,
+                    source_id=source_id,
+                    source=source,
+                    now=now,
+                    observed_at=observed_at,
+                )
             conn.execute(
                 """
                 INSERT INTO source_state(

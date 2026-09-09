@@ -121,6 +121,19 @@ class Registry:
             parse_sample_source = health.get("parse_sample_source", "DETAIL_SCHEDULER")
             if parse_sample_source not in {"DETAIL_SCHEDULER", "BUSINESS_PROCESSING"}:
                 raise ConfigError(f"invalid parse sample source: {source_id}")
+
+            actionable = source.get("actionable_baseline_signal_policy")
+            if actionable is not None:
+                if source.get("item_kind") != "TENDER" or source.get("first_baseline_customer_signal") is not False:
+                    raise ConfigError(f"actionable baseline reconciliation requires suppressed TENDER baseline: {source_id}")
+                if not isinstance(actionable, dict) or actionable.get("enabled") is not True:
+                    raise ConfigError(f"invalid actionable baseline signal policy: {source_id}")
+                min_remaining = actionable.get("min_remaining_seconds")
+                max_signals = actionable.get("max_signals_per_run")
+                if not isinstance(min_remaining, int) or min_remaining < 3600:
+                    raise ConfigError(f"invalid actionable baseline min remaining: {source_id}")
+                if not isinstance(max_signals, int) or not 1 <= max_signals <= 10:
+                    raise ConfigError(f"invalid actionable baseline signal cap: {source_id}")
         return cls(value)
 
     def enabled_sources(self) -> list[tuple[str, dict[str, Any]]]:
