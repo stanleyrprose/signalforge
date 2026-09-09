@@ -2097,6 +2097,11 @@
         "mode": "HTML_ONLY_NO_ATTACHMENT_REQUIRED",
         "current_health": "HTML_SCOPE_AND_DEADLINE_NO_ATTACHMENT",
         "fetch_in_primary_pipeline": false
+      },
+      "actionable_baseline_signal_policy": {
+        "enabled": true,
+        "min_remaining_seconds": 43200,
+        "max_signals_per_run": 3
       }
     },
     "S27": {
@@ -2303,6 +2308,11 @@
         "required_primary_attachments": 1,
         "max_primary_attachments": 1,
         "same_origin_only": true
+      },
+      "actionable_baseline_signal_policy": {
+        "enabled": true,
+        "min_remaining_seconds": 43200,
+        "max_signals_per_run": 3
       }
     },
     "S40": {

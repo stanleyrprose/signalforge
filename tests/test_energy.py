@@ -170,6 +170,46 @@ class EnergyEngineTests(unittest.TestCase):
             self.assertEqual(evidence_sha, hashlib.sha256(_fixture("energy-235.pdf")).hexdigest())
             self.assertEqual(len(list((evidence / "S39").glob("*.pdf"))), 4)
 
+            promoted = run_source(
+                "S39",
+                registry=registry,
+                now=datetime(2026, 9, 8, 16, 0, tzinfo=UTC),
+                fetcher=fetcher,
+                sleeper=lambda _seconds: None,
+                force=True,
+                database=database,
+                evidence=evidence,
+                worker_context={"run_id": "energy-actionable-reconcile-worker"},
+            )
+            self.assertFalse(promoted["baseline"])
+            self.assertEqual(promoted["changed"], 0)
+            self.assertEqual(promoted["signals_created"], 1)
+            self.assertEqual(len(calls), 10)
+
+            idempotent = run_source(
+                "S39",
+                registry=registry,
+                now=datetime(2026, 9, 8, 16, 31, tzinfo=UTC),
+                fetcher=fetcher,
+                sleeper=lambda _seconds: None,
+                force=True,
+                database=database,
+                evidence=evidence,
+                worker_context={"run_id": "energy-actionable-idempotent-worker"},
+            )
+            self.assertEqual(idempotent["signals_created"], 0)
+            self.assertEqual(len(calls), 11)
+
+            with sqlite3.connect(database) as conn:
+                signal_rows = conn.execute(
+                    "SELECT signal_type,canonical_key,payload_json FROM signals WHERE source_id='S39'"
+                ).fetchall()
+            self.assertEqual(len(signal_rows), 1)
+            self.assertEqual(signal_rows[0][0:2], ("NEW", "energy:235"))
+            signal_payload = __import__("json").loads(signal_rows[0][2])
+            self.assertEqual(signal_payload["signal_reason"], "ACTIONABLE_BASELINE_RECONCILIATION")
+            self.assertEqual(signal_payload["deadline"], "2026-09-18")
+
     def test_same_origin_guard_rejects_adapter_supplied_external_pdf_before_fetch(self) -> None:
         registry = Registry.load(ROOT)
         fixtures = self._fixture_map()

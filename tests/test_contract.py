@@ -83,6 +83,10 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(industry["egress_profile"], "mac-direct")
         self.assertEqual(industry["health_policy"]["parse_sample_source"], "BUSINESS_PROCESSING")
         self.assertFalse(industry["first_baseline_customer_signal"])
+        self.assertEqual(
+            industry["actionable_baseline_signal_policy"],
+            {"enabled": True, "min_remaining_seconds": 43200, "max_signals_per_run": 3},
+        )
         moba = registry.source("S27")
         self.assertEqual(moba["adapter"], "moba_tender")
         self.assertEqual(moba["engine"], "provider")
@@ -109,6 +113,10 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(
             energy["acquisition_policy"]["supplementary"],
             [{"method": "DIRECT_HTTP", "target_kind": "PDF", "required": True, "max_count": 1, "same_origin_only": True}],
+        )
+        self.assertEqual(
+            energy["actionable_baseline_signal_policy"],
+            {"enabled": True, "min_remaining_seconds": 43200, "max_signals_per_run": 3},
         )
 
         labour = registry.source("S40")
