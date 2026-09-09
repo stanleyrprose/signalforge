@@ -146,6 +146,7 @@ class OpportunityViewTests(unittest.TestCase):
             self.assertEqual(rows[0]["deadline_status"], "OPEN")
             self.assertEqual(rows[0]["deadline_at"], "2026-09-18T16:30:00+06:30")
             self.assertEqual(rows[0]["signal_count"], 2)
+            self.assertEqual(rows[0]["latest_signal_id"], "sig-2")
             self.assertEqual(rows[0]["latest_signal_type"], "UPDATED")
             self.assertEqual(rows[0]["latest_signal_reason"], "BUSINESS_ENRICHMENT")
             self.assertEqual(rows[0]["trust_grade"], "A")

@@ -36,10 +36,13 @@ VENV_STAGE="$ROOT/venvs/.stage-$RELEASE"
 OLD=""
 [ ! -L "$ROOT/active" ] || OLD="$(basename "$(readlink -f "$ROOT/active")")"
 TIMER_WAS_ENABLED=0
+DELIVERY_TIMER_WAS_ENABLED=0
 systemctl is-enabled signalforge-run-due.timer >/dev/null 2>&1 && TIMER_WAS_ENABLED=1 || true
+systemctl is-enabled signalforge-telegram-deliver.timer >/dev/null 2>&1 && DELIVERY_TIMER_WAS_ENABLED=1 || true
 
 install -d -m 0755 -o root -g root "$ROOT" "$ROOT/releases" "$ROOT/venvs"
 install -d -m 0700 -o signalforge -g signalforge "$ROOT/state" "$ROOT/evidence" "$ROOT/artifacts" "$ROOT/tmp" "$ROOT/locks"
+install -d -m 0750 -o root -g signalforge /etc/signalforge
 
 cleanup() {
   rc=$?
@@ -52,21 +55,27 @@ cleanup() {
     if [ "$TIMER_WAS_ENABLED" -eq 1 ]; then
       systemctl enable --now signalforge-run-due.timer >/dev/null 2>&1 || true
     fi
+    if [ "$DELIVERY_TIMER_WAS_ENABLED" -eq 1 ]; then
+      systemctl enable --now signalforge-telegram-deliver.timer >/dev/null 2>&1 || true
+    fi
   fi
   exit "$rc"
 }
 trap cleanup EXIT
 
 systemctl disable --now signalforge-run-due.timer >/dev/null 2>&1 || true
+systemctl disable --now signalforge-telegram-deliver.timer >/dev/null 2>&1 || true
 for _i in $(seq 1 30); do
   state="$(systemctl is-active signalforge-run-due.service 2>/dev/null || true)"
+  delivery_state="$(systemctl is-active signalforge-telegram-deliver.service 2>/dev/null || true)"
   refresh_busy="$(systemctl list-units --type=service --state=active,activating --no-legend --no-pager 'signalforge-refresh@*.service' 2>/dev/null | wc -l | tr -d ' ')"
-  [ "$state" != active ] && [ "$state" != activating ] && [ "$refresh_busy" -eq 0 ] && break
+  [ "$state" != active ] && [ "$state" != activating ] && [ "$delivery_state" != active ] && [ "$delivery_state" != activating ] && [ "$refresh_busy" -eq 0 ] && break
   sleep 1
 done
 state="$(systemctl is-active signalforge-run-due.service 2>/dev/null || true)"
+delivery_state="$(systemctl is-active signalforge-telegram-deliver.service 2>/dev/null || true)"
 refresh_busy="$(systemctl list-units --type=service --state=active,activating --no-legend --no-pager 'signalforge-refresh@*.service' 2>/dev/null | wc -l | tr -d ' ')"
-[ "$state" != active ] && [ "$state" != activating ] && [ "$refresh_busy" -eq 0 ] || { echo "SignalForge busy; deploy deferred" >&2; exit 75; }
+[ "$state" != active ] && [ "$state" != activating ] && [ "$delivery_state" != active ] && [ "$delivery_state" != activating ] && [ "$refresh_busy" -eq 0 ] || { echo "SignalForge busy; deploy deferred" >&2; exit 75; }
 
 if [ ! -d "$FINAL" ]; then
   install -d -m 0755 -o root -g root "$STAGE"
@@ -103,8 +112,10 @@ runuser -u signalforge -- env \
 install -m 0644 /srv/worker/current-release/generated/applications/signalforge/signalforge-run-due.service /etc/systemd/system/signalforge-run-due.service
 install -m 0644 /srv/worker/current-release/generated/applications/signalforge/signalforge-refresh@.service /etc/systemd/system/signalforge-refresh@.service
 install -m 0644 "$FINAL/systemd/signalforge-run-due.timer" /etc/systemd/system/signalforge-run-due.timer
+install -m 0644 "$FINAL/systemd/signalforge-telegram-deliver.service" /etc/systemd/system/signalforge-telegram-deliver.service
+install -m 0644 "$FINAL/systemd/signalforge-telegram-deliver.timer" /etc/systemd/system/signalforge-telegram-deliver.timer
 systemctl daemon-reload
-systemd-analyze verify /etc/systemd/system/signalforge-run-due.service /etc/systemd/system/signalforge-refresh@.service /etc/systemd/system/signalforge-run-due.timer >/dev/null
+systemd-analyze verify /etc/systemd/system/signalforge-run-due.service /etc/systemd/system/signalforge-refresh@.service /etc/systemd/system/signalforge-run-due.timer /etc/systemd/system/signalforge-telegram-deliver.service /etc/systemd/system/signalforge-telegram-deliver.timer >/dev/null
 
 runuser -u signalforge -- env \
   SIGNALFORGE_STATE_ROOT="$ROOT/state" \
@@ -115,6 +126,9 @@ runuser -u signalforge -- env \
 # Gate O requires a manual real fixture/baseline run before 24x7 enable.
 if [ "$TIMER_WAS_ENABLED" -eq 1 ]; then
   systemctl enable --now signalforge-run-due.timer >/dev/null
+fi
+if [ "$DELIVERY_TIMER_WAS_ENABLED" -eq 1 ]; then
+  systemctl enable --now signalforge-telegram-deliver.timer >/dev/null
 fi
 
 trap - EXIT

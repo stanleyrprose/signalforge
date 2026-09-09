@@ -51,6 +51,11 @@ def current_opportunities(
             c.source_id,c.canonical_key,c.title,c.reference_no,c.publication_date,c.location,c.url,c.payload_json,
             ss.signal_count,ss.latest_signal_at,
             (
+                SELECT s.signal_id FROM signals s
+                WHERE s.source_id=c.source_id AND s.canonical_key=c.canonical_key
+                ORDER BY s.created_at DESC,s.signal_id DESC LIMIT 1
+            ) AS latest_signal_id,
+            (
                 SELECT s.signal_type FROM signals s
                 WHERE s.source_id=c.source_id AND s.canonical_key=c.canonical_key
                 ORDER BY s.created_at DESC,s.signal_id DESC LIMIT 1
@@ -125,6 +130,7 @@ def current_opportunities(
                 "detail_completeness": payload.get("detail_completeness"),
                 "deadline_evidence": payload.get("deadline_evidence"),
                 "url": str(row["url"]),
+                "latest_signal_id": str(row["latest_signal_id"]),
                 "latest_signal_type": str(row["latest_signal_type"]),
                 "latest_signal_at": str(row["latest_signal_at"]),
                 "latest_signal_reason": latest_signal_payload.get("signal_reason"),
