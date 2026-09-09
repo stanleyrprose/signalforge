@@ -16,6 +16,7 @@ FIXTURES = Path(__file__).resolve().parent / "fixtures"
 LIST_URL = "https://www.doms.gov.mm/category/tender/"
 URL_12634 = "https://www.doms.gov.mm/2026/08/10/7dms-2026-2027l/"
 URL_12491 = "https://www.doms.gov.mm/2026/07/09/open-tender-ct-mri/"
+URL_12735 = "https://www.doms.gov.mm/2026/09/08/8dms-9dms-10dms/"
 
 
 class MapFetcher:
@@ -69,9 +70,38 @@ class DomsParserTests(unittest.TestCase):
         self.assertEqual(tender.canonical_key, "doms:12491")
         self.assertEqual(tender.reference_no, "DOMS-POST-12491")
         self.assertEqual(tender.reference_no_kind, "wordpress_post_id")
+        self.assertEqual(tender.reference_numbers, ())
+        self.assertEqual(tender.payload()["reference_count"], 0)
+        self.assertEqual(tender.payload()["reference_numbers_evidence"], "NONE")
         self.assertIn("CT (Computed Tomography)", tender.scope_summary or "")
         self.assertIn("Preventive Maintenance", tender.scope_summary or "")
         self.assertEqual(tender.attachments, ())
+
+    def test_detail_preserves_post_identity_but_exposes_all_title_tender_references(self) -> None:
+        html = b"""
+        <html><body><article id='post-12735'>
+          <h1 class='entry-title'>Tender 8DMS/2026-2027(L), 9DMS/2026-2027(L) and 10DMS/2026-2027(F)</h1>
+          <div class='entry-content'>
+            <a href='/wp-content/uploads/2026/09/8DMS.pdf'>8DMS(2026-2027)(L)</a>
+            <a href='/wp-content/uploads/2026/09/9DMS.pdf'>9DMS(2026-2027)(L)</a>
+            <a href='/wp-content/uploads/2026/09/10DMS.pdf'>10DMS(2026-2027)(L)</a>
+          </div>
+        </article></body></html>
+        """
+        tender = parse_tender_detail(html, URL_12735)
+        self.assertIsNotNone(tender)
+        assert tender is not None
+        self.assertEqual(tender.canonical_key, "doms:12735")
+        self.assertEqual(tender.reference_no, "8DMS/2026-2027(L)")
+        self.assertEqual(
+            tender.reference_numbers,
+            ("8DMS/2026-2027(L)", "9DMS/2026-2027(L)", "10DMS/2026-2027(F)"),
+        )
+        payload = tender.payload()
+        self.assertEqual(payload["reference_count"], 3)
+        self.assertEqual(payload["reference_numbers_evidence"], "HTML_TITLE")
+        self.assertEqual(payload["reference_numbers"][-1], "10DMS/2026-2027(F)")
+        self.assertEqual(len(tender.attachments), 3)
 
 
 class DomsEngineTests(unittest.TestCase):
