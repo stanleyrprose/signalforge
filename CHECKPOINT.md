@@ -1238,3 +1238,17 @@ Evidence: `docs/verification/TELEGRAM-DELIVERY-V1-PRODUCTION-CLOSURE-2026-09-09.
 - No qualification, delivery eligibility, receipt identity, timer, schema, acquisition, Browser or Provider change.
 
 Evidence: `docs/verification/TELEGRAM-MESSAGE-UX-V1.1-PRODUCTION-CLOSURE-2026-09-09.md`.
+
+## Authoritative S13 MPT Semantic v2 checkpoint — 2026-09-09
+
+- Active Bangkok release: `21c162e0333c328e06f9a83ad7bee7b1bdf2abdf`; rollback `ff9df1af9ebf7e144b33b94aec7f6d32782a1992`; archive SHA256 `2698747d39ea4275b192c103d67caa4319a6e188cb30238e613c9aef6496f948`.
+- S13 runtime parser is `mpt-v4`, normalizer `mpt-normalize-v2`; Direct HTTP acquisition and canonical identity are unchanged.
+- v2 emits business stage, scope summary, detail completeness, deadline evidence/candidates and evidence-backed `PRE_QUALIFICATION`; full/abbreviated English month names are supported.
+- Deadline policy is fail-closed: only a unique official candidate not earlier than publication is accepted. `mpt:202604-CTO-029` remains deadline-conflicted because official candidates `2026-03-06` and `2025-03-06` both precede publication `2026-04-08`.
+- Read-only audit of all 16 stored official MPT pages: `15 OPPORTUNITY / 1 TENDER_NOTICE`, minimum scope length 41, all 16 currently show Pre-Qualification evidence.
+- End-to-end regression proves a future MPT mobile-network/fiber tender becomes `OPEN / A / HIGH / TELECOM / OFFICIAL_HTML / direct_http`; full suite `239 passed`, targeted gate `27 passed`.
+- No migration, historical canonical rewrite, business-enrichment backfill or forced S13 refresh was performed. Pre/post deploy S13 stayed `16 canonical / 10 signals`; global stayed `194 canonical / 44 signals`; Telegram receipts stayed 4 and post-deploy delivery returned zero pending/sent.
+- Current production S13 opportunities remain zero intentionally because historical payloads remain untouched. The next genuine new or officially changed MPT page will naturally use semantic v2.
+- Final production: `PASS / GREEN`, DB quick check `ok`, backlog 0, acquisition and Telegram timers enabled/active.
+
+Evidence: `docs/verification/S13-MPT-SEMANTIC-V2-PRODUCTION-CLOSURE-2026-09-09.md`.
