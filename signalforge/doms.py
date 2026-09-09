@@ -103,16 +103,17 @@ def _clean_reference_text(value: str) -> str:
     return normalize_text(value.replace("\u2068", "").replace("\u2069", ""))
 
 
-def _reference_from_text(value: str, post_id: str) -> tuple[str, str]:
+def _references_from_text(value: str) -> tuple[str, ...]:
     clean = _clean_reference_text(value)
-    match = _DMS_REFERENCE_RE.search(clean)
-    if match:
+    references: list[str] = []
+    for match in _DMS_REFERENCE_RE.finditer(clean):
         suffix = match.group("suffix")
         reference = f"{int(match.group('number'))}DMS/{match.group('year1')}-{match.group('year2')}"
         if suffix:
             reference += f"({suffix.upper()})"
-        return reference, "issuer_tender_reference"
-    return f"DOMS-POST-{post_id}", "wordpress_post_id"
+        if reference not in references:
+            references.append(reference)
+    return tuple(references)
 
 
 def is_opportunity_title(title: str) -> bool:
@@ -216,12 +217,29 @@ class DomsTender:
     location = None
 
     @property
+    def reference_numbers(self) -> tuple[str, ...]:
+        title_references = _references_from_text(self.title)
+        if title_references:
+            return title_references
+        return _references_from_text(self.scope_summary or "")
+
+    @property
+    def reference_numbers_evidence(self) -> str:
+        if _references_from_text(self.title):
+            return "HTML_TITLE"
+        if _references_from_text(self.scope_summary or ""):
+            return "HTML_TEXT"
+        return "NONE"
+
+    @property
     def reference_no(self) -> str:
-        return _reference_from_text(f"{self.title} {self.scope_summary or ''}", self.source_record_id)[0]
+        if self.reference_numbers:
+            return self.reference_numbers[0]
+        return f"DOMS-POST-{self.source_record_id}"
 
     @property
     def reference_no_kind(self) -> str:
-        return _reference_from_text(f"{self.title} {self.scope_summary or ''}", self.source_record_id)[1]
+        return "issuer_tender_reference" if self.reference_numbers else "wordpress_post_id"
 
     @property
     def project_name(self) -> str:
@@ -240,6 +258,9 @@ class DomsTender:
             "title": self.title,
             "reference_no": self.reference_no,
             "reference_no_kind": self.reference_no_kind,
+            "reference_numbers": list(self.reference_numbers),
+            "reference_count": len(self.reference_numbers),
+            "reference_numbers_evidence": self.reference_numbers_evidence,
             "source_record_id": self.source_record_id,
             "publication_date": self.publication_date,
             "deadline": None,

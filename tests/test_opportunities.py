@@ -93,7 +93,10 @@ class OpportunityViewTests(unittest.TestCase):
                         "item_kind": "TENDER",
                         "business_stage": "OPPORTUNITY",
                         "title": "Unknown deadline tender",
-                        "reference_no": "UNKNOWN-1",
+                        "reference_no": "8DMS/2026-2027(L)",
+                        "reference_numbers": ["8DMS/2026-2027(L)", "9DMS/2026-2027(L)", "10DMS/2026-2027(F)"],
+                        "reference_count": 3,
+                        "reference_numbers_evidence": "HTML_TITLE",
                         "deadline": None,
                         "url": "https://example.test/unknown/1",
                     },
@@ -141,6 +144,12 @@ class OpportunityViewTests(unittest.TestCase):
             self.assertEqual(rows[0]["latest_signal_type"], "UPDATED")
             self.assertEqual(rows[0]["latest_signal_reason"], "BUSINESS_ENRICHMENT")
             self.assertEqual(rows[1]["deadline_status"], "UNKNOWN")
+            self.assertEqual(
+                rows[1]["reference_numbers"],
+                ["8DMS/2026-2027(L)", "9DMS/2026-2027(L)", "10DMS/2026-2027(F)"],
+            )
+            self.assertEqual(rows[1]["reference_count"], 3)
+            self.assertEqual(rows[1]["reference_numbers_evidence"], "HTML_TITLE")
 
     def test_include_expired_source_filter_and_limit(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
