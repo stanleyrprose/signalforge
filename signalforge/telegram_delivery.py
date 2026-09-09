@@ -57,6 +57,29 @@ def _reason_text(item: dict[str, object]) -> str:
     return "；".join(mapping.get(str(value), str(value)) for value in (item.get("why_now") or []))
 
 
+def _action_label(action: str) -> str:
+    return {
+        "ACT_NOW": "立即行动",
+        "PRIORITIZE": "优先关注",
+        "REVIEW": "人工复核",
+    }.get(action, "关注")
+
+
+def _evidence_label(value: object) -> str:
+    return {
+        "OFFICIAL_HTML_VIA_PROVIDER": "官方 HTML（Mac Provider）",
+        "OFFICIAL_HTML_PLUS_TEXT_PDF": "官方 HTML + 官方文本 PDF",
+        "OFFICIAL_HTML": "官方 HTML",
+    }.get(str(value or ""), str(value or "UNKNOWN"))
+
+
+def _compact_scope(value: object, limit: int = 240) -> str:
+    text = " ".join(str(value or "").split())
+    if len(text) <= limit:
+        return text
+    return text[: max(0, limit - 1)].rstrip() + "…"
+
+
 def render_telegram_message(item: dict[str, object]) -> str:
     action = str(item.get("attention_action") or "REVIEW")
     icon = {"ACT_NOW": "🔴", "PRIORITIZE": "🔴", "REVIEW": "🟡"}.get(action, "🔔")
@@ -67,36 +90,41 @@ def render_telegram_message(item: dict[str, object]) -> str:
         reference = ", ".join(str(value) for value in reference_numbers)
     else:
         reference = str(item.get("reference_no") or "")
-    scope = html.escape(str(item.get("scope_excerpt") or ""))
+    scope = html.escape(_compact_scope(item.get("scope_excerpt")))
     reason = html.escape(_reason_text(item))
     url = html.escape(str(item.get("url") or ""), quote=True)
-    evidence = html.escape(str(item.get("evidence_level") or "UNKNOWN"))
+    evidence = html.escape(_evidence_label(item.get("evidence_level")))
+    relevance = html.escape(str(item.get("primary_relevance") or "OTHER"))
+    trust = html.escape(str(item.get("trust_grade") or "C"))
+    priority = html.escape(str(item.get("priority_band") or "LOW"))
+    signal_type = html.escape(str(item.get("latest_signal_type") or ""))
+
     lines = [
-        f"{icon} <b>{html.escape(action)}</b> | {html.escape(str(item.get('primary_relevance') or 'OTHER'))} | Trust {html.escape(str(item.get('trust_grade') or 'C'))}",
+        f"{icon} <b>{_action_label(action)}</b> · {priority} · {trust}级 · {relevance}",
         f"<b>{title}</b>",
-        f"Issuer: {issuer}",
+        "",
+        f"🏛 买方：{issuer}",
+        f"⏰ 截止：<b>{html.escape(_deadline_text(item))}</b>",
     ]
     if reference:
-        lines.append(f"Ref: {html.escape(reference)}")
-    lines.extend(
-        [
-            f"Deadline: <b>{html.escape(_deadline_text(item))}</b>",
-            f"Evidence: {evidence}",
-        ]
-    )
+        lines.append(f"📌 编号：{html.escape(reference)}")
     if reason:
-        lines.append(f"Why now: {reason}")
+        lines.append(f"🎯 为什么：{reason}")
     if scope:
-        lines.append(f"Scope: {scope}")
+        lines.append(f"📦 范围：{scope}")
+    lines.append(f"🔎 证据：{evidence}")
+    if signal_type:
+        lines.append(f"📡 Signal：{signal_type}")
     if url:
-        lines.append(f'<a href="{url}">Official source</a>')
+        lines.append(f'🔗 <a href="{url}">官方来源</a>')
+
     text = "\n".join(lines)
     if len(text) <= TELEGRAM_MESSAGE_LIMIT:
         return text
     # Scope is the only intentionally lossy field in the transport renderer.
     overflow = len(text) - TELEGRAM_MESSAGE_LIMIT + 80
     shorter = scope[: max(0, len(scope) - overflow)].rstrip() + "…"
-    lines = [line if not line.startswith("Scope: ") else f"Scope: {shorter}" for line in lines]
+    lines = [line if not line.startswith("📦 范围：") else f"📦 范围：{shorter}" for line in lines]
     text = "\n".join(lines)
     return text[:TELEGRAM_MESSAGE_LIMIT]
 

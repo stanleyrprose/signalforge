@@ -115,9 +115,28 @@ class TelegramDeliveryTests(unittest.TestCase):
         item["scope_excerpt"] = "x" * 10000
         text = render_telegram_message(item)
         self.assertLessEqual(len(text), 4096)
-        self.assertIn("Ministry &lt;Foreign&gt; &amp; Affairs", text)
+        self.assertIn("🔴 <b>优先关注</b> · HIGH · A级 · ICT", text)
+        self.assertIn("🏛 买方：Ministry &lt;Foreign&gt; &amp; Affairs", text)
         self.assertIn("Data Server &amp; SQL &lt;Tender&gt;", text)
+        self.assertIn("⏰ 截止：<b>2026-09-18 16:30</b>", text)
+        self.assertIn("🔎 证据：官方 HTML + 官方文本 PDF", text)
+        self.assertIn("📡 Signal：NEW", text)
+        self.assertIn("🔗 <a href=", text)
+        scope_line = next(line for line in text.splitlines() if line.startswith("📦 范围："))
+        self.assertLessEqual(scope_line.count("x"), 240)
         self.assertNotIn("<Foreign>", text)
+
+    def test_action_labels_are_compact_and_deterministic(self) -> None:
+        expected = {
+            "ACT_NOW": "立即行动",
+            "PRIORITIZE": "优先关注",
+            "REVIEW": "人工复核",
+        }
+        for action, label in expected.items():
+            item = _briefing(action=action)["attention"][0]
+            assert isinstance(item, dict)
+            text = render_telegram_message(item)
+            self.assertIn(f"<b>{label}</b>", text)
 
     def test_credentials_required_only_for_real_delivery(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
