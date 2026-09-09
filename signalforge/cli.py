@@ -16,6 +16,7 @@ from .mpa_manual import commit_manual_provider_bundle
 from .opportunities import current_opportunities
 from .provider_bridge import build_provider_request, import_provider_result, load_imported_provider_artifact, write_provider_request
 from .provider_r3 import prepare_r3_gate, r3_gate_status
+from .telegram_delivery import telegram_deliver
 
 
 def _parse_iso(value: str | None) -> datetime | None:
@@ -265,6 +266,8 @@ def main(argv: list[str] | None = None) -> int:
     opportunities_parser.add_argument("--include-expired", action="store_true")
     opportunities_parser.add_argument("--limit", type=int, default=50)
     sub.add_parser("briefing")
+    telegram_parser = sub.add_parser("telegram-deliver")
+    telegram_parser.add_argument("--dry-run", action="store_true")
     sub.add_parser("status")
     args = parser.parse_args(argv)
     try:
@@ -371,6 +374,8 @@ def main(argv: list[str] | None = None) -> int:
             )
         elif args.cmd == "briefing":
             result = business_briefing()
+        elif args.cmd == "telegram-deliver":
+            result = telegram_deliver(dry_run=bool(args.dry_run))
         else:
             result = status()
         print(json.dumps(result, ensure_ascii=False, sort_keys=True))

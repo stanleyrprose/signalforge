@@ -68,6 +68,7 @@ def _attention_item(item: dict[str, object]) -> dict[str, object]:
         "completeness": item.get("completeness"),
         "scope_excerpt": _excerpt(item.get("scope_summary")),
         "why_now": _why_now(item),
+        "latest_signal_id": item.get("latest_signal_id"),
         "latest_signal_type": item.get("latest_signal_type"),
         "latest_signal_at": item.get("latest_signal_at"),
         "signal_count": item.get("signal_count"),

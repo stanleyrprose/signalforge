@@ -1,0 +1,218 @@
+from __future__ import annotations
+
+import hashlib
+import html
+import json
+import os
+from datetime import UTC, datetime
+from pathlib import Path
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
+
+from .briefing import business_briefing
+from .config import db_path
+from .db import connect
+
+CHANNEL = "telegram"
+TELEGRAM_MESSAGE_LIMIT = 4096
+
+
+class TelegramDeliveryError(RuntimeError):
+    pass
+
+
+def _delivery_key(item: dict[str, object]) -> str:
+    raw = "|".join(
+        (
+            CHANNEL,
+            str(item.get("canonical_key") or ""),
+            str(item.get("latest_signal_id") or ""),
+            str(item.get("attention_action") or ""),
+        )
+    )
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def _payload_sha256(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _deadline_text(item: dict[str, object]) -> str:
+    if item.get("deadline_status") == "UNKNOWN":
+        return "UNKNOWN（官方材料未提供）"
+    deadline = str(item.get("deadline") or "")
+    deadline_time = str(item.get("deadline_time") or "")
+    return f"{deadline} {deadline_time}".strip() or "UNKNOWN"
+
+
+def _reason_text(item: dict[str, object]) -> str:
+    mapping = {
+        "DEADLINE_WITHIN_72H": "截止时间已进入72小时窗口",
+        "STRATEGIC_FIT_ICT_TELECOM": "ICT/Telecom 战略相关",
+        "HUMAN_REVIEW_REQUIRED": "需要人工确认后再行动",
+        "DEADLINE_UNKNOWN": "官方未给出明确截止时间",
+        "A_GRADE_BUSINESS_EVIDENCE": "A级业务证据完整",
+        "TRUSTED_EVENT_PARTIAL_ACTIONABILITY": "事件可信但行动信息不完整",
+    }
+    return "；".join(mapping.get(str(value), str(value)) for value in (item.get("why_now") or []))
+
+
+def render_telegram_message(item: dict[str, object]) -> str:
+    action = str(item.get("attention_action") or "REVIEW")
+    icon = {"ACT_NOW": "🔴", "PRIORITIZE": "🔴", "REVIEW": "🟡"}.get(action, "🔔")
+    title = html.escape(str(item.get("title") or item.get("canonical_key") or "Opportunity"))
+    issuer = html.escape(str(item.get("issuer") or "Unknown issuer"))
+    reference_numbers = item.get("reference_numbers")
+    if isinstance(reference_numbers, list) and reference_numbers:
+        reference = ", ".join(str(value) for value in reference_numbers)
+    else:
+        reference = str(item.get("reference_no") or "")
+    scope = html.escape(str(item.get("scope_excerpt") or ""))
+    reason = html.escape(_reason_text(item))
+    url = html.escape(str(item.get("url") or ""), quote=True)
+    evidence = html.escape(str(item.get("evidence_level") or "UNKNOWN"))
+    lines = [
+        f"{icon} <b>{html.escape(action)}</b> | {html.escape(str(item.get('primary_relevance') or 'OTHER'))} | Trust {html.escape(str(item.get('trust_grade') or 'C'))}",
+        f"<b>{title}</b>",
+        f"Issuer: {issuer}",
+    ]
+    if reference:
+        lines.append(f"Ref: {html.escape(reference)}")
+    lines.extend(
+        [
+            f"Deadline: <b>{html.escape(_deadline_text(item))}</b>",
+            f"Evidence: {evidence}",
+        ]
+    )
+    if reason:
+        lines.append(f"Why now: {reason}")
+    if scope:
+        lines.append(f"Scope: {scope}")
+    if url:
+        lines.append(f'<a href="{url}">Official source</a>')
+    text = "\n".join(lines)
+    if len(text) <= TELEGRAM_MESSAGE_LIMIT:
+        return text
+    # Scope is the only intentionally lossy field in the transport renderer.
+    overflow = len(text) - TELEGRAM_MESSAGE_LIMIT + 80
+    shorter = scope[: max(0, len(scope) - overflow)].rstrip() + "…"
+    lines = [line if not line.startswith("Scope: ") else f"Scope: {shorter}" for line in lines]
+    text = "\n".join(lines)
+    return text[:TELEGRAM_MESSAGE_LIMIT]
+
+
+def _send_message(*, bot_token: str, chat_id: str, text: str, timeout: int = 15) -> str:
+    body = json.dumps(
+        {
+            "chat_id": chat_id,
+            "text": text,
+            "parse_mode": "HTML",
+            "link_preview_options": {"is_disabled": True},
+        },
+        ensure_ascii=False,
+    ).encode("utf-8")
+    request = Request(
+        f"https://api.telegram.org/bot{bot_token}/sendMessage",
+        data=body,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urlopen(request, timeout=timeout) as response:
+            payload = json.loads(response.read(65536).decode("utf-8"))
+    except HTTPError as exc:
+        raise TelegramDeliveryError(f"telegram HTTP {exc.code}") from None
+    except (URLError, TimeoutError, OSError, json.JSONDecodeError):
+        raise TelegramDeliveryError("telegram transport failed") from None
+    if not isinstance(payload, dict) or payload.get("ok") is not True:
+        raise TelegramDeliveryError("telegram API rejected message")
+    result = payload.get("result")
+    if not isinstance(result, dict) or result.get("message_id") is None:
+        raise TelegramDeliveryError("telegram API response missing message_id")
+    return str(result["message_id"])
+
+
+def telegram_deliver(
+    *,
+    database: Path | None = None,
+    now: datetime | None = None,
+    dry_run: bool = False,
+    bot_token: str | None = None,
+    chat_id: str | None = None,
+) -> dict[str, object]:
+    target = database or db_path()
+    now = (now or datetime.now(UTC)).astimezone(UTC)
+    briefing = business_briefing(database=target, now=now)
+    rows = briefing.get("attention") or []
+    assert isinstance(rows, list)
+
+    pending: list[dict[str, object]] = []
+    with connect(target) as conn:
+        for item in rows:
+            if not isinstance(item, dict):
+                continue
+            signal_id = str(item.get("latest_signal_id") or "")
+            if not signal_id:
+                raise TelegramDeliveryError("attention item missing latest_signal_id")
+            key = _delivery_key(item)
+            exists = conn.execute("SELECT 1 FROM delivery_receipts WHERE delivery_key=?", (key,)).fetchone()
+            if exists is not None:
+                continue
+            text = render_telegram_message(item)
+            pending.append({**item, "delivery_key": key, "message": text, "payload_sha256": _payload_sha256(text)})
+
+    if dry_run:
+        return {
+            "status": "PASS",
+            "channel": CHANNEL,
+            "dry_run": True,
+            "pending_count": len(pending),
+            "pending": pending,
+        }
+
+    token = bot_token or os.environ.get("SIGNALFORGE_TELEGRAM_BOT_TOKEN", "")
+    target_chat = chat_id or os.environ.get("SIGNALFORGE_TELEGRAM_CHAT_ID", "")
+    if not token or not target_chat:
+        raise TelegramDeliveryError("telegram credentials are not configured")
+
+    sent: list[dict[str, object]] = []
+    for item in pending:
+        message_id = _send_message(bot_token=token, chat_id=target_chat, text=str(item["message"]))
+        sent_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+        with connect(target) as conn, conn:
+            conn.execute(
+                """
+                INSERT OR IGNORE INTO delivery_receipts(
+                    delivery_key,channel,canonical_key,signal_id,attention_action,priority_band,
+                    payload_sha256,provider_message_id,sent_at
+                ) VALUES (?,?,?,?,?,?,?,?,?)
+                """,
+                (
+                    item["delivery_key"],
+                    CHANNEL,
+                    item["canonical_key"],
+                    item["latest_signal_id"],
+                    item["attention_action"],
+                    item["priority_band"],
+                    item["payload_sha256"],
+                    message_id,
+                    sent_at,
+                ),
+            )
+        sent.append(
+            {
+                "canonical_key": item["canonical_key"],
+                "attention_action": item["attention_action"],
+                "message_id": message_id,
+            }
+        )
+
+    return {
+        "status": "PASS",
+        "channel": CHANNEL,
+        "dry_run": False,
+        "pending_count": len(pending),
+        "sent_count": len(sent),
+        "sent": sent,
+        "delivery_semantics": "AT_LEAST_ONCE_WITH_SUCCESS_RECEIPT_DEDUP",
+    }

@@ -334,6 +334,16 @@ class ContractTests(unittest.TestCase):
         self.assertIn("signalforge-refresh@*.service", deploy)
         self.assertIn('chmod 0755 "$STAGE"', deploy)
         self.assertIn("systemd-analyze verify", deploy)
+        self.assertIn("signalforge-telegram-deliver.service", deploy)
+        self.assertIn("signalforge-telegram-deliver.timer", deploy)
+        self.assertIn("DELIVERY_TIMER_WAS_ENABLED", deploy)
+        self.assertIn("/etc/signalforge", deploy)
+        service = (ROOT / "systemd" / "signalforge-telegram-deliver.service").read_text(encoding="utf-8")
+        timer = (ROOT / "systemd" / "signalforge-telegram-deliver.timer").read_text(encoding="utf-8")
+        self.assertIn("EnvironmentFile=/etc/signalforge/telegram.env", service)
+        self.assertIn("ExecStart=/srv/signalforge/active/bin/signalforge telegram-deliver", service)
+        self.assertIn("User=signalforge", service)
+        self.assertIn("OnCalendar=*-*-* *:0/5:45 UTC", timer)
 
     def test_worker_application_correlation_is_fail_closed(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
