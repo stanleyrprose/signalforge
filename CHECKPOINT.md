@@ -1178,3 +1178,19 @@ This checkpoint supersedes the closed-read-only runtime snapshot for current opp
 - Qualification remains deterministic/non-ML and does not infer missing facts. Relevance v1 regression explicitly rejects false ENERGY matches from `PowerEdge`, ordinary `Power Supply`, `Engine Power`, and ordinary `Electrical Spare Parts`.
 
 Evidence: `docs/verification/OPPORTUNITY-QUALIFICATION-V1-PRODUCTION-CLOSURE-2026-09-09.md`.
+
+## Authoritative Business Briefing v1 checkpoint — 2026-09-09
+
+This checkpoint supersedes the qualification-only presentation checkpoint for current read-delivery state while preserving all earlier closures as historical evidence.
+
+- Active Bangkok SignalForge release: `a61f9f7e7ef0af9be22bafd778f17bfe5f3a5ebc`; immediate rollback target `08153c47b1efc67c85776f551da2e1130b2d1c63`.
+- Deployment archive SHA256: `b056278fc0aad8f3a70c80789031ba33a08c2b42edbd95e0d15cf72220023d38`, identical locally and on Bangkok.
+- PR #108 adds read-only `signalforge briefing` and manifest verb `signalforge-briefing`; full suite `227 passed`; targeted briefing/contract/opportunity/qualification tests `13 passed`.
+- Briefing policy v1 expands only `HIGH + REVIEW`, maps attention to `ACT_NOW / PRIORITIZE / REVIEW`, and summarizes MEDIUM opportunities in a compact watchlist. Natural-language rendering is explicitly external and facts must not be inferred.
+- Production DB backup preview and live application both returned 9 current opportunities -> 4 attention rows (`ACT_NOW=1 / PRIORITIZE=2 / REVIEW=1`) + 5 MEDIUM watchlist rows. Attention keys are `industry:1022`, `energy:235`, `mofa:59800`, and `doms:12735`.
+- Active reviewed vps-control-plane policy: `061d260c3dddddac64d82107929e96cb7c85fe98`; installed Bangkok dispatcher SHA256 `fcd15ba510b300c3bb511bb8a3f7c6765d7b2c2afdd55a19a83b3791e64862d3`; previous dispatcher preserved as `gha-root-dispatch.pre-061d260`.
+- Fail-closed proof: before dispatcher deployment `signalforge-briefing` returned `126 / DENY`; after deployment, `signalforge-briefing extra` remained `126`, valid no-argument invocation returned PASS with the same 4/5 briefing, and Beijing remained `126 / DENY` without deployment.
+- Final production state: `PASS / GREEN`; canonical `194`; signals `44`; recovery backlog `0`; DB quick check `ok`; Bangkok timer enabled/active.
+- No public API, new listener/daemon, credentials, LLM runtime, DB write, scheduler mutation, acquisition change, Browser capability, Provider capability, or Beijing dependency was introduced.
+
+Evidence: `docs/verification/BUSINESS-BRIEFING-V1-PRODUCTION-CLOSURE-2026-09-09.md`.
