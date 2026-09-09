@@ -1130,3 +1130,19 @@ This checkpoint supersedes the S25/S30-only current production counters while pr
 - Beijing remains outside SignalForge production topology and is not part of this checkpoint.
 
 Evidence: `docs/verification/ACTIONABLE-BASELINE-RECONCILIATION-PRODUCTION-CLOSURE-2026-09-09.md`.
+
+## Authoritative current-opportunities checkpoint — 2026-09-09
+
+This checkpoint supersedes the actionable-baseline-only application snapshot for current runtime state while preserving that production closure as historical evidence.
+
+- Active Bangkok application release: `9f6ee1e39737c9226574d2a7bb9f3dc92fbf2691`; immediate rollback target `6f10d0f5a7cf37ca11d8461c03a54b3ff9f648c7`; timer enabled/active; run-due inactive after successful completion; DB quick check `ok`.
+- Overall SignalForge: `PASS / GREEN`; canonical items `193`; signals `42`; recovery backlog `0`; all current sources GREEN.
+- PR #101 adds read-only `signalforge opportunities`; it is not in the Worker verb manifest and does not alter DB schema/writes, scheduler, acquisition, signal generation, Provider or Browser policy.
+- Default view contains only signal-backed canonical `TENDER / OPPORTUNITY` records, deduped to one row per canonical, using current canonical business fields. OPEN and UNKNOWN deadlines are visible; EXPIRED is hidden by default and available only via explicit `--include-expired`.
+- Live production view returned `9` rows: `8 OPEN + 1 UNKNOWN`. OPEN keys are `industry:1022`, `industry:1034`, `energy:235`, `mofa:59800`, `industry:1037`, `industry:1036`, `industry:1039`, `industry:1035`; UNKNOWN is `doms:12735`. Each had exactly one signal at the verification snapshot.
+- Historical S25 duplicate signal rows do not duplicate the current opportunities view because the view groups by canonical and displays current canonical state.
+- Read-only verification preserved `193 canonical / 42 signals`; the restored timer then ran a normal scheduler cycle SUCCESS on the new release. Real due health probes including S13/S34/S39 succeeded with no signal change; a post-cycle opportunity read remained `8 OPEN + 1 UNKNOWN`.
+- Full suite `220 passed`; targeted opportunity/contract tests `7 passed`.
+- Beijing remains outside SignalForge production topology.
+
+Evidence: `docs/verification/CURRENT-OPPORTUNITIES-VIEW-PRODUCTION-CLOSURE-2026-09-09.md`.
