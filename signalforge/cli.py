@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from . import VERB_MANIFEST_VERSION
+from .briefing import business_briefing
 from .config import Registry, SOURCE_ID_PATTERN, db_path
 from .db import connect, migrate
 from .engine import run_due, run_source
@@ -34,6 +35,7 @@ def verb_manifest() -> dict[str, object]:
         "verbs": {
             "signalforge-status": {"helper_command": "status", "argument": None},
             "signalforge-opportunities": {"helper_command": "opportunities", "argument": None},
+            "signalforge-briefing": {"helper_command": "briefing", "argument": None},
             "signalforge-run-due": {"helper_command": "run-due", "argument": None},
             "signalforge-refresh": {"helper_command": "refresh-source", "argument": "source_id"},
             "signalforge-pause": {"helper_command": None, "argument": None},
@@ -262,6 +264,7 @@ def main(argv: list[str] | None = None) -> int:
     opportunities_parser.add_argument("--source-id")
     opportunities_parser.add_argument("--include-expired", action="store_true")
     opportunities_parser.add_argument("--limit", type=int, default=50)
+    sub.add_parser("briefing")
     sub.add_parser("status")
     args = parser.parse_args(argv)
     try:
@@ -366,6 +369,8 @@ def main(argv: list[str] | None = None) -> int:
                 include_expired=bool(args.include_expired),
                 limit=int(args.limit),
             )
+        elif args.cmd == "briefing":
+            result = business_briefing()
         else:
             result = status()
         print(json.dumps(result, ensure_ascii=False, sort_keys=True))
