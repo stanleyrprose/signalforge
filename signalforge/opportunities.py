@@ -4,8 +4,9 @@ import json
 from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 
-from .config import db_path
+from .config import Registry, db_path
 from .db import connect
+from .qualification import QUALIFICATION_POLICY_VERSION, qualify_opportunity
 
 MYANMAR_TZ = timezone(timedelta(hours=6, minutes=30))
 
@@ -36,11 +37,14 @@ def current_opportunities(
     source_id: str | None = None,
     include_expired: bool = False,
     limit: int = 50,
+    registry: Registry | None = None,
 ) -> dict[str, object]:
     if limit < 1 or limit > 500:
         raise ValueError("opportunities limit must be between 1 and 500")
     now = (now or datetime.now(UTC)).astimezone(UTC)
     target = database or db_path()
+    registry = registry or Registry.load()
+    source_policies = registry.raw.get("sources") or {}
 
     query = """
         SELECT
@@ -101,34 +105,37 @@ def current_opportunities(
             except json.JSONDecodeError:
                 pass
 
-            rows.append(
-                {
-                    "source_id": str(row["source_id"]),
-                    "canonical_key": str(row["canonical_key"]),
-                    "title": str(row["title"] or payload.get("title") or payload.get("project_name") or ""),
-                    "reference_no": str(row["reference_no"] or payload.get("reference_no") or ""),
-                    "reference_numbers": payload.get("reference_numbers"),
-                    "reference_count": payload.get("reference_count"),
-                    "reference_numbers_evidence": payload.get("reference_numbers_evidence"),
-                    "publication_date": payload.get("publication_date") or row["publication_date"],
-                    "deadline": payload.get("deadline"),
-                    "deadline_time": payload.get("deadline_time"),
-                    "deadline_at": deadline.astimezone(MYANMAR_TZ).isoformat() if deadline is not None else None,
-                    "deadline_status": deadline_status,
-                    "remaining_seconds": remaining_seconds,
-                    "issuer": payload.get("issuer") or payload.get("business_unit"),
-                    "location": payload.get("location") or row["location"],
-                    "scope_summary": payload.get("scope_summary"),
-                    "detail_completeness": payload.get("detail_completeness"),
-                    "url": str(row["url"]),
-                    "latest_signal_type": str(row["latest_signal_type"]),
-                    "latest_signal_at": str(row["latest_signal_at"]),
-                    "latest_signal_reason": latest_signal_payload.get("signal_reason"),
-                    "signal_count": int(row["signal_count"]),
-                }
-            )
+            item = {
+                "source_id": str(row["source_id"]),
+                "canonical_key": str(row["canonical_key"]),
+                "title": str(row["title"] or payload.get("title") or payload.get("project_name") or ""),
+                "reference_no": str(row["reference_no"] or payload.get("reference_no") or ""),
+                "reference_numbers": payload.get("reference_numbers"),
+                "reference_count": payload.get("reference_count"),
+                "reference_numbers_evidence": payload.get("reference_numbers_evidence"),
+                "publication_date": payload.get("publication_date") or row["publication_date"],
+                "deadline": payload.get("deadline"),
+                "deadline_time": payload.get("deadline_time"),
+                "deadline_at": deadline.astimezone(MYANMAR_TZ).isoformat() if deadline is not None else None,
+                "deadline_status": deadline_status,
+                "remaining_seconds": remaining_seconds,
+                "issuer": payload.get("issuer") or payload.get("business_unit"),
+                "location": payload.get("location") or row["location"],
+                "scope_summary": payload.get("scope_summary"),
+                "detail_completeness": payload.get("detail_completeness"),
+                "deadline_evidence": payload.get("deadline_evidence"),
+                "url": str(row["url"]),
+                "latest_signal_type": str(row["latest_signal_type"]),
+                "latest_signal_at": str(row["latest_signal_at"]),
+                "latest_signal_reason": latest_signal_payload.get("signal_reason"),
+                "signal_count": int(row["signal_count"]),
+            }
+            source_policy = source_policies.get(str(row["source_id"])) if isinstance(source_policies, dict) else None
+            item.update(qualify_opportunity(item, source_policy if isinstance(source_policy, dict) else None))
+            rows.append(item)
 
     rank = {"OPEN": 0, "UNKNOWN": 1, "EXPIRED": 2}
+    priority_rank = {"HIGH": 0, "MEDIUM": 1, "REVIEW": 2, "LOW": 3}
     max_dt = datetime.max.replace(tzinfo=UTC)
 
     def sort_key(item: dict[str, object]) -> tuple[object, ...]:
@@ -141,6 +148,7 @@ def current_opportunities(
             deadline_sort = parsed or max_dt
         return (
             rank[str(item["deadline_status"])],
+            priority_rank.get(str(item.get("priority_band") or "LOW"), 3),
             deadline_sort,
             str(item["latest_signal_at"]),
             str(item["source_id"]),
@@ -154,13 +162,29 @@ def current_opportunities(
         "UNKNOWN": sum(1 for item in rows if item["deadline_status"] == "UNKNOWN"),
         "EXPIRED": sum(1 for item in rows if item["deadline_status"] == "EXPIRED"),
     }
+    trust_counts = {grade: sum(1 for item in rows if item.get("trust_grade") == grade) for grade in ("A", "B", "C")}
+    priority_counts = {
+        band: sum(1 for item in rows if item.get("priority_band") == band)
+        for band in ("HIGH", "MEDIUM", "REVIEW", "LOW")
+    }
+    relevance_counts: dict[str, int] = {}
+    for item in rows:
+        for category in item.get("relevance_categories") or []:
+            relevance_counts[str(category)] = relevance_counts.get(str(category), 0) + 1
+
     return {
         "status": "PASS",
+        "qualification_policy_version": QUALIFICATION_POLICY_VERSION,
         "as_of": now.isoformat().replace("+00:00", "Z"),
         "source_id": source_id,
         "include_expired": include_expired,
         "count": len(returned),
         "total_matching": len(rows),
         "counts": counts,
+        "qualification_counts": {
+            "trust_grade": trust_counts,
+            "priority_band": priority_counts,
+            "relevance": dict(sorted(relevance_counts.items())),
+        },
         "opportunities": returned,
     }

@@ -71,7 +71,9 @@ class OpportunityViewTests(unittest.TestCase):
                         "publication_date": "2026-09-08",
                         "deadline": "2026-09-18",
                         "deadline_time": "16:30",
-                        "scope_summary": "Data Server",
+                        "scope_summary": "Data Server with configuration, installation and maintenance",
+                        "detail_completeness": "HTML_BUSINESS_SCOPE_AND_DEADLINE_NO_ATTACHMENT_REQUIRED",
+                        "deadline_evidence": "EXPLICIT_HTML_TENDER_CLOSE_DATE_TIME",
                         "url": "https://example.test/open/1",
                     },
                 )
@@ -135,6 +137,9 @@ class OpportunityViewTests(unittest.TestCase):
             result = current_opportunities(database=database, now=datetime(2026, 9, 9, 4, 0, tzinfo=UTC))
             self.assertEqual(result["count"], 2)
             self.assertEqual(result["counts"], {"OPEN": 1, "UNKNOWN": 1, "EXPIRED": 0})
+            self.assertEqual(result["qualification_policy_version"], 1)
+            self.assertEqual(result["qualification_counts"]["trust_grade"], {"A": 1, "B": 1, "C": 0})
+            self.assertEqual(result["qualification_counts"]["priority_band"], {"HIGH": 1, "MEDIUM": 0, "REVIEW": 1, "LOW": 0})
             rows = result["opportunities"]
             assert isinstance(rows, list)
             self.assertEqual([row["canonical_key"] for row in rows], ["open:1", "unknown:1"])
@@ -143,7 +148,15 @@ class OpportunityViewTests(unittest.TestCase):
             self.assertEqual(rows[0]["signal_count"], 2)
             self.assertEqual(rows[0]["latest_signal_type"], "UPDATED")
             self.assertEqual(rows[0]["latest_signal_reason"], "BUSINESS_ENRICHMENT")
+            self.assertEqual(rows[0]["trust_grade"], "A")
+            self.assertEqual(rows[0]["priority_band"], "HIGH")
+            self.assertEqual(rows[0]["source_engine"], "provider")
+            self.assertEqual(rows[0]["evidence_level"], "OFFICIAL_HTML_VIA_PROVIDER")
+            self.assertIn("ICT", rows[0]["relevance_categories"])
             self.assertEqual(rows[1]["deadline_status"], "UNKNOWN")
+            self.assertEqual(rows[1]["trust_grade"], "B")
+            self.assertEqual(rows[1]["priority_band"], "REVIEW")
+            self.assertEqual(rows[1]["primary_relevance"], "MEDICAL")
             self.assertEqual(
                 rows[1]["reference_numbers"],
                 ["8DMS/2026-2027(L)", "9DMS/2026-2027(L)", "10DMS/2026-2027(F)"],
