@@ -13,6 +13,7 @@ from unittest.mock import patch
 from signalforge.cli import main
 from signalforge.db import connect, migrate
 from signalforge.opportunities import current_opportunities
+from signalforge.mpt import parse_tender_detail
 
 
 def _insert_canonical(conn, *, key: str, source_id: str, payload: dict[str, object]) -> None:  # type: ignore[no-untyped-def]
@@ -164,6 +165,59 @@ class OpportunityViewTests(unittest.TestCase):
             )
             self.assertEqual(rows[1]["reference_count"], 3)
             self.assertEqual(rows[1]["reference_numbers_evidence"], "HTML_TITLE")
+
+    def test_future_mpt_tender_flows_to_a_high_telecom_opportunity(self) -> None:
+        html = b"""
+        <html><body><table>
+          <tr><td>Date</td><td>September 9, 2026</td></tr>
+          <tr><td>Reference No</td><td>202609-CTO-099</td></tr>
+          <tr><td>Project Name</td><td>Mobile Network Fiber Maintenance FY26</td></tr>
+          <tr><td>Location</td><td>Myanmar, Nationwide</td></tr>
+          <tr><td>Company Size</td><td>Vendor annual turnover must exceed 2 Billion MMK.</td></tr>
+          <tr><td>Required quantity</td><td>Mobile network BTS fiber maintenance, corrective maintenance and field support nationwide.</td></tr>
+        </table>
+        <p>Complete vendor registration before the deadline 18 th September 2026.</p>
+        <p>Based on your information, we will conduct the Pre-Qualification stage.</p>
+        </body></html>
+        """
+        tender = parse_tender_detail(html, "https://mpt.com.mm/en/mobile-network-fiber-maintenance-fy26/")
+        self.assertIsNotNone(tender)
+        assert tender is not None
+        self.assertEqual(tender.business_stage, "OPPORTUNITY")
+        self.assertEqual(tender.deadline, "2026-09-18")
+        self.assertEqual(tender.deadline_evidence, "EXPLICIT_HTML_DEADLINE_DATE")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            database = Path(tmp) / "signalforge.db"
+            migrate(database)
+            payload = tender.payload()
+            payload["item_kind"] = "TENDER"
+            payload["title"] = tender.project_name
+            with connect(database) as conn, conn:
+                _insert_canonical(conn, key=tender.canonical_key, source_id="S13", payload=payload)
+                _insert_signal(
+                    conn,
+                    signal_id="mpt-future-sig",
+                    source_id="S13",
+                    key=tender.canonical_key,
+                    created_at="2026-09-09T12:00:00Z",
+                )
+
+            result = current_opportunities(
+                database=database,
+                now=datetime(2026, 9, 9, 12, 0, tzinfo=UTC),
+                source_id="S13",
+            )
+            self.assertEqual(result["count"], 1)
+            row = result["opportunities"][0]
+            self.assertEqual(row["canonical_key"], "mpt:202609-CTO-099")
+            self.assertEqual(row["deadline_status"], "OPEN")
+            self.assertEqual(row["trust_grade"], "A")
+            self.assertEqual(row["priority_band"], "HIGH")
+            self.assertEqual(row["primary_relevance"], "TELECOM")
+            self.assertIn("TELECOM", row["relevance_categories"])
+            self.assertEqual(row["source_engine"], "direct_http")
+            self.assertEqual(row["evidence_level"], "OFFICIAL_HTML")
 
     def test_include_expired_source_filter_and_limit(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

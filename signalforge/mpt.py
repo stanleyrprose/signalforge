@@ -11,9 +11,24 @@ from xml.etree import ElementTree
 
 
 SPACE_RE = re.compile(r"\s+")
+MONTHS = {
+    "january": 1, "jan": 1,
+    "february": 2, "feb": 2,
+    "march": 3, "mar": 3,
+    "april": 4, "apr": 4,
+    "may": 5,
+    "june": 6, "jun": 6,
+    "july": 7, "jul": 7,
+    "august": 8, "aug": 8,
+    "september": 9, "sept": 9, "sep": 9,
+    "october": 10, "oct": 10,
+    "november": 11, "nov": 11,
+    "december": 12, "dec": 12,
+}
+MONTH_PATTERN = "|".join(sorted((re.escape(value) for value in MONTHS), key=len, reverse=True))
 DATE_PATTERNS = (
-    re.compile(r"(?P<month>January|February|March|April|May|June|July|August|September|October|November|December)\s+(?P<day>\d{1,2})(?:st|nd|rd|th)?,?\s+(?P<year>20\d{2})", re.I),
-    re.compile(r"(?P<day>\d{1,2})(?:\s*(?:st|nd|rd|th))?\s+(?P<month>January|February|March|April|May|June|July|August|September|October|November|December)\s+(?P<year>20\d{2})", re.I),
+    re.compile(rf"(?P<month>{MONTH_PATTERN})\.?\s+(?P<day>\d{{1,2}})(?:st|nd|rd|th)?,?\s+(?P<year>20\d{{2}})", re.I),
+    re.compile(rf"(?P<day>\d{{1,2}})(?:\s*(?:st|nd|rd|th))?\s+(?P<month>{MONTH_PATTERN})\.?\s+(?P<year>20\d{{2}})", re.I),
 )
 
 
@@ -28,10 +43,13 @@ def parse_date(value: str | None) -> str | None:
     for pattern in DATE_PATTERNS:
         match = pattern.search(text)
         if match:
-            parsed = datetime.strptime(
-                f"{match.group('month')} {int(match.group('day'))} {match.group('year')}",
-                "%B %d %Y",
-            )
+            month = MONTHS.get(match.group("month").lower().rstrip("."))
+            if month is None:
+                continue
+            try:
+                parsed = datetime(int(match.group("year")), month, int(match.group("day")))
+            except ValueError:
+                continue
             return parsed.date().isoformat()
     return None
 
@@ -48,10 +66,16 @@ class Tender:
     project_name: str
     publication_date: str | None
     deadline: str | None
+    deadline_evidence: str
+    deadline_candidates: tuple[str, ...]
     location: str | None
     remarks: str | None
     company_size: str | None
     required_quantity: str | None
+    scope_summary: str
+    business_stage: str
+    detail_completeness: str
+    procurement_stage: str | None
     url: str
     content_hash: str
 
@@ -67,10 +91,16 @@ class Tender:
             "project_name": self.project_name,
             "publication_date": self.publication_date,
             "deadline": self.deadline,
+            "deadline_evidence": self.deadline_evidence,
+            "deadline_candidates": list(self.deadline_candidates),
             "location": self.location,
             "remarks": self.remarks,
             "company_size": self.company_size,
             "required_quantity": self.required_quantity,
+            "scope_summary": self.scope_summary,
+            "business_stage": self.business_stage,
+            "detail_completeness": self.detail_completeness,
+            "procurement_stage": self.procurement_stage,
             "url": self.url,
         }
 
@@ -162,15 +192,39 @@ def _rows_to_fields(rows: list[list[str]]) -> dict[str, str]:
     return fields
 
 
-def _extract_deadline(text: str) -> str | None:
+def _extract_deadline(text: str, publication_date: str | None) -> tuple[str | None, str, tuple[str, ...]]:
     lower = text.lower()
-    positions = [match.start() for match in re.finditer("deadline", lower)]
-    for position in positions:
-        window = text[position : position + 220]
+    candidates: list[str] = []
+    for match in re.finditer("deadline", lower):
+        window = text[match.start() : match.start() + 220]
         value = parse_date(window)
-        if value:
-            return value
-    return None
+        if value and value not in candidates:
+            candidates.append(value)
+
+    if publication_date:
+        valid = [value for value in candidates if value >= publication_date]
+    else:
+        valid = list(candidates)
+
+    if len(valid) == 1:
+        return valid[0], "EXPLICIT_HTML_DEADLINE_DATE", tuple(candidates)
+    if candidates:
+        return None, "OFFICIAL_HTML_DEADLINE_CONFLICT", tuple(candidates)
+    return None, "DEADLINE_NOT_EXTRACTED", ()
+
+
+def _scope_summary(project: str, required_quantity: str | None, remarks: str | None) -> str:
+    quantity = normalize_text(required_quantity or "")
+    placeholder = quantity.lower() in {
+        "to be described in rfp document",
+        "to be described in the rfp document",
+    }
+    if quantity and not placeholder:
+        return quantity if len(quantity) >= 20 else normalize_text(f"{project}. {quantity}")
+    remark_text = normalize_text(remarks or "")
+    if remark_text:
+        return normalize_text(f"{project}. {remark_text}")
+    return project
 
 
 def parse_tender_detail(html_bytes: bytes, url: str) -> Tender | None:
@@ -185,15 +239,34 @@ def parse_tender_detail(html_bytes: bytes, url: str) -> Tender | None:
         return None
     if len(reference) > 120 or len(project) > 500:
         return None
+    publication_date = parse_date(fields.get("date"))
+    deadline, deadline_evidence, deadline_candidates = _extract_deadline(parser.full_text, publication_date)
+    remarks = fields.get("remarks") or None
+    required_quantity = fields.get("required_quantity") or None
+    scope_summary = _scope_summary(project, required_quantity, remarks)
+    business_stage = "OPPORTUNITY" if deadline is not None else "TENDER_NOTICE"
+    if deadline is not None:
+        detail_completeness = "HTML_BUSINESS_SCOPE_AND_DEADLINE"
+    elif deadline_evidence == "OFFICIAL_HTML_DEADLINE_CONFLICT":
+        detail_completeness = "HTML_BUSINESS_SCOPE_DEADLINE_CONFLICT"
+    else:
+        detail_completeness = "HTML_BUSINESS_SCOPE_DEADLINE_UNKNOWN"
+    procurement_stage = "PRE_QUALIFICATION" if "pre-qualification" in parser.full_text.lower() else None
     return Tender(
         reference_no=reference,
         project_name=project,
-        publication_date=parse_date(fields.get("date")),
-        deadline=_extract_deadline(parser.full_text),
+        publication_date=publication_date,
+        deadline=deadline,
+        deadline_evidence=deadline_evidence,
+        deadline_candidates=deadline_candidates,
         location=fields.get("location") or None,
-        remarks=fields.get("remarks") or None,
+        remarks=remarks,
         company_size=fields.get("company_size") or None,
-        required_quantity=fields.get("required_quantity") or None,
+        required_quantity=required_quantity,
+        scope_summary=scope_summary,
+        business_stage=business_stage,
+        detail_completeness=detail_completeness,
+        procurement_stage=procurement_stage,
         url=url,
         content_hash=digest,
     )

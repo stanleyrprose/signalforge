@@ -128,7 +128,7 @@ class AcquisitionContractTests(unittest.TestCase):
             self.assertTrue(all(row[3] == "S13" and row[4] == 8 and row[5] == "mm-intl-datacenter" for row in requests))
             self.assertTrue(all(row[1] == 1 and row[2] == "SUCCESS" and row[3] is None for row in attempts))
             self.assertTrue(all(row[2] == "S13" and row[3] == "LOCAL_BANGKOK" and row[4] == "bkk-local" and row[5] == "DIRECT_HTTP" for row in evidence))
-            self.assertTrue(any(row[1] == "mpt-v3" for row in processing))
+            self.assertTrue(any(row[1] == "mpt-v4" for row in processing))
             self.assertNotIn("worker_run_id", attempt_columns)
             self.assertNotIn("worker_run_id", evidence_columns)
             self.assertNotIn("parser_version", evidence_columns)
