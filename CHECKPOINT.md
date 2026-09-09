@@ -1226,3 +1226,15 @@ This checkpoint supersedes the prior Telegram credential-gate checkpoint for cur
 - No public API, webhook, inbound bot command handler, Browser change, Provider change, Beijing dependency or MEDIUM-watchlist delivery was introduced.
 
 Evidence: `docs/verification/TELEGRAM-DELIVERY-V1-PRODUCTION-CLOSURE-2026-09-09.md`.
+
+## Authoritative Telegram Message UX v1.1 checkpoint — 2026-09-09
+
+- Active Bangkok release: `ff9df1af9ebf7e144b33b94aec7f6d32782a1992`; rollback `489d05f5b36189dc8292b51032edf49e0e102b4d`.
+- PR #113 is presentation-only: Chinese static action/field labels, compact evidence labels, 240-character scope cap and surfaced Signal type. Official titles/facts remain untranslated and uninferred.
+- Full suite `235 passed`; deployment archive SHA256 `7dddcc93ae218a43d2b8addfff88d0191a5da9c020ee220dfc0842d7dd1f09e6`.
+- Exact live renderer card lengths are 643 / 581 / 746 / 754 chars for Industry / Energy / MOFA / DOMS attention rows.
+- Post-deploy delivery invocation returned `PASS / pending_count=0 / sent_count=0`; successful receipt count remained `4`, proving message text does not participate in delivery identity and old events were not resent.
+- Final production: `PASS / GREEN`; DB quick check `ok`; `194 canonical / 44 signals / backlog 0 / 4 Telegram receipts`; acquisition and Telegram timers enabled/active.
+- No qualification, delivery eligibility, receipt identity, timer, schema, acquisition, Browser or Provider change.
+
+Evidence: `docs/verification/TELEGRAM-MESSAGE-UX-V1.1-PRODUCTION-CLOSURE-2026-09-09.md`.
