@@ -1194,3 +1194,20 @@ This checkpoint supersedes the qualification-only presentation checkpoint for cu
 - No public API, new listener/daemon, credentials, LLM runtime, DB write, scheduler mutation, acquisition change, Browser capability, Provider capability, or Beijing dependency was introduced.
 
 Evidence: `docs/verification/BUSINESS-BRIEFING-V1-PRODUCTION-CLOSURE-2026-09-09.md`.
+
+## Authoritative Telegram Delivery v1 credential-gate checkpoint — 2026-09-09
+
+This checkpoint supersedes the briefing-only runtime snapshot for current delivery readiness while preserving the prior closure as historical evidence.
+
+- Active Bangkok SignalForge release: `489d05f5b36189dc8292b51032edf49e0e102b4d`; immediate rollback target `a61f9f7e7ef0af9be22bafd778f17bfe5f3a5ebc`.
+- Deployment archive SHA256: `ccc50cab9cee209512a8cccd7eb1c91ee24a7209893ae9833170bb350d22fceb`, identical locally and on Bangkok.
+- PR #110 adds Telegram Delivery v1; full suite `234 passed`; production schema is now v6 with generic successful `delivery_receipts`.
+- Delivery identity is `channel + canonical_key + latest_signal_id + attention_action`; this deduplicates repeated timer checks while allowing new Signals and action escalation to notify. Transport guarantee is `AT_LEAST_ONCE_WITH_SUCCESS_RECEIPT_DEDUP`.
+- BKK systemd verification PASS. `signalforge-telegram-deliver.service` and `.timer` are installed; timer is intentionally `disabled / inactive` pending credentials. Deployment preserves its prior enabled state after later upgrades.
+- Secret contract is root-managed `/etc/signalforge/telegram.env` containing `SIGNALFORGE_TELEGRAM_BOT_TOKEN` and `SIGNALFORGE_TELEGRAM_CHAT_ID`. Deployment does not create the file and no secret is stored in Git.
+- BKK strict TLS reachability to `api.telegram.org` PASS. No Browser, Provider, proxy or TLS weakening is required for Telegram delivery.
+- Live production dry-run returned exactly four pending events: `industry:1022 ACT_NOW`, `energy:235 PRIORITIZE`, `mofa:59800 PRIORITIZE`, `doms:12735 REVIEW`; the five MEDIUM watchlist items are not delivered.
+- Final safe-disabled state: overall `PASS / GREEN`; canonical `194`; signals `44`; delivery receipts `0`; recovery backlog `0`; DB quick check `ok`; main SignalForge timer enabled/active; Telegram timer disabled/inactive; secret file absent; no Telegram message sent.
+- Hard gate remaining: operator-local configuration of bot token and target chat ID on Bangkok, followed by reviewed first delivery, receipt/idempotency verification and explicit timer enable.
+
+Evidence: `docs/verification/TELEGRAM-DELIVERY-V1-CREDENTIAL-GATE-2026-09-09.md`.
