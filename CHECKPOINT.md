@@ -1146,3 +1146,18 @@ This checkpoint supersedes the actionable-baseline-only application snapshot for
 - Beijing remains outside SignalForge production topology.
 
 Evidence: `docs/verification/CURRENT-OPPORTUNITIES-VIEW-PRODUCTION-CLOSURE-2026-09-09.md`.
+
+## Authoritative closed opportunities control-read checkpoint — 2026-09-09
+
+This checkpoint supersedes the local-only current-opportunities runtime snapshot for remote-consumption state while preserving the prior closure as historical evidence.
+
+- Active Bangkok SignalForge release: `77334ea49acc494c845a4dd38413c65ac2240f6d`; immediate application rollback target `9f6ee1e39737c9226574d2a7bb9f3dc92fbf2691`.
+- Active reviewed vps-control-plane policy: `007398a26b7d42a4b0edde4627f0c08b46c33998`; installed Bangkok dispatcher SHA256 `2545deaf1d99dc1c2c021d094f26f9c70c938458550b73291b2dfeef2ce3acf3`; previous dispatcher preserved as `gha-root-dispatch.pre-007398a`.
+- SignalForge manifest version remains `1` and now includes exact no-argument read verb `signalforge-opportunities -> opportunities`; no generic argument surface was added.
+- Fail-closed rollout proof: before dispatcher deployment the new verb returned `126 / DENY`; after deployment, `signalforge-opportunities extra` also returned `126`. Valid Bangkok invocation returned `PASS / 9` with `8 OPEN + 1 UNKNOWN`.
+- GitHub Actions `VPS Control` run `34318367015` completed SUCCESS from exact Control Plane main `007398a...`, using the dedicated restricted Actions SSH key and forced dispatcher, and returned the same 9-row production opportunity view.
+- Beijing received no deployment for this slice and a read-only negative probe remained `126 / DENY`; Beijing is still outside SignalForge production topology.
+- Natural Bangkok scheduler invocation at 2026-09-09 12:45 Myanmar time completed SUCCESS on `77334ea...`; final status remains `PASS / GREEN`, all sources GREEN, canonical `193`, signals `42`, recovery backlog `0`, DB quick check `ok`, timer enabled/active.
+- No public HTTP API, new listener/daemon, arbitrary remote shell, DB write path, scheduler mutation, Browser capability, Provider capability, or delivery subsystem was introduced.
+
+Evidence: `docs/verification/OPPORTUNITIES-CONTROL-READ-PRODUCTION-CLOSURE-2026-09-09.md`.
