@@ -12,6 +12,7 @@ from .db import connect, migrate
 from .engine import run_due, run_source
 from .mpa import build_manual_bundle_preview, parse_listing_records, parse_pdf_business_fields, preview_summary
 from .mpa_manual import commit_manual_provider_bundle
+from .opportunities import current_opportunities
 from .provider_bridge import build_provider_request, import_provider_result, load_imported_provider_artifact, write_provider_request
 from .provider_r3 import prepare_r3_gate, r3_gate_status
 
@@ -256,6 +257,10 @@ def main(argv: list[str] | None = None) -> int:
     mpa_bundle_commit_parser.add_argument("--emit-signal", action="store_true")
     mpa_bundle_commit_parser.add_argument("--database")
     mpa_bundle_commit_parser.add_argument("--evidence-root")
+    opportunities_parser = sub.add_parser("opportunities")
+    opportunities_parser.add_argument("--source-id")
+    opportunities_parser.add_argument("--include-expired", action="store_true")
+    opportunities_parser.add_argument("--limit", type=int, default=50)
     sub.add_parser("status")
     args = parser.parse_args(argv)
     try:
@@ -351,6 +356,14 @@ def main(argv: list[str] | None = None) -> int:
                 emit_signal=bool(args.emit_signal),
                 database=Path(args.database).expanduser() if args.database else None,
                 evidence_directory=Path(args.evidence_root).expanduser() if args.evidence_root else None,
+            )
+        elif args.cmd == "opportunities":
+            if args.source_id is not None and not SOURCE_ID_PATTERN.fullmatch(args.source_id):
+                raise ValueError("invalid source id")
+            result = current_opportunities(
+                source_id=args.source_id,
+                include_expired=bool(args.include_expired),
+                limit=int(args.limit),
             )
         else:
             result = status()
