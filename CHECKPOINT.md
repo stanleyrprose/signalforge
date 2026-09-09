@@ -1112,3 +1112,21 @@ This checkpoint supersedes the S40-only application checkpoint for current produ
 - Beijing remains outside SignalForge production topology and is not part of this checkpoint or future per-source quality audits.
 
 Evidence: `docs/verification/SIGNAL-QUALITY-S25-S30-PRODUCTION-CLOSURE-2026-09-09.md`.
+
+## Authoritative actionable-baseline checkpoint — 2026-09-09
+
+This checkpoint supersedes the S25/S30-only current production counters while preserving that closure as historical evidence.
+
+- Active Bangkok application release: `6f10d0f5a7cf37ca11d8461c03a54b3ff9f648c7`; timer enabled/active; DB quick check `ok`.
+- Overall SignalForge: `PASS / GREEN`; canonical items `193`; signals `42`; recovery backlog `0`; all current sources GREEN.
+- PR #99 adds per-source opt-in actionable baseline reconciliation. Initial scope is S38/S39 only: `TENDER + OPPORTUNITY`, no existing signal, explicit deadline+time, minimum 12 hours remaining, maximum 3 signals per source run, nearest deadline first, atomic idempotent insert, signal reason `ACTIONABLE_BASELINE_RECONCILIATION`.
+- First baseline behavior remains unchanged and signal-free. This is not historical backfill; it repairs baseline-suppressed canonicals that remain genuinely open.
+- S39 live gate: app `855a944b-4f37-4174-8f3b-3fcdefc5f05a`, `changed=0 / signals_created=1`; only `energy:235` was promoted, deadline `2026-09-18 13:00`.
+- S38 live gate batch 1: app `22df739b-37a7-4cfc-ae02-5fb396bdf7ec`, signals 3 for `industry:1022` (09-11), `industry:1034` (09-14), `industry:1037` (09-22), all 16:00.
+- S38 live gate batch 2: app `0044b9f4-747a-4da6-b7c6-fde0e1c29975`, signals 3 for remaining eligible `industry:1036` (09-24), `industry:1039` (09-25), `industry:1035` (10-02), all 16:00.
+- Third S38 and second S39 executions were idempotent: SUCCESS / changed 0 / signals_created 0. Expired S38 `industry:1025` and `industry:1033` have zero signals; future-deadline unsignaled S38/S39 count is zero.
+- Timer restoration produced two closely spaced normal `run-due` invocations; both completed SUCCESS with sources NOT_DUE and total signals unchanged at 42, providing an additional scheduler-level idempotency proof.
+- Full suite `217 passed`; no schema/daemon/Browser/Provider capability expansion was introduced.
+- Beijing remains outside SignalForge production topology and is not part of this checkpoint.
+
+Evidence: `docs/verification/ACTIONABLE-BASELINE-RECONCILIATION-PRODUCTION-CLOSURE-2026-09-09.md`.
