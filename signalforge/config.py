@@ -97,6 +97,9 @@ class Registry:
                 validate_source_acquisition_policy(source_id, source)
             except AcquisitionContractError as exc:
                 raise ConfigError(str(exc)) from exc
+            fetch_profile = source.get("http_fetch_profile")
+            if fetch_profile is not None and (source.get("engine") != "direct_http" or fetch_profile != "cloudrity_d1n_v1"):
+                raise ConfigError(f"unsupported HTTP fetch profile: {source_id}")
             health = source.get("health_policy")
             if not isinstance(health, dict):
                 raise ConfigError(f"active source health policy missing: {source_id}")
