@@ -132,9 +132,10 @@ def parse_actionable_deadline(comment_text: str) -> tuple[str | None, str | None
     if not text:
         return None, None, None, "UNKNOWN_NO_ACTIONABLE_DEADLINE_IN_HTML_COMMENT"
 
-    if "နောက်ဆုံး" in text:
-        marker = text.find("နောက်ဆုံး")
-        tail = text[marker : marker + 220]
+    submission_marker = "တင်ဒါတင်သွင်းရမည့်နောက်ဆုံးရက်"
+    if submission_marker in text:
+        marker = text.find(submission_marker)
+        tail = text[marker : marker + 260]
         match = re.search(r"(\d{1,2})\s*[-/.]\s*(\d{1,2})\s*[-/.]\s*(\d{4})", tail)
         deadline = _normalized_date(match) if match is not None else None
         if deadline is not None:

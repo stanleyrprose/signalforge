@@ -68,6 +68,8 @@ class MoeaParserTests(unittest.TestCase):
 
         sale_only = parse_actionable_deadline("တင်ဒါပုံစံရောင်းချမည့်ရက် ၂၉-၅-၂၀၂၆ မှ ၁၀-၆-၂၀၂၆")
         self.assertEqual(sale_only[:3], (None, None, None))
+        unrelated_final = parse_actionable_deadline("စာရင်းပေးသွင်းရန် နောက်ဆုံးရက် ၁၀-၆-၂၀၂၆")
+        self.assertEqual(unrelated_final[:3], (None, None, None))
 
     def test_selection_excludes_awards_and_non_procurement_leases(self) -> None:
         self.assertTrue(is_procurement_invitation("အိတ်ဖွင့်တင်ဒါခေါ်ယူခြင်း"))
