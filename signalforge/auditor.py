@@ -199,7 +199,7 @@ def _mytel_official_keys(payload: bytes) -> tuple[set[str], list[dict[str, objec
         match = ref_re.search(raw)
         if match is None:
             continue
-        key = f"mytel:{int(match.group('num'))}-{match.group('year')[-2:]}"
+        key = f"mytel:{int(match.group('num'))}-{match.group('year')}"
         keys.add(key)
         records.append(
             {

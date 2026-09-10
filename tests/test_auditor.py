@@ -109,7 +109,7 @@ class AuditorTests(unittest.TestCase):
             database = self._db(tmp)
             mpt_url = "https://mpt.com.mm/en/test-procurement/"
             self._canonical(database, key="mpt:TEST-1", source_id="S13", url=mpt_url)
-            self._canonical(database, key="mytel:17-26", source_id="S41", url="https://viettelglobal.com.vn/en/test")
+            self._canonical(database, key="mytel:17-2026", source_id="S41", url="https://viettelglobal.com.vn/en/test")
             def fetch(url: str, **_kwargs) -> bytes:
                 if "sitemap" in url:
                     return _sitemap(mpt_url)
