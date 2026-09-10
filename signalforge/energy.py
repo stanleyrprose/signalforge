@@ -93,12 +93,21 @@ def _reference_no(title: str, record_id: str) -> str:
     return f"ENERGY-{match.group('number')}-{match.group('year')}{suffix}"
 
 
+_CLOSING_TAIL_RE = re.compile(r"ဆ.{0,18}?း.{0,25}?၍", re.S)
+
+
+def _is_bid_submission_close_context(text: str, match: re.Match[str]) -> bool:
+    before = text[max(0, match.start() - 180) : match.start()]
+    after = text[match.end() : match.end() + 300]
+    return "တင်ဒါ" in before and _CLOSING_TAIL_RE.search(after) is not None and "သွင်" in after
+
+
 def _deadline(text: str) -> tuple[str | None, str | None]:
     translated = normalize_text(text).translate(_MYANMAR_DIGITS)
-    matches = list(_DATE_TIME_RE.finditer(translated))
-    if not matches:
+    matches = [match for match in _DATE_TIME_RE.finditer(translated) if _is_bid_submission_close_context(translated, match)]
+    if len(matches) != 1:
         return None, None
-    match = matches[-1]
+    match = matches[0]
     try:
         dt = datetime(
             int(match.group("year")),
