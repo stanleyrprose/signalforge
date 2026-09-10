@@ -11,6 +11,18 @@ from .qualification import QUALIFICATION_POLICY_VERSION, qualify_opportunity
 MYANMAR_TZ = timezone(timedelta(hours=6, minutes=30))
 
 
+def _deadline_kind(payload: dict[str, object], source_id: str) -> str | None:
+    explicit = payload.get("deadline_kind")
+    if isinstance(explicit, str) and explicit:
+        return explicit
+    evidence = payload.get("deadline_evidence")
+    if source_id in {"S30", "S39"} and evidence == "OFFICIAL_TEXT_NATIVE_PDF_CLOSE_DATE_TIME":
+        return "BID_SUBMISSION_DEADLINE"
+    if source_id == "S38" and evidence == "EXPLICIT_HTML_TENDER_CLOSE_DATE_TIME":
+        return "BID_SUBMISSION_DEADLINE"
+    return None
+
+
 def _deadline_at(payload: dict[str, object]) -> datetime | None:
     raw = payload.get("deadline")
     if not isinstance(raw, str) or not raw:
@@ -121,7 +133,7 @@ def current_opportunities(
                 "publication_date": payload.get("publication_date") or row["publication_date"],
                 "deadline": payload.get("deadline"),
                 "deadline_time": payload.get("deadline_time"),
-                "deadline_kind": payload.get("deadline_kind"),
+                "deadline_kind": _deadline_kind(payload, str(row["source_id"])),
                 "tender_opening_date": payload.get("tender_opening_date"),
                 "tender_opening_time": payload.get("tender_opening_time"),
                 "deadline_at": deadline.astimezone(MYANMAR_TZ).isoformat() if deadline is not None else None,
