@@ -1368,3 +1368,19 @@ Evidence: `docs/verification/S30-MOFA-SUBMISSION-DEADLINE-PRODUCTION-CLOSURE-202
 Evidence: `docs/verification/READ-LAYER-DEADLINE-KIND-PRODUCTION-CLOSURE-2026-09-10.md`.
 
 - MEDIUM watchlist delivery re-audit: NO CHANGE. On a production DB snapshot at `2026-09-12T00:00:00Z`, `industry:1034` automatically promotes to `HIGH / URGENT / ACT_NOW` inside the <=72h window and becomes the only new Telegram pending item; four later industrial MEDIUM items remain watchlist-only. Existing delivery receipts prevent replay. This validates the intended low-noise dynamic promotion path; no MEDIUM bulk delivery or extra summary channel is authorized.
+
+## Authoritative S41 MYTEL production checkpoint — 2026-09-10
+
+- Active Bangkok runtime: `c5c2327c2300e5d7a22fce3222552bf8c6de7cc9`; rollback `0c310c5185f899a633f91dad0d0afd72810f1974`; archive SHA256 `20d307a63c9a71ed948442e3c36fd0f52d0ee3ebb5b0ca8bd8ad0baaa270c7f1`.
+- PR #132 Actions run `34475619689` PASS; S41+contract `12 passed`; full suite `260 passed`.
+- S41 = `MYTEL Procurement Invitations via Viettel Global`, `ACTIVE_PRIMARY`, Bangkok `direct_http`, listing-complete official category-82 JSON feed, poll 1800s, request max 1MB, bounded `offset=0&limit=100`. Formal `viettelglobal.com.vn` strict TLS only; invalid `beta.*` certificate is never bypassed.
+- Source-scoped `cloudrity_d1n_v1` performs one strict-TLS bootstrap + one D1N-cookie retry on the exact formal host only; persistent challenge fails. No generic JS renderer/anti-bot framework and no Browser/Provider dependency.
+- Canonical identity is MYTEL RFP serial+year, so invitation/extension suffix drift updates one tender. Full latest reference remains payload data. Explicit Proposal submission deadline => `BID_SUBMISSION_DEADLINE`; extension-only bid-document collection close => `TENDER_FORM_SALE_CLOSE`; UNKNOWN remains fail-closed.
+- Live100 audit: 361660 bytes / 100 global tender rows / 19 raw MYTEL posts -> 15 canonical RFPs; 12 latest-version 2026 canonical all actionable; 8 bid-submission + 4 document-collection close; 3 older 2025 UNKNOWN.
+- Pre-merge BKK temp end-to-end: baseline changed15/signals0; second identical run changed0/signals0; DB quick_check ok.
+- Production baseline Worker `signalforge-20260910T121631Z-e0b86f14`: baseline=true / SUCCESS / discovered15 / changed15 / signals0. Second Worker `signalforge-20260910T121702Z-86d64458`: baseline=false / SUCCESS / changed0 / signals0.
+- Production now `209 canonical / 45 signals / recovery backlog0`; S41 canonical15/signals0; DB quick_check ok; opportunities remain `8 OPEN + 1 UNKNOWN`; Telegram pending0. Latest S41 evidence `application/json / 361660 bytes / DIRECT_HTTP / sha256 a2c3bb54169f8e30fd27a6d82e8cbb53f9451e2efe6e7fa89fe264d45034cb3a`.
+- S41 source/fetch/freshness/parse health GREEN; 2/2 business-processing successes; next_due `2026-09-10T12:47:03.166034Z`; acquisition + Telegram timers active.
+- Portfolio policy after activation: Technical GREEN != Business Yield. Do not add another source merely to increase count; prioritize measured strategic coverage/yield and exclude known historical parser-normalization noise from productivity judgments.
+
+Evidence: `docs/verification/S41-MYTEL-SOURCE-ONBOARDING-PRODUCTION-CLOSURE-2026-09-10.md`.
