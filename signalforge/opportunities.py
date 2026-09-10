@@ -48,6 +48,63 @@ def _reference_bundle(payload: dict[str, object], source_id: str) -> tuple[objec
     return payload.get("reference_numbers"), payload.get("reference_count"), payload.get("reference_numbers_evidence")
 
 
+_ENERGY_DMP_FOCUS_TERMS = (
+    "communication and information",
+    " iot ",
+    "software",
+    "scanner",
+    "computer",
+    "server",
+    "network",
+    "telecom",
+)
+
+
+def _reference_focus(
+    payload: dict[str, object],
+    source_id: str,
+    reference_numbers: object,
+) -> tuple[object, object, object, object]:
+    scope = payload.get("scope_summary")
+    if (
+        source_id != "S39"
+        or payload.get("detail_completeness") != "HTML_ID_PUBLICATION_PLUS_TEXT_PDF_SCOPE_DEADLINE"
+        or not isinstance(scope, str)
+        or not isinstance(reference_numbers, list)
+        or len(reference_numbers) < 2
+    ):
+        return None, None, None, None
+
+    allowed = {str(value) for value in reference_numbers}
+    matches = list(_ENERGY_DMP_REFERENCE_RE.finditer(scope))
+    if len(matches) < 2:
+        return None, None, None, None
+
+    focus_refs: list[str] = []
+    focus_segments: list[str] = []
+    for index, match in enumerate(matches):
+        reference = f"DMP/L-{match.group('number')}({match.group('year')})"
+        if reference not in allowed:
+            continue
+        end = matches[index + 1].start() if index + 1 < len(matches) else len(scope)
+        segment = scope[match.start() : end].strip(" |")
+        segment = re.sub(r"\s*\|\s*\(?\d+\)?\s*$", "", segment).strip()
+        padded = f" {segment.lower()} "
+        if not any(term in padded for term in _ENERGY_DMP_FOCUS_TERMS):
+            continue
+        focus_refs.append(reference)
+        focus_segments.append(segment)
+
+    if not focus_refs:
+        return None, None, None, None
+    return (
+        focus_refs,
+        len(focus_refs),
+        "ICT_TELECOM",
+        " | ".join(focus_segments),
+    )
+
+
 def _deadline_at(payload: dict[str, object]) -> datetime | None:
     raw = payload.get("deadline")
     if not isinstance(raw, str) or not raw:
@@ -149,6 +206,9 @@ def current_opportunities(
 
             source_id_value = str(row["source_id"])
             reference_numbers, reference_count, reference_numbers_evidence = _reference_bundle(payload, source_id_value)
+            focus_reference_numbers, focus_reference_count, focus_relevance, focus_scope_summary = _reference_focus(
+                payload, source_id_value, reference_numbers
+            )
             item = {
                 "source_id": source_id_value,
                 "canonical_key": str(row["canonical_key"]),
@@ -157,6 +217,10 @@ def current_opportunities(
                 "reference_numbers": reference_numbers,
                 "reference_count": reference_count,
                 "reference_numbers_evidence": reference_numbers_evidence,
+                "focus_reference_numbers": focus_reference_numbers,
+                "focus_reference_count": focus_reference_count,
+                "focus_relevance": focus_relevance,
+                "focus_scope_summary": focus_scope_summary,
                 "publication_date": payload.get("publication_date") or row["publication_date"],
                 "deadline": payload.get("deadline"),
                 "deadline_time": payload.get("deadline_time"),
