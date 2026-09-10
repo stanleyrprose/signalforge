@@ -18,6 +18,7 @@ from .mpa_manual import commit_manual_provider_bundle
 from .opportunities import current_opportunities
 from .provider_bridge import build_provider_request, import_provider_result, load_imported_provider_artifact, write_provider_request
 from .provider_r3 import prepare_r3_gate, r3_gate_status
+from .source_scorecard import source_scorecard
 from .telegram_delivery import telegram_deliver
 
 
@@ -40,6 +41,7 @@ def verb_manifest() -> dict[str, object]:
             "signalforge-opportunities": {"helper_command": "opportunities", "argument": None},
             "signalforge-briefing": {"helper_command": "briefing", "argument": None},
             "signalforge-audit": {"helper_command": "audit", "argument": None},
+            "signalforge-source-scorecard": {"helper_command": "source-scorecard", "argument": None},
             "signalforge-run-due": {"helper_command": "run-due", "argument": None},
             "signalforge-refresh": {"helper_command": "refresh-source", "argument": "source_id"},
             "signalforge-pause": {"helper_command": None, "argument": None},
@@ -273,6 +275,8 @@ def main(argv: list[str] | None = None) -> int:
     audit_parser.add_argument("--no-network", action="store_true")
     digest_parser = sub.add_parser("business-digest")
     digest_parser.add_argument("--no-network", action="store_true")
+    scorecard_parser = sub.add_parser("source-scorecard")
+    scorecard_parser.add_argument("--window-days", type=int, default=30)
     telegram_parser = sub.add_parser("telegram-deliver")
     telegram_parser.add_argument("--dry-run", action="store_true")
     telegram_digest_parser = sub.add_parser("telegram-digest")
@@ -388,6 +392,8 @@ def main(argv: list[str] | None = None) -> int:
             result = audit(network=not bool(args.no_network))
         elif args.cmd == "business-digest":
             result = business_digest(audit_network=not bool(args.no_network))
+        elif args.cmd == "source-scorecard":
+            result = source_scorecard(window_days=int(args.window_days))
         elif args.cmd == "telegram-deliver":
             result = telegram_deliver(dry_run=bool(args.dry_run))
         elif args.cmd == "telegram-digest":
