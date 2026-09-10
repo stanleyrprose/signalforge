@@ -1289,3 +1289,24 @@ This section supersedes the prior S34 metadata-only snapshot and the prior curre
 - No schema, OCR, new dependency, Browser Plane, Provider, Worker Plane, Control Plane, Beijing role, public API/webhook or Telegram delivery-identity change. Product priority remains existing-source semantic/missing-field audit before source-count expansion.
 
 Evidence: `docs/verification/S34-PTD-TEXT-PDF-SEMANTIC-PRODUCTION-CLOSURE-2026-09-10.md`.
+
+## Authoritative S31 MOEA HTML Semantic v2 checkpoint — 2026-09-10
+
+This section supersedes the prior S31 semantic/runtime snapshot for current production state while preserving the original S31 onboarding closure as historical evidence.
+
+- Active Bangkok SignalForge release: `038a78e195df0a8ea98f256d7bc2862e0234f6f8`; immediate rollback target `5fc7625da9c19599ef0a1dd1e6b3fca68d90013b`; deployment archive SHA256 `5a8dcb0cf17c77b94d23e41976f1c8071aa964a57b3716a6ab4e34f505168ff3`, matched locally and on Bangkok.
+- PR #122 Actions verify run `34455774263` PASS; exact squash merge/runtime SHA `038a78e195df0a8ea98f256d7bc2862e0234f6f8`; targeted MOEA/contract/Telegram tests `22 passed`; full suite `249 passed`; `git diff --check` PASS.
+- S31 remains `ACTIVE_SELECTIVE / direct_http / listing_complete_business_records=true`. Production acquisition is unchanged: one issuer archive HTML page only. Official PDF links remain `METADATA_ONLY_NON_BLOCKING / fetch_in_primary_pipeline=false`; no PDF production fetch or OCR was added. Canonicalizer remains `moea-archive-event-fingerprint-v1`.
+- Parser/normalizer are now `moea-tender-archive-card-v2 / moea-tender-normalize-v2`. Canonical payload adds `semantic_version=2`, `deadline_time`, `deadline_kind` and explicit deadline evidence.
+- Deadline semantics are fail-closed: `BID_SUBMISSION_DEADLINE` requires exact tender-submission-final-date phrase `တင်ဒါတင်သွင်းရမည့်နောက်ဆုံးရက်`; `TENDER_APPLICATION_ACCEPTANCE_CLOSE` requires the explicit application-acceptance marker `တင်ဒါလျှောက်လွှာလက်ခံမည့်ရက်` and a valid bounded date range, using the range end and end time. A form-sale-only range and unrelated generic `နောက်ဆုံး` date are not promoted.
+- Live issuer audit: `2026-07-27 -> 2026-08-07 / BID_SUBMISSION_DEADLINE`; `2026-05-28 -> 2026-06-10 16:00 / TENDER_APPLICATION_ACCEPTANCE_CLOSE`; `2026-02-04 -> UNKNOWN`. The same acceptance-window pattern appears in `2024-05-17 -> 2024-06-10 16:00`, confirming the rule is not one-record-specific.
+- The three current 2026 official MOEA PDFs were audited with existing `pypdf` and are text-native, but are corroboration only. The 2026-02-04 PDF contains schedule data, yet production intentionally leaves that row UNKNOWN rather than adding a listing-level PDF acquisition contract for an expired historical record.
+- Read-only business-value audit that selected this slice found 28 silent/deadline-unknown OPPORTUNITY canonicals. S29/S32/S36 are embedded-image paths; S30 historical `mofa:56952` uses JPG; DOMS current attachments are scan-heavy. These remain OCR-gated rather than driving capability expansion.
+- One-time listing semantic migration guard is source opt-in via `suppress_signal_on_initial_listing_semantic_enrichment=true`. It applies only when the old canonical lacks `semantic_version`, the new canonical is v2, and every non-transition business field is identical. Transition fields are only deadline/deadline-time/deadline-kind/deadline-evidence/semantic-version. Once a row is v2, subsequent deadline changes create normal `UPDATED` signals; regression coverage proves this.
+- Fresh production-copy replay before merge: 9 real legacy S31 canonicals -> `changed=9 / signals_created=0 / global signals 45->45 / S31 signals 0->0 / v2 0->9`; May-28 became `2026-06-10 16:00 / TENDER_APPLICATION_ACCEPTANCE_CLOSE`. Real production DB was not mutated by the replay.
+- Reviewed production Worker refresh `signalforge-refresh@S31.service` created Worker run `signalforge-20260910T083612Z-03b7f75a` and application result `MANUAL / SUCCESS / listing_complete=true / items=9 / tenders=9 / changed=9 / signals_created=0 / details_attempted=0 / backlog=0`.
+- Formal production after migration: S31 semantic v2 `9/9`; S31 customer signals remain `0`; global signals remain `45`; DB quick check `ok`. Current customer opportunities remain `9 = 8 OPEN + 1 UNKNOWN`; Telegram dry-run `PASS / pending_count=0`.
+- Final Bangkok state: `PASS / GREEN`; `194 canonical / 45 signals / recovery backlog 0`; acquisition and Telegram timers active.
+- No DB schema, new dependency, OCR, PDF production acquisition, Browser Plane, Provider, Worker Plane, Control Plane, Beijing role, public API/webhook or Telegram delivery-identity change. Continue existing-source semantic/signal-noise audits and only introduce OCR when a current actionable opportunity provides enough value to justify it.
+
+Evidence: `docs/verification/S31-MOEA-HTML-SEMANTIC-V2-PRODUCTION-CLOSURE-2026-09-10.md`.
