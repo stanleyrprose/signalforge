@@ -3,6 +3,8 @@ from __future__ import annotations
 import html
 import json
 import re
+import sqlite3
+from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from html.parser import HTMLParser
 from pathlib import Path
@@ -11,15 +13,26 @@ from urllib.parse import urlparse
 from xml.etree import ElementTree
 
 from .config import Registry, db_path
-from .db import connect
 from .http import fetch_bytes, fetch_bytes_cloudrity_d1n
 
 AUDITOR_VERSION = 1
 DEFAULT_SIGNAL_LOOKBACK_HOURS = 24
 DEFAULT_MPT_LOOKBACK_DAYS = 7
 DEFAULT_MPT_PAGE_LIMIT = 30
+ATOM_SITEMAP_URL = "https://www.atom.com.mm/sitemap.xml"
 
 Fetcher = Callable[..., bytes]
+
+
+@contextmanager
+def _read_connection(path: Path):  # type: ignore[no-untyped-def]
+    conn = sqlite3.connect(f"file:{path.resolve()}?mode=ro", uri=True, timeout=5.0)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA query_only=ON")
+    try:
+        yield conn
+    finally:
+        conn.close()
 
 
 class _TextParser(HTMLParser):
@@ -379,6 +392,117 @@ def _coverage_findings(
     return findings, summary
 
 
+def _atom_surface_findings(fetcher: Fetcher) -> tuple[list[dict[str, object]], dict[str, object]]:
+    """Detect an official sitemap trigger without claiming it is a tender."""
+
+    try:
+        payload = fetcher(ATOM_SITEMAP_URL, timeout=30, max_bytes=2_000_000)
+        root = ElementTree.fromstring(payload)
+        terms = re.compile(r"(?:^|[-_/])(tender|procurement|rfp|rfq)(?:$|[-_/])", re.I)
+        candidates: list[str] = []
+        for node in root.iter():
+            if not str(node.tag).endswith("loc") or not node.text:
+                continue
+            url = node.text.strip()
+            parsed = urlparse(url)
+            if parsed.hostname not in {"atom.com.mm", "www.atom.com.mm", "business.atom.com.mm"}:
+                continue
+            if terms.search(parsed.path):
+                candidates.append(url)
+        candidates = sorted(set(candidates))
+        if not candidates:
+            return [], {"status": "NO_TRIGGER", "sitemap_url": ATOM_SITEMAP_URL, "candidate_urls": []}
+        finding = {
+            "type": "SURFACE_TRIGGER",
+            "severity": "YELLOW",
+            "source_id": "S42",
+            "code": "ATOM_PUBLIC_PROCUREMENT_SURFACE_CANDIDATE",
+            "summary": "ATOM official sitemap now contains procurement-like public URLs; reopen the deferred source audit",
+            "urls": candidates[:20],
+        }
+        return [finding], {"status": "REVIEW", "sitemap_url": ATOM_SITEMAP_URL, "candidate_urls": candidates[:20]}
+    except Exception as exc:
+        finding = {
+            "type": "HEALTH_ALERT",
+            "severity": "YELLOW",
+            "source_id": "S42",
+            "code": "AUDITOR_ATOM_SURFACE_CHECK_FAILED",
+            "summary": "Auditor could not inspect the deferred ATOM official sitemap",
+            "error": f"{type(exc).__name__}: {exc}",
+        }
+        return [finding], {"status": "CHECK_FAILED", "sitemap_url": ATOM_SITEMAP_URL}
+
+
+def _deadline_findings(conn) -> tuple[list[dict[str, object]], dict[str, object]]:  # type: ignore[no-untyped-def]
+    findings: list[dict[str, object]] = []
+    rows = conn.execute(
+        "SELECT canonical_key,source_id,publication_date,deadline,payload_json FROM canonical_items WHERE item_kind='TENDER'"
+    ).fetchall()
+    with_deadline = 0
+    with_evidence = 0
+    conflicts = 0
+    for row in rows:
+        try:
+            payload = json.loads(str(row["payload_json"]))
+        except json.JSONDecodeError:
+            findings.append(
+                {
+                    "type": "DEADLINE_EVIDENCE_SUSPECT",
+                    "severity": "RED",
+                    "source_id": row["source_id"],
+                    "canonical_key": row["canonical_key"],
+                    "code": "CANONICAL_PAYLOAD_INVALID_JSON",
+                    "summary": "Canonical tender payload cannot be audited for deadline evidence",
+                }
+            )
+            continue
+        if not isinstance(payload, dict):
+            continue
+        column_deadline = row["deadline"]
+        payload_deadline = payload.get("deadline")
+        deadline = payload_deadline or column_deadline
+        evidence = str(payload.get("deadline_evidence") or "")
+        if deadline:
+            with_deadline += 1
+            if evidence:
+                with_evidence += 1
+        if column_deadline != payload_deadline:
+            findings.append(
+                {
+                    "type": "DEADLINE_EVIDENCE_SUSPECT",
+                    "severity": "RED",
+                    "source_id": row["source_id"],
+                    "canonical_key": row["canonical_key"],
+                    "code": "DEADLINE_COLUMN_PAYLOAD_MISMATCH",
+                    "summary": "Canonical deadline column and payload disagree",
+                    "column_deadline": column_deadline,
+                    "payload_deadline": payload_deadline,
+                }
+            )
+        if "CONFLICT" in evidence.upper():
+            conflicts += 1
+            if deadline:
+                findings.append(
+                    {
+                        "type": "DEADLINE_EVIDENCE_SUSPECT",
+                        "severity": "RED",
+                        "source_id": row["source_id"],
+                        "canonical_key": row["canonical_key"],
+                        "code": "DEADLINE_ACCEPTED_DESPITE_EVIDENCE_CONFLICT",
+                        "summary": "Canonical tender accepted a deadline while its evidence declares a conflict",
+                    }
+                )
+    return findings, {
+        "tenders_checked": len(rows),
+        "with_deadline": with_deadline,
+        "with_explicit_evidence": with_evidence,
+        "without_explicit_evidence": with_deadline - with_evidence,
+        "declared_conflicts": conflicts,
+        "suspects": len(findings),
+        "independently_validates_official_deadline": False,
+    }
+
+
 _SIGNAL_FIELDS = ("reference_no", "project_name", "deadline", "deadline_time", "business_stage", "url")
 
 
@@ -470,7 +594,7 @@ def audit(
     findings: list[dict[str, object]] = []
     checks: dict[str, object] = {}
 
-    with connect(target) as conn:
+    with _read_connection(target) as conn:
         health_findings, health_summary = _health_findings(conn, registry, now)
         findings.extend(health_findings)
         checks["source_health"] = health_summary
@@ -487,8 +611,16 @@ def audit(
             )
             findings.extend(coverage_findings)
             checks["strategic_coverage"] = coverage_summary
+            atom_findings, atom_summary = _atom_surface_findings(fetcher)
+            findings.extend(atom_findings)
+            checks["atom_surface_trigger"] = atom_summary
         else:
             checks["strategic_coverage"] = {"status": "SKIPPED", "reason": "NETWORK_DISABLED"}
+            checks["atom_surface_trigger"] = {"status": "SKIPPED", "reason": "NETWORK_DISABLED"}
+
+        deadline_findings, deadline_summary = _deadline_findings(conn)
+        findings.extend(deadline_findings)
+        checks["deadline_integrity"] = deadline_summary
 
         signal_findings, signal_summary = _signal_findings(conn, now, signal_lookback_hours)
         findings.extend(signal_findings)
@@ -498,7 +630,15 @@ def audit(
         findings.extend(delivery_findings)
         checks["delivery_integrity"] = delivery_summary
 
-    counts = {name: sum(1 for item in findings if item.get("type") == name) for name in ("HEALTH_ALERT", "COVERAGE_GAP", "SIGNAL_EVIDENCE_SUSPECT", "DELIVERY_ANOMALY")}
+    finding_types = (
+        "HEALTH_ALERT",
+        "COVERAGE_GAP",
+        "SURFACE_TRIGGER",
+        "DEADLINE_EVIDENCE_SUSPECT",
+        "SIGNAL_EVIDENCE_SUSPECT",
+        "DELIVERY_ANOMALY",
+    )
+    counts = {name: sum(1 for item in findings if item.get("type") == name) for name in finding_types}
     red = sum(1 for item in findings if item.get("severity") == "RED")
     yellow = sum(1 for item in findings if item.get("severity") == "YELLOW")
     return {
@@ -511,12 +651,27 @@ def audit(
         "finding_type_counts": counts,
         "findings": findings,
         "checks": checks,
+        "assurance": {
+            "internal_integrity": "CHECKED",
+            "external_completeness": "NOT_PROVEN",
+            "failure_classes": {
+                "missed_high_value_tender": "NOT_PROVEN_GLOBALLY",
+                "wrong_deadline_accepted": "EVIDENCE_ANOMALIES_CHECKED_NOT_INDEPENDENTLY_VALIDATED",
+                "false_signal_emitted": "RECENT_INTERNAL_TRACE_CHECKED_HISTORY_INCOMPLETE",
+                "duplicated_push": "RECEIPT_INTEGRITY_CHECKED_PROVIDER_SIDE_NOT_OBSERVABLE",
+                "persistent_non_green_source": "CHECKED",
+                "missed_new_mpt_or_mytel_procurement": "BOUNDED_INDEPENDENT_RECONCILIATION",
+                "new_atom_public_procurement_surface": "OFFICIAL_SITEMAP_TRIGGER_CHECKED" if network else "NOT_CHECKED",
+            },
+        },
         "contract": {
             "read_only": True,
             "does_not_mutate_canonical_or_signals": True,
             "does_not_emit_customer_signals": True,
             "does_not_send_telegram": True,
             "coverage_parser_independent_from_production_parser": True,
+            "external_completeness_proven": False,
+            "coverage_scope": "bounded recent MPT pages, bounded MYTEL feed, and ATOM sitemap trigger only",
             "false_signal_proof_complete": False,
             "false_signal_limit": "canonical version history is required to prove parser-only historical UPDATED automatically",
         },
