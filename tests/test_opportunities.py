@@ -12,7 +12,7 @@ from unittest.mock import patch
 
 from signalforge.cli import main
 from signalforge.db import connect, migrate
-from signalforge.opportunities import _deadline_kind, current_opportunities
+from signalforge.opportunities import _deadline_kind, _reference_bundle, current_opportunities
 from signalforge.mpt import parse_tender_detail
 
 
@@ -70,6 +70,56 @@ class OpportunityViewTests(unittest.TestCase):
             ),
             "TENDER_FORM_SALE_CLOSE",
         )
+
+    def test_energy_dmp_multi_reference_derivation_is_source_scoped_and_fail_closed(self) -> None:
+        payload = {
+            "detail_completeness": "HTML_ID_PUBLICATION_PLUS_TEXT_PDF_SCOPE_DEADLINE",
+            "scope_summary": (
+                "(1) DMP/L-026(26-27) CAP Accessories | "
+                "(2) DMP/L- 067(26-27) CAP IOT Module | "
+                "(3) DMP/L-089(26-27) Desktop Computer | "
+                "duplicate DMP/L-026(26-27)"
+            ),
+        }
+        refs, count, evidence = _reference_bundle(payload, "S39")
+        self.assertEqual(refs, ["DMP/L-026(26-27)", "DMP/L-067(26-27)", "DMP/L-089(26-27)"])
+        self.assertEqual(count, 3)
+        self.assertEqual(evidence, "OFFICIAL_TEXT_NATIVE_PDF_SCOPE_DMP_REFERENCE_PATTERN")
+        self.assertEqual(_reference_bundle(payload, "S30"), (None, None, None))
+        self.assertEqual(_reference_bundle(dict(payload, scope_summary="DMP/L-026(26-27) only"), "S39"), (None, None, None))
+        self.assertEqual(_reference_bundle(dict(payload, detail_completeness="HTML_ONLY"), "S39"), (None, None, None))
+        explicit = dict(payload, reference_numbers=["EXPLICIT-1", "EXPLICIT-2"], reference_count=2, reference_numbers_evidence="CANONICAL")
+        self.assertEqual(_reference_bundle(explicit, "S39"), (["EXPLICIT-1", "EXPLICIT-2"], 2, "CANONICAL"))
+
+    def test_energy_multi_reference_flows_through_signal_backed_read_view(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            database = Path(tmp) / "signalforge.db"
+            migrate(database)
+            payload = {
+                "item_kind": "TENDER",
+                "business_stage": "OPPORTUNITY",
+                "title": "Energy multi-lot tender",
+                "reference_no": "ENERGY-27-2026-2027",
+                "publication_date": "2026-09-04",
+                "deadline": "2026-09-18",
+                "deadline_time": "13:00",
+                "deadline_evidence": "OFFICIAL_TEXT_NATIVE_PDF_CLOSE_DATE_TIME",
+                "scope_summary": "DMP/L-026(26-27) CAP Accessories | DMP/L- 067(26-27) IOT Module | DMP/L-089(26-27) Desktop Computer",
+                "detail_completeness": "HTML_ID_PUBLICATION_PLUS_TEXT_PDF_SCOPE_DEADLINE",
+                "url": "https://energy.gov.mm/tenders/235",
+            }
+            with connect(database) as conn, conn:
+                _insert_canonical(conn, key="energy:multi", source_id="S39", payload=payload)
+                _insert_signal(conn, signal_id="sig-energy", source_id="S39", key="energy:multi", created_at="2026-09-08T11:00:00Z")
+
+            result = current_opportunities(database=database, now=datetime(2026, 9, 9, 4, 0, tzinfo=UTC), source_id="S39")
+            self.assertEqual(result["count"], 1)
+            row = result["opportunities"][0]
+            self.assertEqual(row["reference_numbers"], ["DMP/L-026(26-27)", "DMP/L-067(26-27)", "DMP/L-089(26-27)"])
+            self.assertEqual(row["reference_count"], 3)
+            self.assertEqual(row["reference_numbers_evidence"], "OFFICIAL_TEXT_NATIVE_PDF_SCOPE_DMP_REFERENCE_PATTERN")
+            self.assertEqual(row["reference_no"], "ENERGY-27-2026-2027")
+            self.assertEqual(row["deadline_kind"], "BID_SUBMISSION_DEADLINE")
 
     def test_default_view_is_signal_backed_deduped_and_active_only(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

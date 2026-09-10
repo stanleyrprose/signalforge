@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 
@@ -21,6 +22,30 @@ def _deadline_kind(payload: dict[str, object], source_id: str) -> str | None:
     if source_id == "S38" and evidence == "EXPLICIT_HTML_TENDER_CLOSE_DATE_TIME":
         return "BID_SUBMISSION_DEADLINE"
     return None
+
+
+_ENERGY_DMP_REFERENCE_RE = re.compile(r"\bDMP/L-\s*(?P<number>\d{3})\s*\((?P<year>\d{2}-\d{2})\)", re.I)
+
+
+def _reference_bundle(payload: dict[str, object], source_id: str) -> tuple[object, object, object]:
+    explicit = payload.get("reference_numbers")
+    if isinstance(explicit, list) and explicit:
+        return explicit, payload.get("reference_count"), payload.get("reference_numbers_evidence")
+
+    if (
+        source_id == "S39"
+        and payload.get("detail_completeness") == "HTML_ID_PUBLICATION_PLUS_TEXT_PDF_SCOPE_DEADLINE"
+        and isinstance(payload.get("scope_summary"), str)
+    ):
+        values: list[str] = []
+        for match in _ENERGY_DMP_REFERENCE_RE.finditer(str(payload["scope_summary"])):
+            value = f"DMP/L-{match.group('number')}({match.group('year')})"
+            if value not in values:
+                values.append(value)
+        if len(values) >= 2:
+            return values, len(values), "OFFICIAL_TEXT_NATIVE_PDF_SCOPE_DMP_REFERENCE_PATTERN"
+
+    return payload.get("reference_numbers"), payload.get("reference_count"), payload.get("reference_numbers_evidence")
 
 
 def _deadline_at(payload: dict[str, object]) -> datetime | None:
@@ -122,18 +147,20 @@ def current_opportunities(
             except json.JSONDecodeError:
                 pass
 
+            source_id_value = str(row["source_id"])
+            reference_numbers, reference_count, reference_numbers_evidence = _reference_bundle(payload, source_id_value)
             item = {
-                "source_id": str(row["source_id"]),
+                "source_id": source_id_value,
                 "canonical_key": str(row["canonical_key"]),
                 "title": str(row["title"] or payload.get("title") or payload.get("project_name") or ""),
                 "reference_no": str(row["reference_no"] or payload.get("reference_no") or ""),
-                "reference_numbers": payload.get("reference_numbers"),
-                "reference_count": payload.get("reference_count"),
-                "reference_numbers_evidence": payload.get("reference_numbers_evidence"),
+                "reference_numbers": reference_numbers,
+                "reference_count": reference_count,
+                "reference_numbers_evidence": reference_numbers_evidence,
                 "publication_date": payload.get("publication_date") or row["publication_date"],
                 "deadline": payload.get("deadline"),
                 "deadline_time": payload.get("deadline_time"),
-                "deadline_kind": _deadline_kind(payload, str(row["source_id"])),
+                "deadline_kind": _deadline_kind(payload, source_id_value),
                 "tender_opening_date": payload.get("tender_opening_date"),
                 "tender_opening_time": payload.get("tender_opening_time"),
                 "deadline_at": deadline.astimezone(MYANMAR_TZ).isoformat() if deadline is not None else None,
@@ -151,7 +178,7 @@ def current_opportunities(
                 "latest_signal_reason": latest_signal_payload.get("signal_reason"),
                 "signal_count": int(row["signal_count"]),
             }
-            source_policy = source_policies.get(str(row["source_id"])) if isinstance(source_policies, dict) else None
+            source_policy = source_policies.get(source_id_value) if isinstance(source_policies, dict) else None
             item.update(qualify_opportunity(item, source_policy if isinstance(source_policy, dict) else None))
             rows.append(item)
 
