@@ -1252,3 +1252,20 @@ Evidence: `docs/verification/TELEGRAM-MESSAGE-UX-V1.1-PRODUCTION-CLOSURE-2026-09
 - Final production: `PASS / GREEN`, DB quick check `ok`, backlog 0, acquisition and Telegram timers enabled/active.
 
 Evidence: `docs/verification/S13-MPT-SEMANTIC-V2-PRODUCTION-CLOSURE-2026-09-09.md`.
+
+## Authoritative signal-quality checkpoint — parser-only suppression + DOMS audit — 2026-09-10
+
+This section supersedes the S13 Semantic v2 application snapshot above for current production state while preserving that closure and its pre-natural-probe counters as historical evidence.
+
+- Active Bangkok SignalForge release: `9f4605fd55039704d335da7bda33662b9c234528`; immediate rollback target: `21c162e0333c328e06f9a83ad7bee7b1bdf2abdf`; local deployment archive SHA256: `9af6e74b96638e3e52018833b846abb51458235420f49080951ab6b9520b830c`.
+- A normal post-Semantic-v2 S13 health probe created production signal `mpt:CCO-2026-001 / UPDATED` at `2026-09-09T17:15:12.735583Z`. The tender deadline was already `2026-08-06`; investigation showed the canonical payload was being enriched from byte-identical official detail evidence rather than an issuer-side source change.
+- PR #117 adds the minimal fix: for detail pipelines with no attachment captures, if the previous discovery detail SHA equals the current raw `detail_capture.sha256`, canonical semantics may update but customer signal emission is suppressed. A real raw HTML change still emits `UPDATED`.
+- Multi-evidence HTML+PDF pipelines remain outside this rule. The first generic implementation caused the existing S30 MOFA regression to fail (`239 passed / 1 failed`) because HTML can change while its PDF remains identical. The rule was narrowed instead of introducing a new evidence-bundle schema; final full suite is `240 passed` and targeted engine/MPT/opportunity/briefing/Telegram gates pass.
+- GitHub Actions PR `verify` run `34443774429` PASS; PR #117 squash-merged as exact production code SHA `9f4605fd55039704d335da7bda33662b9c234528`.
+- Production-copy verification used the real stored S13 detail evidence SHA `3334984f1fc2a56e601261eeea84f9c6356a82ef11ccffb05b8d0e560fb4c971`: the deployed runtime returned `SUCCESS / health_probe=true / changed=1 / signals_created=0`, restored `business_stage=OPPORTUNITY / deadline=2026-08-06`, and kept the copied signal count `45 -> 45`. The real production DB was not mutated.
+- The historical parser-only signal is intentionally retained as audit history; no canonical/signal deletion or historical rewrite was performed.
+- DOMS `doms:12735` remains `B / REVIEW / MEDICAL / deadline UNKNOWN`. All three current issuer PDFs were audited with existing `pypdf==6.16.2` and are effectively scan-only: 8DMS `2 pages / 1 extracted char`, 9DMS `5 / 4`, 10DMS `2 / 1`. Text-PDF enrichment is therefore insufficient; OCR remains deferred rather than being introduced for one record.
+- Final live Bangkok state: `PASS / GREEN`; `194 canonical / 45 signals / recovery backlog 0`; DB quick check `ok`; acquisition and Telegram timers active; Telegram dry-run `pending_count=0`.
+- No schema, dependency, source registry/policy, Browser Plane, Provider, Worker Plane, Control Plane, Beijing role or Telegram delivery-identity change was introduced. Product priority remains existing-source semantic/missing-field audits before source-count expansion.
+
+Evidence: `docs/verification/S13-PARSER-NOISE-DOMS-AUDIT-PRODUCTION-CLOSURE-2026-09-10.md`.
