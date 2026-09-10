@@ -168,7 +168,13 @@ def qualify_opportunity(item: dict[str, object], source_policy: dict[str, Any] |
     reasons.append("BUSINESS_SCOPE_PRESENT" if scope_present else "BUSINESS_SCOPE_PARTIAL")
     reasons.append("EXPLICIT_DEADLINE" if explicit_deadline else "DEADLINE_UNKNOWN")
     if int(item.get("reference_count") or 0) > 1:
-        reasons.append("MULTI_REFERENCE_HTML_TITLE")
+        reference_evidence = str(item.get("reference_numbers_evidence") or "")
+        if reference_evidence == "HTML_TITLE":
+            reasons.append("MULTI_REFERENCE_HTML_TITLE")
+        elif reference_evidence.startswith("OFFICIAL_TEXT_NATIVE_PDF_SCOPE_"):
+            reasons.append("MULTI_REFERENCE_OFFICIAL_PDF_SCOPE")
+        else:
+            reasons.append("MULTI_REFERENCE_EVIDENCE")
 
     return {
         "qualification_policy_version": QUALIFICATION_POLICY_VERSION,
