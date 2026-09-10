@@ -1420,3 +1420,13 @@ Evidence: `docs/verification/SOURCE-PORTFOLIO-BUSINESS-YIELD-AUDIT-2026-09-10.md
 - No source refresh, DB migration, parser/canonical/signal/qualification/delivery-policy/registry/Browser/Provider/Worker/Control/Beijing change.
 
 Evidence: `docs/verification/S39-ENERGY-MULTI-REFERENCE-READ-LAYER-PRODUCTION-CLOSURE-2026-09-10.md`.
+
+## Authoritative multi-reference evidence-label hotfix checkpoint — 2026-09-10
+
+- Active Bangkok runtime: `3700e675327cd599797fc0eaef8ddb8d0e289005`; rollback `20f2a7e8cd92671e98155bf963a291cd9a5ec3ba`; archive SHA256 `521424aa404b32b1af54257f50a6d0c8da42e8c65e4fcda1d4cc1af115d7da82`.
+- PR #138 Actions run `34482888173` PASS; targeted qualification/opportunity tests `12 passed`; full suite `263 passed`.
+- Qualification v1 decision logic is unchanged. Multi-reference explanation now follows evidence provenance: DOMS HTML title -> `MULTI_REFERENCE_HTML_TITLE`; S39 official PDF scope -> `MULTI_REFERENCE_OFFICIAL_PDF_SCOPE`; other provenance -> `MULTI_REFERENCE_EVIDENCE`.
+- Live `energy:235` remains `A/HIGH`, reference_count=11; `doms:12735` retains its HTML-title reason. `qualification_policy_version=1`.
+- Final production: `209 canonical / 45 signals / 8 OPEN + 1 UNKNOWN / backlog0 / Telegram pending0 / DB quick_check ok`; both timers active. No source refresh or state migration.
+
+Evidence: `docs/verification/MULTI-REFERENCE-EVIDENCE-LABEL-HOTFIX-PRODUCTION-CLOSURE-2026-09-10.md`.
