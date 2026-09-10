@@ -1384,3 +1384,14 @@ Evidence: `docs/verification/READ-LAYER-DEADLINE-KIND-PRODUCTION-CLOSURE-2026-09
 - Portfolio policy after activation: Technical GREEN != Business Yield. Do not add another source merely to increase count; prioritize measured strategic coverage/yield and exclude known historical parser-normalization noise from productivity judgments.
 
 Evidence: `docs/verification/S41-MYTEL-SOURCE-ONBOARDING-PRODUCTION-CLOSURE-2026-09-10.md`.
+
+## S42 ATOM source audit checkpoint — DEFERRED — 2026-09-10
+
+- No S42 production source is added. ATOM remains a strategic coverage gap but fails the current public-acquisition-surface gate.
+- Official ATOM public pages confirm supplier/supply-chain operations, but bounded searches found no official public tender/RFP/RFQ listing or repeatable anonymous supplier bidding feed.
+- Bangkok strict-TLS `https://www.atom.com.mm/sitemap.xml`: HTTP 200 / 131679 bytes; keyword counts `tender=0, procurement=0, supplier=0, rfp=0, rfq=0, sourcing=0`. `robots.txt`: HTTP 200 / 24 bytes with the same zero procurement keywords. `sitemap_index.xml`: HTTP 404.
+- This is not evidence that ATOM has no procurement activity; private/invitation-only sourcing may exist. It is evidence that the reviewed public web does not currently provide a maintainable SignalForge production source.
+- Do not add registry/parser/Browser/Provider/credentialed portal automation merely because ATOM is strategically important. Re-open only with an official public procurement surface, a real current opportunity revealing a stable official URL, or separately authorized credentialed-access design.
+- Runtime remains `c5c2327c2300e5d7a22fce3222552bf8c6de7cc9`; no production deploy or database/delivery change is required.
+
+Evidence: `docs/verification/S42-ATOM-SOURCE-AUDIT-DEFERRED-2026-09-10.md`.
