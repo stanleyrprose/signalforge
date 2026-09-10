@@ -12,7 +12,7 @@ from unittest.mock import patch
 
 from signalforge.cli import main
 from signalforge.db import connect, migrate
-from signalforge.opportunities import current_opportunities
+from signalforge.opportunities import _deadline_kind, current_opportunities
 from signalforge.mpt import parse_tender_detail
 
 
@@ -55,6 +55,22 @@ def _insert_signal(conn, *, signal_id: str, source_id: str, key: str, created_at
 
 
 class OpportunityViewTests(unittest.TestCase):
+    def test_deadline_kind_derivation_is_source_scoped_and_canonical_first(self) -> None:
+        pdf_close = {"deadline_evidence": "OFFICIAL_TEXT_NATIVE_PDF_CLOSE_DATE_TIME"}
+        html_close = {"deadline_evidence": "EXPLICIT_HTML_TENDER_CLOSE_DATE_TIME"}
+        self.assertEqual(_deadline_kind(pdf_close, "S30"), "BID_SUBMISSION_DEADLINE")
+        self.assertEqual(_deadline_kind(pdf_close, "S39"), "BID_SUBMISSION_DEADLINE")
+        self.assertEqual(_deadline_kind(html_close, "S38"), "BID_SUBMISSION_DEADLINE")
+        self.assertIsNone(_deadline_kind(pdf_close, "S37"))
+        self.assertIsNone(_deadline_kind(html_close, "S30"))
+        self.assertEqual(
+            _deadline_kind(
+                {"deadline_kind": "TENDER_FORM_SALE_CLOSE", "deadline_evidence": "EXPLICIT_HTML_TENDER_CLOSE_DATE_TIME"},
+                "S38",
+            ),
+            "TENDER_FORM_SALE_CLOSE",
+        )
+
     def test_default_view_is_signal_backed_deduped_and_active_only(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             database = Path(tmp) / "signalforge.db"
@@ -145,6 +161,7 @@ class OpportunityViewTests(unittest.TestCase):
             assert isinstance(rows, list)
             self.assertEqual([row["canonical_key"] for row in rows], ["open:1", "unknown:1"])
             self.assertEqual(rows[0]["deadline_status"], "OPEN")
+            self.assertEqual(rows[0]["deadline_kind"], "BID_SUBMISSION_DEADLINE")
             self.assertEqual(rows[0]["deadline_at"], "2026-09-18T16:30:00+06:30")
             self.assertEqual(rows[0]["signal_count"], 2)
             self.assertEqual(rows[0]["latest_signal_id"], "sig-2")
