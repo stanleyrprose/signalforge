@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import json
 import sqlite3
 import tempfile
@@ -197,7 +196,7 @@ class PtdEngineTests(unittest.TestCase):
         ၆။ တင်ဒါဖွင့်ဖောက်မည့်နေ့ရက်နှင့်အချိန် - ၂၅ - ၈ - ၂၀၂၆ ရက်
         (၁၄:၃၀)နာရီ
         """
-        with tempfile.TemporaryDirectory() as tmp, patch("signalforge.ptd._extract_pdf_text", return_value=pdf_text):
+        with tempfile.TemporaryDirectory() as tmp, patch("signalforge.ptd._extract_pdf_text", return_value=pdf_text) as extract_pdf_text:
             base = Path(tmp)
             db = base / "signalforge.db"
             baseline = run_source(
@@ -210,6 +209,8 @@ class PtdEngineTests(unittest.TestCase):
             old = parse_tender_detail(detail, entry.url)
             self.assertIsNotNone(old)
             assert old is not None
+            old_payload = old.payload()
+            old_payload["attachment_policy"] = "METADATA_ONLY_NON_BLOCKING"
             with sqlite3.connect(db) as conn:
                 canonical_key = conn.execute(
                     "SELECT canonical_key FROM discovery_items WHERE source_id='S34' AND url=?",
@@ -217,11 +218,11 @@ class PtdEngineTests(unittest.TestCase):
                 ).fetchone()[0]
                 conn.execute(
                     "UPDATE discovery_items SET content_hash=? WHERE source_id='S34' AND url=?",
-                    (hashlib.sha256(detail).hexdigest(), entry.url),
+                    ("previous-aspnet-dynamic-html-sha", entry.url),
                 )
                 conn.execute(
                     "UPDATE canonical_items SET content_hash='pre-pdf-semantic',payload_json=? WHERE canonical_key=?",
-                    (json.dumps(old.payload(), ensure_ascii=False), canonical_key),
+                    (json.dumps(old_payload, ensure_ascii=False), canonical_key),
                 )
                 conn.commit()
 
@@ -240,6 +241,26 @@ class PtdEngineTests(unittest.TestCase):
                 ).fetchone()[0])
             self.assertEqual(payload["deadline"], "2026-08-20")
             self.assertEqual(payload["deadline_kind"], "TENDER_FORM_SALE_CLOSE")
+
+            extract_pdf_text.return_value = """
+            ၃။ တင်ဒါပုံစံအရောင်းပိတ်မည့်နေ့ - ၂၁ - ၈ - ၂၀၂၆ ရက်
+            ၆။ တင်ဒါဖွင့်ဖောက်မည့်နေ့ရက်နှင့်အချိန် - ၂၆ - ၈ - ၂၀၂၆ ရက်
+            (၁၄:၃၀)နာရီ
+            """
+            changed_pdf = run_source(
+                "S34", registry=registry, now=datetime(2026, 9, 7, 12, 2, tzinfo=UTC),
+                fetcher=MapFetcher(payloads), sleeper=lambda _s: None, force=True,
+                database=db, evidence=base / "evidence", worker_context={"run_id": "ptd-later-pdf-change"},
+            )
+            self.assertTrue(changed_pdf["health_probe"])
+            self.assertEqual(changed_pdf["changed"], 1)
+            self.assertEqual(changed_pdf["signals_created"], 1)
+            with sqlite3.connect(db) as conn:
+                self.assertEqual(conn.execute("SELECT COUNT(*) FROM signals WHERE source_id='S34'").fetchone()[0], 1)
+                signal_type = conn.execute(
+                    "SELECT signal_type FROM signals WHERE source_id='S34' ORDER BY created_at DESC LIMIT 1"
+                ).fetchone()[0]
+            self.assertEqual(signal_type, "UPDATED")
 
 
 if __name__ == "__main__":
