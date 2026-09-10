@@ -11,6 +11,7 @@ from signalforge.config import Registry
 from signalforge.engine import run_source
 from signalforge.mofa import (
     MOFA_LIST_URL,
+    _pdf_deadline,
     MofaParseError,
     extract_tender_pdf_urls,
     parse_tender_detail,
@@ -70,6 +71,22 @@ class MofaParserTests(unittest.TestCase):
         self.assertTrue((tender.attachment_url or "").endswith("/Tender-Announcement.pdf"))
         self.assertEqual(tender.payload()["attachment_policy"], "METADATA_ONLY_NON_BLOCKING")
         self.assertEqual(tender.payload()["deadline_evidence"], "UNKNOWN_NOT_IN_HTML_TEXT")
+
+    def test_pdf_deadline_is_bound_to_tender_submission_line(self) -> None:
+        submission = "တင်ဒါပုံစံတင်သွင်းရမည့် - ၁၈ - ၉ - ၂၀၂၆ ရက် ၁၆:၃၀ နာရီအထိ"
+        self.assertEqual(_pdf_deadline(submission), ("2026-09-18", "16:30"))
+
+        sale_only = "တင်ဒါပုံစံစတင်ရောင်းချမည့် - ၇ - ၉ - ၂၀၂၆ ရက်မှ ၁၈ - ၉ - ၂၀၂၆ ရက်အထိ ၁၆:၃၀"
+        self.assertEqual(_pdf_deadline(sale_only), (None, None))
+
+        unrelated = "တင်ဒါရှင်းလင်းပွဲ - ၂၀ - ၉ - ၂၀၂၆ ရက် ၀၉:၀၀ နာရီ"
+        self.assertEqual(_pdf_deadline(unrelated), (None, None))
+
+        duplicated = submission + "\n" + submission
+        self.assertEqual(_pdf_deadline(duplicated), ("2026-09-18", "16:30"))
+
+        ambiguous = submission + "\n" + submission.replace("၁၈ - ၉ - ၂၀၂၆", "၁၉ - ၉ - ၂၀၂၆")
+        self.assertEqual(_pdf_deadline(ambiguous), (None, None))
 
     def test_latest_pdf_enriches_current_ict_opportunity_scope_and_deadline(self) -> None:
         html = (FIXTURES / "mofa_tender_59800.html").read_bytes()

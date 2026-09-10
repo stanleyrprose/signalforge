@@ -348,9 +348,16 @@ def extract_tender_pdf_urls(html_bytes: bytes, page_url: str) -> list[str]:
 
 def _pdf_deadline(text: str) -> tuple[str | None, str | None]:
     translated = text.translate(_MYANMAR_DIGITS)
-    candidates: list[datetime] = []
+    candidates: set[datetime] = set()
     for date_match in _DATE_RE.finditer(translated):
-        tail = translated[date_match.end(): date_match.end() + 60]
+        line_start = translated.rfind("\n", 0, date_match.start()) + 1
+        line_end = translated.find("\n", date_match.end())
+        if line_end < 0:
+            line_end = len(translated)
+        prefix = translated[line_start:date_match.start()]
+        if "တင်ဒါ" not in prefix or "တင်သွင်" not in prefix:
+            continue
+        tail = translated[date_match.end():line_end]
         time_match = _TIME_RE.search(tail)
         if time_match is None:
             continue
@@ -364,10 +371,10 @@ def _pdf_deadline(text: str) -> tuple[str | None, str | None]:
             )
         except ValueError:
             continue
-        candidates.append(candidate)
-    if not candidates:
+        candidates.add(candidate)
+    if len(candidates) != 1:
         return None, None
-    deadline = max(candidates)
+    deadline = next(iter(candidates))
     return deadline.date().isoformat(), deadline.strftime("%H:%M")
 
 
