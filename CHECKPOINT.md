@@ -1408,3 +1408,15 @@ Evidence: `docs/verification/S42-ATOM-SOURCE-AUDIT-DEFERRED-2026-09-10.md`.
 - Source-count expansion remains gated: S41 passed because a trustworthy official procurement feed exists; S42 ATOM is deferred because no qualifying public procurement surface was found.
 
 Evidence: `docs/verification/SOURCE-PORTFOLIO-BUSINESS-YIELD-AUDIT-2026-09-10.md`.
+
+## Authoritative S39 Energy multi-reference read-layer checkpoint — 2026-09-10
+
+- Active Bangkok runtime: `20f2a7e8cd92671e98155bf963a291cd9a5ec3ba`; rollback `c5c2327c2300e5d7a22fce3222552bf8c6de7cc9`; archive SHA256 `7d2f8ad0e584d8bc703c5bb6d6e75428b2e13c5f13b9ffbd5878735b3e5a47b6`.
+- PR #136 Actions run `34481911436` PASS; targeted opportunities tests `8 passed`; full suite `262 passed`.
+- Pure read-layer enrichment only. Canonical `reference_numbers` always wins. Derived bundle is authorized only for S39 + reviewed Energy text-PDF completeness + at least two distinct exact `DMP/L-xxx(yy-yy)` references. Other issuer reference grammars remain fail-closed/null.
+- Production-copy gate: `energy:235` derives 11 DMP references; briefing propagates all 11; Telegram renders them in its existing reference line; DB SHA `c07779fb55e1939d958c71784c96e5bf1ef196500dc513fe8329839f4dc1885f` unchanged before/after read.
+- Post-deploy live `energy:235`: `reference_count=11`, evidence `OFFICIAL_TEXT_NATIVE_PDF_SCOPE_DMP_REFERENCE_PATTERN`; underlying canonical payload still has null `reference_numbers/reference_count`.
+- Final production: `PASS/GREEN / 209 canonical / 45 signals / recovery backlog0 / opportunities 8 OPEN + 1 UNKNOWN / Telegram pending0 / DB quick_check ok`; acquisition and Telegram timers active.
+- No source refresh, DB migration, parser/canonical/signal/qualification/delivery-policy/registry/Browser/Provider/Worker/Control/Beijing change.
+
+Evidence: `docs/verification/S39-ENERGY-MULTI-REFERENCE-READ-LAYER-PRODUCTION-CLOSURE-2026-09-10.md`.
