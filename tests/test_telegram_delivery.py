@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import json
 import tempfile
 import unittest
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import patch
 
@@ -85,6 +87,97 @@ class TelegramDeliveryTests(unittest.TestCase):
             self.assertEqual(repeated["sent_count"], 0)
             with connect(database) as conn:
                 self.assertEqual(conn.execute("SELECT COUNT(*) FROM delivery_receipts").fetchone()[0], 2)
+
+    def test_deadline_crossing_72h_escalates_same_signal_without_source_update(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            database = Path(tmp) / "signalforge.db"
+            migrate(database)
+            payload = {
+                "item_kind": "TENDER",
+                "business_stage": "OPPORTUNITY",
+                "issuer": "Ministry of Industry, Myanmar",
+                "title": "Industrial chemical supply tender",
+                "project_name": "Industrial chemical supply tender",
+                "reference_no": "INDUSTRY-TEST-72H",
+                "publication_date": "2026-09-01",
+                "deadline": "2026-09-14",
+                "deadline_time": "16:00",
+                "deadline_evidence": "EXPLICIT_HTML_TENDER_CLOSE_DATE_TIME",
+                "scope_summary": "Chemical materials for industrial production and plant operations.",
+                "detail_completeness": "HTML_BUSINESS_SCOPE_AND_DEADLINE_NO_ATTACHMENT_REQUIRED",
+                "url": "https://www.industrymsme.gov.mm/announcements/test-72h",
+            }
+            with connect(database) as conn, conn:
+                conn.execute(
+                    """
+                    INSERT INTO canonical_items(
+                        canonical_key,source_id,item_kind,title,reference_no,project_name,publication_date,deadline,location,url,
+                        content_hash,evidence_sha256,payload_json,created_at,updated_at
+                    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                    """,
+                    (
+                        "industry:test-72h",
+                        "S38",
+                        "TENDER",
+                        payload["title"],
+                        payload["reference_no"],
+                        payload["project_name"],
+                        payload["publication_date"],
+                        payload["deadline"],
+                        None,
+                        payload["url"],
+                        "hash-test-72h",
+                        "evidence-test-72h",
+                        json.dumps(payload, sort_keys=True),
+                        "2026-09-09T00:00:00Z",
+                        "2026-09-09T00:00:00Z",
+                    ),
+                )
+                conn.execute(
+                    "INSERT INTO signals(signal_id,source_id,canonical_key,signal_type,created_at,payload_json) VALUES (?,?,?,?,?,?)",
+                    (
+                        "sig-test-72h",
+                        "S38",
+                        "industry:test-72h",
+                        "NEW",
+                        "2026-09-09T00:00:00Z",
+                        json.dumps({"signal_type": "NEW", "canonical_key": "industry:test-72h"}, sort_keys=True),
+                    ),
+                )
+
+            before_threshold = datetime(2026, 9, 11, 9, 29, tzinfo=UTC)
+            after_threshold = datetime(2026, 9, 11, 9, 31, tzinfo=UTC)
+            with patch("signalforge.telegram_delivery._send_message", return_value="202") as send:
+                before = telegram_deliver(
+                    database=database,
+                    now=before_threshold,
+                    bot_token="secret",
+                    chat_id="42",
+                )
+                upgraded = telegram_deliver(
+                    database=database,
+                    now=after_threshold,
+                    bot_token="secret",
+                    chat_id="42",
+                )
+                repeated = telegram_deliver(
+                    database=database,
+                    now=after_threshold,
+                    bot_token="secret",
+                    chat_id="42",
+                )
+
+            self.assertEqual(before["sent_count"], 0)
+            self.assertEqual(upgraded["sent_count"], 1)
+            self.assertEqual(repeated["sent_count"], 0)
+            self.assertEqual(send.call_count, 1)
+            self.assertEqual(upgraded["sent"][0]["canonical_key"], "industry:test-72h")
+            self.assertEqual(upgraded["sent"][0]["attention_action"], "ACT_NOW")
+            with connect(database) as conn:
+                row = conn.execute(
+                    "SELECT signal_id,attention_action,priority_band FROM delivery_receipts WHERE canonical_key='industry:test-72h'"
+                ).fetchone()
+            self.assertEqual(tuple(row), ("sig-test-72h", "ACT_NOW", "HIGH"))
 
     def test_new_signal_same_action_is_delivered(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
