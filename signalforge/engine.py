@@ -87,6 +87,38 @@ def _initial_attachment_enrichment_only(conn, *, source: dict, tender) -> bool: 
     return previous_business == current_business
 
 
+_LISTING_SEMANTIC_ENRICHMENT_FIELDS = {
+    "deadline",
+    "deadline_time",
+    "deadline_kind",
+    "deadline_evidence",
+    "semantic_version",
+}
+
+
+def _initial_listing_semantic_enrichment_only(conn, *, source: dict, tender) -> bool:  # type: ignore[no-untyped-def]
+    if source.get("suppress_signal_on_initial_listing_semantic_enrichment") is not True:
+        return False
+    existing = conn.execute(
+        "SELECT payload_json FROM canonical_items WHERE canonical_key=?",
+        (tender.canonical_key,),
+    ).fetchone()
+    if existing is None:
+        return False
+    try:
+        previous = json.loads(str(existing["payload_json"]))
+    except json.JSONDecodeError:
+        return False
+    if not isinstance(previous, dict) or previous.get("semantic_version") is not None:
+        return False
+    current = tender.payload()
+    if current.get("semantic_version") != 2:
+        return False
+    previous_business = {key: value for key, value in previous.items() if key not in _LISTING_SEMANTIC_ENRICHMENT_FIELDS}
+    current_business = {key: value for key, value in current.items() if key not in _LISTING_SEMANTIC_ENRICHMENT_FIELDS}
+    return previous_business == current_business
+
+
 def _source_state(conn, source_id: str):  # type: ignore[no-untyped-def]
     return conn.execute("SELECT * FROM source_state WHERE source_id=?", (source_id,)).fetchone()
 
@@ -569,12 +601,15 @@ def run_source(
                 _write_evidence(source_id, sitemap_bytes, sitemap_hash, evidence)
                 with connect(database) as conn, conn:
                     for item in discovery_records:
+                        initial_listing_enrichment = _initial_listing_semantic_enrichment_only(
+                            conn, source=source, tender=item
+                        )
                         changed, signals = _upsert_tender(
                             conn,
                             source_id=source_id,
                             tender=item,
                             observed_at=observed_at,
-                            suppress_signal=baseline,
+                            suppress_signal=baseline or initial_listing_enrichment,
                             evidence_digest=sitemap_hash,
                         )
                         listing_changed += int(changed)

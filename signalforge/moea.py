@@ -109,6 +109,58 @@ def parse_explicit_deadline(comment_text: str) -> str | None:
         return None
 
 
+def _normalized_date(match: re.Match[str]) -> str | None:
+    day, month, year = (int(part) for part in match.groups())
+    try:
+        return datetime(year, month, day).date().isoformat()
+    except ValueError:
+        return None
+
+
+def _normalized_time(value: str) -> str | None:
+    match = re.fullmatch(r"(\d{1,2}):(\d{2})", value)
+    if match is None:
+        return None
+    hour, minute = (int(part) for part in match.groups())
+    if hour > 23 or minute > 59:
+        return None
+    return f"{hour:02d}:{minute:02d}"
+
+
+def parse_actionable_deadline(comment_text: str) -> tuple[str | None, str | None, str | None, str]:
+    text = normalize_text(comment_text).translate(_MYANMAR_DIGITS)
+    if not text:
+        return None, None, None, "UNKNOWN_NO_ACTIONABLE_DEADLINE_IN_HTML_COMMENT"
+
+    submission_marker = "တင်ဒါတင်သွင်းရမည့်နောက်ဆုံးရက်"
+    if submission_marker in text:
+        marker = text.find(submission_marker)
+        tail = text[marker : marker + 260]
+        match = re.search(r"(\d{1,2})\s*[-/.]\s*(\d{1,2})\s*[-/.]\s*(\d{4})", tail)
+        deadline = _normalized_date(match) if match is not None else None
+        if deadline is not None:
+            return deadline, None, "BID_SUBMISSION_DEADLINE", "EXPLICIT_HTML_COMMENT_FINAL_SUBMISSION_DATE"
+
+    acceptance_marker = "တင်ဒါလျှောက်လွှာလက်ခံမည့်ရက်"
+    if acceptance_marker in text:
+        marker = text.find(acceptance_marker)
+        tail = text[marker : marker + 360]
+        date_matches = list(re.finditer(r"(\d{1,2})\s*[-/.]\s*(\d{1,2})\s*[-/.]\s*(\d{4})", tail))
+        if len(date_matches) >= 2:
+            deadline = _normalized_date(date_matches[1])
+            if deadline is not None:
+                time_matches = re.findall(r"(\d{1,2}:\d{2})", tail)
+                deadline_time = _normalized_time(time_matches[-1]) if len(time_matches) >= 2 else None
+                return (
+                    deadline,
+                    deadline_time,
+                    "TENDER_APPLICATION_ACCEPTANCE_CLOSE",
+                    "EXPLICIT_HTML_COMMENT_TENDER_APPLICATION_ACCEPTANCE_WINDOW_END",
+                )
+
+    return None, None, None, "UNKNOWN_NO_ACTIONABLE_DEADLINE_IN_HTML_COMMENT"
+
+
 def _comment_text(value: str) -> str:
     decoded = unescape(value)
     stripped = re.sub(r"<[^>]+>", " ", decoded)
@@ -121,6 +173,9 @@ class MoeaTender:
     publication_date: str
     location: str | None
     deadline: str | None
+    deadline_time: str | None
+    deadline_kind: str | None
+    deadline_evidence: str
     scope_summary: str | None
     attachment_name: str
     attachment_url: str
@@ -155,7 +210,10 @@ class MoeaTender:
             "identity_material": "publication_date+normalized_title",
             "publication_date": self.publication_date,
             "deadline": self.deadline,
-            "deadline_evidence": "EXPLICIT_HTML_COMMENT_FINAL_DATE" if self.deadline else "UNKNOWN_NO_EXPLICIT_FINAL_DATE_IN_HTML_COMMENT",
+            "deadline_time": self.deadline_time,
+            "deadline_kind": self.deadline_kind,
+            "deadline_evidence": self.deadline_evidence,
+            "semantic_version": 2,
             "location": self.location,
             "scope_summary": self.scope_summary,
             "attachment_name": self.attachment_name,
@@ -295,11 +353,15 @@ def parse_tender_records(html_bytes: bytes, page_url: str = MOEA_LIST_URL) -> li
             continue
         attachment_name = unquote(urlparse(attachment_url).path.rsplit("/", 1)[-1])
         comment = card.comment_text or ""
+        deadline, deadline_time, deadline_kind, deadline_evidence = parse_actionable_deadline(comment)
         item = MoeaTender(
             title=card.title,
             publication_date=publication_date,
             location=card.location,
-            deadline=parse_explicit_deadline(comment),
+            deadline=deadline,
+            deadline_time=deadline_time,
+            deadline_kind=deadline_kind,
+            deadline_evidence=deadline_evidence,
             scope_summary=comment[:2000] if comment else None,
             attachment_name=attachment_name,
             attachment_url=attachment_url,

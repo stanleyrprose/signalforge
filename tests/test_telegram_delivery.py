@@ -137,6 +137,14 @@ class TelegramDeliveryTests(unittest.TestCase):
         self.assertIn("🗓 开标：<b>2026-09-20 13:30</b>", text)
         self.assertNotIn("⏰ 截止：", text)
 
+    def test_deadline_kind_labels_distinguish_bid_and_application_close(self) -> None:
+        item = _briefing()["attention"][0]
+        assert isinstance(item, dict)
+        item["deadline_kind"] = "BID_SUBMISSION_DEADLINE"
+        self.assertIn("⏰ 投标截止：<b>2026-09-18 16:30</b>", render_telegram_message(item))
+        item["deadline_kind"] = "TENDER_APPLICATION_ACCEPTANCE_CLOSE"
+        self.assertIn("⏰ 投标申请接收截止：<b>2026-09-18 16:30</b>", render_telegram_message(item))
+
     def test_action_labels_are_compact_and_deterministic(self) -> None:
         expected = {
             "ACT_NOW": "立即行动",

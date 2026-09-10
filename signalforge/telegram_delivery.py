@@ -46,8 +46,13 @@ def _deadline_text(item: dict[str, object]) -> str:
 
 
 def _deadline_label(item: dict[str, object]) -> str:
-    if item.get("deadline_kind") == "TENDER_FORM_SALE_CLOSE":
+    kind = item.get("deadline_kind")
+    if kind == "TENDER_FORM_SALE_CLOSE":
         return "获取标书截止"
+    if kind == "TENDER_APPLICATION_ACCEPTANCE_CLOSE":
+        return "投标申请接收截止"
+    if kind == "BID_SUBMISSION_DEADLINE":
+        return "投标截止"
     return "截止"
 
 

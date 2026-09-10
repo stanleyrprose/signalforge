@@ -13,6 +13,7 @@ from signalforge.moea import (
     MOEA_LIST_URL,
     MoeaParseError,
     is_procurement_invitation,
+    parse_actionable_deadline,
     parse_explicit_deadline,
     parse_tender_records,
     parse_visible_publication_date,
@@ -47,6 +48,29 @@ class MoeaParserTests(unittest.TestCase):
         self.assertEqual(parse_explicit_deadline("တင်ဒါတင်သွင်းရမည့်နောက်ဆုံးရက် - (၇-၈-၂၀၂၆) ရက်"), "2026-08-07")
         self.assertIsNone(parse_explicit_deadline("တင်ဒါပုံစံရောင်းချမည့်ရက် ၂၉-၅-၂၀၂၆ မှ ၁၀-၆-၂၀၂၆"))
 
+    def test_actionable_deadline_distinguishes_submission_acceptance_from_form_sale(self) -> None:
+        final = parse_actionable_deadline("တင်ဒါတင်သွင်းရမည့်နောက်ဆုံးရက် - (၇-၈-၂၀၂၆) ရက်၊ ရုံးချိန်အတွင်း")
+        self.assertEqual(final, ("2026-08-07", None, "BID_SUBMISSION_DEADLINE", "EXPLICIT_HTML_COMMENT_FINAL_SUBMISSION_DATE"))
+
+        acceptance = parse_actionable_deadline(
+            "တင်ဒါလျှောက်လွှာလက်ခံမည့်ရက် - ၂၉-၅-၂၀၂၆ ရက်မှ ၁၀-၆-၂၀၂၆ ရက်အထိ "
+            "၀၉:၃၀ နာရီ မှ ၁၆:၀၀ နာရီ။ သတ်မှတ်ကာလထက်ကျော်လွန်သော တင်ဒါများကို ထည့်သွင်းစဉ်းစားမည်မဟုတ်ပါ။"
+        )
+        self.assertEqual(
+            acceptance,
+            (
+                "2026-06-10",
+                "16:00",
+                "TENDER_APPLICATION_ACCEPTANCE_CLOSE",
+                "EXPLICIT_HTML_COMMENT_TENDER_APPLICATION_ACCEPTANCE_WINDOW_END",
+            ),
+        )
+
+        sale_only = parse_actionable_deadline("တင်ဒါပုံစံရောင်းချမည့်ရက် ၂၉-၅-၂၀၂၆ မှ ၁၀-၆-၂၀၂၆")
+        self.assertEqual(sale_only[:3], (None, None, None))
+        unrelated_final = parse_actionable_deadline("စာရင်းပေးသွင်းရန် နောက်ဆုံးရက် ၁၀-၆-၂၀၂၆")
+        self.assertEqual(unrelated_final[:3], (None, None, None))
+
     def test_selection_excludes_awards_and_non_procurement_leases(self) -> None:
         self.assertTrue(is_procurement_invitation("အိတ်ဖွင့်တင်ဒါခေါ်ယူခြင်း"))
         self.assertFalse(is_procurement_invitation("တင်ဒါအောင်မြင်သော ကုမ္ပဏီများစာရင်း"))
@@ -57,12 +81,17 @@ class MoeaParserTests(unittest.TestCase):
         self.assertEqual(len(rows), 3)
         self.assertEqual([row.publication_date for row in rows], ["2026-07-27", "2026-05-28", "2026-02-04"])
         self.assertEqual(rows[0].deadline, "2026-08-07")
-        self.assertIsNone(rows[1].deadline)
+        self.assertEqual(rows[0].deadline_kind, "BID_SUBMISSION_DEADLINE")
+        self.assertEqual(rows[1].deadline, "2026-06-10")
+        self.assertEqual(rows[1].deadline_time, "16:00")
+        self.assertEqual(rows[1].deadline_kind, "TENDER_APPLICATION_ACCEPTANCE_CLOSE")
+        self.assertIsNone(rows[2].deadline)
         self.assertIn("သက်မွေးပညာသင်တန်းစင်တာ", rows[0].scope_summary or "")
         self.assertEqual(rows[0].location, "နေပြည်တော်")
         self.assertEqual(rows[0].attachment_name, "1785147339.pdf")
         self.assertEqual(rows[0].payload()["reference_no_kind"], "issuer_archive_event_fingerprint")
         self.assertEqual(rows[0].payload()["attachment_policy"], "METADATA_ONLY_NON_BLOCKING")
+        self.assertEqual(rows[0].payload()["semantic_version"], 2)
         self.assertTrue(rows[0].canonical_key.startswith("moea:2026-07-27:"))
 
     def test_structural_drift_fails_closed_but_valid_empty_is_allowed(self) -> None:
@@ -111,6 +140,90 @@ class MoeaEngineTests(unittest.TestCase):
                 self.assertEqual(conn.execute("SELECT COUNT(*) FROM evidence_envelopes WHERE source_id='S31'").fetchone()[0], 1)
                 self.assertEqual(conn.execute("SELECT COUNT(*) FROM evidence_envelopes WHERE source_id='S31' AND lower(requested_url) LIKE '%.pdf%'").fetchone()[0], 0)
                 self.assertEqual(conn.execute("SELECT details_attempted,tenders_parsed,items_parsed FROM scheduler_runs WHERE source_id='S31'").fetchone(), (0, 3, 3))
+
+    def test_initial_listing_semantic_v2_enrichment_is_suppressed_once(self) -> None:
+        listing = (FIXTURES / "moea_tenders.html").read_bytes()
+        registry = _registry()
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            db = base / "signalforge.db"
+            evidence = base / "evidence"
+            fetcher = SinglePageFetcher(listing)
+            baseline = run_source(
+                "S31",
+                registry=registry,
+                now=datetime(2026, 9, 10, 2, 0, tzinfo=UTC),
+                fetcher=fetcher,
+                force=True,
+                database=db,
+                evidence=evidence,
+                worker_context={"run_id": "moea-v2-baseline"},
+            )
+            self.assertEqual(baseline["signals_created"], 0)
+
+            with sqlite3.connect(db) as conn:
+                key = conn.execute(
+                    "SELECT canonical_key FROM canonical_items WHERE source_id='S31' AND publication_date='2026-05-28'"
+                ).fetchone()[0]
+                payload = json.loads(conn.execute(
+                    "SELECT payload_json FROM canonical_items WHERE canonical_key=?", (key,)
+                ).fetchone()[0])
+                payload.pop("semantic_version", None)
+                payload.pop("deadline_time", None)
+                payload.pop("deadline_kind", None)
+                payload["deadline"] = None
+                payload["deadline_evidence"] = "UNKNOWN_NO_EXPLICIT_FINAL_DATE_IN_HTML_COMMENT"
+                conn.execute(
+                    "UPDATE canonical_items SET content_hash='legacy-moea-v1',deadline=NULL,payload_json=? WHERE canonical_key=?",
+                    (json.dumps(payload, ensure_ascii=False, sort_keys=True), key),
+                )
+                conn.commit()
+
+            enrichment = run_source(
+                "S31",
+                registry=registry,
+                now=datetime(2026, 9, 10, 3, 0, tzinfo=UTC),
+                fetcher=SinglePageFetcher(listing),
+                force=True,
+                database=db,
+                evidence=evidence,
+                worker_context={"run_id": "moea-v2-enrichment"},
+            )
+            self.assertEqual(enrichment["changed"], 1)
+            self.assertEqual(enrichment["signals_created"], 0)
+
+            with sqlite3.connect(db) as conn:
+                payload = json.loads(conn.execute(
+                    "SELECT payload_json FROM canonical_items WHERE canonical_key=?", (key,)
+                ).fetchone()[0])
+                self.assertEqual(conn.execute("SELECT COUNT(*) FROM signals WHERE source_id='S31'").fetchone()[0], 0)
+                self.assertEqual(payload["semantic_version"], 2)
+                self.assertEqual(payload["deadline"], "2026-06-10")
+                self.assertEqual(payload["deadline_time"], "16:00")
+                self.assertEqual(payload["deadline_kind"], "TENDER_APPLICATION_ACCEPTANCE_CLOSE")
+
+                payload["deadline"] = "2026-06-09"
+                conn.execute(
+                    "UPDATE canonical_items SET content_hash='wrong-v2-deadline',deadline=?,payload_json=? WHERE canonical_key=?",
+                    ("2026-06-09", json.dumps(payload, ensure_ascii=False, sort_keys=True), key),
+                )
+                conn.commit()
+
+            corrected = run_source(
+                "S31",
+                registry=registry,
+                now=datetime(2026, 9, 10, 4, 0, tzinfo=UTC),
+                fetcher=SinglePageFetcher(listing),
+                force=True,
+                database=db,
+                evidence=evidence,
+                worker_context={"run_id": "moea-v2-correction"},
+            )
+            self.assertEqual(corrected["changed"], 1)
+            self.assertEqual(corrected["signals_created"], 1)
+            with sqlite3.connect(db) as conn:
+                self.assertEqual(conn.execute("SELECT COUNT(*) FROM signals WHERE source_id='S31'").fetchone()[0], 1)
+                self.assertEqual(conn.execute("SELECT signal_type FROM signals WHERE source_id='S31'").fetchone()[0], "UPDATED")
 
 
 if __name__ == "__main__":
