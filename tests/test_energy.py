@@ -12,6 +12,7 @@ from unittest.mock import patch
 from signalforge.config import Registry
 from signalforge.energy import (
     EnergyParseError,
+    _deadline,
     extract_tender_pdf_urls,
     parse_detail_metadata,
     parse_tender_detail_with_attachments,
@@ -53,6 +54,22 @@ class EnergyParserTests(unittest.TestCase):
         self.assertEqual(extract_tender_pdf_urls(_fixture("energy-235.html"), DETAIL_URLS[235]), [metadata.pdf_url])
         self.assertIsNone(parse_detail_metadata(_fixture("energy-235.html"), "https://example.com/tenders/235"))
         self.assertIsNone(parse_detail_metadata(_fixture("energy-235.html"), f"{DETAIL_URLS[235]}?x=1"))
+
+    def test_deadline_requires_unique_bid_submission_close_context(self) -> None:
+        closing = (
+            "အဆိုပါအိတ်ဖွင့်တင်ဒါများကို 18-9-2026 ရက်နေ့ (13:00) နာရီတွင် "
+            "နောက်ဆုံးထား၍ နေပြည်တော်သို့ လူကိုယ်တိုင် လာရောက်ပေးသွင်းရန် ဖြစ်ပါသည်။"
+        )
+        self.assertEqual(_deadline(closing), ("2026-09-18", "13:00"))
+
+        later_unrelated = closing + " ရှင်းလင်းပွဲ 20-9-2026 ရက်နေ့ (09:00) နာရီ။"
+        self.assertEqual(_deadline(later_unrelated), ("2026-09-18", "13:00"))
+
+        no_close_context = "တင်ဒါကြော်ငြာ ရှင်းလင်းပွဲ 20-9-2026 ရက်နေ့ (09:00) နာရီ ပြုလုပ်မည်။"
+        self.assertEqual(_deadline(no_close_context), (None, None))
+
+        ambiguous = closing + " " + closing.replace("18-9-2026", "19-9-2026")
+        self.assertEqual(_deadline(ambiguous), (None, None))
 
     def test_text_native_pdfs_extract_reference_scope_and_deadline(self) -> None:
         expected = {
@@ -156,7 +173,7 @@ class EnergyEngineTests(unittest.TestCase):
                     "SELECT COUNT(*) FROM processing_records WHERE source_id='S39' AND status='SUCCESS'"
                 ).fetchone()[0]
                 detail_processing_count = conn.execute(
-                    "SELECT COUNT(*) FROM processing_records WHERE source_id='S39' AND status='SUCCESS' AND parser_version='energy-html-plus-text-pdf-v1'"
+                    "SELECT COUNT(*) FROM processing_records WHERE source_id='S39' AND status='SUCCESS' AND parser_version='energy-html-plus-text-pdf-v2'"
                 ).fetchone()[0]
                 evidence_sha = conn.execute(
                     "SELECT evidence_sha256 FROM canonical_items WHERE canonical_key='energy:235'"
