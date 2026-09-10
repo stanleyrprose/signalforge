@@ -1310,3 +1310,21 @@ This section supersedes the prior S31 semantic/runtime snapshot for current prod
 - No DB schema, new dependency, OCR, PDF production acquisition, Browser Plane, Provider, Worker Plane, Control Plane, Beijing role, public API/webhook or Telegram delivery-identity change. Continue existing-source semantic/signal-noise audits and only introduce OCR when a current actionable opportunity provides enough value to justify it.
 
 Evidence: `docs/verification/S31-MOEA-HTML-SEMANTIC-V2-PRODUCTION-CLOSURE-2026-09-10.md`.
+
+## Authoritative S31 MOEA HTML Semantic v3 checkpoint — 2026-09-10
+
+This section supersedes the S31 v2 current-state snapshot while preserving the v2 closure as historical evidence.
+
+- Active Bangkok runtime: `1e2f5b74860d0d88b7435789a8482706eddf784e`; rollback: `038a78e195df0a8ea98f256d7bc2862e0234f6f8`; archive SHA256: `a7a2a8c01b526df93006460f020e8dc7e0acffafde7a6cbf316c6cf581fc932a`.
+- PR #124 verify run `34462131786` PASS; targeted S31/contract tests `12 passed`; full suite `249 passed`; `git diff --check` PASS.
+- S31 remains Bangkok `ACTIVE_SELECTIVE / direct_http / HTML-only / listing_complete_business_records=true`; PDF attachments remain metadata-only and unfetched; canonicalizer remains `moea-archive-event-fingerprint-v1`.
+- Parser/normalizer are `moea-tender-archive-card-v3 / moea-tender-normalize-v3`; payload `semantic_version=3`. v3 adds exact support for `တင်ဒါလျှောက်လွှာ တင်သွင်းရမည့်နောက်ဆုံးရက်` as `BID_SUBMISSION_DEADLINE`; existing explicit bid-submission and application-acceptance rules are unchanged and remain fail-closed.
+- Source-configured `listing_semantic_migration = {from_version:2,to_version:3,suppress_signal:true}` replaces the earlier one-off legacy boolean. Signal suppression occurs only for this exact increasing semantic transition and only when every non-deadline business field is identical. Same-version issuer deadline changes are not suppressed.
+- Fresh live MOEA page still returns 9 selected procurement records. v3 parses `2023-06-09 -> 2023-06-27 / BID_SUBMISSION_DEADLINE`, `2026-05-28 -> 2026-06-10 16:00 / TENDER_APPLICATION_ACCEPTANCE_CLOSE`, and keeps `2026-02-04 -> UNKNOWN`.
+- Fresh production-copy replay: `SUCCESS / changed=9 / signals_created=0 / global signals 45->45 / S31 signals 0->0 / v2=9 -> v3=9`; real DB untouched by this gate.
+- Reviewed production Worker refresh: `signalforge-20260910T094447Z-d486be93`; application result `MANUAL / SUCCESS / items=9 / tenders=9 / changed=9 / signals_created=0 / details_attempted=0 / backlog=0`. Production after refresh: `S31 v2=0 / v3=9`, global signals `45`, S31 signals `0`, DB quick check `ok`.
+- Current customer output remains `9 opportunities = 8 OPEN + 1 UNKNOWN`; Telegram dry-run `PASS / pending_count=0`. Final Bangkok: `PASS / GREEN / 194 canonical / 45 signals / recovery backlog 0`, acquisition and Telegram timers active.
+- Silent `OPPORTUNITY + no signal + deadline=null` is now 25: `S26=2, S29=4, S30=1, S31=5, S32=2, S34=5, S36=6`. Full normalized HTML/business-text scan found no second record with enough explicit actionable date semantics for another safe HTML-only patch. Do not introduce OCR or PDF acquisition to reduce historical UNKNOWN counts.
+- No schema, new dependency, OCR, Browser Plane, Provider, Worker Plane, Control Plane, Beijing role, public API/webhook or Telegram delivery-identity change. Next product-quality slice is the nine current customer opportunities.
+
+Evidence: `docs/verification/S31-MOEA-HTML-SEMANTIC-V3-PRODUCTION-CLOSURE-2026-09-10.md`.
