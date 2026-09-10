@@ -138,6 +138,19 @@ class BriefingTests(unittest.TestCase):
         self.assertEqual(result["watchlist"]["canonical_keys"], ["industry:watch"])
         self.assertTrue(result["delivery_contract"]["facts_must_not_be_inferred"])
 
+    def test_deadline_kind_and_opening_semantics_are_preserved_for_delivery(self) -> None:
+        data = self._opportunities()
+        item = data["opportunities"][0]
+        item["deadline_kind"] = "TENDER_FORM_SALE_CLOSE"
+        item["tender_opening_date"] = "2026-09-15"
+        item["tender_opening_time"] = "13:30"
+        with patch("signalforge.briefing.current_opportunities", return_value=data):
+            result = business_briefing()
+        attention = result["attention"][0]
+        self.assertEqual(attention["deadline_kind"], "TENDER_FORM_SALE_CLOSE")
+        self.assertEqual(attention["tender_opening_date"], "2026-09-15")
+        self.assertEqual(attention["tender_opening_time"], "13:30")
+
     def test_scope_excerpt_is_bounded(self) -> None:
         data = self._opportunities()
         data["opportunities"][0]["scope_summary"] = "x" * 1000

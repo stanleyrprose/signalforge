@@ -45,6 +45,20 @@ def _deadline_text(item: dict[str, object]) -> str:
     return f"{deadline} {deadline_time}".strip() or "UNKNOWN"
 
 
+def _deadline_label(item: dict[str, object]) -> str:
+    if item.get("deadline_kind") == "TENDER_FORM_SALE_CLOSE":
+        return "获取标书截止"
+    return "截止"
+
+
+def _opening_text(item: dict[str, object]) -> str | None:
+    opening_date = str(item.get("tender_opening_date") or "")
+    if not opening_date:
+        return None
+    opening_time = str(item.get("tender_opening_time") or "")
+    return f"{opening_date} {opening_time}".strip()
+
+
 def _reason_text(item: dict[str, object]) -> str:
     mapping = {
         "DEADLINE_WITHIN_72H": "截止时间已进入72小时窗口",
@@ -104,8 +118,11 @@ def render_telegram_message(item: dict[str, object]) -> str:
         f"<b>{title}</b>",
         "",
         f"🏛 买方：{issuer}",
-        f"⏰ 截止：<b>{html.escape(_deadline_text(item))}</b>",
+        f"⏰ {_deadline_label(item)}：<b>{html.escape(_deadline_text(item))}</b>",
     ]
+    opening = _opening_text(item)
+    if opening:
+        lines.append(f"🗓 开标：<b>{html.escape(opening)}</b>")
     if reference:
         lines.append(f"📌 编号：{html.escape(reference)}")
     if reason:

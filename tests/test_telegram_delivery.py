@@ -126,6 +126,17 @@ class TelegramDeliveryTests(unittest.TestCase):
         self.assertLessEqual(scope_line.count("x"), 240)
         self.assertNotIn("<Foreign>", text)
 
+    def test_ptd_participation_deadline_is_not_rendered_as_generic_bid_deadline(self) -> None:
+        item = _briefing()["attention"][0]
+        assert isinstance(item, dict)
+        item["deadline_kind"] = "TENDER_FORM_SALE_CLOSE"
+        item["tender_opening_date"] = "2026-09-20"
+        item["tender_opening_time"] = "13:30"
+        text = render_telegram_message(item)
+        self.assertIn("⏰ 获取标书截止：<b>2026-09-18 16:30</b>", text)
+        self.assertIn("🗓 开标：<b>2026-09-20 13:30</b>", text)
+        self.assertNotIn("⏰ 截止：", text)
+
     def test_action_labels_are_compact_and_deterministic(self) -> None:
         expected = {
             "ACT_NOW": "立即行动",

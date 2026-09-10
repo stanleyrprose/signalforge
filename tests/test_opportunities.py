@@ -166,6 +166,44 @@ class OpportunityViewTests(unittest.TestCase):
             self.assertEqual(rows[1]["reference_count"], 3)
             self.assertEqual(rows[1]["reference_numbers_evidence"], "HTML_TITLE")
 
+    def test_ptd_deadline_kind_and_opening_semantics_flow_through_read_view(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            database = Path(tmp) / "signalforge.db"
+            migrate(database)
+            payload = {
+                "item_kind": "TENDER",
+                "business_stage": "OPPORTUNITY",
+                "title": "PTD radio frequency monitoring tender",
+                "reference_no": "PTD-20260910-1",
+                "publication_date": "2026-09-10",
+                "deadline": "2026-09-18",
+                "deadline_time": None,
+                "deadline_kind": "TENDER_FORM_SALE_CLOSE",
+                "deadline_evidence": "OFFICIAL_TEXT_NATIVE_PDF_TENDER_FORM_SALE_CLOSE_DATE",
+                "tender_opening_date": "2026-09-22",
+                "tender_opening_time": "13:30",
+                "scope_summary": "Radio frequency monitoring equipment and associated telecommunications services.",
+                "detail_completeness": "HTML_EVENT_SCOPE_TEXT_PDF_PARTICIPATION_CLOSE",
+                "url": "https://www.ptd.gov.mm/AnnouncementDetail.aspx?id=test",
+            }
+            with connect(database) as conn, conn:
+                _insert_canonical(conn, key="ptd:test", source_id="S34", payload=payload)
+                _insert_signal(conn, signal_id="ptd-sig", source_id="S34", key="ptd:test", created_at="2026-09-10T01:00:00Z")
+
+            result = current_opportunities(
+                database=database,
+                now=datetime(2026, 9, 10, 2, 0, tzinfo=UTC),
+                source_id="S34",
+            )
+            self.assertEqual(result["count"], 1)
+            row = result["opportunities"][0]
+            self.assertEqual(row["deadline_kind"], "TENDER_FORM_SALE_CLOSE")
+            self.assertEqual(row["tender_opening_date"], "2026-09-22")
+            self.assertEqual(row["tender_opening_time"], "13:30")
+            self.assertEqual(row["deadline_status"], "OPEN")
+            self.assertEqual(row["primary_relevance"], "TELECOM")
+            self.assertEqual(row["evidence_level"], "OFFICIAL_HTML_PLUS_TEXT_PDF")
+
     def test_future_mpt_tender_flows_to_a_high_telecom_opportunity(self) -> None:
         html = b"""
         <html><body><table>
