@@ -109,6 +109,12 @@ def render_telegram_message(item: dict[str, object]) -> str:
         reference = ", ".join(str(value) for value in reference_numbers)
     else:
         reference = str(item.get("reference_no") or "")
+    focus_reference_numbers = item.get("focus_reference_numbers")
+    focus_reference = (
+        ", ".join(str(value) for value in focus_reference_numbers)
+        if isinstance(focus_reference_numbers, list) and focus_reference_numbers
+        else ""
+    )
     scope = html.escape(_compact_scope(item.get("scope_excerpt")))
     reason = html.escape(_reason_text(item))
     url = html.escape(str(item.get("url") or ""), quote=True)
@@ -130,6 +136,8 @@ def render_telegram_message(item: dict[str, object]) -> str:
         lines.append(f"🗓 开标：<b>{html.escape(opening)}</b>")
     if reference:
         lines.append(f"📌 编号：{html.escape(reference)}")
+    if focus_reference and focus_reference != reference:
+        lines.append(f"🧩 相关分包：{html.escape(focus_reference)}")
     if reason:
         lines.append(f"🎯 为什么：{reason}")
     if scope:

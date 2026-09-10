@@ -219,6 +219,17 @@ class TelegramDeliveryTests(unittest.TestCase):
         self.assertLessEqual(scope_line.count("x"), 240)
         self.assertNotIn("<Foreign>", text)
 
+    def test_focus_references_are_rendered_separately_from_full_reference_bundle(self) -> None:
+        item = _briefing()["attention"][0]
+        assert isinstance(item, dict)
+        item["reference_numbers"] = ["DMP/L-026(26-27)", "DMP/L-040(26-27)", "DMP/L-067(26-27)"]
+        item["focus_reference_numbers"] = ["DMP/L-026(26-27)", "DMP/L-067(26-27)"]
+        item["scope_excerpt"] = "DMP/L-026 Communication and Information Technology | DMP/L-067 IOT Module"
+        text = render_telegram_message(item)
+        self.assertIn("📌 编号：DMP/L-026(26-27), DMP/L-040(26-27), DMP/L-067(26-27)", text)
+        self.assertIn("🧩 相关分包：DMP/L-026(26-27), DMP/L-067(26-27)", text)
+        self.assertIn("📦 范围：DMP/L-026 Communication and Information Technology | DMP/L-067 IOT Module", text)
+
     def test_ptd_participation_deadline_is_not_rendered_as_generic_bid_deadline(self) -> None:
         item = _briefing()["attention"][0]
         assert isinstance(item, dict)

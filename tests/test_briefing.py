@@ -151,6 +151,23 @@ class BriefingTests(unittest.TestCase):
         self.assertEqual(attention["tender_opening_date"], "2026-09-15")
         self.assertEqual(attention["tender_opening_time"], "13:30")
 
+    def test_focus_scope_is_preferred_for_attention_excerpt(self) -> None:
+        data = self._opportunities()
+        item = data["opportunities"][1]
+        item["focus_reference_numbers"] = ["DMP/L-067(26-27)", "DMP/L-073(26-27)"]
+        item["focus_reference_count"] = 2
+        item["focus_relevance"] = "ICT_TELECOM"
+        item["focus_scope_summary"] = "DMP/L-067 IOT Module | DMP/L-073 Software"
+        item["scope_summary"] = "Unrelated line pipe first | DMP/L-067 IOT Module | DMP/L-073 Software"
+        with patch("signalforge.briefing.current_opportunities", return_value=data):
+            result = business_briefing()
+        attention = result["attention"][1]
+        self.assertEqual(attention["focus_reference_numbers"], ["DMP/L-067(26-27)", "DMP/L-073(26-27)"])
+        self.assertEqual(attention["focus_reference_count"], 2)
+        self.assertEqual(attention["focus_relevance"], "ICT_TELECOM")
+        self.assertEqual(attention["scope_excerpt"], "DMP/L-067 IOT Module | DMP/L-073 Software")
+        self.assertNotIn("Unrelated line pipe", attention["scope_excerpt"])
+
     def test_scope_excerpt_is_bounded(self) -> None:
         data = self._opportunities()
         data["opportunities"][0]["scope_summary"] = "x" * 1000

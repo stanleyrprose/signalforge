@@ -12,7 +12,7 @@ from unittest.mock import patch
 
 from signalforge.cli import main
 from signalforge.db import connect, migrate
-from signalforge.opportunities import _deadline_kind, _reference_bundle, current_opportunities
+from signalforge.opportunities import _deadline_kind, _reference_bundle, _reference_focus, current_opportunities
 from signalforge.mpt import parse_tender_detail
 
 
@@ -91,6 +91,44 @@ class OpportunityViewTests(unittest.TestCase):
         explicit = dict(payload, reference_numbers=["EXPLICIT-1", "EXPLICIT-2"], reference_count=2, reference_numbers_evidence="CANONICAL")
         self.assertEqual(_reference_bundle(explicit, "S39"), (["EXPLICIT-1", "EXPLICIT-2"], 2, "CANONICAL"))
 
+    def test_energy_dmp_focus_references_are_narrow_and_source_scoped(self) -> None:
+        scope = (
+            "DMP/L-026(26-27)CAP Accessories for Communication and Information Ks | (Second Retender) Technology (2) Groups | "
+            "DMP/L-040(26-27) 6 API 5L Coated Steel Line Pipe | "
+            "DMP/L-067(26-27)CAP IOT Module (Siemens) | "
+            "DMP/L-073(26-27)CAP ICDD PDF-2 Software | "
+            "DMP/L-089(26-27)CAP Book Scanner, Motorized Screen, Desktop Computer and UPS | "
+            "DMP/L-104(26-27) Mud Chemical"
+        )
+        payload = {
+            "detail_completeness": "HTML_ID_PUBLICATION_PLUS_TEXT_PDF_SCOPE_DEADLINE",
+            "scope_summary": scope,
+        }
+        refs = [
+            "DMP/L-026(26-27)",
+            "DMP/L-040(26-27)",
+            "DMP/L-067(26-27)",
+            "DMP/L-073(26-27)",
+            "DMP/L-089(26-27)",
+            "DMP/L-104(26-27)",
+        ]
+        focus, count, relevance, focus_scope = _reference_focus(payload, "S39", refs)
+        self.assertEqual(
+            focus,
+            ["DMP/L-026(26-27)", "DMP/L-067(26-27)", "DMP/L-073(26-27)", "DMP/L-089(26-27)"],
+        )
+        self.assertEqual(count, 4)
+        self.assertEqual(relevance, "ICT_TELECOM")
+        self.assertIn("Communication and Information", focus_scope)
+        self.assertIn("IOT Module", focus_scope)
+        self.assertIn("Software", focus_scope)
+        self.assertIn("Desktop Computer", focus_scope)
+        self.assertNotIn("Line Pipe", focus_scope)
+        self.assertNotIn("Mud Chemical", focus_scope)
+        self.assertNotRegex(focus_scope, r"\|\s*\(?\d+\)?(?:\s*\||$)")
+        self.assertEqual(_reference_focus(payload, "S30", refs), (None, None, None, None))
+        self.assertEqual(_reference_focus(payload, "S39", [refs[0]]), (None, None, None, None))
+
     def test_energy_multi_reference_flows_through_signal_backed_read_view(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             database = Path(tmp) / "signalforge.db"
@@ -118,6 +156,11 @@ class OpportunityViewTests(unittest.TestCase):
             self.assertEqual(row["reference_numbers"], ["DMP/L-026(26-27)", "DMP/L-067(26-27)", "DMP/L-089(26-27)"])
             self.assertEqual(row["reference_count"], 3)
             self.assertEqual(row["reference_numbers_evidence"], "OFFICIAL_TEXT_NATIVE_PDF_SCOPE_DMP_REFERENCE_PATTERN")
+            self.assertEqual(row["focus_reference_numbers"], ["DMP/L-067(26-27)", "DMP/L-089(26-27)"])
+            self.assertEqual(row["focus_reference_count"], 2)
+            self.assertEqual(row["focus_relevance"], "ICT_TELECOM")
+            self.assertIn("IOT Module", row["focus_scope_summary"])
+            self.assertIn("Desktop Computer", row["focus_scope_summary"])
             self.assertEqual(row["reference_no"], "ENERGY-27-2026-2027")
             self.assertEqual(row["deadline_kind"], "BID_SUBMISSION_DEADLINE")
 
