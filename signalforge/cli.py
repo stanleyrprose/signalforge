@@ -9,6 +9,7 @@ from pathlib import Path
 from . import VERB_MANIFEST_VERSION
 from .auditor import audit
 from .briefing import business_briefing
+from .business_digest import business_digest, telegram_digest
 from .config import Registry, SOURCE_ID_PATTERN, db_path
 from .db import connect, migrate
 from .engine import run_due, run_source
@@ -270,8 +271,13 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("briefing")
     audit_parser = sub.add_parser("audit")
     audit_parser.add_argument("--no-network", action="store_true")
+    digest_parser = sub.add_parser("business-digest")
+    digest_parser.add_argument("--no-network", action="store_true")
     telegram_parser = sub.add_parser("telegram-deliver")
     telegram_parser.add_argument("--dry-run", action="store_true")
+    telegram_digest_parser = sub.add_parser("telegram-digest")
+    telegram_digest_parser.add_argument("--dry-run", action="store_true")
+    telegram_digest_parser.add_argument("--no-network", action="store_true")
     sub.add_parser("status")
     args = parser.parse_args(argv)
     try:
@@ -380,8 +386,12 @@ def main(argv: list[str] | None = None) -> int:
             result = business_briefing()
         elif args.cmd == "audit":
             result = audit(network=not bool(args.no_network))
+        elif args.cmd == "business-digest":
+            result = business_digest(audit_network=not bool(args.no_network))
         elif args.cmd == "telegram-deliver":
             result = telegram_deliver(dry_run=bool(args.dry_run))
+        elif args.cmd == "telegram-digest":
+            result = telegram_digest(dry_run=bool(args.dry_run), audit_network=not bool(args.no_network))
         else:
             result = status()
         print(json.dumps(result, ensure_ascii=False, sort_keys=True))

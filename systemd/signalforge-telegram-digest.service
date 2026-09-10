@@ -1,0 +1,20 @@
+[Unit]
+Description=SignalForge Telegram business digest delivery
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=signalforge
+Group=signalforge
+Environment=SIGNALFORGE_STATE_ROOT=/srv/signalforge/state
+Environment=SIGNALFORGE_EVIDENCE_ROOT=/srv/signalforge/evidence
+Environment=SIGNALFORGE_DB=/srv/signalforge/state/signalforge.db
+EnvironmentFile=/etc/signalforge/telegram.env
+ExecStart=/srv/signalforge/active/bin/signalforge telegram-digest
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/srv/signalforge/state /srv/signalforge/locks

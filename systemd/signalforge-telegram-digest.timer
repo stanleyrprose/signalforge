@@ -1,0 +1,12 @@
+[Unit]
+Description=SignalForge daily Myanmar business digest timer
+
+[Timer]
+OnCalendar=*-*-* 02:00:00 UTC
+Persistent=true
+RandomizedDelaySec=30s
+AccuracySec=1s
+Unit=signalforge-telegram-digest.service
+
+[Install]
+WantedBy=timers.target
