@@ -67,6 +67,23 @@ def _audit() -> dict[str, object]:
     }
 
 
+def _scorecard() -> dict[str, object]:
+    return {
+        "status": "PASS",
+        "summary": {
+            "active_sources": 2,
+            "effective_signals": 1,
+            "yield_states": {
+                "ACTIONABLE_PROVEN": 1,
+                "SIGNAL_PROVEN": 0,
+                "BASELINE_ONLY": 1,
+                "NOISE_ONLY_HISTORY": 0,
+                "EMPTY": 0,
+            },
+        },
+    }
+
+
 class BusinessDigestTests(unittest.TestCase):
     def _db(self, root: str) -> Path:
         database = Path(root) / "signalforge.db"
@@ -93,7 +110,7 @@ class BusinessDigestTests(unittest.TestCase):
     def test_digest_reports_24h_pipeline_and_current_business_funnel(self) -> None:
         with tempfile.TemporaryDirectory() as tmp, patch("signalforge.business_digest.business_briefing", return_value=_briefing()), patch(
             "signalforge.business_digest.audit", return_value=_audit()
-        ):
+        ), patch("signalforge.business_digest.source_scorecard", return_value=_scorecard()):
             result = business_digest(
                 database=self._db(tmp),
                 registry=_Registry(),  # type: ignore[arg-type]
@@ -110,7 +127,7 @@ class BusinessDigestTests(unittest.TestCase):
     def test_render_makes_business_output_visible_not_only_system_health(self) -> None:
         with tempfile.TemporaryDirectory() as tmp, patch("signalforge.business_digest.business_briefing", return_value=_briefing()), patch(
             "signalforge.business_digest.audit", return_value=_audit()
-        ):
+        ), patch("signalforge.business_digest.source_scorecard", return_value=_scorecard()):
             digest = business_digest(database=self._db(tmp), registry=_Registry(), now=datetime(2026,9,10,12,0,tzinfo=UTC))  # type: ignore[arg-type]
         text = render_business_digest(digest)
         self.assertIn("Sources：<b>2</b> monitored", text)
@@ -120,11 +137,13 @@ class BusinessDigestTests(unittest.TestCase):
         self.assertIn("相关分包 4", text)
         self.assertIn("Watchlist：1 条 MEDIUM", text)
         self.assertIn("MYTEL 15/15", text)
+        self.assertIn("Source产出：<b>1/2</b> proven", text)
+        self.assertIn("1 effective / 1 raw signals", text)
 
     def test_dry_run_does_not_write_digest_receipt(self) -> None:
         with tempfile.TemporaryDirectory() as tmp, patch("signalforge.business_digest.business_briefing", return_value=_briefing()), patch(
             "signalforge.business_digest.audit", return_value=_audit()
-        ):
+        ), patch("signalforge.business_digest.source_scorecard", return_value=_scorecard()):
             database = self._db(tmp)
             result = telegram_digest(database=database, now=datetime(2026,9,10,12,0,tzinfo=UTC), dry_run=True, audit_network=False)
             self.assertEqual(result["pending_count"], 1)
@@ -134,7 +153,7 @@ class BusinessDigestTests(unittest.TestCase):
     def test_real_delivery_is_once_per_myanmar_calendar_day(self) -> None:
         with tempfile.TemporaryDirectory() as tmp, patch("signalforge.business_digest.business_briefing", return_value=_briefing()), patch(
             "signalforge.business_digest.audit", return_value=_audit()
-        ), patch("signalforge.business_digest._send_message", return_value="501") as send:
+        ), patch("signalforge.business_digest.source_scorecard", return_value=_scorecard()), patch("signalforge.business_digest._send_message", return_value="501") as send:
             database = self._db(tmp)
             first = telegram_digest(database=database, now=datetime(2026,9,10,12,0,tzinfo=UTC), bot_token="secret", chat_id="42", audit_network=False)
             second = telegram_digest(database=database, now=datetime(2026,9,10,15,0,tzinfo=UTC), bot_token="secret", chat_id="42", audit_network=False)
