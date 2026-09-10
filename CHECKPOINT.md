@@ -1353,3 +1353,18 @@ Evidence: `docs/verification/S39-ENERGY-CLOSING-CONTEXT-PRODUCTION-CLOSURE-2026-
 - No schema/dependency/OCR/Browser/Provider/Worker/Control/Beijing/public API change. Next product-quality issue is read-layer `deadline_kind` enrichment for the eight OPEN opportunities where existing evidence unambiguously indicates bid submission close.
 
 Evidence: `docs/verification/S30-MOFA-SUBMISSION-DEADLINE-PRODUCTION-CLOSURE-2026-09-10.md`.
+
+## Authoritative read-layer deadline-kind checkpoint — 2026-09-10
+
+- Active Bangkok runtime: `0c310c5185f899a633f91dad0d0afd72810f1974`; rollback `5ef49168c6f6d9f18f80d02d6b593c7b1fa77d28`; archive SHA256 `393eeef9fc7cbd04a4a92838dc0f41a64e93dd6627fef63b0bf20414124810ee`.
+- PR #130 Actions run `34471797826` PASS; targeted opportunity/briefing/Telegram tests `20 passed`; full suite `252 passed`; `git diff --check` PASS.
+- Read-layer derivation is source-scoped and canonical-first: S30/S39 reviewed PDF close evidence and S38 explicit HTML tender-close evidence derive `BID_SUBMISSION_DEADLINE`; other sources are not inferred.
+- Production snapshot and deployed view both return `9 opportunities = 8 OPEN + 1 UNKNOWN`; all eight OPEN now have `BID_SUBMISSION_DEADLINE`, DOMS UNKNOWN remains null. Snapshot DB SHA stayed identical before/after read.
+- Direct production DB audit confirms the eight underlying canonical `deadline_kind` fields remain null, proving no canonical migration. Global signals remain 45.
+- `business_briefing` propagates the derived kind; all three current OPEN attention items render Telegram deadline label `投标截止`. Existing receipts are not replayed; Telegram dry-run pending0.
+- Final Bangkok `PASS/GREEN`, `194 canonical / 45 signals / recovery backlog 0`; acquisition + Telegram timers active.
+- No schema/source-parser/dependency/OCR/Browser/Provider/Worker/Control/Beijing/public API change. Next audit is MEDIUM watchlist delivery policy, not forced promotion of all medium opportunities.
+
+Evidence: `docs/verification/READ-LAYER-DEADLINE-KIND-PRODUCTION-CLOSURE-2026-09-10.md`.
+
+- MEDIUM watchlist delivery re-audit: NO CHANGE. On a production DB snapshot at `2026-09-12T00:00:00Z`, `industry:1034` automatically promotes to `HIGH / URGENT / ACT_NOW` inside the <=72h window and becomes the only new Telegram pending item; four later industrial MEDIUM items remain watchlist-only. Existing delivery receipts prevent replay. This validates the intended low-noise dynamic promotion path; no MEDIUM bulk delivery or extra summary channel is authorized.
