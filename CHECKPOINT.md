@@ -1341,3 +1341,15 @@ Evidence: `docs/verification/S31-MOEA-HTML-SEMANTIC-V3-PRODUCTION-CLOSURE-2026-0
 - No schema, dependency, payload migration, OCR, Browser/Provider/Worker/Control/Beijing/public API change. Next product-quality issue: all eight OPEN opportunities still have `deadline_kind=null`; treat that separately and source-evidence-first.
 
 Evidence: `docs/verification/S39-ENERGY-CLOSING-CONTEXT-PRODUCTION-CLOSURE-2026-09-10.md`.
+
+## Authoritative S30 MOFA submission-deadline checkpoint — 2026-09-10
+
+- Active Bangkok runtime: `5ef49168c6f6d9f18f80d02d6b593c7b1fa77d28`; rollback: `195515f7a8267ca79155a973d23fff29f1ea52cc`; archive SHA256 `f3cf2d000c56c789051b9e0920725906d3f7b5fdbf7acc4a3993c46a5c2e1f4a`.
+- PR #128 CI PASS; MOFA targeted tests `8 passed`; full suite `251 passed`; `git diff --check` PASS.
+- S30 detail parser is `mofa-wordpress-html-optional-text-pdf-v3`. It no longer selects the maximum PDF date-time; it accepts one distinct date-time bound to a tender-submission line, deduplicates repeated identical notice values, and fails closed on no or conflicting submission deadlines.
+- Production `mofa:59800` evidence SHA `aad5b2c3e51ffc289edb5018254f364896b01d14bee8fa3be7e362e756e130c7` exactly equals the reviewed fixture. Current live HTML + exact production PDF yields `2026-09-18 16:30 / OFFICIAL_TEXT_NATIVE_PDF_CLOSE_DATE_TIME` and content hash `e46bd2662665590426e91c64e2e3dad49e6baeb18a3ec41efe37c63266b9b262`, equal to production. No migration/backfill or parser-only signal.
+- Reviewed S30 Worker run `signalforge-20260910T112656Z-4a72605b`: `SUCCESS / discovered=2 / changed=0 / signals_created=0`. Direct active-release parser verification supplies parser-live evidence and returned `hash_equal=true`.
+- Final production: `PASS/GREEN`, `194 canonical / 45 signals / recovery backlog 0`, S30 signals `1`, DB quick check `ok`, opportunities `8 OPEN + 1 UNKNOWN`, Telegram pending `0`; acquisition and Telegram timers active.
+- No schema/dependency/OCR/Browser/Provider/Worker/Control/Beijing/public API change. Next product-quality issue is read-layer `deadline_kind` enrichment for the eight OPEN opportunities where existing evidence unambiguously indicates bid submission close.
+
+Evidence: `docs/verification/S30-MOFA-SUBMISSION-DEADLINE-PRODUCTION-CLOSURE-2026-09-10.md`.
