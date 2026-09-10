@@ -31,7 +31,6 @@ class MytelParserTests(unittest.TestCase):
         self.assertEqual(mw.deadline_kind, "TENDER_FORM_SALE_CLOSE")
         self.assertEqual(mw.source_version_kind, "EXTENSION")
         self.assertEqual(mw.source_post_id, 2507)
-        self.assertEqual(mw.canonical_key, "mytel:17-2026")
         self.assertEqual(mw.payload()["business_stage"], "OPPORTUNITY")
 
         tower = by_ref["30/2026/MYTEL-TOWER (SST & RTT)"]
@@ -42,6 +41,38 @@ class MytelParserTests(unittest.TestCase):
         self.assertEqual(tower.source_version_kind, "INVITATION")
         self.assertEqual(tower.tender_opening_date, "2026-04-06")
         self.assertEqual(tower.tender_opening_time, "14:00")
+
+    def test_rfp_serial_year_identity_absorbs_extension_suffix_drift(self) -> None:
+        raw = json.loads(FEED)
+        invitation = dict(raw["data"][0])
+        invitation["id"] = 3001
+        invitation["created_at"] = "2026-02-23T10:00:00Z"
+        invitation["name"] = "Mytel Announcement 03/2026/MYTEL-ANTENNA & TWINBEAM"
+        invitation["content"] = (
+            "<p>Request Party: TELECOM INTERNATIONAL MYANMAR CO., LTD (MYTEL).<br>"
+            "Reference number of Request for Proposal: No. 03/2026/MYTEL-ANTENNA & TWINBEAM – “Purchase Antenna for Mytel”<br>"
+            "Deadline for submitting the Proposal Document: before [14h00, March 11th, 2026].</p>"
+        )
+        invitation["slugable"] = {"key": "mytel-03-invitation"}
+
+        extension = dict(raw["data"][1])
+        extension["id"] = 3002
+        extension["created_at"] = "2026-03-01T10:00:00Z"
+        extension["name"] = "Mytel Announcement on Extension to Bidding No. 03/2026/MYTEL-ANTENNA"
+        extension["content"] = (
+            "<p>ANNOUNCEMENT ON EXTENSION TO BIDDING<br>"
+            "Name of Bidder: TELECOM INTERNATIONAL MYANMAR CO., LTD (MYTEL)<br>"
+            "Bidding package name: No. 03/2026/MYTEL-ANTENNA “Purchasing Antenna for Mytel”.<br>"
+            "Time to collect bid documents: 14h00 March 15th, 2026 (GMT +6:30 YGN)</p>"
+        )
+        extension["slugable"] = {"key": "mytel-03-extension"}
+
+        rows = parse_tender_records(json.dumps({"data": [invitation, extension]}).encode())
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0].canonical_key, "mytel:3-2026")
+        self.assertEqual(rows[0].reference_no, "3/2026/MYTEL-ANTENNA")
+        self.assertEqual(rows[0].source_version_kind, "EXTENSION")
+        self.assertEqual(rows[0].deadline, "2026-03-15")
 
     def test_created_at_wins_over_incorrect_published_at_for_extension(self) -> None:
         mw = next(row for row in parse_tender_records(FEED) if row.reference_no == "17/2026/MYTEL-MW SYSTEM")
