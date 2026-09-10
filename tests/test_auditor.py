@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 import tempfile
 import unittest
 from datetime import UTC, datetime
@@ -94,6 +95,7 @@ class AuditorTests(unittest.TestCase):
             "project_name": "Test procurement",
             "deadline": "2026-09-20",
             "deadline_time": "16:00",
+            "deadline_evidence": "EXPLICIT_HTML_DEADLINE_DATE_TIME",
             "business_stage": "OPPORTUNITY",
             "url": url,
         }
@@ -111,6 +113,8 @@ class AuditorTests(unittest.TestCase):
             self._canonical(database, key="mpt:TEST-1", source_id="S13", url=mpt_url)
             self._canonical(database, key="mytel:17-2026", source_id="S41", url="https://viettelglobal.com.vn/en/test")
             def fetch(url: str, **_kwargs) -> bytes:
+                if "atom.com.mm" in url:
+                    return _sitemap("https://www.atom.com.mm/en/about")
                 if "sitemap" in url:
                     return _sitemap(mpt_url)
                 if url == mpt_url:
@@ -130,6 +134,8 @@ class AuditorTests(unittest.TestCase):
             mpt_url = "https://mpt.com.mm/en/new-tender/"
 
             def fetch(url: str, **_kwargs) -> bytes:
+                if "atom.com.mm" in url:
+                    return _sitemap("https://www.atom.com.mm/en/about")
                 if "sitemap" in url:
                     return _sitemap(mpt_url)
                 return b"<table><tr><td>Reference No</td><td>NEW-1</td></tr><tr><td>Project Name</td><td>New project</td></tr></table>"
@@ -149,6 +155,54 @@ class AuditorTests(unittest.TestCase):
             result = audit(database=database, registry=_registry(), now=datetime(2026,9,10,10,30,tzinfo=UTC), network=False)
             health = [item for item in result["findings"] if item["type"] == "HEALTH_ALERT"]
             self.assertTrue(any(item["source_id"] == "S13" and item["severity"] == "RED" for item in health))
+
+    def test_atom_official_sitemap_procurement_url_reopens_deferred_audit(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            database = self._db(tmp)
+
+            def fetch(url: str, **_kwargs) -> bytes:
+                if "atom.com.mm" in url:
+                    return _sitemap("https://www.atom.com.mm/en/supplier/rfp-2026")
+                return _sitemap("https://mpt.com.mm/en/about/")
+
+            result = audit(
+                database=database,
+                registry=_registry(),
+                now=datetime(2026, 9, 10, 10, 30, tzinfo=UTC),
+                fetcher=fetch,
+                mytel_fetcher=lambda *_a, **_k: _mytel_feed(),
+            )
+            trigger = next(item for item in result["findings"] if item["type"] == "SURFACE_TRIGGER")
+            self.assertEqual(trigger["code"], "ATOM_PUBLIC_PROCUREMENT_SURFACE_CANDIDATE")
+            self.assertEqual(trigger["severity"], "YELLOW")
+            self.assertEqual(result["checks"]["atom_surface_trigger"]["status"], "REVIEW")
+
+    def test_deadline_without_evidence_is_counted_but_not_claimed_wrong(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            database = self._db(tmp)
+            self._canonical(database, key="mpt:TEST-1", source_id="S13", url="https://mpt.com.mm/en/test/")
+            with connect(database) as conn, conn:
+                payload = json.loads(conn.execute("SELECT payload_json FROM canonical_items").fetchone()[0])
+                payload.pop("deadline_evidence")
+                conn.execute("UPDATE canonical_items SET payload_json=?", (json.dumps(payload),))
+
+            result = audit(database=database, registry=_registry(), network=False)
+            self.assertFalse(any(item["type"] == "DEADLINE_EVIDENCE_SUSPECT" for item in result["findings"]))
+            self.assertEqual(result["checks"]["deadline_integrity"]["without_explicit_evidence"], 1)
+            self.assertFalse(result["checks"]["deadline_integrity"]["independently_validates_official_deadline"])
+            self.assertEqual(result["assurance"]["external_completeness"], "NOT_PROVEN")
+
+    def test_audit_database_connection_does_not_modify_database_rows(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            database = self._db(tmp)
+            with sqlite3.connect(database) as conn:
+                before = conn.execute("SELECT total_changes(),COUNT(*) FROM source_state").fetchone()
+
+            audit(database=database, registry=_registry(), network=False)
+
+            with sqlite3.connect(database) as conn:
+                after = conn.execute("SELECT total_changes(),COUNT(*) FROM source_state").fetchone()
+            self.assertEqual(before, after)
 
     def test_signal_and_delivery_identity_anomalies_are_detected(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
