@@ -51,6 +51,14 @@ class MoeaParserTests(unittest.TestCase):
     def test_actionable_deadline_distinguishes_submission_acceptance_from_form_sale(self) -> None:
         final = parse_actionable_deadline("တင်ဒါတင်သွင်းရမည့်နောက်ဆုံးရက် - (၇-၈-၂၀၂၆) ရက်၊ ရုံးချိန်အတွင်း")
         self.assertEqual(final, ("2026-08-07", None, "BID_SUBMISSION_DEADLINE", "EXPLICIT_HTML_COMMENT_FINAL_SUBMISSION_DATE"))
+        application_final = parse_actionable_deadline(
+            "တင်ဒါလျှောက်လွှာ စတင်ရောင်းချမည့်ရက် - (၁၂-၆-၂၀၂၃) "
+            "တင်ဒါလျှောက်လွှာ တင်သွင်းရမည့်နောက်ဆုံးရက် - (၂၇-၆-၂၀၂၃)"
+        )
+        self.assertEqual(
+            application_final,
+            ("2023-06-27", None, "BID_SUBMISSION_DEADLINE", "EXPLICIT_HTML_COMMENT_FINAL_SUBMISSION_DATE"),
+        )
 
         acceptance = parse_actionable_deadline(
             "တင်ဒါလျှောက်လွှာလက်ခံမည့်ရက် - ၂၉-၅-၂၀၂၆ ရက်မှ ၁၀-၆-၂၀၂၆ ရက်အထိ "
@@ -91,7 +99,7 @@ class MoeaParserTests(unittest.TestCase):
         self.assertEqual(rows[0].attachment_name, "1785147339.pdf")
         self.assertEqual(rows[0].payload()["reference_no_kind"], "issuer_archive_event_fingerprint")
         self.assertEqual(rows[0].payload()["attachment_policy"], "METADATA_ONLY_NON_BLOCKING")
-        self.assertEqual(rows[0].payload()["semantic_version"], 2)
+        self.assertEqual(rows[0].payload()["semantic_version"], 3)
         self.assertTrue(rows[0].canonical_key.startswith("moea:2026-07-27:"))
 
     def test_structural_drift_fails_closed_but_valid_empty_is_allowed(self) -> None:
@@ -141,7 +149,7 @@ class MoeaEngineTests(unittest.TestCase):
                 self.assertEqual(conn.execute("SELECT COUNT(*) FROM evidence_envelopes WHERE source_id='S31' AND lower(requested_url) LIKE '%.pdf%'").fetchone()[0], 0)
                 self.assertEqual(conn.execute("SELECT details_attempted,tenders_parsed,items_parsed FROM scheduler_runs WHERE source_id='S31'").fetchone(), (0, 3, 3))
 
-    def test_initial_listing_semantic_v2_enrichment_is_suppressed_once(self) -> None:
+    def test_listing_semantic_v2_to_v3_transition_is_suppressed_once(self) -> None:
         listing = (FIXTURES / "moea_tenders.html").read_bytes()
         registry = _registry()
         with tempfile.TemporaryDirectory() as tmp:
@@ -157,7 +165,7 @@ class MoeaEngineTests(unittest.TestCase):
                 force=True,
                 database=db,
                 evidence=evidence,
-                worker_context={"run_id": "moea-v2-baseline"},
+                worker_context={"run_id": "moea-v3-baseline"},
             )
             self.assertEqual(baseline["signals_created"], 0)
 
@@ -168,13 +176,13 @@ class MoeaEngineTests(unittest.TestCase):
                 payload = json.loads(conn.execute(
                     "SELECT payload_json FROM canonical_items WHERE canonical_key=?", (key,)
                 ).fetchone()[0])
-                payload.pop("semantic_version", None)
-                payload.pop("deadline_time", None)
-                payload.pop("deadline_kind", None)
+                payload["semantic_version"] = 2
+                payload["deadline_time"] = None
+                payload["deadline_kind"] = None
                 payload["deadline"] = None
-                payload["deadline_evidence"] = "UNKNOWN_NO_EXPLICIT_FINAL_DATE_IN_HTML_COMMENT"
+                payload["deadline_evidence"] = "UNKNOWN_NO_ACTIONABLE_DEADLINE_IN_HTML_COMMENT"
                 conn.execute(
-                    "UPDATE canonical_items SET content_hash='legacy-moea-v1',deadline=NULL,payload_json=? WHERE canonical_key=?",
+                    "UPDATE canonical_items SET content_hash='moea-v2-before-v3-transition',deadline=NULL,payload_json=? WHERE canonical_key=?",
                     (json.dumps(payload, ensure_ascii=False, sort_keys=True), key),
                 )
                 conn.commit()
@@ -187,7 +195,7 @@ class MoeaEngineTests(unittest.TestCase):
                 force=True,
                 database=db,
                 evidence=evidence,
-                worker_context={"run_id": "moea-v2-enrichment"},
+                worker_context={"run_id": "moea-v3-transition"},
             )
             self.assertEqual(enrichment["changed"], 1)
             self.assertEqual(enrichment["signals_created"], 0)
@@ -197,14 +205,14 @@ class MoeaEngineTests(unittest.TestCase):
                     "SELECT payload_json FROM canonical_items WHERE canonical_key=?", (key,)
                 ).fetchone()[0])
                 self.assertEqual(conn.execute("SELECT COUNT(*) FROM signals WHERE source_id='S31'").fetchone()[0], 0)
-                self.assertEqual(payload["semantic_version"], 2)
+                self.assertEqual(payload["semantic_version"], 3)
                 self.assertEqual(payload["deadline"], "2026-06-10")
                 self.assertEqual(payload["deadline_time"], "16:00")
                 self.assertEqual(payload["deadline_kind"], "TENDER_APPLICATION_ACCEPTANCE_CLOSE")
 
                 payload["deadline"] = "2026-06-09"
                 conn.execute(
-                    "UPDATE canonical_items SET content_hash='wrong-v2-deadline',deadline=?,payload_json=? WHERE canonical_key=?",
+                    "UPDATE canonical_items SET content_hash='wrong-v3-deadline',deadline=?,payload_json=? WHERE canonical_key=?",
                     ("2026-06-09", json.dumps(payload, ensure_ascii=False, sort_keys=True), key),
                 )
                 conn.commit()
@@ -217,7 +225,7 @@ class MoeaEngineTests(unittest.TestCase):
                 force=True,
                 database=db,
                 evidence=evidence,
-                worker_context={"run_id": "moea-v2-correction"},
+                worker_context={"run_id": "moea-v3-correction"},
             )
             self.assertEqual(corrected["changed"], 1)
             self.assertEqual(corrected["signals_created"], 1)

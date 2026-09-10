@@ -96,8 +96,13 @@ _LISTING_SEMANTIC_ENRICHMENT_FIELDS = {
 }
 
 
-def _initial_listing_semantic_enrichment_only(conn, *, source: dict, tender) -> bool:  # type: ignore[no-untyped-def]
-    if source.get("suppress_signal_on_initial_listing_semantic_enrichment") is not True:
+def _listing_semantic_transition_only(conn, *, source: dict, tender) -> bool:  # type: ignore[no-untyped-def]
+    migration = source.get("listing_semantic_migration") or {}
+    if not isinstance(migration, dict) or migration.get("suppress_signal") is not True:
+        return False
+    from_version = migration.get("from_version")
+    to_version = migration.get("to_version")
+    if not isinstance(from_version, int) or not isinstance(to_version, int) or from_version >= to_version:
         return False
     existing = conn.execute(
         "SELECT payload_json FROM canonical_items WHERE canonical_key=?",
@@ -109,10 +114,10 @@ def _initial_listing_semantic_enrichment_only(conn, *, source: dict, tender) -> 
         previous = json.loads(str(existing["payload_json"]))
     except json.JSONDecodeError:
         return False
-    if not isinstance(previous, dict) or previous.get("semantic_version") is not None:
+    if not isinstance(previous, dict) or previous.get("semantic_version") != from_version:
         return False
     current = tender.payload()
-    if current.get("semantic_version") != 2:
+    if current.get("semantic_version") != to_version:
         return False
     previous_business = {key: value for key, value in previous.items() if key not in _LISTING_SEMANTIC_ENRICHMENT_FIELDS}
     current_business = {key: value for key, value in current.items() if key not in _LISTING_SEMANTIC_ENRICHMENT_FIELDS}
@@ -601,7 +606,7 @@ def run_source(
                 _write_evidence(source_id, sitemap_bytes, sitemap_hash, evidence)
                 with connect(database) as conn, conn:
                     for item in discovery_records:
-                        initial_listing_enrichment = _initial_listing_semantic_enrichment_only(
+                        listing_semantic_transition = _listing_semantic_transition_only(
                             conn, source=source, tender=item
                         )
                         changed, signals = _upsert_tender(
@@ -609,7 +614,7 @@ def run_source(
                             source_id=source_id,
                             tender=item,
                             observed_at=observed_at,
-                            suppress_signal=baseline or initial_listing_enrichment,
+                            suppress_signal=baseline or listing_semantic_transition,
                             evidence_digest=sitemap_hash,
                         )
                         listing_changed += int(changed)

@@ -367,9 +367,9 @@ ADAPTERS = {
     "moea_tender": SourceAdapter(
         name="moea_tender",
         discovery_content_types=("text/html",),
-        discovery_parser_version="moea-tender-archive-card-v2",
+        discovery_parser_version="moea-tender-archive-card-v3",
         detail_parser_version="not-applicable",
-        normalizer_version="moea-tender-normalize-v2",
+        normalizer_version="moea-tender-normalize-v3",
         canonicalizer_version="moea-archive-event-fingerprint-v1",
         parse_discovery=_empty_discovery,
         parse_detail=lambda _payload, _url: [],

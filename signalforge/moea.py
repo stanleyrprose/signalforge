@@ -132,10 +132,15 @@ def parse_actionable_deadline(comment_text: str) -> tuple[str | None, str | None
     if not text:
         return None, None, None, "UNKNOWN_NO_ACTIONABLE_DEADLINE_IN_HTML_COMMENT"
 
-    submission_marker = "တင်ဒါတင်သွင်းရမည့်နောက်ဆုံးရက်"
-    if submission_marker in text:
+    submission_markers = (
+        "တင်ဒါတင်သွင်းရမည့်နောက်ဆုံးရက်",
+        "တင်ဒါလျှောက်လွှာ တင်သွင်းရမည့်နောက်ဆုံးရက်",
+    )
+    for submission_marker in submission_markers:
+        if submission_marker not in text:
+            continue
         marker = text.find(submission_marker)
-        tail = text[marker : marker + 260]
+        tail = text[marker : marker + 300]
         match = re.search(r"(\d{1,2})\s*[-/.]\s*(\d{1,2})\s*[-/.]\s*(\d{4})", tail)
         deadline = _normalized_date(match) if match is not None else None
         if deadline is not None:
@@ -213,7 +218,7 @@ class MoeaTender:
             "deadline_time": self.deadline_time,
             "deadline_kind": self.deadline_kind,
             "deadline_evidence": self.deadline_evidence,
-            "semantic_version": 2,
+            "semantic_version": 3,
             "location": self.location,
             "scope_summary": self.scope_summary,
             "attachment_name": self.attachment_name,
