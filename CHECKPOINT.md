@@ -1366,3 +1366,5 @@ Evidence: `docs/verification/S30-MOFA-SUBMISSION-DEADLINE-PRODUCTION-CLOSURE-202
 - No schema/source-parser/dependency/OCR/Browser/Provider/Worker/Control/Beijing/public API change. Next audit is MEDIUM watchlist delivery policy, not forced promotion of all medium opportunities.
 
 Evidence: `docs/verification/READ-LAYER-DEADLINE-KIND-PRODUCTION-CLOSURE-2026-09-10.md`.
+
+- MEDIUM watchlist delivery re-audit: NO CHANGE. On a production DB snapshot at `2026-09-12T00:00:00Z`, `industry:1034` automatically promotes to `HIGH / URGENT / ACT_NOW` inside the <=72h window and becomes the only new Telegram pending item; four later industrial MEDIUM items remain watchlist-only. Existing delivery receipts prevent replay. This validates the intended low-noise dynamic promotion path; no MEDIUM bulk delivery or extra summary channel is authorized.

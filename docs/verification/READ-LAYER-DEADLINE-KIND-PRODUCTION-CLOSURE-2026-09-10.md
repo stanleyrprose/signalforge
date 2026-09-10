@@ -100,3 +100,22 @@ Telegram timer     = active
 No canonical payload migration, signal rewrite, DB schema, source parser, dependency, OCR, Browser Plane, Provider, Worker Plane, Control Plane, Beijing role, public API/webhook or Telegram identity change was introduced.
 
 The next business-value question is separate: Telegram delivery currently consumes only `briefing.attention`. The five MEDIUM opportunities remain in `watchlist` as a compact summary and are not individually pushed. Before changing that, audit whether this is the intended signal-to-noise policy rather than automatically promoting or delivering every MEDIUM item.
+
+## MEDIUM watchlist delivery audit — no change
+
+The existing product contract intentionally delivers only `HIGH + REVIEW` attention rows to Telegram and keeps MEDIUM opportunities in the compact watchlist. This was re-audited rather than automatically expanding Telegram delivery.
+
+All five current MEDIUM opportunities are S38 INDUSTRIAL items without ICT/Telecom strategic fit. Their deadlines are preserved in the opportunity view, and qualification is recalculated from current time on every briefing/delivery run. Therefore a MEDIUM item automatically becomes HIGH when it enters the <=72h urgency window.
+
+A production DB snapshot was evaluated at `2026-09-12T00:00:00Z`. At that time `industry:1034` (deadline `2026-09-14 16:00` Myanmar time) moved from MEDIUM to:
+
+```text
+priority_band    = HIGH
+urgency          = URGENT
+attention_action = ACT_NOW
+deadline_kind    = BID_SUBMISSION_DEADLINE
+```
+
+The Telegram dry-run produced exactly one new pending item: `industry:1034 ACT_NOW`. The other four not-yet-urgent industrial opportunities remained in the MEDIUM watchlist. Existing previously delivered HIGH/REVIEW items were not replayed.
+
+Conclusion: keep Telegram v1 delivery policy unchanged. Do not individually push all MEDIUM items and do not add a second summary-delivery mechanism at this time. The existing dynamic promotion provides the intended low-noise path from watchlist to actionable alert.
