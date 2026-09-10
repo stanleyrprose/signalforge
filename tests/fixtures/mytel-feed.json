@@ -1,0 +1,44 @@
+{
+  "data": [
+    {
+      "content": "<p><p><strong>Announcement on Invitation to Bidding</strong><br><strong>“Purchase MW System for Mytel”</strong><br>- Request Party: TELECOM INTERNATIONAL MYANMAR CO., LTD (MYTEL).<br>- Reference number of Request for Proposal: No. <strong>17/2026/MYTEL-MW System– “Purchase MW System for Mytel”</strong><br>- Deadline for submitting the Proposal Document: before [14h00, March 16th, 2026]. The Proposal Document that arrives after the deadline of submission shall be considered invalid and shall be rejected.<br>The Proposal Document shall be opened in public on <strong>[14h00, March 16th, 2026]</strong> at [TELECOM INTERNATIONAL MYANMAR CO., LTD</p>",
+      "created_at": "2026-02-26T01:41:27.000000Z",
+      "id": 2492,
+      "name": "Mytel Announcement on Invitation to Bidding 17/2026/MYTEL-MW System– “Purchase MW System for Mytel”",
+      "published_at": "2026-02-26 08:37:00",
+      "slugable": {
+        "key": "mytel-announcement-on-invitation-to-bidding-172026mytel-mw-system-purchase-mw-system-for-mytel"
+      }
+    },
+    {
+      "content": "<p><p><strong>ANNOUNCEMENT ON EXTENSION TO BIDDING</strong><br><strong>“Purchasing MW System for Mytel”</strong><br><p>- Name of Bidder: TELECOM INTERNATIONAL MYANMAR CO., LTD (MYTEL)<br>- Bidding package name: No. 17/2026/MYTEL-MW System “Purchasing MW System for Mytel”.<br>- Time to collect bid documents: 14h00 March 20th, 2026 (GMT +6:30 YGN)</p>",
+      "created_at": "2026-03-16T08:49:10.000000Z",
+      "id": 2507,
+      "name": "Mytel Announcement on Extension to Bidding No. 17/2026/MYTEL- MW System “Purchasing MW System for Mytel”",
+      "published_at": "2026-02-16 15:48:00",
+      "slugable": {
+        "key": "mytel-announcement-on-extension-to-bidding-no-172026mytel-mw-system-purchasing-mw-system-for-mytel"
+      }
+    },
+    {
+      "content": "<p><p><strong>Announcement on Invitation to Bidding</strong><br><strong>“Purchase Tower (SST &amp; RTT) for Mytel”</strong><br>- Request Party: TELECOM INTERNATIONAL MYANMAR CO., LTD (MYTEL).<br>- Reference number of Request for Proposal: No. <strong>30/2026/MYTEL- Tower (SST &amp; RTT) – “Purchase Tower (SST &amp; RTT) for Mytel”</strong><br>- Deadline for submitting the Proposal Document: <strong>before [14h00, 6th April, 2026. GMT+(6:30)]</strong>. The Proposal Document that arrives after the deadline of submission shall be considered invalid and shall be rejected.<br>The Proposal Document shall be opened in public on <strong>[14h00, 6th April, 2026. GMT+(6:30)] </strong>at [TELECOM INTERNATIONAL MYANMAR CO., LTD</p>",
+      "created_at": "2026-04-01T06:48:31.000000Z",
+      "id": 2547,
+      "name": "Mytel Announcement on Invitation to Bidding No. 30/2026/MYTEL- Tower (SST & RTT) – “Purchase Tower (SST & RTT) for Mytel",
+      "published_at": "2026-04-01 13:45:00",
+      "slugable": {
+        "key": "mytel-announcement-on-invitation-to-bidding-no-302026mytel-tower-sst-rtt-purchase-tower-sst-rtt-for-mytel"
+      }
+    },
+    {
+      "content": "<p><p>- Request Party: <strong>NATIONAL TELECOM S.A (NATCOM)</strong><br>- Reference number of Request for proposal: <strong>RFP/2026/TOWER - “Purchase tower for Natcom”</strong><br>- Deadline for submitting the Proposal Documents: <strong>before 15h00 date 09th September 2026 (Haiti time)</strong>. The Proposal Documents that arrive after the deadline of submission shall be considered invalid and shall be rejected.</p>",
+      "created_at": "2026-08-28T01:13:36.000000Z",
+      "id": 2658,
+      "name": "NATCOM S.A_Announcement on Invitation to Bidding “Purchase Tower for Natcom”",
+      "published_at": "2026-08-28 08:12:00",
+      "slugable": {
+        "key": "natcom-sa-announcement-on-invitation-to-bidding-purchase-tower-for-natcom"
+      }
+    }
+  ]
+}

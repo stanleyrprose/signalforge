@@ -13,7 +13,7 @@ from .acquisition_contract import ProcessingFailure, request_reason
 from .acquisition_runtime import acquire_local_bytes, acquire_provider_bytes, record_processing
 from .config import Registry, db_path, evidence_root
 from .db import connect, migrate
-from .http import fetch_bytes
+from .http import fetch_bytes, fetch_bytes_cloudrity_d1n
 from .mpt import SitemapEntry
 from .source_adapters import adapter_for
 from .worker_context import load_worker_context
@@ -472,7 +472,10 @@ def _acquire_source_bytes(
     }
     engine = source.get("engine")
     if engine == "direct_http":
-        return acquire_local_bytes(**common, fetcher=fetcher)
+        effective_fetcher = fetcher
+        if source.get("http_fetch_profile") == "cloudrity_d1n_v1" and fetcher is fetch_bytes:
+            effective_fetcher = fetch_bytes_cloudrity_d1n
+        return acquire_local_bytes(**common, fetcher=effective_fetcher)
     if engine == "provider":
         roles = source.get("provider_target_roles") or {}
         target_role = roles.get(target_kind)

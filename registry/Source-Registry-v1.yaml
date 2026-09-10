@@ -2434,6 +2434,85 @@
         "max_primary_attachments": 1,
         "same_origin_only": true
       }
+    },
+    "S41": {
+      "name": "MYTEL Procurement Invitations via Viettel Global",
+      "adapter": "mytel_tender",
+      "enabled": true,
+      "role": "ACTIVE_PRIMARY",
+      "audit_status": "GREEN_DIRECT_HTTP_OFFICIAL_FEED_D1N_BOOTSTRAP_RFP_SCOPE_ACTION_DATE",
+      "item_kind": "TENDER",
+      "network_zone": "myanmar-international",
+      "engine": "direct_http",
+      "landing_url": "https://viettelglobal.com.vn/en/tender-offer",
+      "discovery_url": "https://viettelglobal.com.vn/en/get-post-press-room?categories_id=82&offset=0&limit=100",
+      "discovery_is_tender_only": false,
+      "listing_complete_business_records": true,
+      "http_fetch_profile": "cloudrity_d1n_v1",
+      "language": "en",
+      "poll_interval_seconds": 1800,
+      "retry_interval_seconds": 300,
+      "priority": 99,
+      "recovery_slo_seconds": 3600,
+      "availability_policy": {
+        "class": "DELAY_TOLERANT_MONITORED",
+        "accepted_collection_outage_seconds": 7200,
+        "collection_rto_seconds": 3600,
+        "business_data_rpo_target_seconds": 1800,
+        "outage_status": "DATA_COLLECTION_DELAYED",
+        "delivery_during_recovery": "CONTINUE_WITH_DEGRADED_HEALTH"
+      },
+      "baseline_lookback_days": 0,
+      "baseline_detail_limit": 0,
+      "delta_detail_limit": 0,
+      "request_timeout_seconds": 30,
+      "request_max_bytes": 1000000,
+      "request_delay_ms": 0,
+      "canonical_key": "mytel_rfp_serial_year",
+      "first_baseline_customer_signal": false,
+      "bootstrap_seed_urls": [],
+      "selection_policy_version": 1,
+      "health_policy": {
+        "freshness_yellow_seconds": 3600,
+        "freshness_red_seconds": 5400,
+        "fetch_yellow_failures": 1,
+        "fetch_red_failures": 3,
+        "parse_window_runs": 10,
+        "parse_min_attempts": 1,
+        "parse_yellow_ratio": 0.9,
+        "parse_red_ratio": 0.7,
+        "parse_probe_interval_seconds": 7200,
+        "parse_sample_source": "BUSINESS_PROCESSING"
+      },
+      "source_policy_version": 1,
+      "egress_profile": "mm-intl-datacenter",
+      "acquisition_policy": {
+        "enabled": true,
+        "primary": {
+          "method": "DIRECT_HTTP",
+          "target_kind": "HTML"
+        },
+        "supplementary": [],
+        "escalation": {
+          "DNS_FAILURE": {"action": "RETRY"},
+          "CONNECT_TIMEOUT": {"action": "RETRY"},
+          "HTTP_429": {"action": "RETRY"},
+          "HTTP_403": {"action": "REVIEW"},
+          "TLS_FAILURE": {"action": "FAIL"},
+          "JS_RENDER_REQUIRED": {"action": "REVIEW_CAPABILITY"},
+          "PARSER_DRIFT": {"action": "REAUDIT"}
+        }
+      },
+      "attachment_policy": {
+        "mode": "NONE_FEED_COMPLETE",
+        "current_health": "OFFICIAL_JSON_FEED_SCOPE_AND_ACTION_DATE",
+        "fetch_in_primary_pipeline": false
+      },
+      "actionable_baseline_signal_policy": {
+        "enabled": true,
+        "min_remaining_seconds": 43200,
+        "max_signals_per_run": 5
+      }
     }
   },
   "deferred_sources": {

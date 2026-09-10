@@ -44,6 +44,7 @@ from .moba import parse_tender_listing as parse_moba_tender_listing
 from .mcrd import parse_tender_records as parse_mcrd_tender_records
 from .mte import parse_tender_records as parse_mte_tender_records
 from .mpt import SitemapEntry, parse_sitemap, parse_tender_detail as parse_mpt_tender_detail
+from .mytel import parse_tender_records as parse_mytel_tender_records
 from .ptd import extract_tender_pdf_urls as extract_ptd_tender_pdf_urls
 from .ptd import parse_tender_detail as parse_ptd_tender_detail
 from .ptd import parse_tender_detail_with_attachments as parse_ptd_tender_detail_with_attachments
@@ -162,6 +163,10 @@ def _parse_mol_detail_without_attachment(_payload: bytes, _url: str) -> list[obj
     raise SourceAdapterError("mol_tender requires its reviewed PDF attachment parser")
 
 
+def _parse_mytel_detail(_payload: bytes, _url: str) -> list[object]:
+    raise SourceAdapterError("mytel_tender is listing-complete and has no detail stage")
+
+
 ADAPTERS = {
     "mpt": SourceAdapter(
         name="mpt",
@@ -236,6 +241,17 @@ ADAPTERS = {
         parse_detail=_parse_energy_detail_without_attachment,
         extract_detail_attachments=extract_energy_tender_pdf_urls,
         parse_detail_with_attachments=parse_energy_tender_detail_with_attachments,
+    ),
+    "mytel_tender": SourceAdapter(
+        name="mytel_tender",
+        discovery_content_types=("application/json",),
+        discovery_parser_version="mytel-viettelglobal-feed-v1",
+        detail_parser_version="none",
+        normalizer_version="mytel-tender-normalize-v1",
+        canonicalizer_version="mytel-rfp-serial-year-v1",
+        parse_discovery=_empty_discovery,
+        parse_detail=_parse_mytel_detail,
+        parse_discovery_records=parse_mytel_tender_records,
     ),
     "mol_tender": SourceAdapter(
         name="mol_tender",
