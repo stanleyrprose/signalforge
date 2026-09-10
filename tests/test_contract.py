@@ -308,6 +308,7 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(moea["acquisition_policy"]["primary"], {"method": "DIRECT_HTTP", "target_kind": "HTML"})
         self.assertEqual(moea["attachment_policy"]["mode"], "METADATA_ONLY_NON_BLOCKING")
         self.assertFalse(moea["attachment_policy"]["fetch_in_primary_pipeline"])
+        self.assertTrue(moea["suppress_signal_on_initial_listing_semantic_enrichment"])
 
         mte = registry.source("S32")
         self.assertEqual(mte["adapter"], "mte_tender")

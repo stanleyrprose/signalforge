@@ -1337,6 +1337,7 @@
       "first_baseline_customer_signal": false,
       "bootstrap_seed_urls": [],
       "selection_policy_version": 1,
+      "suppress_signal_on_initial_listing_semantic_enrichment": true,
       "health_policy": {
         "freshness_yellow_seconds": 3600,
         "freshness_red_seconds": 5400,
