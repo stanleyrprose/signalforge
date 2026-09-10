@@ -1328,3 +1328,16 @@ This section supersedes the S31 v2 current-state snapshot while preserving the v
 - No schema, new dependency, OCR, Browser Plane, Provider, Worker Plane, Control Plane, Beijing role, public API/webhook or Telegram delivery-identity change. Next product-quality slice is the nine current customer opportunities.
 
 Evidence: `docs/verification/S31-MOEA-HTML-SEMANTIC-V3-PRODUCTION-CLOSURE-2026-09-10.md`.
+
+## Authoritative S39 Energy closing-context checkpoint — 2026-09-10
+
+- Active Bangkok runtime: `195515f7a8267ca79155a973d23fff29f1ea52cc`; rollback: `1e2f5b74860d0d88b7435789a8482706eddf784e`; archive SHA256 `46b4c264dc1b8e08ddeee08ef5fd6aefaf95d543eccebca792cd20732c5459ed`.
+- PR #126 verify run `34463254136` PASS; Energy targeted tests `7 passed`; full suite `250 passed`; current payload schema/normalizer/canonicalizer unchanged.
+- S39 detail parser is `energy-html-plus-text-pdf-v2`. Deadline extraction no longer chooses the final date-time in the document. It requires exactly one bounded date-time with tender context before it, tolerant closing/final semantics after it and submission semantics after it; no qualifying candidate or ambiguity fails closed.
+- All four reviewed text-native Energy PDF fixtures preserve the prior deadlines. Production `energy:235` evidence SHA is exactly the fixture SHA `4d2ef1694aa6a7221b1a2d46799eadba7f8edb9ef46a2045c573e07c1760c94b`.
+- Current live HTML + exact production PDF parsed by branch and deployed v2 both yield `2026-09-18 13:00 / OFFICIAL_TEXT_NATIVE_PDF_CLOSE_DATE_TIME` with content hash `05fcbb728ea55e100291a1d0471ee1832dcdae0355ba616c48880f957f7d9cc1`, equal to production; therefore no migration/backfill or parser-only signal.
+- Reviewed S39 Worker run `signalforge-20260910T095651Z-9da87c0b`: `SUCCESS / discovered=4 / changed=0 / signals_created=0`. The scheduler had no changed candidate, so direct deployed-parser verification supplies the actual parser-live evidence and returned `hash_equal=true`.
+- Final production: `PASS / GREEN`, `194 canonical / 45 signals / recovery backlog 0`, S39 signals `1`, DB quick check `ok`, Telegram pending `0`, acquisition + Telegram timers active.
+- No schema, dependency, payload migration, OCR, Browser/Provider/Worker/Control/Beijing/public API change. Next product-quality issue: all eight OPEN opportunities still have `deadline_kind=null`; treat that separately and source-evidence-first.
+
+Evidence: `docs/verification/S39-ENERGY-CLOSING-CONTEXT-PRODUCTION-CLOSURE-2026-09-10.md`.
