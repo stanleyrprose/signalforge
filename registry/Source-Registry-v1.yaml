@@ -1653,7 +1653,7 @@
       "adapter": "ptd_tender",
       "enabled": true,
       "role": "ACTIVE_SELECTIVE",
-      "audit_status": "GREEN_DIRECT_HTTP_TELECOM_TENDER_CATEGORY_HTML_SCOPE_PDF_METADATA",
+      "audit_status": "GREEN_DIRECT_HTTP_TELECOM_TENDER_HTML_SCOPE_TEXT_PDF_SCHEDULE",
       "item_kind": "TENDER",
       "network_zone": "myanmar-international",
       "engine": "direct_http",
@@ -1695,7 +1695,7 @@
         "parse_probe_interval_seconds": 3600,
         "parse_sample_source": "DETAIL_SCHEDULER"
       },
-      "source_policy_version": 1,
+      "source_policy_version": 2,
       "egress_profile": "mm-intl-datacenter",
       "acquisition_policy": {
         "enabled": true,
@@ -1703,7 +1703,15 @@
           "method": "DIRECT_HTTP",
           "target_kind": "HTML"
         },
-        "supplementary": [],
+        "supplementary": [
+          {
+            "method": "DIRECT_HTTP",
+            "target_kind": "PDF",
+            "required": true,
+            "max_count": 1,
+            "same_origin_only": true
+          }
+        ],
         "escalation": {
           "DNS_FAILURE": {
             "action": "RETRY"
@@ -1720,6 +1728,9 @@
           "TLS_FAILURE": {
             "action": "FAIL"
           },
+          "PDF_PARSE_FAILURE": {
+            "action": "REAUDIT"
+          },
           "JS_RENDER_REQUIRED": {
             "action": "REVIEW_CAPABILITY"
           },
@@ -1729,9 +1740,13 @@
         }
       },
       "attachment_policy": {
-        "mode": "METADATA_ONLY_NON_BLOCKING",
-        "current_health": "HTML_EVENT_SCOPE_PDF_DEADLINE_UNPARSED",
-        "fetch_in_primary_pipeline": false
+        "mode": "SINGLE_TEXT_PDF_REQUIRED",
+        "current_health": "TEXT_NATIVE_PDF_PARTICIPATION_CLOSE_AND_OPENING",
+        "fetch_in_primary_pipeline": true,
+        "required_primary_attachments": 1,
+        "max_primary_attachments": 1,
+        "same_origin_only": true,
+        "suppress_signal_on_initial_attachment_enrichment": true
       }
     },
     "S35": {

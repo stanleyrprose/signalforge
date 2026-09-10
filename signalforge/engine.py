@@ -849,6 +849,14 @@ def run_source(
                     and discovery["content_hash"]
                     and str(discovery["content_hash"]) == detail_capture.sha256
                 )
+                attachment_policy = source.get("attachment_policy") or {}
+                initial_attachment_enrichment = bool(
+                    attachment_captures
+                    and attachment_policy.get("suppress_signal_on_initial_attachment_enrichment") is True
+                    and discovery
+                    and discovery["content_hash"]
+                    and str(discovery["content_hash"]) == detail_capture.sha256
+                )
                 conn.execute(
                     """
                     UPDATE discovery_items
@@ -905,7 +913,9 @@ def run_source(
                             source_id=source_id,
                             tender=tender,
                             observed_at=observed_at,
-                            suppress_signal=baseline or suppress_once or evidence_unchanged,
+                            suppress_signal=(
+                                baseline or suppress_once or evidence_unchanged or initial_attachment_enrichment
+                            ),
                             evidence_digest=evidence_digest,
                         )
                         detail_changed += int(changed)

@@ -1,15 +1,24 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
 import tempfile
 import unittest
 from datetime import UTC, datetime
 from pathlib import Path
+from unittest.mock import patch
 
 from signalforge.config import Registry
 from signalforge.engine import run_source
-from signalforge.ptd import PTD_LIST_URL, PtdParseError, parse_tender_detail, parse_tender_listing
+from signalforge.ptd import (
+    PTD_LIST_URL,
+    PtdParseError,
+    extract_tender_pdf_urls,
+    parse_tender_detail,
+    parse_tender_detail_with_attachments,
+    parse_tender_listing,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
@@ -58,8 +67,58 @@ class PtdParserTests(unittest.TestCase):
         self.assertIn("ရေဒီယိုလှိုင်းနှုန်းတိုင်းတာရေးစနစ်", tender.scope_summary)
         self.assertTrue((tender.attachment_url or "").endswith("Earthquake%20Recovery%20Rules%2026-27.pdf"))
         self.assertEqual(tender.payload()["deadline_evidence"], "UNKNOWN_IN_PDF_ATTACHMENT_NOT_PARSED")
-        self.assertEqual(tender.payload()["attachment_policy"], "METADATA_ONLY_NON_BLOCKING")
+        self.assertEqual(tender.payload()["attachment_policy"], "SINGLE_TEXT_PDF_REQUIRED")
         self.assertTrue(tender.canonical_key.startswith("ptd:2026-07-31:"))
+
+    def test_text_pdf_extracts_participation_close_and_opening_without_inventing_bid_deadline(self) -> None:
+        html = (FIXTURES / "ptd_tender_spares.html").read_bytes()
+        base = parse_tender_detail(html, ENTRIES[1].url)
+        self.assertIsNotNone(base)
+        assert base is not None
+        pdf_text = """
+        ၂။ တင်ဒါပုံစံစတင်ရောင်းချမည့်နေ့ - ၂၈ - ၇ - ၂၀၂၆ ရက်
+        ၃။ တင်ဒါပုံစံအရောင်းပိတ်မည့်နေ့ - ၁၄ - ၈ - ၂၀၂၆ ရက်
+        ၅။ တင်ဒါတင်သွင်းရမည့်နေရာ - ရုံးအမှတ်(၂)
+        ၆။ တင်ဒါဖွင့်ဖောက်မည့်နေ့ရက်နှင့်အချိန် - ၁၈ - ၈ - ၂၀၂၆ ရက်
+        (၁၀:၃၀)နာရီ
+        """
+        with patch("signalforge.ptd._extract_pdf_text", return_value=pdf_text):
+            parsed = parse_tender_detail_with_attachments(
+                html,
+                ENTRIES[1].url,
+                [(base.attachment_url or "", b"pdf")],
+            )
+        self.assertEqual(len(parsed), 1)
+        tender = parsed[0]
+        payload = tender.payload()
+        self.assertEqual(payload["deadline"], "2026-08-14")
+        self.assertIsNone(payload["deadline_time"])
+        self.assertEqual(payload["deadline_kind"], "TENDER_FORM_SALE_CLOSE")
+        self.assertEqual(payload["deadline_evidence"], "OFFICIAL_TEXT_NATIVE_PDF_TENDER_FORM_SALE_CLOSE_DATE")
+        self.assertEqual(payload["tender_opening_date"], "2026-08-18")
+        self.assertEqual(payload["tender_opening_time"], "10:30")
+        self.assertEqual(payload["detail_completeness"], "HTML_EVENT_SCOPE_TEXT_PDF_PARTICIPATION_CLOSE")
+
+    def test_text_pdf_schedule_stays_unknown_when_section_date_is_corrupt(self) -> None:
+        html = (FIXTURES / "ptd_tender_spares.html").read_bytes()
+        base = parse_tender_detail(html, ENTRIES[1].url)
+        self.assertIsNotNone(base)
+        assert base is not None
+        corrupt = """
+        ၃။ တင်ဒါပုံစံအရောင်းပိတ်မည့်နေ့ - ၁၁ - - ၂၀၂၆ ရက်
+        ၆။ တင်ဒါဖွင့်ဖောက်မည့်နေ့ရက်နှင့်အချိန် - ၁ - - ၂၀၂၆ (၁၃: )
+        """
+        with patch("signalforge.ptd._extract_pdf_text", return_value=corrupt):
+            tender = parse_tender_detail_with_attachments(
+                html,
+                ENTRIES[1].url,
+                [(base.attachment_url or "", b"pdf")],
+            )[0]
+        payload = tender.payload()
+        self.assertIsNone(payload["deadline"])
+        self.assertIsNone(payload["tender_opening_date"])
+        self.assertEqual(payload["deadline_evidence"], "UNKNOWN_IN_TEXT_NATIVE_PDF_SCHEDULE_UNREADABLE")
+        self.assertEqual(payload["detail_completeness"], "HTML_EVENT_SCOPE_TEXT_PDF_SCHEDULE_UNREADABLE")
 
     def test_same_day_generic_tenders_have_distinct_business_identity(self) -> None:
         spare = parse_tender_detail((FIXTURES / "ptd_tender_spares.html").read_bytes(), ENTRIES[1].url)
@@ -81,7 +140,7 @@ class PtdParserTests(unittest.TestCase):
 
 
 class PtdEngineTests(unittest.TestCase):
-    def test_baseline_fetches_listing_and_four_details_without_pdf(self) -> None:
+    def test_baseline_fetches_listing_four_details_and_required_pdfs_without_signals(self) -> None:
         registry = _registry()
         details = [
             (FIXTURES / "ptd_tender_earthquake.html").read_bytes(),
@@ -89,8 +148,19 @@ class PtdEngineTests(unittest.TestCase):
             (FIXTURES / "ptd_tender_bago.html").read_bytes(),
             (FIXTURES / "ptd_tender_dns.html").read_bytes(),
         ]
-        payloads = {PTD_LIST_URL: LISTING, **{entry.url: detail for entry, detail in zip(ENTRIES, details)}}
-        with tempfile.TemporaryDirectory() as tmp:
+        payloads: dict[str, bytes] = {PTD_LIST_URL: LISTING}
+        expected_calls = [PTD_LIST_URL]
+        for entry, detail in zip(ENTRIES, details):
+            attachment_url = extract_tender_pdf_urls(detail, entry.url)[0]
+            payloads[entry.url] = detail
+            payloads[attachment_url] = b"pdf"
+            expected_calls.extend([entry.url, attachment_url])
+        pdf_text = """
+        ၃။ တင်ဒါပုံစံအရောင်းပိတ်မည့်နေ့ - ၃၀ - ၉ - ၂၀၂၆ ရက်
+        ၆။ တင်ဒါဖွင့်ဖောက်မည့်နေ့ရက်နှင့်အချိန် - ၁ - ၁၀ - ၂၀၂၆ ရက်
+        (၁၃:၃၀)နာရီ
+        """
+        with tempfile.TemporaryDirectory() as tmp, patch("signalforge.ptd._extract_pdf_text", return_value=pdf_text):
             base = Path(tmp)
             db = base / "signalforge.db"
             fetcher = MapFetcher(payloads)
@@ -105,12 +175,71 @@ class PtdEngineTests(unittest.TestCase):
             self.assertEqual(result["tenders"], 4)
             self.assertEqual(result["changed"], 4)
             self.assertEqual(result["signals_created"], 0)
-            self.assertEqual(fetcher.calls, [PTD_LIST_URL, *[entry.url for entry in ENTRIES]])
+            self.assertEqual(fetcher.calls, expected_calls)
             with sqlite3.connect(db) as conn:
                 self.assertEqual(conn.execute("SELECT COUNT(*) FROM canonical_items WHERE source_id='S34'").fetchone()[0], 4)
                 self.assertEqual(conn.execute("SELECT COUNT(*) FROM signals WHERE source_id='S34'").fetchone()[0], 0)
-                self.assertEqual(conn.execute("SELECT COUNT(*) FROM evidence_envelopes WHERE source_id='S34'").fetchone()[0], 5)
-                self.assertEqual(conn.execute("SELECT COUNT(*) FROM evidence_envelopes WHERE source_id='S34' AND lower(requested_url) LIKE '%.pdf%'").fetchone()[0], 0)
+                self.assertEqual(conn.execute("SELECT COUNT(*) FROM evidence_envelopes WHERE source_id='S34'").fetchone()[0], 9)
+                self.assertEqual(conn.execute("SELECT COUNT(*) FROM evidence_envelopes WHERE source_id='S34' AND lower(requested_url) LIKE '%.pdf%'").fetchone()[0], 4)
+
+    def test_initial_pdf_semantic_enrichment_updates_canonical_without_historical_signal(self) -> None:
+        raw = json.loads(json.dumps(Registry.load(ROOT).raw))
+        source = raw["sources"]["S34"]
+        source["baseline_detail_limit"] = 1
+        source["delta_detail_limit"] = 1
+        registry = Registry({**raw, "sources": {"S34": source}})
+        detail = (FIXTURES / "ptd_tender_earthquake.html").read_bytes()
+        entry = ENTRIES[0]
+        attachment_url = extract_tender_pdf_urls(detail, entry.url)[0]
+        payloads = {PTD_LIST_URL: LISTING, entry.url: detail, attachment_url: b"pdf"}
+        pdf_text = """
+        ၃။ တင်ဒါပုံစံအရောင်းပိတ်မည့်နေ့ - ၂၀ - ၈ - ၂၀၂၆ ရက်
+        ၆။ တင်ဒါဖွင့်ဖောက်မည့်နေ့ရက်နှင့်အချိန် - ၂၅ - ၈ - ၂၀၂၆ ရက်
+        (၁၄:၃၀)နာရီ
+        """
+        with tempfile.TemporaryDirectory() as tmp, patch("signalforge.ptd._extract_pdf_text", return_value=pdf_text):
+            base = Path(tmp)
+            db = base / "signalforge.db"
+            baseline = run_source(
+                "S34", registry=registry, now=datetime(2026, 9, 7, 10, 0, tzinfo=UTC),
+                fetcher=MapFetcher(payloads), sleeper=lambda _s: None, force=True,
+                database=db, evidence=base / "evidence", worker_context={"run_id": "ptd-enrichment-baseline"},
+            )
+            self.assertEqual(baseline["signals_created"], 0)
+
+            old = parse_tender_detail(detail, entry.url)
+            self.assertIsNotNone(old)
+            assert old is not None
+            with sqlite3.connect(db) as conn:
+                canonical_key = conn.execute(
+                    "SELECT canonical_key FROM discovery_items WHERE source_id='S34' AND url=?",
+                    (entry.url,),
+                ).fetchone()[0]
+                conn.execute(
+                    "UPDATE discovery_items SET content_hash=? WHERE source_id='S34' AND url=?",
+                    (hashlib.sha256(detail).hexdigest(), entry.url),
+                )
+                conn.execute(
+                    "UPDATE canonical_items SET content_hash='pre-pdf-semantic',payload_json=? WHERE canonical_key=?",
+                    (json.dumps(old.payload(), ensure_ascii=False), canonical_key),
+                )
+                conn.commit()
+
+            probe = run_source(
+                "S34", registry=registry, now=datetime(2026, 9, 7, 11, 1, tzinfo=UTC),
+                fetcher=MapFetcher(payloads), sleeper=lambda _s: None, force=True,
+                database=db, evidence=base / "evidence", worker_context={"run_id": "ptd-initial-pdf-enrichment"},
+            )
+            self.assertTrue(probe["health_probe"])
+            self.assertEqual(probe["changed"], 1)
+            self.assertEqual(probe["signals_created"], 0)
+            with sqlite3.connect(db) as conn:
+                self.assertEqual(conn.execute("SELECT COUNT(*) FROM signals WHERE source_id='S34'").fetchone()[0], 0)
+                payload = json.loads(conn.execute(
+                    "SELECT payload_json FROM canonical_items WHERE canonical_key=?", (canonical_key,)
+                ).fetchone()[0])
+            self.assertEqual(payload["deadline"], "2026-08-20")
+            self.assertEqual(payload["deadline_kind"], "TENDER_FORM_SALE_CLOSE")
 
 
 if __name__ == "__main__":

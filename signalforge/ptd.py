@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import re
 from dataclasses import dataclass
 from datetime import datetime
 from html.parser import HTMLParser
 from urllib.parse import quote, unquote, urljoin, urlsplit, urlunsplit
+
+from pypdf import PdfReader
 
 from .mpt import SitemapEntry, normalize_text, parse_date
 
@@ -39,6 +42,11 @@ _GENERIC_TITLES = {
     "တင်ဒါခေါ်ယူခြင်း",
     "open tender",
 }
+_MYANMAR_DIGITS = str.maketrans("၀၁၂၃၄၅၆၇၈၉", "0123456789")
+_SECTION_DATE_RE = re.compile(
+    r"^(?P<section>[236])\s*[။.]?\s*.*?-\s*(?P<day>\d{1,2})\s*-\s*(?P<month>\d{1,2})\s*-\s*(?P<year>20\d{2})(?:\D|$)"
+)
+_TIME_RE = re.compile(r"(?<!\d)(?P<hour>[01]?\d|2[0-3])\s*:\s*(?P<minute>[0-5]\d)(?!\d)")
 
 
 class PtdParseError(ValueError):
@@ -138,6 +146,55 @@ def _scope_summary(body: str) -> str | None:
     return value[:3000] if value else None
 
 
+def _section_schedule(text: str, publication_date: str) -> tuple[str | None, str | None, str | None]:
+    lines = [normalize_text(line.translate(_MYANMAR_DIGITS)) for line in text.splitlines()]
+    lines = [line for line in lines if line]
+    dates: dict[str, tuple[datetime, int]] = {}
+    for index, line in enumerate(lines):
+        match = _SECTION_DATE_RE.match(line)
+        if match is None:
+            continue
+        try:
+            value = datetime(
+                int(match.group("year")),
+                int(match.group("month")),
+                int(match.group("day")),
+            )
+        except ValueError:
+            continue
+        dates[match.group("section")] = (value, index)
+
+    sale_close_entry = dates.get("3")
+    if sale_close_entry is None:
+        return None, None, None
+    sale_close, _sale_close_index = sale_close_entry
+    try:
+        published = datetime.fromisoformat(publication_date)
+    except ValueError:
+        return None, None, None
+    if sale_close < published:
+        return None, None, None
+
+    opening_entry = dates.get("6")
+    opening_date: str | None = None
+    opening_time: str | None = None
+    if opening_entry is not None:
+        opening, opening_index = opening_entry
+        if opening >= sale_close:
+            opening_date = opening.date().isoformat()
+            time_text = " ".join(lines[opening_index : opening_index + 3])
+            time_match = _TIME_RE.search(time_text)
+            if time_match is not None:
+                opening_time = f"{int(time_match.group('hour')):02d}:{int(time_match.group('minute')):02d}"
+
+    return sale_close.date().isoformat(), opening_date, opening_time
+
+
+def _extract_pdf_text(pdf_bytes: bytes) -> str:
+    reader = PdfReader(io.BytesIO(pdf_bytes))
+    return "\n".join((page.extract_text() or "") for page in reader.pages)
+
+
 class PtdListingParser(HTMLParser):
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
@@ -206,9 +263,14 @@ class PtdTender:
     attachment_name: str | None
     attachment_url: str | None
     url: str
+    deadline: str | None = None
+    deadline_kind: str | None = None
+    tender_opening_date: str | None = None
+    tender_opening_time: str | None = None
+    pdf_schedule_reviewed: bool = False
 
     item_kind = "TENDER"
-    deadline = None
+    deadline_time = None
     location = None
 
     @property
@@ -246,17 +308,42 @@ class PtdTender:
             "identity_material": "publication_date+normalized_scope_summary",
             "publication_date": self.publication_date,
             "publication_date_evidence": "EXPLICIT_HTML_POSTED_DATE",
-            "deadline": None,
-            "deadline_evidence": "UNKNOWN_IN_PDF_ATTACHMENT_NOT_PARSED",
+            "deadline": self.deadline,
+            "deadline_time": None,
+            "deadline_kind": self.deadline_kind,
+            "deadline_evidence": (
+                "OFFICIAL_TEXT_NATIVE_PDF_TENDER_FORM_SALE_CLOSE_DATE"
+                if self.deadline is not None
+                else (
+                    "UNKNOWN_IN_TEXT_NATIVE_PDF_SCHEDULE_UNREADABLE"
+                    if self.pdf_schedule_reviewed
+                    else "UNKNOWN_IN_PDF_ATTACHMENT_NOT_PARSED"
+                )
+            ),
+            "tender_opening_date": self.tender_opening_date,
+            "tender_opening_time": self.tender_opening_time,
+            "tender_opening_evidence": (
+                "OFFICIAL_TEXT_NATIVE_PDF_TENDER_OPENING_DATE_TIME"
+                if self.tender_opening_date is not None and self.tender_opening_time is not None
+                else "UNKNOWN_OR_INCOMPLETE_IN_PDF_TEXT"
+            ),
             "location": None,
             "scope_summary": self.scope_summary,
             "attachment_name": self.attachment_name,
             "attachment_url": self.attachment_url,
-            "attachment_policy": "METADATA_ONLY_NON_BLOCKING",
+            "attachment_policy": "SINGLE_TEXT_PDF_REQUIRED",
             "detail_locator_hash": hashlib.sha256(opaque.encode("utf-8")).hexdigest()[:16] if opaque else None,
             "selection_policy_version": SELECTION_POLICY_VERSION,
             "business_stage": "OPPORTUNITY",
-            "detail_completeness": "HTML_EVENT_SCOPE_PDF_DEADLINE_UNPARSED",
+            "detail_completeness": (
+                "HTML_EVENT_SCOPE_TEXT_PDF_PARTICIPATION_CLOSE"
+                if self.deadline is not None
+                else (
+                    "HTML_EVENT_SCOPE_TEXT_PDF_SCHEDULE_UNREADABLE"
+                    if self.pdf_schedule_reviewed
+                    else "HTML_EVENT_SCOPE_PDF_DEADLINE_UNPARSED"
+                )
+            ),
             "url": self.url,
         }
 
@@ -354,3 +441,48 @@ def parse_tender_detail(html_bytes: bytes, page_url: str) -> PtdTender | None:
         attachment_url=parser.attachment_url,
         url=canonical_url,
     )
+
+
+def extract_tender_pdf_urls(html_bytes: bytes, page_url: str) -> list[str]:
+    tender = parse_tender_detail(html_bytes, page_url)
+    if tender is None or not tender.attachment_url:
+        return []
+    return [tender.attachment_url]
+
+
+def parse_tender_detail_with_attachments(
+    html_bytes: bytes,
+    page_url: str,
+    attachments: list[tuple[str, bytes]],
+) -> list[object]:
+    base = parse_tender_detail(html_bytes, page_url)
+    if base is None:
+        return []
+    if len(attachments) != 1 or base.attachment_url is None:
+        raise PtdParseError("PTD requires exactly one official PDF attachment")
+    attachment_url, pdf_bytes = attachments[0]
+    if attachment_url != base.attachment_url:
+        raise PtdParseError("PTD attachment URL mismatch")
+    try:
+        text = _extract_pdf_text(pdf_bytes)
+    except Exception as exc:
+        raise PtdParseError(f"PTD PDF parse failed: {exc}") from exc
+    if not normalize_text(text):
+        raise PtdParseError("PTD PDF contains no extractable text")
+
+    deadline, opening_date, opening_time = _section_schedule(text, base.publication_date)
+    return [
+        PtdTender(
+            title=base.title,
+            publication_date=base.publication_date,
+            scope_summary=base.scope_summary,
+            attachment_name=base.attachment_name,
+            attachment_url=base.attachment_url,
+            url=base.url,
+            deadline=deadline,
+            deadline_kind="TENDER_FORM_SALE_CLOSE" if deadline is not None else None,
+            tender_opening_date=opening_date,
+            tender_opening_time=opening_time,
+            pdf_schedule_reviewed=True,
+        )
+    ]

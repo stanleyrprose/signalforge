@@ -44,7 +44,9 @@ from .moba import parse_tender_listing as parse_moba_tender_listing
 from .mcrd import parse_tender_records as parse_mcrd_tender_records
 from .mte import parse_tender_records as parse_mte_tender_records
 from .mpt import SitemapEntry, parse_sitemap, parse_tender_detail as parse_mpt_tender_detail
+from .ptd import extract_tender_pdf_urls as extract_ptd_tender_pdf_urls
 from .ptd import parse_tender_detail as parse_ptd_tender_detail
+from .ptd import parse_tender_detail_with_attachments as parse_ptd_tender_detail_with_attachments
 from .ptd import parse_tender_listing as parse_ptd_tender_listing
 from .railways import parse_tender_detail as parse_railways_tender_detail
 from .railways import parse_tender_listing
@@ -185,11 +187,13 @@ ADAPTERS = {
         name="ptd_tender",
         discovery_content_types=("text/html",),
         discovery_parser_version="ptd-tender-category-v1",
-        detail_parser_version="ptd-tender-html-v1",
-        normalizer_version="ptd-tender-normalize-v1",
+        detail_parser_version="ptd-tender-html-plus-text-pdf-v2",
+        normalizer_version="ptd-tender-normalize-v2",
         canonicalizer_version="ptd-business-event-fingerprint-v1",
         parse_discovery=parse_ptd_tender_listing,
         parse_detail=_parse_ptd_detail,
+        extract_detail_attachments=extract_ptd_tender_pdf_urls,
+        parse_detail_with_attachments=parse_ptd_tender_detail_with_attachments,
     ),
     "railways": SourceAdapter(
         name="railways",
