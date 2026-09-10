@@ -127,6 +127,9 @@ class AuditorTests(unittest.TestCase):
             self.assertEqual(result["checks"]["strategic_coverage"]["S41"]["missing"], [])
             self.assertEqual(result["checks"]["strategic_coverage"]["S13"]["missing"], 0)
             self.assertTrue(result["contract"]["read_only"])
+            self.assertTrue(result["contract"]["coverage_check_implementation_independent"])
+            self.assertEqual(result["contract"]["coverage_semantic_independence"], "PARTIAL")
+            self.assertFalse(result["contract"]["external_completeness_proven"])
 
     def test_detects_independent_mpt_and_mytel_coverage_gaps(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
