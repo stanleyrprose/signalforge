@@ -37,8 +37,10 @@ OLD=""
 [ ! -L "$ROOT/active" ] || OLD="$(basename "$(readlink -f "$ROOT/active")")"
 TIMER_WAS_ENABLED=0
 DELIVERY_TIMER_WAS_ENABLED=0
+DIGEST_TIMER_WAS_ENABLED=0
 systemctl is-enabled signalforge-run-due.timer >/dev/null 2>&1 && TIMER_WAS_ENABLED=1 || true
 systemctl is-enabled signalforge-telegram-deliver.timer >/dev/null 2>&1 && DELIVERY_TIMER_WAS_ENABLED=1 || true
+systemctl is-enabled signalforge-telegram-digest.timer >/dev/null 2>&1 && DIGEST_TIMER_WAS_ENABLED=1 || true
 
 install -d -m 0755 -o root -g root "$ROOT" "$ROOT/releases" "$ROOT/venvs"
 install -d -m 0700 -o signalforge -g signalforge "$ROOT/state" "$ROOT/evidence" "$ROOT/artifacts" "$ROOT/tmp" "$ROOT/locks"
@@ -58,6 +60,9 @@ cleanup() {
     if [ "$DELIVERY_TIMER_WAS_ENABLED" -eq 1 ]; then
       systemctl enable --now signalforge-telegram-deliver.timer >/dev/null 2>&1 || true
     fi
+    if [ "$DIGEST_TIMER_WAS_ENABLED" -eq 1 ]; then
+      systemctl enable --now signalforge-telegram-digest.timer >/dev/null 2>&1 || true
+    fi
   fi
   exit "$rc"
 }
@@ -65,17 +70,20 @@ trap cleanup EXIT
 
 systemctl disable --now signalforge-run-due.timer >/dev/null 2>&1 || true
 systemctl disable --now signalforge-telegram-deliver.timer >/dev/null 2>&1 || true
+systemctl disable --now signalforge-telegram-digest.timer >/dev/null 2>&1 || true
 for _i in $(seq 1 30); do
   state="$(systemctl is-active signalforge-run-due.service 2>/dev/null || true)"
   delivery_state="$(systemctl is-active signalforge-telegram-deliver.service 2>/dev/null || true)"
+  digest_state="$(systemctl is-active signalforge-telegram-digest.service 2>/dev/null || true)"
   refresh_busy="$(systemctl list-units --type=service --state=active,activating --no-legend --no-pager 'signalforge-refresh@*.service' 2>/dev/null | wc -l | tr -d ' ')"
-  [ "$state" != active ] && [ "$state" != activating ] && [ "$delivery_state" != active ] && [ "$delivery_state" != activating ] && [ "$refresh_busy" -eq 0 ] && break
+  [ "$state" != active ] && [ "$state" != activating ] && [ "$delivery_state" != active ] && [ "$delivery_state" != activating ] && [ "$digest_state" != active ] && [ "$digest_state" != activating ] && [ "$refresh_busy" -eq 0 ] && break
   sleep 1
 done
 state="$(systemctl is-active signalforge-run-due.service 2>/dev/null || true)"
 delivery_state="$(systemctl is-active signalforge-telegram-deliver.service 2>/dev/null || true)"
+digest_state="$(systemctl is-active signalforge-telegram-digest.service 2>/dev/null || true)"
 refresh_busy="$(systemctl list-units --type=service --state=active,activating --no-legend --no-pager 'signalforge-refresh@*.service' 2>/dev/null | wc -l | tr -d ' ')"
-[ "$state" != active ] && [ "$state" != activating ] && [ "$delivery_state" != active ] && [ "$delivery_state" != activating ] && [ "$refresh_busy" -eq 0 ] || { echo "SignalForge busy; deploy deferred" >&2; exit 75; }
+[ "$state" != active ] && [ "$state" != activating ] && [ "$delivery_state" != active ] && [ "$delivery_state" != activating ] && [ "$digest_state" != active ] && [ "$digest_state" != activating ] && [ "$refresh_busy" -eq 0 ] || { echo "SignalForge busy; deploy deferred" >&2; exit 75; }
 
 if [ ! -d "$FINAL" ]; then
   install -d -m 0755 -o root -g root "$STAGE"
@@ -114,8 +122,10 @@ install -m 0644 /srv/worker/current-release/generated/applications/signalforge/s
 install -m 0644 "$FINAL/systemd/signalforge-run-due.timer" /etc/systemd/system/signalforge-run-due.timer
 install -m 0644 "$FINAL/systemd/signalforge-telegram-deliver.service" /etc/systemd/system/signalforge-telegram-deliver.service
 install -m 0644 "$FINAL/systemd/signalforge-telegram-deliver.timer" /etc/systemd/system/signalforge-telegram-deliver.timer
+install -m 0644 "$FINAL/systemd/signalforge-telegram-digest.service" /etc/systemd/system/signalforge-telegram-digest.service
+install -m 0644 "$FINAL/systemd/signalforge-telegram-digest.timer" /etc/systemd/system/signalforge-telegram-digest.timer
 systemctl daemon-reload
-systemd-analyze verify /etc/systemd/system/signalforge-run-due.service /etc/systemd/system/signalforge-refresh@.service /etc/systemd/system/signalforge-run-due.timer /etc/systemd/system/signalforge-telegram-deliver.service /etc/systemd/system/signalforge-telegram-deliver.timer >/dev/null
+systemd-analyze verify /etc/systemd/system/signalforge-run-due.service /etc/systemd/system/signalforge-refresh@.service /etc/systemd/system/signalforge-run-due.timer /etc/systemd/system/signalforge-telegram-deliver.service /etc/systemd/system/signalforge-telegram-deliver.timer /etc/systemd/system/signalforge-telegram-digest.service /etc/systemd/system/signalforge-telegram-digest.timer >/dev/null
 
 runuser -u signalforge -- env \
   SIGNALFORGE_STATE_ROOT="$ROOT/state" \
@@ -129,6 +139,9 @@ if [ "$TIMER_WAS_ENABLED" -eq 1 ]; then
 fi
 if [ "$DELIVERY_TIMER_WAS_ENABLED" -eq 1 ]; then
   systemctl enable --now signalforge-telegram-deliver.timer >/dev/null
+fi
+if [ "$DIGEST_TIMER_WAS_ENABLED" -eq 1 ]; then
+  systemctl enable --now signalforge-telegram-digest.timer >/dev/null
 fi
 
 trap - EXIT

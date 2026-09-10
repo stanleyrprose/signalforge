@@ -8,7 +8,7 @@ from typing import Iterator
 from .config import db_path
 
 
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 
 
 @contextmanager
@@ -121,6 +121,19 @@ def migrate(path: Path | None = None) -> None:
             );
             CREATE INDEX IF NOT EXISTS idx_delivery_receipts_channel_sent
                 ON delivery_receipts(channel, sent_at DESC);
+            CREATE TABLE IF NOT EXISTS digest_delivery_receipts (
+                digest_key TEXT PRIMARY KEY,
+                channel TEXT NOT NULL,
+                digest_date TEXT NOT NULL,
+                window_start TEXT NOT NULL,
+                window_end TEXT NOT NULL,
+                payload_sha256 TEXT NOT NULL,
+                provider_message_id TEXT,
+                sent_at TEXT NOT NULL,
+                UNIQUE(channel, digest_date)
+            );
+            CREATE INDEX IF NOT EXISTS idx_digest_delivery_channel_sent
+                ON digest_delivery_receipts(channel, sent_at DESC);
             CREATE TABLE IF NOT EXISTS scheduler_runs (
                 app_run_id TEXT PRIMARY KEY,
                 trigger_id TEXT NOT NULL,
