@@ -6,6 +6,27 @@ from signalforge.qualification import qualify_opportunity
 
 
 class QualificationTests(unittest.TestCase):
+    def test_multi_reference_reason_tracks_evidence_origin(self) -> None:
+        base = {
+            "source_id": "S26",
+            "deadline_status": "UNKNOWN",
+            "scope_summary": "Tender scope with enough business detail for qualification.",
+            "reference_no": "REF-1",
+            "reference_count": 3,
+        }
+        html = qualify_opportunity(dict(base, reference_numbers_evidence="HTML_TITLE"))
+        self.assertIn("MULTI_REFERENCE_HTML_TITLE", html["qualification_reasons"])
+        self.assertNotIn("MULTI_REFERENCE_OFFICIAL_PDF_SCOPE", html["qualification_reasons"])
+
+        pdf = qualify_opportunity(
+            dict(base, source_id="S39", reference_numbers_evidence="OFFICIAL_TEXT_NATIVE_PDF_SCOPE_DMP_REFERENCE_PATTERN")
+        )
+        self.assertIn("MULTI_REFERENCE_OFFICIAL_PDF_SCOPE", pdf["qualification_reasons"])
+        self.assertNotIn("MULTI_REFERENCE_HTML_TITLE", pdf["qualification_reasons"])
+
+        generic = qualify_opportunity(dict(base, reference_numbers_evidence="CANONICAL"))
+        self.assertIn("MULTI_REFERENCE_EVIDENCE", generic["qualification_reasons"])
+
     def test_poweredge_does_not_create_energy_false_positive(self) -> None:
         item = {
             "source_id": "S30",
