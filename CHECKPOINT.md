@@ -1395,3 +1395,16 @@ Evidence: `docs/verification/S41-MYTEL-SOURCE-ONBOARDING-PRODUCTION-CLOSURE-2026
 - Runtime remains `c5c2327c2300e5d7a22fce3222552bf8c6de7cc9`; no production deploy or database/delivery change is required.
 
 Evidence: `docs/verification/S42-ATOM-SOURCE-AUDIT-DEFERRED-2026-09-10.md`.
+
+## Authoritative source-portfolio business-yield checkpoint — 2026-09-10
+
+- Production runtime remains `c5c2327c2300e5d7a22fce3222552bf8c6de7cc9`; this audit makes no runtime/source-registry/database/delivery change.
+- Current production = `209 canonical / 45 raw signals / recovery backlog0`. Effective business-signal accounting for portfolio decisions is **24**: exclude 20 known S25 normalization-noise UPDATED rows and the one preserved S13 parser-only historical UPDATED (`mpt:CCO-2026-001`). No history is deleted or rewritten.
+- Effective yield observed: S13=10, S38=6, S20=3, S26=2, S08A=1, S30=1, S39=1; all other active sources currently 0.
+- All active sources are baseline-complete with `consecutive_failures=0` at the audit snapshot. First production runs span only 2026-09-02 through 2026-09-10, so zero signal is not sufficient evidence for demotion.
+- Provisional analytical tiers only: Core/proven = `S13,S20,S30,S38,S39`; Strategic Watch = `S16,S21,S22,S27,S34,S35,S41`; Context/regulatory/selective = `S05A,S07,S08A,S10,S12,S26`; Observation/low-yield candidates = `S25,S28,S29,S31,S32,S33,S36,S37,S40`.
+- These tiers do not replace registry `ACTIVE_PRIMARY/ACTIVE_SELECTIVE`, priority, polling, Direct HTTP/Provider role or scheduler behavior. No source is disabled, downgraded or slowed by this audit.
+- Default pruning/promotion decision gate: 30 days of production observation per source. Earlier review is allowed only for concrete repeated health failure, recurring false/duplicate signals, a missed current high-value opportunity, repeated high-value yield, or evidence the issuer surface is structurally irrelevant/result-only.
+- Source-count expansion remains gated: S41 passed because a trustworthy official procurement feed exists; S42 ATOM is deferred because no qualifying public procurement surface was found.
+
+Evidence: `docs/verification/SOURCE-PORTFOLIO-BUSINESS-YIELD-AUDIT-2026-09-10.md`.
