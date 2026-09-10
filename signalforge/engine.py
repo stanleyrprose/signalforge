@@ -48,6 +48,45 @@ def _material_hash(payload: dict[str, object]) -> str:
     return hashlib.sha256(_json(payload).encode("utf-8")).hexdigest()
 
 
+_ATTACHMENT_ENRICHMENT_FIELDS = {
+    "deadline",
+    "deadline_time",
+    "deadline_kind",
+    "deadline_evidence",
+    "tender_opening_date",
+    "tender_opening_time",
+    "tender_opening_evidence",
+    "attachment_policy",
+    "detail_completeness",
+}
+
+
+def _initial_attachment_enrichment_only(conn, *, source: dict, tender) -> bool:  # type: ignore[no-untyped-def]
+    attachment_policy = source.get("attachment_policy") or {}
+    if attachment_policy.get("suppress_signal_on_initial_attachment_enrichment") is not True:
+        return False
+    existing = conn.execute(
+        "SELECT payload_json FROM canonical_items WHERE canonical_key=?",
+        (tender.canonical_key,),
+    ).fetchone()
+    if existing is None:
+        return False
+    try:
+        previous = json.loads(str(existing["payload_json"]))
+    except json.JSONDecodeError:
+        return False
+    if not isinstance(previous, dict):
+        return False
+    if previous.get("attachment_policy") != "METADATA_ONLY_NON_BLOCKING":
+        return False
+    if previous.get("detail_completeness") != "HTML_EVENT_SCOPE_PDF_DEADLINE_UNPARSED":
+        return False
+    current = tender.payload()
+    previous_business = {key: value for key, value in previous.items() if key not in _ATTACHMENT_ENRICHMENT_FIELDS}
+    current_business = {key: value for key, value in current.items() if key not in _ATTACHMENT_ENRICHMENT_FIELDS}
+    return previous_business == current_business
+
+
 def _source_state(conn, source_id: str):  # type: ignore[no-untyped-def]
     return conn.execute("SELECT * FROM source_state WHERE source_id=?", (source_id,)).fetchone()
 
@@ -849,14 +888,6 @@ def run_source(
                     and discovery["content_hash"]
                     and str(discovery["content_hash"]) == detail_capture.sha256
                 )
-                attachment_policy = source.get("attachment_policy") or {}
-                initial_attachment_enrichment = bool(
-                    attachment_captures
-                    and attachment_policy.get("suppress_signal_on_initial_attachment_enrichment") is True
-                    and discovery
-                    and discovery["content_hash"]
-                    and str(discovery["content_hash"]) == detail_capture.sha256
-                )
                 conn.execute(
                     """
                     UPDATE discovery_items
@@ -908,6 +939,10 @@ def run_source(
                         (canonical_marker, source_id, entry.url),
                     )
                     for tender in parsed_tenders:
+                        initial_attachment_enrichment = bool(
+                            attachment_captures
+                            and _initial_attachment_enrichment_only(conn, source=source, tender=tender)
+                        )
                         changed, signals = _upsert_tender(
                             conn,
                             source_id=source_id,
