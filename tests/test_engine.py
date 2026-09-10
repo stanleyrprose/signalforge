@@ -280,6 +280,45 @@ class EngineTests(unittest.TestCase):
                 ).fetchone()
             self.assertEqual(row, (1, 1, 1, 0))
 
+    def test_same_evidence_semantic_reparse_updates_canonical_without_signal(self) -> None:
+        registry = Registry.load(ROOT)
+        sitemap = (FIXTURES / "mpt_page_sitemap.xml").read_bytes()
+        tender = (FIXTURES / "mpt_tender_detail.html").read_bytes()
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            db = base / "signalforge.db"
+            evidence = base / "evidence"
+            baseline = run_source(
+                "S13", registry=registry, now=datetime(2026, 9, 2, 12, 0, tzinfo=UTC),
+                fetcher=FixtureFetcher(sitemap, tender), sleeper=lambda _seconds: None, force=True,
+                database=db, evidence=evidence, worker_context={"run_id": "semantic-baseline"},
+            )
+            self.assertEqual(baseline["signals_created"], 0)
+
+            with sqlite3.connect(db) as conn:
+                conn.execute(
+                    "UPDATE canonical_items SET content_hash='legacy-semantic-output', payload_json='{}' "
+                    "WHERE canonical_key='mpt:CCO-2026-001'"
+                )
+                conn.commit()
+
+            reparsed = run_source(
+                "S13", registry=registry, now=datetime(2026, 9, 2, 13, 1, tzinfo=UTC),
+                fetcher=FixtureFetcher(sitemap, tender), sleeper=lambda _seconds: None, force=True,
+                database=db, evidence=evidence, worker_context={"run_id": "semantic-reparse"},
+            )
+            self.assertTrue(reparsed["health_probe"])
+            self.assertEqual(reparsed["changed"], 1)
+            self.assertEqual(reparsed["signals_created"], 0)
+
+            with sqlite3.connect(db) as conn:
+                signal_count = conn.execute("SELECT COUNT(*) FROM signals").fetchone()[0]
+                payload_json = conn.execute(
+                    "SELECT payload_json FROM canonical_items WHERE canonical_key='mpt:CCO-2026-001'"
+                ).fetchone()[0]
+            self.assertEqual(signal_count, 0)
+            self.assertEqual(json.loads(payload_json)["business_stage"], "OPPORTUNITY")
+
     def test_recovery_reconciliation_is_bounded_durable_and_deduplicated(self) -> None:
         raw = json.loads(json.dumps(Registry.load(ROOT).raw))
         source = raw["sources"]["S13"]

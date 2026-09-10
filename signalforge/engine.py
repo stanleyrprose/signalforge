@@ -839,10 +839,16 @@ def run_source(
             fetched += 1
             with connect(database) as conn, conn:
                 discovery = conn.execute(
-                    "SELECT suppress_signal_once FROM discovery_items WHERE source_id=? AND url=?",
+                    "SELECT suppress_signal_once,content_hash FROM discovery_items WHERE source_id=? AND url=?",
                     (source_id, entry.url),
                 ).fetchone()
                 suppress_once = bool(discovery and int(discovery["suppress_signal_once"] or 0))
+                evidence_unchanged = bool(
+                    not attachment_captures
+                    and discovery
+                    and discovery["content_hash"]
+                    and str(discovery["content_hash"]) == detail_capture.sha256
+                )
                 conn.execute(
                     """
                     UPDATE discovery_items
@@ -899,7 +905,7 @@ def run_source(
                             source_id=source_id,
                             tender=tender,
                             observed_at=observed_at,
-                            suppress_signal=baseline or suppress_once,
+                            suppress_signal=baseline or suppress_once or evidence_unchanged,
                             evidence_digest=evidence_digest,
                         )
                         detail_changed += int(changed)
