@@ -1430,3 +1430,14 @@ Evidence: `docs/verification/S39-ENERGY-MULTI-REFERENCE-READ-LAYER-PRODUCTION-CL
 - Final production: `209 canonical / 45 signals / 8 OPEN + 1 UNKNOWN / backlog0 / Telegram pending0 / DB quick_check ok`; both timers active. No source refresh or state migration.
 
 Evidence: `docs/verification/MULTI-REFERENCE-EVIDENCE-LABEL-HOTFIX-PRODUCTION-CLOSURE-2026-09-10.md`.
+
+## Authoritative Telegram time-based urgency escalation audit checkpoint — 2026-09-10
+
+- Runtime behavior already satisfies time-only escalation: an unchanged signal can move from non-attention/MEDIUM or PRIORITIZE to `ACT_NOW/HIGH/URGENT` as remaining time crosses `<=72h`.
+- Delivery key includes `channel + canonical_key + latest_signal_id + attention_action`, so action upgrades re-deliver once and then deduplicate by success receipt.
+- Bangkok Telegram timer runs every 5 minutes with `RandomizedDelaySec=10s`; no source update is required to evaluate urgency.
+- Production dry-run at `2026-09-11 16:01 Myanmar` for `industry:1034` produced one pending `ACT_NOW/HIGH/URGENT` delivery with the same signal id; receipts remained `4 -> 4`.
+- Added real end-to-end deadline-crossing regression. Telegram tests `11 passed`; full suite `264 passed`.
+- No runtime logic/config/DB/source/Browser/Provider/Worker/Control/Beijing change and no BKK deploy required. Production runtime remains `3700e675327cd599797fc0eaef8ddb8d0e289005`.
+
+Evidence: `docs/verification/TELEGRAM-TIME-BASED-URGENCY-ESCALATION-AUDIT-2026-09-10.md`.
