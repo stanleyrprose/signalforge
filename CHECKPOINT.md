@@ -1441,3 +1441,15 @@ Evidence: `docs/verification/MULTI-REFERENCE-EVIDENCE-LABEL-HOTFIX-PRODUCTION-CL
 - No runtime logic/config/DB/source/Browser/Provider/Worker/Control/Beijing change and no BKK deploy required. Production runtime remains `3700e675327cd599797fc0eaef8ddb8d0e289005`.
 
 Evidence: `docs/verification/TELEGRAM-TIME-BASED-URGENCY-ESCALATION-AUDIT-2026-09-10.md`.
+
+## Authoritative S39 ICT focus-reference checkpoint — 2026-09-10
+
+- Active Bangkok runtime: `33a0aafa35ac01225d3b988be842f47245b47514`; rollback `3700e675327cd599797fc0eaef8ddb8d0e289005`; archive SHA256 `678d8ccc32b874f7b53cbaa7006009f3892028821be2572dd7806850ab50d67d`.
+- PR #141 Actions run `34491863462` PASS; targeted opportunities/briefing/Telegram tests `26 passed`; full suite `267 passed`.
+- `energy:235` keeps all 11 DMP references and now derives four narrow ICT/Telecom focus references: `DMP/L-026(26-27)`, `DMP/L-067(26-27)`, `DMP/L-073(26-27)`, `DMP/L-089(26-27)`.
+- Focus derivation is read-only and limited to S39 + reviewed Energy text-PDF completeness + existing multi-reference DMP bundle + narrow explicit ICT/Telecom terms. Non-ICT lots remain excluded.
+- Briefing prefers `focus_scope_summary` for attention excerpts; Telegram retains the full reference line and adds `🧩 相关分包`. Delivery identity is unchanged, so the display enrichment does not replay old receipts.
+- Production-copy DB SHA `d5b14acb83b0bb635cc4206a1fe93fa82a4af44a9f0b5741433cdfcec09b3a7b` was unchanged before/after read. Live canonical payload has no persisted focus fields.
+- Final production remains `8 OPEN + 1 UNKNOWN / 209 canonical / 45 signals / backlog0 / Telegram pending0 / DB quick_check ok`; both timers active. No source refresh or state migration.
+
+Evidence: `docs/verification/S39-ICT-FOCUS-REFERENCES-PRODUCTION-CLOSURE-2026-09-10.md`.
