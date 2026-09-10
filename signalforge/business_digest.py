@@ -12,6 +12,7 @@ from .briefing import business_briefing
 from .config import Registry, db_path
 from .db import connect
 from .telegram_delivery import TelegramDeliveryError, _send_message
+from .source_scorecard import source_scorecard
 
 DIGEST_VERSION = 1
 DIGEST_CHANNEL = "telegram-business-digest"
@@ -58,6 +59,7 @@ def business_digest(
 
     briefing = business_briefing(database=target, now=now, registry=registry)
     audit_result = audit(database=target, registry=registry, now=now, network=audit_network)
+    scorecard_result = source_scorecard(database=target, now=now, registry=registry, window_days=30)
 
     with connect(target) as conn:
         run_row = conn.execute(
@@ -146,6 +148,7 @@ def business_digest(
             "telegram_alerts_24h": alert_24h,
             "telegram_digests": digest_total,
         },
+        "source_yield": scorecard_result.get("summary") or {},
         "business": {
             "current_opportunities": briefing.get("current_opportunities"),
             "current_counts": briefing.get("current_counts"),
@@ -174,7 +177,8 @@ def render_business_digest(digest: dict[str, object]) -> str:
     totals = digest.get("pipeline_totals") or {}
     business = digest.get("business") or {}
     auditor = digest.get("auditor") or {}
-    assert isinstance(sources, dict) and isinstance(activity, dict) and isinstance(totals, dict) and isinstance(business, dict) and isinstance(auditor, dict)
+    source_yield = digest.get("source_yield") or {}
+    assert isinstance(sources, dict) and isinstance(activity, dict) and isinstance(totals, dict) and isinstance(business, dict) and isinstance(auditor, dict) and isinstance(source_yield, dict)
 
     priorities = business.get("priority_counts") or {}
     if not isinstance(priorities, dict):
@@ -183,11 +187,17 @@ def render_business_digest(digest: dict[str, object]) -> str:
     if not isinstance(attention, list):
         attention = []
 
+    yield_states = source_yield.get("yield_states") or {}
+    if not isinstance(yield_states, dict):
+        yield_states = {}
+    proven_sources = int(yield_states.get("ACTIONABLE_PROVEN", 0) or 0) + int(yield_states.get("SIGNAL_PROVEN", 0) or 0)
+
     lines = [
         "📊 <b>SignalForge Myanmar Business Digest</b>",
         f"🗓 {html.escape(str(digest.get('digest_date') or ''))} · 过去24小时",
         "",
         f"📡 Sources：<b>{sources.get('monitored', 0)}</b> monitored · {sources.get('green', 0)} GREEN · {sources.get('non_green', 0)} degraded",
+        f"🧭 Source产出：<b>{proven_sources}/{source_yield.get('active_sources', sources.get('monitored', 0))}</b> proven · actionable {yield_states.get('ACTIONABLE_PROVEN', 0)} · signal-only {yield_states.get('SIGNAL_PROVEN', 0)} · baseline {yield_states.get('BASELINE_ONLY', 0)} · noise-only {yield_states.get('NOISE_ONLY_HISTORY', 0)} · empty {yield_states.get('EMPTY', 0)}",
         f"🔄 采集：{activity.get('scheduler_runs', 0)} runs · {sources.get('changed_24h', 0)} sources changed · {activity.get('records_changed', 0)} records changed",
         f"🧾 Evidence：{activity.get('evidence_fetched', 0)} fetched · {activity.get('items_parsed', 0)} items parsed",
         f"📈 Signals：<b>{activity.get('signals', 0)}</b>（NEW {activity.get('new_signals', 0)} / UPDATED {activity.get('updated_signals', 0)}）",
@@ -227,7 +237,7 @@ def render_business_digest(digest: dict[str, object]) -> str:
         "",
         f"🛡 Auditor：<b>{html.escape(str(auditor.get('status') or 'UNKNOWN'))}</b> · findings {auditor.get('finding_count', '?')}",
         f"📶 Telecom覆盖：MPT missing {mpt.get('missing', '?')} · MYTEL {mytel.get('canonical_keys', '?')}/{mytel.get('official_keys', '?')}（missing {mytel_missing}） · ATOM {atom.get('status', 'UNKNOWN')}",
-        f"🗃 累计：{totals.get('canonical_items', 0)} canonical · {totals.get('signals', 0)} signals",
+        f"🗃 累计：{totals.get('canonical_items', 0)} canonical · {source_yield.get('effective_signals', '?')} effective / {totals.get('signals', 0)} raw signals",
     ])
 
     text = "\n".join(lines)
