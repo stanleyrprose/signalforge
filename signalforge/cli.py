@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from . import VERB_MANIFEST_VERSION
+from .auditor import audit
 from .briefing import business_briefing
 from .config import Registry, SOURCE_ID_PATTERN, db_path
 from .db import connect, migrate
@@ -37,6 +38,7 @@ def verb_manifest() -> dict[str, object]:
             "signalforge-status": {"helper_command": "status", "argument": None},
             "signalforge-opportunities": {"helper_command": "opportunities", "argument": None},
             "signalforge-briefing": {"helper_command": "briefing", "argument": None},
+            "signalforge-audit": {"helper_command": "audit", "argument": None},
             "signalforge-run-due": {"helper_command": "run-due", "argument": None},
             "signalforge-refresh": {"helper_command": "refresh-source", "argument": "source_id"},
             "signalforge-pause": {"helper_command": None, "argument": None},
@@ -266,6 +268,8 @@ def main(argv: list[str] | None = None) -> int:
     opportunities_parser.add_argument("--include-expired", action="store_true")
     opportunities_parser.add_argument("--limit", type=int, default=50)
     sub.add_parser("briefing")
+    audit_parser = sub.add_parser("audit")
+    audit_parser.add_argument("--no-network", action="store_true")
     telegram_parser = sub.add_parser("telegram-deliver")
     telegram_parser.add_argument("--dry-run", action="store_true")
     sub.add_parser("status")
@@ -374,6 +378,8 @@ def main(argv: list[str] | None = None) -> int:
             )
         elif args.cmd == "briefing":
             result = business_briefing()
+        elif args.cmd == "audit":
+            result = audit(network=not bool(args.no_network))
         elif args.cmd == "telegram-deliver":
             result = telegram_deliver(dry_run=bool(args.dry_run))
         else:
