@@ -179,7 +179,15 @@ Daily Business Digest uses a separate once-per-Myanmar-calendar-day receipt. Bef
 
 ### 2026-09-11 08:30 scheduled Digest gate
 
-**Pending final live verification in this report branch.** The production timer was enabled/active and scheduled for `2026-09-11 08:30:04 +0630`. Final report closure must confirm service success and the 2026-09-11 success receipt without manually sending the Digest.
+**PASS.** The production timer fired naturally; no manual Telegram send was invoked by this audit.
+
+- `signalforge-telegram-digest.service` started at `2026-09-11 08:30:04 +0630` and completed at `08:30:09` with `status=0/SUCCESS`.
+- SignalForge reported `status=PASS / sent_count=1 / pending_count=1 / digest_date=2026-09-11` and Telegram provider `message_id=8`.
+- The durable digest receipt table advanced from one row to two rows and now contains `2026-09-11 / telegram-business-digest / provider message 8 / sent_at 2026-09-11T02:00:09.809045Z` in addition to the prior 2026-09-10 receipt.
+- A post-send `telegram-digest --dry-run --no-network` returned `deduplicated=true / pending_count=0 / sent_count=0`, verifying once-per-Myanmar-calendar-day receipt dedup without another network send.
+- The timer remained enabled/active and advanced to the next scheduled run on 2026-09-12 at about 08:30 Yangon.
+
+The oneshot service is expected to show `inactive (dead)` after successful completion; its process exit was `0/SUCCESS`, so that inactive state is not a failure.
 
 ## 9. Decision
 
