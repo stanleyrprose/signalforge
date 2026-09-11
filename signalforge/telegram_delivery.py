@@ -67,6 +67,8 @@ def _opening_text(item: dict[str, object]) -> str | None:
 def _reason_text(item: dict[str, object]) -> str:
     mapping = {
         "DEADLINE_WITHIN_72H": "截止时间已进入72小时窗口",
+        "COMMERCIAL_EVENT_WITHIN_72H": "商业活动已进入72小时窗口",
+        "COMMERCIAL_EVENT_DATE_KNOWN": "官方商业活动日期明确",
         "STRATEGIC_FIT_ICT_TELECOM": "ICT/Telecom 战略相关",
         "HUMAN_REVIEW_REQUIRED": "需要人工确认后再行动",
         "DEADLINE_UNKNOWN": "官方未给出明确截止时间",
@@ -124,13 +126,20 @@ def render_telegram_message(item: dict[str, object]) -> str:
     priority = html.escape(str(item.get("priority_band") or "LOW"))
     signal_type = html.escape(str(item.get("latest_signal_type") or ""))
 
+    issuer_label = "卖方" if item.get("commercial_direction") == "BUY_FROM_ISSUER" else "买方"
     lines = [
         f"{icon} <b>{_action_label(action)}</b> · {priority} · {trust}级 · {relevance}",
         f"<b>{title}</b>",
         "",
-        f"🏛 买方：{issuer}",
-        f"⏰ {_deadline_label(item)}：<b>{html.escape(_deadline_text(item))}</b>",
+        f"🏛 {issuer_label}：{issuer}",
     ]
+    if item.get("deadline_status") != "UNKNOWN":
+        lines.append(f"⏰ {_deadline_label(item)}：<b>{html.escape(_deadline_text(item))}</b>")
+    elif item.get("action_date"):
+        action_date = f"{item.get('action_date')} {item.get('action_time') or ''}".strip()
+        lines.append(f"🗓 活动日：<b>{html.escape(action_date)}</b>")
+    else:
+        lines.append(f"⏰ {_deadline_label(item)}：<b>{html.escape(_deadline_text(item))}</b>")
     opening = _opening_text(item)
     if opening:
         lines.append(f"🗓 开标：<b>{html.escape(opening)}</b>")

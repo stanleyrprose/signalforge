@@ -27,7 +27,7 @@ def _insert_canonical(conn, *, key: str, source_id: str, payload: dict[str, obje
         (
             key,
             source_id,
-            "TENDER",
+            str(payload.get("item_kind") or "TENDER"),
             str(payload.get("title") or key),
             str(payload.get("reference_no") or key),
             str(payload.get("project_name") or payload.get("title") or key),
@@ -163,6 +163,47 @@ class OpportunityViewTests(unittest.TestCase):
             self.assertIn("Desktop Computer", row["focus_scope_summary"])
             self.assertEqual(row["reference_no"], "ENERGY-27-2026-2027")
             self.assertEqual(row["deadline_kind"], "BID_SUBMISSION_DEADLINE")
+
+
+    def test_commercial_auction_notice_uses_action_date_without_fake_deadline(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            database = Path(tmp) / "signalforge.db"
+            migrate(database)
+            payload = {
+                "item_kind": "AUCTION_NOTICE",
+                "business_stage": "OPPORTUNITY",
+                "title": "Local Marketing and Milling Department, Open Tender No (6/2026-2027)(15.9.2026)",
+                "reference_no": "MTE-LOCAL-6/2026-2027",
+                "deadline": None,
+                "deadline_evidence": "UNKNOWN_IN_IMAGE_SUPPLEMENT_NOT_PARSED",
+                "action_date": "2026-09-15",
+                "action_date_kind": "TENDER_EVENT_DATE",
+                "action_date_evidence": "EXPLICIT_OFFICIAL_TITLE_DATE",
+                "commercial_event_type": "SELLER_OPEN_TENDER_SALE",
+                "commercial_direction": "BUY_FROM_ISSUER",
+                "scope_summary": "Local Marketing and Milling Department open tender sale; official image carries supplementary lot details.",
+                "detail_completeness": "HTML_EVENT_SCOPE_REFERENCE_IMAGE_SUPPLEMENT_UNPARSED",
+                "url": "https://mte.gov.mm/index.php/en/annoucements/17-tenders/local-milling-marketing-dept-tender/1605-392026",
+            }
+            with connect(database) as conn, conn:
+                _insert_canonical(conn, key="mte:1605", source_id="S32", payload=payload)
+                _insert_signal(conn, signal_id="sig-mte-1605", source_id="S32", key="mte:1605", created_at="2026-09-11T02:00:00Z")
+            result = current_opportunities(database=database, now=datetime(2026, 9, 11, 2, 0, tzinfo=UTC), source_id="S32")
+            self.assertEqual(result["count"], 1)
+            self.assertEqual(result["counts"], {"OPEN": 1, "UNKNOWN": 0, "EXPIRED": 0})
+            row = result["opportunities"][0]
+            self.assertEqual(row["item_kind"], "AUCTION_NOTICE")
+            self.assertEqual(row["deadline_status"], "UNKNOWN")
+            self.assertIsNone(row["deadline_at"])
+            self.assertEqual(row["action_date"], "2026-09-15")
+            self.assertEqual(row["action_date_kind"], "TENDER_EVENT_DATE")
+            self.assertEqual(row["opportunity_status"], "OPEN")
+            self.assertEqual(row["actionability"], "OPEN")
+            self.assertEqual(row["trust_grade"], "B")
+            self.assertEqual(row["priority_band"], "REVIEW")
+            self.assertIn("EXPLICIT_ACTION_DATE", row["qualification_reasons"])
+            self.assertNotIn("DEADLINE_UNKNOWN", row["qualification_reasons"])
+            self.assertEqual(row["commercial_direction"], "BUY_FROM_ISSUER")
 
     def test_default_view_is_signal_backed_deduped_and_active_only(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

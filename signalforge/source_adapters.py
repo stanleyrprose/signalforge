@@ -416,9 +416,9 @@ ADAPTERS = {
     "mte_tender": SourceAdapter(
         name="mte_tender",
         discovery_content_types=("text/html",),
-        discovery_parser_version="mte-announcement-archive-v1",
+        discovery_parser_version="mte-announcement-archive-v2",
         detail_parser_version="not-applicable",
-        normalizer_version="mte-procurement-normalize-v1",
+        normalizer_version="mte-commercial-event-normalize-v2",
         canonicalizer_version="mte-joomla-article-id-v1",
         parse_discovery=_empty_discovery,
         parse_detail=lambda _payload, _url: [],

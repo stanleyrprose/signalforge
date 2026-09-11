@@ -172,6 +172,7 @@
       "enabled": true,
       "role": "ACTIVE_PRIMARY",
       "audit_status": "GREEN_CANDIDATE_PARSE_STRONG",
+      "item_kind": "TENDER",
       "network_zone": "myanmar-international",
       "engine": "direct_http",
       "landing_url": "https://www.railways.gov.mm/tenders/",
@@ -198,6 +199,11 @@
       "request_delay_ms": 250,
       "canonical_key": "issuer_reference_no",
       "first_baseline_customer_signal": false,
+      "actionable_baseline_signal_policy": {
+        "enabled": true,
+        "min_remaining_seconds": 43200,
+        "max_signals_per_run": 10
+      },
       "bootstrap_seed_urls": [
         "https://www.railways.gov.mm/%e1%80%95%e1%80%ad%e1%80%af%e1%80%b7%e1%80%86%e1%80%b1%e1%80%ac%e1%80%84%e1%80%ba%e1%80%9b%e1%80%b1%e1%80%b8%e1%81%80%e1%80%94%e1%80%ba%e1%80%80%e1%80%bc%e1%80%ae%e1%80%b8%e1%80%8c%e1%80%ac-22/",
         "https://www.railways.gov.mm/%e1%80%95%e1%80%ad%e1%80%af%e1%80%b7%e1%80%86%e1%80%b1%e1%80%ac%e1%80%84%e1%80%ba%e1%80%9b%e1%80%b1%e1%80%b8%e1%81%80%e1%80%94%e1%80%ba%e1%80%80%e1%80%bc%e1%80%ae%e1%80%b8%e1%80%8c%e1%80%ac-21/"
@@ -253,6 +259,7 @@
       "enabled": true,
       "role": "ACTIVE_PRIMARY",
       "audit_status": "GREEN_CANDIDATE_PARSE_STRONG",
+      "item_kind": "TENDER",
       "network_zone": "myanmar-international",
       "engine": "direct_http",
       "landing_url": "https://iwt.gov.mm/tenders",
@@ -279,6 +286,11 @@
       "request_delay_ms": 250,
       "canonical_key": "issuer_record_id_publication_date",
       "first_baseline_customer_signal": false,
+      "actionable_baseline_signal_policy": {
+        "enabled": true,
+        "min_remaining_seconds": 43200,
+        "max_signals_per_run": 10
+      },
       "bootstrap_seed_urls": [
         "https://iwt.gov.mm/my/node/1038",
         "https://iwt.gov.mm/my/node/1037",
@@ -1394,11 +1406,11 @@
       }
     },
     "S32": {
-      "name": "Myanma Timber Enterprise Procurement Invitations",
+      "name": "Myanma Timber Enterprise Procurement + Local Tender Sales",
       "adapter": "mte_tender",
       "enabled": true,
       "role": "ACTIVE_SELECTIVE",
-      "audit_status": "GREEN_DIRECT_HTTP_JOOMLA_ANNOUNCEMENT_SELECTIVE_PROCUREMENT",
+      "audit_status": "GREEN_DIRECT_HTTP_JOOMLA_SELECTIVE_PROCUREMENT_COMMERCIAL_TENDER",
       "item_kind": "TENDER",
       "network_zone": "myanmar-international",
       "engine": "direct_http",
@@ -1428,7 +1440,7 @@
       "canonical_key": "joomla_article_id",
       "first_baseline_customer_signal": false,
       "bootstrap_seed_urls": [],
-      "selection_policy_version": 1,
+      "selection_policy_version": 2,
       "health_policy": {
         "freshness_yellow_seconds": 3600,
         "freshness_red_seconds": 5400,

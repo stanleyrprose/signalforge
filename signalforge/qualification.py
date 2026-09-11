@@ -122,8 +122,9 @@ def _relevance_categories(item: dict[str, object], source_policy: dict[str, Any]
 
 def qualify_opportunity(item: dict[str, object], source_policy: dict[str, Any] | None = None) -> dict[str, object]:
     deadline_status = str(item.get("deadline_status") or "UNKNOWN")
+    opportunity_status = str(item.get("opportunity_status") or deadline_status)
     remaining = item.get("remaining_seconds")
-    if deadline_status == "EXPIRED":
+    if opportunity_status == "EXPIRED":
         urgency = "EXPIRED"
     elif not isinstance(remaining, int):
         urgency = "UNKNOWN"
@@ -137,6 +138,7 @@ def qualify_opportunity(item: dict[str, object], source_policy: dict[str, Any] |
     evidence_level = _evidence_level(item, source_policy)
     scope_present = _has_business_scope(item)
     explicit_deadline = deadline_status != "UNKNOWN"
+    explicit_action_date = bool(item.get("action_date")) and bool(item.get("action_date_evidence"))
     deadline_evidence = bool(item.get("deadline_evidence")) or "DEADLINE" in str(item.get("detail_completeness") or "").upper()
 
     if scope_present and explicit_deadline and deadline_evidence:
@@ -153,11 +155,11 @@ def qualify_opportunity(item: dict[str, object], source_policy: dict[str, Any] |
     primary_relevance = relevance_categories[0]
     strategic = any(category in {"ICT", "TELECOM"} for category in relevance_categories)
 
-    if deadline_status == "EXPIRED" or trust_grade == "C":
+    if opportunity_status == "EXPIRED" or trust_grade == "C":
         priority_band = "LOW"
-    elif deadline_status == "OPEN" and trust_grade == "A" and (strategic or urgency == "URGENT"):
+    elif opportunity_status == "OPEN" and trust_grade == "A" and (strategic or urgency == "URGENT"):
         priority_band = "HIGH"
-    elif deadline_status == "OPEN" and trust_grade == "A":
+    elif opportunity_status == "OPEN" and trust_grade == "A":
         priority_band = "MEDIUM"
     else:
         priority_band = "REVIEW"
@@ -166,7 +168,12 @@ def qualify_opportunity(item: dict[str, object], source_policy: dict[str, Any] |
     if str((source_policy or {}).get("engine") or "") == "provider":
         reasons.append("PROVIDER_ACQUISITION")
     reasons.append("BUSINESS_SCOPE_PRESENT" if scope_present else "BUSINESS_SCOPE_PARTIAL")
-    reasons.append("EXPLICIT_DEADLINE" if explicit_deadline else "DEADLINE_UNKNOWN")
+    if explicit_deadline:
+        reasons.append("EXPLICIT_DEADLINE")
+    elif explicit_action_date:
+        reasons.append("EXPLICIT_ACTION_DATE")
+    else:
+        reasons.append("DEADLINE_UNKNOWN")
     if int(item.get("reference_count") or 0) > 1:
         reference_evidence = str(item.get("reference_numbers_evidence") or "")
         if reference_evidence == "HTML_TITLE":
@@ -179,7 +186,7 @@ def qualify_opportunity(item: dict[str, object], source_policy: dict[str, Any] |
     return {
         "qualification_policy_version": QUALIFICATION_POLICY_VERSION,
         "trust_grade": trust_grade,
-        "actionability": deadline_status,
+        "actionability": opportunity_status,
         "urgency": urgency,
         "evidence_level": evidence_level,
         "completeness": completeness,

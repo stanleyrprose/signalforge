@@ -161,6 +161,38 @@ class IwtEngineTests(unittest.TestCase):
             self.assertEqual(updated, ("2026-11-10", "IWT-NODE-1038"))
             self.assertEqual(marker, "iwt:1038:2026-08-25")
 
+    def test_actionable_baseline_reconciliation_promotes_only_still_future_iwt_tender(self) -> None:
+        registry = _iwt_registry()
+        listing = (FIXTURES / "iwt_tender_list.html").read_bytes()
+        detail_1038 = (FIXTURES / "iwt_tender_1038.html").read_bytes()
+        detail_1037 = _detail_1037(detail_1038)
+        mapping = {LIST_URL: listing, NODE_1038: detail_1038, NODE_1037: detail_1037}
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            db = base / "signalforge.db"
+            evidence = base / "evidence"
+            baseline = run_source(
+                "S22", registry=registry, now=datetime(2026, 9, 11, 1, 0, tzinfo=UTC),
+                fetcher=MapFetcher(mapping), sleeper=lambda _seconds: None, force=True,
+                database=db, evidence=evidence, worker_context={"run_id": "iwt-reconcile-baseline"},
+            )
+            self.assertEqual(baseline["signals_created"], 0)
+            reconciled = run_source(
+                "S22", registry=registry, now=datetime(2026, 9, 11, 2, 1, tzinfo=UTC),
+                fetcher=MapFetcher({LIST_URL: listing, NODE_1038: detail_1038}), sleeper=lambda _seconds: None, force=True,
+                database=db, evidence=evidence, worker_context={"run_id": "iwt-reconcile-delta"},
+            )
+            self.assertEqual(reconciled["changed"], 0)
+            self.assertEqual(reconciled["signals_created"], 1)
+            with sqlite3.connect(db) as conn:
+                row = conn.execute("SELECT canonical_key,payload_json FROM signals").fetchone()
+            assert row is not None
+            self.assertEqual(row[0], "iwt:1038:2026-08-25")
+            payload = json.loads(row[1])
+            self.assertEqual(payload["signal_reason"], "ACTIONABLE_BASELINE_RECONCILIATION")
+            self.assertEqual(payload["deadline"], "2026-11-03")
+
+
 
 if __name__ == "__main__":
     unittest.main()

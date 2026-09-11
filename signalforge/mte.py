@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from datetime import datetime
 from html.parser import HTMLParser
 from urllib.parse import quote, unquote, urljoin, urlsplit, urlunsplit
 
@@ -10,7 +11,7 @@ from .mpt import normalize_text
 MTE_ANNOUNCEMENTS_URL = "https://mte.gov.mm/index.php/en/annoucements"
 MTE_ISSUER = "Myanma Timber Enterprise"
 MTE_HOSTS = {"mte.gov.mm", "www.mte.gov.mm"}
-SELECTION_POLICY_VERSION = 1
+SELECTION_POLICY_VERSION = 2
 
 _STRONG_PROCUREMENT_TOKENS = (
     "ဝန်ဆောင်မှုရယူရန်",
@@ -55,7 +56,9 @@ def _canonical_article_url(raw_url: str, page_url: str = MTE_ANNOUNCEMENTS_URL) 
     if parsed.scheme != "https" or parsed.netloc.lower() not in MTE_HOSTS:
         return None
     path = unquote(parsed.path)
-    match = re.search(r"/(?:annoucements|announcements-mm)/(\d+)(?:-|$)", path, flags=re.I)
+    if not re.search(r"/(?:annoucements|announcements-mm)/", path, flags=re.I):
+        return None
+    match = re.search(r"/(\d+)(?:-[^/]*)?/?$", path, flags=re.I)
     if match is None:
         return None
     article_id = match.group(1)
@@ -76,6 +79,28 @@ def is_procurement_event(text: str) -> bool:
     if "ဝယ်ယူလို" in value or "ဝယ္ယူလို" in value:
         return "ပေးသွင်းရန်" in value or "ဖိတ်ခေါ်" in value
     return any(token.lower() in lower for token in _STRONG_PROCUREMENT_TOKENS[-3:]) and "tender" in lower
+
+
+_LOCAL_TENDER_CATEGORY = "/local-milling-marketing-dept-tender/"
+_LOCAL_TENDER_TITLE_RE = re.compile(
+    r"Local Marketing and Milling Department,\s*Open Tender No\s*\(([^)]+)\)\s*\((\d{1,2})\.(\d{1,2})\.(20\d{2})\)",
+    flags=re.I,
+)
+
+def _local_tender_sale(text: str, href: str) -> tuple[str, str, str] | None:
+    if _LOCAL_TENDER_CATEGORY not in unquote(href).lower():
+        return None
+    normalized = normalize_text(text)
+    match = _LOCAL_TENDER_TITLE_RE.search(normalized)
+    if match is None:
+        return None
+    reference, day, month, year = match.groups()
+    try:
+        action_date = datetime(int(year), int(month), int(day)).date().isoformat()
+    except ValueError:
+        return None
+    title = normalize_text(match.group(0))
+    return title, f"MTE-LOCAL-{normalize_text(reference)}", action_date
 
 
 def _extract_reference_no(paragraphs: tuple[str, ...]) -> str | None:
@@ -109,8 +134,13 @@ class MteTender:
     reference_no_value: str | None
     scope_summary: str
     url: str
+    item_kind: str = "TENDER"
+    commercial_event_type: str | None = None
+    commercial_direction: str | None = None
+    action_date: str | None = None
+    action_date_kind: str | None = None
+    action_date_evidence: str | None = None
 
-    item_kind = "TENDER"
     publication_date = None
     deadline = None
     location = None
@@ -128,7 +158,7 @@ class MteTender:
         return f"mte:{self.article_id}"
 
     def payload(self) -> dict[str, object]:
-        return {
+        payload: dict[str, object] = {
             "item_kind": self.item_kind,
             "issuer": MTE_ISSUER,
             "title": self.title,
@@ -140,12 +170,25 @@ class MteTender:
             "deadline": None,
             "deadline_evidence": "UNKNOWN_IN_IMAGE_SUPPLEMENT_NOT_PARSED",
             "scope_summary": self.scope_summary,
-            "selection_policy_version": SELECTION_POLICY_VERSION,
+            # Existing buyer-procurement records deliberately preserve their v1
+            # canonical payload so parser-v2 selection does not manufacture UPDATED signals.
+            "selection_policy_version": 1 if self.item_kind == "TENDER" else SELECTION_POLICY_VERSION,
             "business_stage": "OPPORTUNITY",
             "detail_completeness": "HTML_EVENT_SCOPE_REFERENCE_IMAGE_SUPPLEMENT_UNPARSED",
             "supplementary_image_policy": "UNFETCHED_NON_BLOCKING",
             "url": self.url,
         }
+        if self.item_kind == "AUCTION_NOTICE":
+            payload.update(
+                {
+                    "action_date": self.action_date,
+                    "action_date_kind": self.action_date_kind,
+                    "action_date_evidence": self.action_date_evidence,
+                    "commercial_event_type": self.commercial_event_type,
+                    "commercial_direction": self.commercial_direction,
+                }
+            )
+        return payload
 
 
 @dataclass(frozen=True)
@@ -153,6 +196,37 @@ class _ArchiveCard:
     paragraphs: tuple[str, ...]
     text: str
     href: str
+
+
+class _LocalTenderLinkParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.links: list[tuple[str, str]] = []
+        self._href: str | None = None
+        self._parts: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs) -> None:  # type: ignore[no-untyped-def]
+        if tag.lower() != "a" or self._href is not None:
+            return
+        href = _attr(attrs, "href")
+        if href and _LOCAL_TENDER_CATEGORY in unquote(href).lower():
+            self._href = href
+            self._parts = []
+
+    def handle_data(self, data: str) -> None:
+        if self._href is not None:
+            value = normalize_text(data)
+            if value:
+                self._parts.append(value)
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag.lower() != "a" or self._href is None:
+            return
+        text = normalize_text(" ".join(self._parts))
+        if text:
+            self.links.append((self._href, text))
+        self._href = None
+        self._parts = []
 
 
 class MteAnnouncementsParser(HTMLParser):
@@ -237,7 +311,9 @@ def parse_tender_records(html_bytes: bytes, page_url: str = MTE_ANNOUNCEMENTS_UR
     selected: list[MteTender] = []
     seen: set[str] = set()
     for card in parser.cards:
-        if not is_procurement_event(card.text):
+        procurement = is_procurement_event(card.text)
+        commercial = _local_tender_sale(card.text, card.href)
+        if not procurement and commercial is None:
             continue
         identity = _canonical_article_url(card.href, page_url)
         if identity is None:
@@ -246,6 +322,24 @@ def parse_tender_records(html_bytes: bytes, page_url: str = MTE_ANNOUNCEMENTS_UR
         if article_id in seen:
             continue
         seen.add(article_id)
+        if commercial is not None:
+            title, reference_no, action_date = commercial
+            selected.append(
+                MteTender(
+                    article_id=article_id,
+                    title=title,
+                    reference_no_value=reference_no,
+                    scope_summary=card.text[:2000],
+                    url=canonical_url,
+                    item_kind="AUCTION_NOTICE",
+                    commercial_event_type="SELLER_OPEN_TENDER_SALE",
+                    commercial_direction="BUY_FROM_ISSUER",
+                    action_date=action_date,
+                    action_date_kind="TENDER_EVENT_DATE",
+                    action_date_evidence="EXPLICIT_OFFICIAL_TITLE_DATE",
+                )
+            )
+            continue
         title = _best_title(card.paragraphs, card.text)
         selected.append(
             MteTender(
@@ -254,6 +348,36 @@ def parse_tender_records(html_bytes: bytes, page_url: str = MTE_ANNOUNCEMENTS_UR
                 reference_no_value=_extract_reference_no(card.paragraphs),
                 scope_summary=card.text[:2000],
                 url=canonical_url,
+            )
+        )
+
+    link_parser = _LocalTenderLinkParser()
+    link_parser.feed(html_bytes.decode("utf-8", errors="replace"))
+    for href, text in link_parser.links:
+        commercial = _local_tender_sale(text, href)
+        if commercial is None:
+            continue
+        identity = _canonical_article_url(href, page_url)
+        if identity is None:
+            continue
+        article_id, canonical_url = identity
+        if article_id in seen:
+            continue
+        seen.add(article_id)
+        title, reference_no, action_date = commercial
+        selected.append(
+            MteTender(
+                article_id=article_id,
+                title=title,
+                reference_no_value=reference_no,
+                scope_summary=text[:2000],
+                url=canonical_url,
+                item_kind="AUCTION_NOTICE",
+                commercial_event_type="SELLER_OPEN_TENDER_SALE",
+                commercial_direction="BUY_FROM_ISSUER",
+                action_date=action_date,
+                action_date_kind="TENDER_EVENT_DATE",
+                action_date_evidence="EXPLICIT_OFFICIAL_TITLE_DATE",
             )
         )
     return selected

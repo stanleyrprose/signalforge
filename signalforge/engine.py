@@ -287,6 +287,13 @@ def _actionable_deadline_utc(payload: dict[str, object]) -> datetime | None:
                 return None
             return parsed.astimezone(UTC)
         deadline_time = payload.get("deadline_time")
+        if deadline_time in (None, ""):
+            # Date-only issuer deadlines are eligible only against the start of
+            # that Myanmar calendar date. This is a conservative lower bound
+            # used for reconciliation eligibility/sorting; it is never written
+            # back as an invented deadline time.
+            parsed = datetime.fromisoformat(f"{raw_deadline}T00:00:00+06:30")
+            return parsed.astimezone(UTC)
         if not isinstance(deadline_time, str) or len(deadline_time) != 5 or deadline_time[2] != ":":
             return None
         parsed = datetime.fromisoformat(f"{raw_deadline}T{deadline_time}:00+06:30")
@@ -322,7 +329,10 @@ def _reconcile_actionable_baseline_signals(
             payload = json.loads(str(row["payload_json"]))
         except json.JSONDecodeError:
             continue
-        if not isinstance(payload, dict) or payload.get("business_stage") != "OPPORTUNITY":
+        if not isinstance(payload, dict):
+            continue
+        business_stage = payload.get("business_stage")
+        if business_stage not in (None, "", "OPPORTUNITY"):
             continue
         deadline = _actionable_deadline_utc(payload)
         if deadline is None or (deadline - now).total_seconds() < min_remaining:

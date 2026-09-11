@@ -33,9 +33,11 @@ class RailwayFetcher:
         raise AssertionError(f"unexpected fetch: {url}")
 
 
-def _railway_registry() -> Registry:
+def _railway_registry(*, actionable: bool = False) -> Registry:
     raw = json.loads(json.dumps(Registry.load(ROOT).raw))
     source = raw["sources"]["S21"]
+    if not actionable:
+        source.pop("actionable_baseline_signal_policy", None)
     source["bootstrap_seed_urls"] = [DETAIL_URL]
     source["baseline_detail_limit"] = 1
     source["delta_detail_limit"] = 2
@@ -129,6 +131,43 @@ class RailwayEngineTests(unittest.TestCase):
             self.assertEqual(signal, ("S21", "UPDATED", "railways:326/မမ/CE"))
             self.assertEqual(counts, {"requests": 4, "attempts": 4, "evidence": 4, "processing": 4})
             self.assertIsNone(marker)
+
+    def test_actionable_baseline_reconciliation_promotes_date_only_future_rows_without_inventing_time(self) -> None:
+        registry = _railway_registry(actionable=True)
+        listing = (FIXTURES / "railways_tender_list.html").read_bytes()
+        detail = (FIXTURES / "railways_tender_detail.html").read_bytes()
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            db = base / "signalforge.db"
+            evidence = base / "evidence"
+            baseline = run_source(
+                "S21", registry=registry, now=datetime(2026, 9, 11, 1, 0, tzinfo=UTC),
+                fetcher=RailwayFetcher(listing, detail), sleeper=lambda _seconds: None, force=True,
+                database=db, evidence=evidence, worker_context={"run_id": "railways-reconcile-baseline"},
+            )
+            self.assertEqual(baseline["signals_created"], 0)
+            reconciled = run_source(
+                "S21", registry=registry, now=datetime(2026, 9, 11, 1, 20, tzinfo=UTC),
+                fetcher=RailwayFetcher(listing, detail), sleeper=lambda _seconds: None, force=True,
+                database=db, evidence=evidence, worker_context={"run_id": "railways-reconcile-delta"},
+            )
+            self.assertEqual(reconciled["changed"], 0)
+            self.assertEqual(reconciled["signals_created"], 4)
+            idempotent = run_source(
+                "S21", registry=registry, now=datetime(2026, 9, 11, 1, 40, tzinfo=UTC),
+                fetcher=RailwayFetcher(listing, detail), sleeper=lambda _seconds: None, force=True,
+                database=db, evidence=evidence, worker_context={"run_id": "railways-reconcile-idempotent"},
+            )
+            self.assertEqual(idempotent["signals_created"], 0)
+            with sqlite3.connect(db) as conn:
+                rows = conn.execute("SELECT canonical_key,payload_json FROM signals ORDER BY canonical_key").fetchall()
+            self.assertEqual(len(rows), 4)
+            for _key, raw in rows:
+                payload = json.loads(raw)
+                self.assertEqual(payload["signal_reason"], "ACTIONABLE_BASELINE_RECONCILIATION")
+                self.assertEqual(payload["deadline"], "2026-09-14")
+                self.assertNotIn("deadline_time", payload)
+
 
 
 if __name__ == "__main__":
