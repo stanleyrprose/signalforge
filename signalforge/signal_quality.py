@@ -78,12 +78,25 @@ def score_signal_quality(item: dict[str, object], source_policy: dict[str, Any] 
 
     text = _text(item)
     scope_present = _present(item.get("scope_summary")) or _present(item.get("focus_scope_summary"))
+    reviewed_quantity = _present(item.get("quantity_or_lot_summary")) and _present(item.get("quantity_or_lot_evidence"))
     quantity_specific = scope_present and _QUANTITY_PATTERN.search(text) is not None
-    scope_score = (10 if scope_present else 0) + (10 if quantity_specific else 0)
-    scope_evidence = "SCOPE_AND_QUANTITY" if quantity_specific else ("SCOPE_ONLY" if scope_present else "MISSING_SCOPE")
+    reviewed_quantity_confidence = str(item.get("quantity_or_lot_confidence") or "HIGH").upper()
+    reviewed_quantity_score = 10 if reviewed_quantity_confidence == "HIGH" else 5 if reviewed_quantity_confidence == "MEDIUM" else 0
+    quantity_score = 10 if quantity_specific else reviewed_quantity_score if reviewed_quantity else 0
+    scope_score = (10 if scope_present else 0) + quantity_score
+    if quantity_specific:
+        scope_evidence = "SCOPE_AND_QUANTITY"
+    elif reviewed_quantity and quantity_score:
+        scope_evidence = f"SCOPE_AND_REVIEWED_QUANTITY_{reviewed_quantity_confidence}"
+    else:
+        scope_evidence = "SCOPE_ONLY" if scope_present else "MISSING_SCOPE"
     dimensions["scope_quantity"] = _dimension(scope_score, 20, scope_evidence)
     if quantity_specific:
         strengths.append("QUANTIFIED_SCOPE")
+    elif reviewed_quantity and quantity_score:
+        strengths.append("REVIEWED_QUANTIFIED_SCOPE")
+        if reviewed_quantity_confidence != "HIGH":
+            gaps.append("QUANTITY_DETAIL_REVIEW_CONFIDENCE_MEDIUM")
     elif scope_present:
         strengths.append("BUSINESS_SCOPE_KNOWN")
         gaps.append("QUANTITY_OR_LOT_DETAIL_MISSING")
@@ -126,9 +139,12 @@ def score_signal_quality(item: dict[str, object], source_policy: dict[str, Any] 
     else:
         gaps.append("LOCATION_MISSING")
 
+    reviewed_next_action = _present(item.get("next_action_summary")) and _present(item.get("next_action_evidence"))
     explicit_action = any(token in text for token in _ACTION_TOKENS)
     has_action_clock = deadline_known or action_date_known
-    if explicit_action:
+    if reviewed_next_action:
+        next_action_score, next_action_evidence = 10, str(item.get("next_action_evidence"))
+    elif explicit_action:
         next_action_score, next_action_evidence = 10, "PARTICIPATION_INSTRUCTION_PRESENT"
     elif has_action_clock:
         next_action_score, next_action_evidence = 5, "TIME_BOUND_EVENT_ONLY"

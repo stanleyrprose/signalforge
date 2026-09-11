@@ -263,7 +263,10 @@ class TelegramDeliveryTests(unittest.TestCase):
             "deadline_time": None,
             "deadline_status": "UNKNOWN",
             "action_date": "2026-09-15",
-            "action_time": None,
+            "action_time": "08:30",
+            "quantity_or_lot_summary": "Approximately 6,243 tons of teak/hardwood logs and sawn timber",
+            "location": "Myanma Timber Enterprise, Gyogon Forest Compound, Insein Township, Yangon",
+            "next_action_summary": "Complete the prescribed tender/auction application and pre-submit the required Earnest Money by Payment Order.",
             "why_now": ["COMMERCIAL_EVENT_DATE_KNOWN", "TRUSTED_EVENT_PARTIAL_ACTIONABILITY"],
             "scope_excerpt": "Official commercial tender event; image supplement carries lot details.",
             "primary_relevance": "OTHER",
@@ -274,7 +277,10 @@ class TelegramDeliveryTests(unittest.TestCase):
         })
         text = render_telegram_message(item)
         self.assertIn("🏛 卖方：Myanma Timber Enterprise", text)
-        self.assertIn("🗓 活动日：<b>2026-09-15</b>", text)
+        self.assertIn("🗓 活动日：<b>2026-09-15 08:30</b>", text)
+        self.assertIn("📦 数量/批次：Approximately 6,243 tons of teak/hardwood logs and sawn timber", text)
+        self.assertIn("📍 地点：Myanma Timber Enterprise, Gyogon Forest Compound, Insein Township, Yangon", text)
+        self.assertIn("➡️ 下一步：Complete the prescribed tender/auction application", text)
         self.assertIn("🧭 Signal质量：<b>59/100 · MEDIUM</b>", text)
         self.assertNotIn("⏰ 截止：", text)
         self.assertIn("官方商业活动日期明确", text)

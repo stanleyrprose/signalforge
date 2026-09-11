@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "review_policy": "MTE_SOURCE_SCOPED_OFFICIAL_IMAGE_PLUS_DEPARTMENT_RULES_V1",
+  "records": {
+    "mte:1605": {
+      "source_id": "S32",
+      "item_kind": "AUCTION_NOTICE",
+      "reference_no": "MTE-LOCAL-6/2026-2027",
+      "expected_action_date": "2026-09-15",
+      "article_url": "https://mte.gov.mm/index.php/en/annoucements/17-tenders/local-milling-marketing-dept-tender/1605-392026",
+      "image_url": "https://mte.gov.mm/images/2022/ll%20sep.jpg",
+      "image_sha256": "6a6c2452cf8ae18bf4985c3bd77f63bbd77ec710ad5b37ae3db51409854348e1",
+      "rules_url": "https://mte.gov.mm/index.php/mm/local-marketing-milling-department",
+      "reviewed_at": "2026-09-11",
+      "review_status": "AI_VISUAL_REVIEWED_OFFICIAL_IMAGE_AND_ISSUER_RULES",
+      "fields": {
+        "action_time": "08:30",
+        "action_time_evidence": "REVIEWED_OFFICIAL_IMAGE_EXPLICIT_TIME",
+        "location": "Myanma Timber Enterprise, Gyogon Forest Compound, Insein Township, Yangon",
+        "location_evidence": "REVIEWED_OFFICIAL_IMAGE_EXPLICIT_LOCATION",
+        "quantity_or_lot_summary": "Approximately 6,243 tons of teak/hardwood logs and sawn timber",
+        "quantity_or_lot_evidence": "REVIEWED_OFFICIAL_IMAGE_EXPLICIT_APPROX_TONNAGE",
+        "quantity_or_lot_confidence": "HIGH",
+        "next_action_summary": "Complete the prescribed tender/auction application and pre-submit the required Earnest Money by Payment Order under MTE Local Marketing & Milling Department auction rules.",
+        "next_action_evidence": "OFFICIAL_DEPARTMENT_AUCTION_RULES",
+        "image_review_notes": "Specific event time/location and approximately 6,243-ton scope are reviewed from the official 1605 image and cross-checked with local Burmese/English OCR against the same image SHA; participation mechanics are separately sourced from the issuer's published Local Marketing & Milling Department auction rules. No bid-submission deadline is inferred."
+      }
+    }
+  }
+}
