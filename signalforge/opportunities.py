@@ -346,6 +346,11 @@ def current_opportunities(
         band: sum(1 for item in rows if item.get("priority_band") == band)
         for band in ("HIGH", "MEDIUM", "REVIEW", "LOW")
     }
+    quality_counts = {
+        band: sum(1 for item in rows if item.get("signal_quality_band") == band)
+        for band in ("VERY_HIGH", "HIGH", "MEDIUM", "REVIEW", "LOW")
+    }
+    quality_scores = [int(item.get("signal_quality_score") or 0) for item in rows]
     relevance_counts: dict[str, int] = {}
     for item in rows:
         for category in item.get("relevance_categories") or []:
@@ -363,6 +368,8 @@ def current_opportunities(
         "qualification_counts": {
             "trust_grade": trust_counts,
             "priority_band": priority_counts,
+            "signal_quality_band": quality_counts,
+            "signal_quality_score_avg": round(sum(quality_scores) / len(quality_scores), 1) if quality_scores else 0.0,
             "relevance": dict(sorted(relevance_counts.items())),
         },
         "opportunities": returned,

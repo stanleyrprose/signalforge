@@ -20,7 +20,11 @@ def _briefing() -> dict[str, object]:
     return {
         "current_opportunities": 3,
         "current_counts": {"OPEN": 2, "UNKNOWN": 1, "EXPIRED": 0},
-        "qualification_counts": {"priority_band": {"HIGH": 1, "MEDIUM": 1, "REVIEW": 1}},
+        "qualification_counts": {
+            "priority_band": {"HIGH": 1, "MEDIUM": 1, "REVIEW": 1},
+            "signal_quality_band": {"VERY_HIGH": 1, "HIGH": 1, "MEDIUM": 0, "REVIEW": 1, "LOW": 0},
+            "signal_quality_score_avg": 68.0,
+        },
         "attention_count": 2,
         "attention_action_counts": {"ACT_NOW": 0, "PRIORITIZE": 1, "REVIEW": 1},
         "attention": [
@@ -34,6 +38,8 @@ def _briefing() -> dict[str, object]:
                 "deadline_time": "13:00",
                 "deadline_status": "OPEN",
                 "focus_reference_count": 4,
+                "signal_quality_score": 81,
+                "signal_quality_band": "HIGH",
             },
             {
                 "canonical_key": "doms:1",
@@ -45,6 +51,8 @@ def _briefing() -> dict[str, object]:
                 "deadline_time": None,
                 "deadline_status": "UNKNOWN",
                 "focus_reference_count": None,
+                "signal_quality_score": 40,
+                "signal_quality_band": "REVIEW",
             },
         ],
         "watchlist": {"count": 1, "primary_relevance_counts": {"INDUSTRIAL": 1}, "canonical_keys": ["industry:1"]},
@@ -133,6 +141,8 @@ class BusinessDigestTests(unittest.TestCase):
         self.assertIn("Sources：<b>2</b> monitored", text)
         self.assertIn("Signals：<b>1</b>", text)
         self.assertIn("当前机会：<b>3</b> · HIGH 1 · MEDIUM 1 · REVIEW 1", text)
+        self.assertIn("Signal质量：均分 68.0 · VERY_HIGH 1 · HIGH 1 · MEDIUM 0 · REVIEW 1", text)
+        self.assertIn("Q81/HIGH", text)
         self.assertIn("Ministry of Energy", text)
         self.assertIn("相关分包 4", text)
         self.assertIn("Watchlist：1 条 MEDIUM", text)
