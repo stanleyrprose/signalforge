@@ -181,6 +181,7 @@ class OpportunityViewTests(unittest.TestCase):
                 "action_date_evidence": "EXPLICIT_OFFICIAL_TITLE_DATE",
                 "commercial_event_type": "SELLER_OPEN_TENDER_SALE",
                 "commercial_direction": "BUY_FROM_ISSUER",
+                "issuer": "Myanma Timber Enterprise",
                 "scope_summary": "Local Marketing and Milling Department open tender sale; official image carries supplementary lot details.",
                 "detail_completeness": "HTML_EVENT_SCOPE_REFERENCE_IMAGE_SUPPLEMENT_UNPARSED",
                 "url": "https://mte.gov.mm/index.php/en/annoucements/17-tenders/local-milling-marketing-dept-tender/1605-392026",
@@ -197,10 +198,22 @@ class OpportunityViewTests(unittest.TestCase):
             self.assertIsNone(row["deadline_at"])
             self.assertEqual(row["action_date"], "2026-09-15")
             self.assertEqual(row["action_date_kind"], "TENDER_EVENT_DATE")
+            self.assertEqual(row["action_time"], "08:30")
+            self.assertEqual(row["action_at"], "2026-09-15T08:30:00+06:30")
+            self.assertEqual(row["location"], "Myanma Timber Enterprise, Gyogon Forest Compound, Insein Township, Yangon")
+            self.assertEqual(row["quantity_or_lot_confidence"], "HIGH")
+            self.assertEqual(row["quantity_or_lot_summary"], "Approximately 6,243 tons of teak/hardwood logs and sawn timber")
+            self.assertIn("Earnest Money", row["next_action_summary"])
+            self.assertEqual(row["reviewed_image_sha256"], "6a6c2452cf8ae18bf4985c3bd77f63bbd77ec710ad5b37ae3db51409854348e1")
+            self.assertTrue(row["reviewed_enrichment_read_only"])
             self.assertEqual(row["opportunity_status"], "OPEN")
             self.assertEqual(row["actionability"], "OPEN")
             self.assertEqual(row["trust_grade"], "B")
             self.assertEqual(row["priority_band"], "REVIEW")
+            self.assertEqual(row["signal_quality_score"], 86)
+            self.assertEqual(row["signal_quality_band"], "VERY_HIGH")
+            self.assertIn("REVIEWED_QUANTIFIED_SCOPE", row["signal_quality_strengths"])
+            self.assertNotIn("QUANTITY_DETAIL_REVIEW_CONFIDENCE_MEDIUM", row["signal_quality_gaps"])
             self.assertIn("EXPLICIT_ACTION_DATE", row["qualification_reasons"])
             self.assertNotIn("DEADLINE_UNKNOWN", row["qualification_reasons"])
             self.assertEqual(row["commercial_direction"], "BUY_FROM_ISSUER")

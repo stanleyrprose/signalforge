@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import html
 import json
 import re
@@ -14,6 +15,7 @@ from xml.etree import ElementTree
 
 from .config import Registry, db_path
 from .http import fetch_bytes, fetch_bytes_cloudrity_d1n
+from .mte_reviewed_enrichment import reviewed_mte_records
 
 AUDITOR_VERSION = 1
 DEFAULT_SIGNAL_LOOKBACK_HOURS = 24
@@ -433,6 +435,61 @@ def _atom_surface_findings(fetcher: Fetcher) -> tuple[list[dict[str, object]], d
         return [finding], {"status": "CHECK_FAILED", "sitemap_url": ATOM_SITEMAP_URL}
 
 
+
+def _reviewed_mte_evidence_findings(fetcher: Fetcher) -> tuple[list[dict[str, object]], dict[str, object]]:
+    findings: list[dict[str, object]] = []
+    checked = 0
+    matched = 0
+    records = reviewed_mte_records()
+    for canonical_key, record in sorted(records.items()):
+        image_url = str(record.get("image_url") or "")
+        expected_sha = str(record.get("image_sha256") or "")
+        if not image_url or not expected_sha:
+            findings.append({
+                "type": "SIGNAL_EVIDENCE_SUSPECT",
+                "severity": "RED",
+                "source_id": "S32",
+                "canonical_key": canonical_key,
+                "code": "MTE_REVIEWED_IMAGE_CONTRACT_INCOMPLETE",
+                "summary": "Reviewed MTE image enrichment is missing image URL or SHA256",
+            })
+            continue
+        checked += 1
+        try:
+            payload = fetcher(image_url, timeout=30, max_bytes=5_000_000)
+        except Exception as exc:
+            findings.append({
+                "type": "HEALTH_ALERT",
+                "severity": "YELLOW",
+                "source_id": "S32",
+                "canonical_key": canonical_key,
+                "code": "MTE_REVIEWED_IMAGE_FETCH_FAILED",
+                "summary": "Auditor could not refetch reviewed MTE official image evidence",
+                "error": f"{type(exc).__name__}: {exc}",
+            })
+            continue
+        actual_sha = hashlib.sha256(payload).hexdigest()
+        if actual_sha != expected_sha:
+            findings.append({
+                "type": "SIGNAL_EVIDENCE_SUSPECT",
+                "severity": "RED",
+                "source_id": "S32",
+                "canonical_key": canonical_key,
+                "code": "MTE_REVIEWED_IMAGE_SHA_MISMATCH",
+                "summary": "Official MTE image bytes changed after reviewed enrichment; re-review before trusting derived fields",
+                "expected_sha256": expected_sha,
+                "actual_sha256": actual_sha,
+                "image_url": image_url,
+            })
+        else:
+            matched += 1
+    return findings, {
+        "status": "PASS" if not findings else "CHECK_FAILED" if any(x.get("severity") == "RED" for x in findings) else "PARTIAL",
+        "records": len(records),
+        "images_checked": checked,
+        "sha_matches": matched,
+    }
+
 def _deadline_findings(conn) -> tuple[list[dict[str, object]], dict[str, object]]:  # type: ignore[no-untyped-def]
     findings: list[dict[str, object]] = []
     rows = conn.execute(
@@ -614,9 +671,18 @@ def audit(
             atom_findings, atom_summary = _atom_surface_findings(fetcher)
             findings.extend(atom_findings)
             checks["atom_surface_trigger"] = atom_summary
+            source_map = registry.raw.get("sources") or {}
+            s32_policy = source_map.get("S32") if isinstance(source_map, dict) else None
+            if isinstance(s32_policy, dict) and s32_policy.get("enabled") is True:
+                mte_review_findings, mte_review_summary = _reviewed_mte_evidence_findings(fetcher)
+                findings.extend(mte_review_findings)
+                checks["reviewed_mte_image_evidence"] = mte_review_summary
+            else:
+                checks["reviewed_mte_image_evidence"] = {"status": "SKIPPED", "reason": "S32_DISABLED"}
         else:
             checks["strategic_coverage"] = {"status": "SKIPPED", "reason": "NETWORK_DISABLED"}
             checks["atom_surface_trigger"] = {"status": "SKIPPED", "reason": "NETWORK_DISABLED"}
+            checks["reviewed_mte_image_evidence"] = {"status": "SKIPPED", "reason": "NETWORK_DISABLED"}
 
         deadline_findings, deadline_summary = _deadline_findings(conn)
         findings.extend(deadline_findings)

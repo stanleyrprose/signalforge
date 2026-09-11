@@ -7,6 +7,7 @@ from pathlib import Path
 
 from .config import Registry, db_path
 from .db import connect
+from .mte_reviewed_enrichment import apply_reviewed_mte_overlay
 from .qualification import QUALIFICATION_POLICY_VERSION, qualify_opportunity
 
 MYANMAR_TZ = timezone(timedelta(hours=6, minutes=30))
@@ -234,6 +235,14 @@ def current_opportunities(
             if stage != "OPPORTUNITY" and not legacy_actionable_tender:
                 continue
 
+            payload = apply_reviewed_mte_overlay(
+                payload,
+                canonical_key=str(row["canonical_key"]),
+                source_id=source_id_value,
+                item_kind=str(row["item_kind"]),
+                reference_no=str(row["reference_no"] or payload.get("reference_no") or ""),
+            )
+
             deadline = _deadline_at(payload)
             if deadline is None:
                 deadline_status = "UNKNOWN"
@@ -300,7 +309,22 @@ def current_opportunities(
                 "remaining_seconds": remaining_seconds,
                 "issuer": payload.get("issuer") or payload.get("business_unit"),
                 "location": payload.get("location") or row["location"],
+                "location_evidence": payload.get("location_evidence"),
                 "scope_summary": payload.get("scope_summary") or payload.get("project_name"),
+                "quantity_or_lot_summary": payload.get("quantity_or_lot_summary"),
+                "quantity_or_lot_evidence": payload.get("quantity_or_lot_evidence"),
+                "quantity_or_lot_confidence": payload.get("quantity_or_lot_confidence"),
+                "next_action_summary": payload.get("next_action_summary"),
+                "next_action_evidence": payload.get("next_action_evidence"),
+                "action_time_evidence": payload.get("action_time_evidence"),
+                "reviewed_enrichment_version": payload.get("reviewed_enrichment_version"),
+                "reviewed_enrichment_status": payload.get("reviewed_enrichment_status"),
+                "reviewed_enrichment_at": payload.get("reviewed_enrichment_at"),
+                "reviewed_image_url": payload.get("reviewed_image_url"),
+                "reviewed_image_sha256": payload.get("reviewed_image_sha256"),
+                "reviewed_rules_url": payload.get("reviewed_rules_url"),
+                "reviewed_enrichment_read_only": payload.get("reviewed_enrichment_read_only"),
+                "image_review_notes": payload.get("image_review_notes"),
                 "detail_completeness": payload.get("detail_completeness"),
                 "deadline_evidence": _deadline_evidence(payload, source_id_value),
                 "url": str(row["url"]),

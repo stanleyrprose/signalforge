@@ -149,6 +149,12 @@ def render_telegram_message(item: dict[str, object]) -> str:
         lines.append(f"🗓 开标：<b>{html.escape(opening)}</b>")
     if reference:
         lines.append(f"📌 编号：{html.escape(reference)}")
+    if item.get("quantity_or_lot_summary"):
+        lines.append(f"📦 数量/批次：{html.escape(str(item.get('quantity_or_lot_summary')))}")
+    if item.get("location"):
+        lines.append(f"📍 地点：{html.escape(str(item.get('location')))}")
+    if item.get("next_action_summary"):
+        lines.append(f"➡️ 下一步：{html.escape(str(item.get('next_action_summary')))}")
     if focus_reference and focus_reference != reference:
         lines.append(f"🧩 相关分包：{html.escape(focus_reference)}")
     if reason:
