@@ -33,13 +33,16 @@ def _why_now(item: dict[str, object]) -> list[str]:
     reasons: list[str] = []
     categories = {str(value) for value in (item.get("relevance_categories") or [])}
     if item.get("urgency") == "URGENT":
-        reasons.append("DEADLINE_WITHIN_72H")
+        reasons.append("COMMERCIAL_EVENT_WITHIN_72H" if item.get("item_kind") == "AUCTION_NOTICE" else "DEADLINE_WITHIN_72H")
     if {"ICT", "TELECOM"} & categories:
         reasons.append("STRATEGIC_FIT_ICT_TELECOM")
     if item.get("priority_band") == "REVIEW":
         reasons.append("HUMAN_REVIEW_REQUIRED")
-    if item.get("deadline_status") == "UNKNOWN":
+    opportunity_status = item.get("opportunity_status") or item.get("deadline_status") or "UNKNOWN"
+    if opportunity_status == "UNKNOWN":
         reasons.append("DEADLINE_UNKNOWN")
+    elif item.get("item_kind") == "AUCTION_NOTICE" and item.get("action_date"):
+        reasons.append("COMMERCIAL_EVENT_DATE_KNOWN")
     if item.get("trust_grade") == "A":
         reasons.append("A_GRADE_BUSINESS_EVIDENCE")
     elif item.get("trust_grade") == "B":
@@ -50,6 +53,9 @@ def _why_now(item: dict[str, object]) -> list[str]:
 def _attention_item(item: dict[str, object]) -> dict[str, object]:
     return {
         "canonical_key": item.get("canonical_key"),
+        "item_kind": item.get("item_kind"),
+        "commercial_event_type": item.get("commercial_event_type"),
+        "commercial_direction": item.get("commercial_direction"),
         "attention_action": _attention_action(item),
         "priority_band": item.get("priority_band"),
         "trust_grade": item.get("trust_grade"),
@@ -70,6 +76,11 @@ def _attention_item(item: dict[str, object]) -> dict[str, object]:
         "tender_opening_time": item.get("tender_opening_time"),
         "deadline_at": item.get("deadline_at"),
         "deadline_status": item.get("deadline_status"),
+        "action_date": item.get("action_date"),
+        "action_time": item.get("action_time"),
+        "action_date_kind": item.get("action_date_kind"),
+        "action_at": item.get("action_at"),
+        "opportunity_status": item.get("opportunity_status"),
         "evidence_level": item.get("evidence_level"),
         "completeness": item.get("completeness"),
         "scope_excerpt": _excerpt(item.get("focus_scope_summary") or item.get("scope_summary")),

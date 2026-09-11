@@ -249,6 +249,34 @@ class TelegramDeliveryTests(unittest.TestCase):
         item["deadline_kind"] = "TENDER_APPLICATION_ACCEPTANCE_CLOSE"
         self.assertIn("⏰ 投标申请接收截止：<b>2026-09-18 16:30</b>", render_telegram_message(item))
 
+
+    def test_commercial_tender_sale_renders_seller_and_action_date_without_fake_deadline(self) -> None:
+        item = _briefing(action="REVIEW")["attention"][0]
+        assert isinstance(item, dict)
+        item.update({
+            "item_kind": "AUCTION_NOTICE",
+            "commercial_direction": "BUY_FROM_ISSUER",
+            "issuer": "Myanma Timber Enterprise",
+            "title": "Local Marketing and Milling Department, Open Tender No (6/2026-2027)(15.9.2026)",
+            "reference_no": "MTE-LOCAL-6/2026-2027",
+            "deadline": None,
+            "deadline_time": None,
+            "deadline_status": "UNKNOWN",
+            "action_date": "2026-09-15",
+            "action_time": None,
+            "why_now": ["COMMERCIAL_EVENT_DATE_KNOWN", "TRUSTED_EVENT_PARTIAL_ACTIONABILITY"],
+            "scope_excerpt": "Official commercial tender event; image supplement carries lot details.",
+            "primary_relevance": "OTHER",
+            "priority_band": "REVIEW",
+            "trust_grade": "B",
+        })
+        text = render_telegram_message(item)
+        self.assertIn("🏛 卖方：Myanma Timber Enterprise", text)
+        self.assertIn("🗓 活动日：<b>2026-09-15</b>", text)
+        self.assertNotIn("⏰ 截止：", text)
+        self.assertIn("官方商业活动日期明确", text)
+        self.assertIn("事件可信但行动信息不完整", text)
+
     def test_action_labels_are_compact_and_deterministic(self) -> None:
         expected = {
             "ACT_NOW": "立即行动",

@@ -32,6 +32,8 @@ def _compact(value: object, limit: int = 96) -> str:
 
 
 def _deadline_text(item: dict[str, object]) -> str:
+    if item.get("deadline_status") == "UNKNOWN" and item.get("action_date"):
+        return f"活动日 {item.get('action_date')} {item.get('action_time') or ''}".strip()
     if item.get("deadline_status") == "UNKNOWN":
         return "UNKNOWN"
     value = f"{item.get('deadline') or ''} {item.get('deadline_time') or ''}".strip()

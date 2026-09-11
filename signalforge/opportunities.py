@@ -106,6 +106,15 @@ def _reference_focus(
 
 
 def _deadline_at(payload: dict[str, object]) -> datetime | None:
+    explicit_local = payload.get("deadline_datetime_local")
+    if isinstance(explicit_local, str) and explicit_local:
+        try:
+            parsed = datetime.fromisoformat(explicit_local.replace("Z", "+00:00"))
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=MYANMAR_TZ)
+            return parsed.astimezone(UTC)
+        except ValueError:
+            pass
     raw = payload.get("deadline")
     if not isinstance(raw, str) or not raw:
         return None
@@ -120,6 +129,37 @@ def _deadline_at(payload: dict[str, object]) -> datetime | None:
         local_time = str(deadline_time) if isinstance(deadline_time, str) and deadline_time else "23:59"
         parsed = datetime.fromisoformat(f"{raw}T{local_time}:00+06:30")
         return parsed.astimezone(UTC)
+    except ValueError:
+        return None
+
+
+def _deadline_evidence(payload: dict[str, object], source_id: str) -> object:
+    explicit = payload.get("deadline_evidence")
+    if explicit:
+        return explicit
+    if source_id == "S21" and payload.get("deadline"):
+        return "EXPLICIT_HTML_TENDER_CLOSE_DATE"
+    if source_id == "S22" and payload.get("deadline_datetime_local"):
+        return "EXPLICIT_HTML_DEADLINE_DATETIME"
+    return explicit
+
+
+def _action_at(payload: dict[str, object]) -> datetime | None:
+    deadline = _deadline_at(payload)
+    if deadline is not None:
+        return deadline
+    raw = payload.get("action_date")
+    if not isinstance(raw, str) or not raw:
+        return None
+    try:
+        if "T" in raw:
+            parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=MYANMAR_TZ)
+            return parsed.astimezone(UTC)
+        action_time = payload.get("action_time")
+        local_time = str(action_time) if isinstance(action_time, str) and action_time else "23:59"
+        return datetime.fromisoformat(f"{raw}T{local_time}:00+06:30").astimezone(UTC)
     except ValueError:
         return None
 
@@ -142,7 +182,7 @@ def current_opportunities(
 
     query = """
         SELECT
-            c.source_id,c.canonical_key,c.title,c.reference_no,c.publication_date,c.location,c.url,c.payload_json,
+            c.source_id,c.canonical_key,c.item_kind,c.title,c.reference_no,c.publication_date,c.location,c.url,c.payload_json,
             ss.signal_count,ss.latest_signal_at,
             (
                 SELECT s.signal_id FROM signals s
@@ -165,7 +205,7 @@ def current_opportunities(
             FROM signals
             GROUP BY source_id,canonical_key
         ) ss ON ss.source_id=c.source_id AND ss.canonical_key=c.canonical_key
-        WHERE c.item_kind='TENDER'
+        WHERE c.item_kind IN ('TENDER','AUCTION_NOTICE')
     """
     params: list[object] = []
     if source_id is not None:
@@ -179,21 +219,41 @@ def current_opportunities(
                 payload = json.loads(str(row["payload_json"]))
             except json.JSONDecodeError:
                 continue
-            if not isinstance(payload, dict) or str(payload.get("business_stage") or "").upper() != "OPPORTUNITY":
+            if not isinstance(payload, dict):
+                continue
+            source_id_value = str(row["source_id"])
+            source_policy = source_policies.get(source_id_value) if isinstance(source_policies, dict) else None
+            stage = str(payload.get("business_stage") or "").upper()
+            legacy_actionable_tender = (
+                stage == ""
+                and str(row["item_kind"]) == "TENDER"
+                and isinstance(source_policy, dict)
+                and isinstance(source_policy.get("actionable_baseline_signal_policy"), dict)
+                and source_policy["actionable_baseline_signal_policy"].get("enabled") is True
+            )
+            if stage != "OPPORTUNITY" and not legacy_actionable_tender:
                 continue
 
             deadline = _deadline_at(payload)
             if deadline is None:
                 deadline_status = "UNKNOWN"
-                remaining_seconds = None
             elif deadline <= now:
                 deadline_status = "EXPIRED"
-                remaining_seconds = int((deadline - now).total_seconds())
             else:
                 deadline_status = "OPEN"
-                remaining_seconds = int((deadline - now).total_seconds())
 
-            if deadline_status == "EXPIRED" and not include_expired:
+            action_at = _action_at(payload)
+            if action_at is None:
+                opportunity_status = deadline_status
+                remaining_seconds = None
+            elif action_at <= now:
+                opportunity_status = "EXPIRED"
+                remaining_seconds = int((action_at - now).total_seconds())
+            else:
+                opportunity_status = "OPEN"
+                remaining_seconds = int((action_at - now).total_seconds())
+
+            if opportunity_status == "EXPIRED" and not include_expired:
                 continue
 
             latest_signal_payload: dict[str, object] = {}
@@ -204,7 +264,6 @@ def current_opportunities(
             except json.JSONDecodeError:
                 pass
 
-            source_id_value = str(row["source_id"])
             reference_numbers, reference_count, reference_numbers_evidence = _reference_bundle(payload, source_id_value)
             focus_reference_numbers, focus_reference_count, focus_relevance, focus_scope_summary = _reference_focus(
                 payload, source_id_value, reference_numbers
@@ -212,6 +271,7 @@ def current_opportunities(
             item = {
                 "source_id": source_id_value,
                 "canonical_key": str(row["canonical_key"]),
+                "item_kind": str(row["item_kind"]),
                 "title": str(row["title"] or payload.get("title") or payload.get("project_name") or ""),
                 "reference_no": str(row["reference_no"] or payload.get("reference_no") or ""),
                 "reference_numbers": reference_numbers,
@@ -229,12 +289,20 @@ def current_opportunities(
                 "tender_opening_time": payload.get("tender_opening_time"),
                 "deadline_at": deadline.astimezone(MYANMAR_TZ).isoformat() if deadline is not None else None,
                 "deadline_status": deadline_status,
+                "action_date": payload.get("action_date"),
+                "action_time": payload.get("action_time"),
+                "action_date_kind": payload.get("action_date_kind"),
+                "action_date_evidence": payload.get("action_date_evidence"),
+                "action_at": action_at.astimezone(MYANMAR_TZ).isoformat() if action_at is not None else None,
+                "opportunity_status": opportunity_status,
+                "commercial_event_type": payload.get("commercial_event_type"),
+                "commercial_direction": payload.get("commercial_direction"),
                 "remaining_seconds": remaining_seconds,
                 "issuer": payload.get("issuer") or payload.get("business_unit"),
                 "location": payload.get("location") or row["location"],
-                "scope_summary": payload.get("scope_summary"),
+                "scope_summary": payload.get("scope_summary") or payload.get("project_name"),
                 "detail_completeness": payload.get("detail_completeness"),
-                "deadline_evidence": payload.get("deadline_evidence"),
+                "deadline_evidence": _deadline_evidence(payload, source_id_value),
                 "url": str(row["url"]),
                 "latest_signal_id": str(row["latest_signal_id"]),
                 "latest_signal_type": str(row["latest_signal_type"]),
@@ -242,7 +310,6 @@ def current_opportunities(
                 "latest_signal_reason": latest_signal_payload.get("signal_reason"),
                 "signal_count": int(row["signal_count"]),
             }
-            source_policy = source_policies.get(source_id_value) if isinstance(source_policies, dict) else None
             item.update(qualify_opportunity(item, source_policy if isinstance(source_policy, dict) else None))
             rows.append(item)
 
@@ -251,17 +318,17 @@ def current_opportunities(
     max_dt = datetime.max.replace(tzinfo=UTC)
 
     def sort_key(item: dict[str, object]) -> tuple[object, ...]:
-        deadline_at = item.get("deadline_at")
-        parsed = _deadline_at({"deadline": deadline_at}) if isinstance(deadline_at, str) else None
-        if item["deadline_status"] == "EXPIRED":
+        action_at_value = item.get("action_at")
+        parsed = _deadline_at({"deadline": action_at_value}) if isinstance(action_at_value, str) else None
+        if item["opportunity_status"] == "EXPIRED":
             parsed = datetime.min.replace(tzinfo=UTC) if parsed is None else parsed
-            deadline_sort: datetime = datetime.max.replace(tzinfo=UTC) - (parsed - datetime.min.replace(tzinfo=UTC))
+            action_sort: datetime = datetime.max.replace(tzinfo=UTC) - (parsed - datetime.min.replace(tzinfo=UTC))
         else:
-            deadline_sort = parsed or max_dt
+            action_sort = parsed or max_dt
         return (
-            rank[str(item["deadline_status"])],
+            rank[str(item["opportunity_status"])],
             priority_rank.get(str(item.get("priority_band") or "LOW"), 3),
-            deadline_sort,
+            action_sort,
             str(item["latest_signal_at"]),
             str(item["source_id"]),
             str(item["canonical_key"]),
@@ -270,9 +337,9 @@ def current_opportunities(
     rows.sort(key=sort_key)
     returned = rows[:limit]
     counts = {
-        "OPEN": sum(1 for item in rows if item["deadline_status"] == "OPEN"),
-        "UNKNOWN": sum(1 for item in rows if item["deadline_status"] == "UNKNOWN"),
-        "EXPIRED": sum(1 for item in rows if item["deadline_status"] == "EXPIRED"),
+        "OPEN": sum(1 for item in rows if item["opportunity_status"] == "OPEN"),
+        "UNKNOWN": sum(1 for item in rows if item["opportunity_status"] == "UNKNOWN"),
+        "EXPIRED": sum(1 for item in rows if item["opportunity_status"] == "EXPIRED"),
     }
     trust_counts = {grade: sum(1 for item in rows if item.get("trust_grade") == grade) for grade in ("A", "B", "C")}
     priority_counts = {
