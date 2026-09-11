@@ -154,6 +154,7 @@ def business_digest(
         "business": {
             "current_opportunities": briefing.get("current_opportunities"),
             "current_counts": briefing.get("current_counts"),
+            "qualification_counts": qcounts,
             "priority_counts": priority_counts,
             "attention_count": briefing.get("attention_count"),
             "attention_action_counts": briefing.get("attention_action_counts"),
@@ -185,6 +186,13 @@ def render_business_digest(digest: dict[str, object]) -> str:
     priorities = business.get("priority_counts") or {}
     if not isinstance(priorities, dict):
         priorities = {}
+    qualification_counts = business.get("qualification_counts") or {}
+    if not isinstance(qualification_counts, dict):
+        qualification_counts = {}
+    quality_counts = qualification_counts.get("signal_quality_band") or {}
+    if not isinstance(quality_counts, dict):
+        quality_counts = {}
+    quality_avg = qualification_counts.get("signal_quality_score_avg", 0)
     attention = business.get("attention") or []
     if not isinstance(attention, list):
         attention = []
@@ -205,6 +213,7 @@ def render_business_digest(digest: dict[str, object]) -> str:
         f"📈 Signals：<b>{activity.get('signals', 0)}</b>（NEW {activity.get('new_signals', 0)} / UPDATED {activity.get('updated_signals', 0)}）",
         "",
         f"🎯 当前机会：<b>{business.get('current_opportunities', 0)}</b> · HIGH {priorities.get('HIGH', 0)} · MEDIUM {priorities.get('MEDIUM', 0)} · REVIEW {priorities.get('REVIEW', 0)}",
+        f"🧭 Signal质量：均分 {quality_avg} · VERY_HIGH {quality_counts.get('VERY_HIGH', 0)} · HIGH {quality_counts.get('HIGH', 0)} · MEDIUM {quality_counts.get('MEDIUM', 0)} · REVIEW {quality_counts.get('REVIEW', 0)}",
         f"📲 TG即时提醒：过去24h {totals.get('telegram_alerts_24h', 0)} · 累计 {totals.get('telegram_alerts', 0)}",
     ]
 
@@ -220,8 +229,11 @@ def render_business_digest(digest: dict[str, object]) -> str:
             deadline = _deadline_text(item)
             focus_count = int(item.get("focus_reference_count") or 0)
             focus = f" · 相关分包 {focus_count}" if focus_count else ""
+            quality = ""
+            if isinstance(item.get("signal_quality_score"), int) and item.get("signal_quality_band"):
+                quality = f" · Q{item.get('signal_quality_score')}/{item.get('signal_quality_band')}"
             lines.append(
-                f"{icons.get(action, '•')} {html.escape(action)} · {html.escape(issuer)} · {html.escape(relevance)} · {html.escape(deadline)}{focus}"
+                f"{icons.get(action, '•')} {html.escape(action)} · {html.escape(issuer)} · {html.escape(relevance)} · {html.escape(deadline)}{quality}{focus}"
             )
 
     watch_count = int(business.get("watchlist_count") or 0)

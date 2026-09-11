@@ -125,6 +125,8 @@ def render_telegram_message(item: dict[str, object]) -> str:
     trust = html.escape(str(item.get("trust_grade") or "C"))
     priority = html.escape(str(item.get("priority_band") or "LOW"))
     signal_type = html.escape(str(item.get("latest_signal_type") or ""))
+    quality_score = item.get("signal_quality_score")
+    quality_band = html.escape(str(item.get("signal_quality_band") or ""))
 
     issuer_label = "卖方" if item.get("commercial_direction") == "BUY_FROM_ISSUER" else "买方"
     lines = [
@@ -133,6 +135,8 @@ def render_telegram_message(item: dict[str, object]) -> str:
         "",
         f"🏛 {issuer_label}：{issuer}",
     ]
+    if isinstance(quality_score, int) and quality_band:
+        lines.append(f"🧭 Signal质量：<b>{quality_score}/100 · {quality_band}</b>")
     if item.get("deadline_status") != "UNKNOWN":
         lines.append(f"⏰ {_deadline_label(item)}：<b>{html.escape(_deadline_text(item))}</b>")
     elif item.get("action_date"):

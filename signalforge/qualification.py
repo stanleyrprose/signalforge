@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from .signal_quality import score_signal_quality
+
 QUALIFICATION_POLICY_VERSION = 1
 
 _KEYWORDS: dict[str, tuple[str, ...]] = {
@@ -183,7 +185,7 @@ def qualify_opportunity(item: dict[str, object], source_policy: dict[str, Any] |
         else:
             reasons.append("MULTI_REFERENCE_EVIDENCE")
 
-    return {
+    result = {
         "qualification_policy_version": QUALIFICATION_POLICY_VERSION,
         "trust_grade": trust_grade,
         "actionability": opportunity_status,
@@ -196,3 +198,7 @@ def qualify_opportunity(item: dict[str, object], source_policy: dict[str, Any] |
         "qualification_reasons": reasons,
         "source_engine": str((source_policy or {}).get("engine") or "unknown"),
     }
+    quality_input = dict(item)
+    quality_input.update(result)
+    result.update(score_signal_quality(quality_input, source_policy))
+    return result

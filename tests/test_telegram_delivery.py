@@ -269,10 +269,13 @@ class TelegramDeliveryTests(unittest.TestCase):
             "primary_relevance": "OTHER",
             "priority_band": "REVIEW",
             "trust_grade": "B",
+            "signal_quality_score": 59,
+            "signal_quality_band": "MEDIUM",
         })
         text = render_telegram_message(item)
         self.assertIn("🏛 卖方：Myanma Timber Enterprise", text)
         self.assertIn("🗓 活动日：<b>2026-09-15</b>", text)
+        self.assertIn("🧭 Signal质量：<b>59/100 · MEDIUM</b>", text)
         self.assertNotIn("⏰ 截止：", text)
         self.assertIn("官方商业活动日期明确", text)
         self.assertIn("事件可信但行动信息不完整", text)
