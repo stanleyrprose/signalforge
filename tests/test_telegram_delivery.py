@@ -298,6 +298,40 @@ class TelegramDeliveryTests(unittest.TestCase):
             text = render_telegram_message(item)
             self.assertIn(f"<b>{label}</b>", text)
 
+
+    def test_burmese_fields_are_translated_for_telegram_display_only(self) -> None:
+        item = _briefing()["attention"][0]
+        assert isinstance(item, dict)
+        item.update({
+            "issuer": "ကျန်းမာရေးဝန်ကြီးဌာန",
+            "title": "ဆေးပစ္စည်း အိတ်ဖွင့်တင်ဒါ",
+            "scope_excerpt": "ဆေးရုံသုံးပစ္စည်းများ ဝယ်ယူရန်",
+            "quantity_or_lot_summary": "ပစ္စည်း ၁၀၀ စုံ",
+            "location": "ရန်ကုန်",
+            "next_action_summary": "တင်ဒါစာရွက်စာတမ်း ရယူပါ",
+        })
+
+        def fake_translator(values: list[str]) -> tuple[list[str], bool]:
+            self.assertEqual(len(values), 6)
+            return [
+                "医疗物资公开招标",
+                "卫生部",
+                "采购医院使用的医疗物资",
+                "100套",
+                "仰光",
+                "获取招标文件",
+            ], True
+
+        text = render_telegram_message(item, translator=fake_translator)
+        self.assertIn("<b>医疗物资公开招标</b>", text)
+        self.assertIn("🏛 买方：卫生部", text)
+        self.assertIn("📦 范围：采购医院使用的医疗物资", text)
+        self.assertIn("📦 数量/批次：100套", text)
+        self.assertIn("📍 地点：仰光", text)
+        self.assertIn("➡️ 下一步：获取招标文件", text)
+        self.assertIn("🌐 缅文内容已机器翻译为中文", text)
+        self.assertNotIn("ဆေးပစ္စည်း", text)
+
     def test_credentials_required_only_for_real_delivery(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             database = Path(tmp) / "signalforge.db"

@@ -4,6 +4,7 @@ import hashlib
 import html
 import json
 import os
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 from urllib.error import HTTPError, URLError
@@ -12,9 +13,11 @@ from urllib.request import Request, urlopen
 from .briefing import business_briefing
 from .config import db_path
 from .db import connect
+from .translation import translate_myanmar_to_zh_hans
 
 CHANNEL = "telegram"
 TELEGRAM_MESSAGE_LIMIT = 4096
+TranslationBatch = Callable[[list[str]], tuple[list[str], bool]]
 
 
 class TelegramDeliveryError(RuntimeError):
@@ -101,11 +104,24 @@ def _compact_scope(value: object, limit: int = 240) -> str:
     return text[: max(0, limit - 1)].rstrip() + "…"
 
 
-def render_telegram_message(item: dict[str, object]) -> str:
+def render_telegram_message(
+    item: dict[str, object],
+    *,
+    translator: TranslationBatch | None = None,
+) -> str:
     action = str(item.get("attention_action") or "REVIEW")
     icon = {"ACT_NOW": "🔴", "PRIORITIZE": "🔴", "REVIEW": "🟡"}.get(action, "🔔")
-    title = html.escape(str(item.get("title") or item.get("canonical_key") or "Opportunity"))
-    issuer = html.escape(str(item.get("issuer") or "Unknown issuer"))
+    raw_title = str(item.get("title") or item.get("canonical_key") or "Opportunity")
+    raw_issuer = str(item.get("issuer") or "Unknown issuer")
+    raw_scope = _compact_scope(item.get("scope_excerpt"))
+    raw_quantity = str(item.get("quantity_or_lot_summary") or "")
+    raw_location = str(item.get("location") or "")
+    raw_next_action = str(item.get("next_action_summary") or "")
+    translate_batch = translator or translate_myanmar_to_zh_hans
+    translated_values, was_translated = translate_batch(
+        [raw_title, raw_issuer, raw_scope, raw_quantity, raw_location, raw_next_action]
+    )
+    title, issuer, scope, quantity, location, next_action = [html.escape(value) for value in translated_values]
     reference_numbers = item.get("reference_numbers")
     if isinstance(reference_numbers, list) and reference_numbers:
         reference = ", ".join(str(value) for value in reference_numbers)
@@ -117,7 +133,6 @@ def render_telegram_message(item: dict[str, object]) -> str:
         if isinstance(focus_reference_numbers, list) and focus_reference_numbers
         else ""
     )
-    scope = html.escape(_compact_scope(item.get("scope_excerpt")))
     reason = html.escape(_reason_text(item))
     url = html.escape(str(item.get("url") or ""), quote=True)
     evidence = html.escape(_evidence_label(item.get("evidence_level")))
@@ -150,17 +165,19 @@ def render_telegram_message(item: dict[str, object]) -> str:
     if reference:
         lines.append(f"📌 编号：{html.escape(reference)}")
     if item.get("quantity_or_lot_summary"):
-        lines.append(f"📦 数量/批次：{html.escape(str(item.get('quantity_or_lot_summary')))}")
+        lines.append(f"📦 数量/批次：{quantity}")
     if item.get("location"):
-        lines.append(f"📍 地点：{html.escape(str(item.get('location')))}")
+        lines.append(f"📍 地点：{location}")
     if item.get("next_action_summary"):
-        lines.append(f"➡️ 下一步：{html.escape(str(item.get('next_action_summary')))}")
+        lines.append(f"➡️ 下一步：{next_action}")
     if focus_reference and focus_reference != reference:
         lines.append(f"🧩 相关分包：{html.escape(focus_reference)}")
     if reason:
         lines.append(f"🎯 为什么：{reason}")
     if scope:
         lines.append(f"📦 范围：{scope}")
+    if was_translated:
+        lines.append("🌐 缅文内容已机器翻译为中文（事实以官方原文为准）")
     lines.append(f"🔎 证据：{evidence}")
     if signal_type:
         lines.append(f"📡 Signal：{signal_type}")
