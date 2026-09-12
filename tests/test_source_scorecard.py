@@ -8,7 +8,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from signalforge.db import connect, migrate
-from signalforge.source_scorecard import S13_PARSER_ONLY_SIGNAL_ID, source_scorecard
+from signalforge.source_scorecard import PORTFOLIO_TIERS, SCORECARD_VERSION, S13_PARSER_ONLY_SIGNAL_ID, source_scorecard
 
 
 class _Registry:
@@ -154,6 +154,13 @@ class SourceScorecardTests(unittest.TestCase):
         self.assertEqual(row["known_noise_signals"], 1)
         self.assertEqual(row["effective_signals_total"], 1)
         self.assertEqual(row["observed_yield"], "SIGNAL_PROVEN")
+
+
+    def test_portfolio_v2_promotes_s21_only_after_repeated_actionable_yield(self) -> None:
+        self.assertEqual(SCORECARD_VERSION, 2)
+        self.assertEqual(PORTFOLIO_TIERS["S21"], "CORE")
+        self.assertEqual(PORTFOLIO_TIERS["S22"], "STRATEGIC_WATCH")
+        self.assertEqual(PORTFOLIO_TIERS["S32"], "OBSERVATION")
 
     def test_window_days_is_bounded(self) -> None:
         with self.assertRaisesRegex(ValueError, "between 1 and 365"):

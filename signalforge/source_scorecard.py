@@ -8,14 +8,14 @@ from .config import Registry, db_path
 from .db import connect
 from .opportunities import current_opportunities
 
-SCORECARD_VERSION = 1
+SCORECARD_VERSION = 2
 DEFAULT_WINDOW_DAYS = 30
 
 # Provisional portfolio tiers frozen by the 2026-09-10 business-yield audit.
 # They are analytical labels only and MUST NOT mutate runtime role/priority/polling.
 PORTFOLIO_TIERS: dict[str, str] = {
-    **{sid: "CORE" for sid in ("S13", "S20", "S30", "S38", "S39")},
-    **{sid: "STRATEGIC_WATCH" for sid in ("S16", "S21", "S22", "S27", "S34", "S35", "S41")},
+    **{sid: "CORE" for sid in ("S13", "S20", "S21", "S30", "S38", "S39")},
+    **{sid: "STRATEGIC_WATCH" for sid in ("S16", "S22", "S27", "S34", "S35", "S41")},
     **{sid: "CONTEXT" for sid in ("S05A", "S07", "S08A", "S10", "S12", "S26")},
     **{sid: "OBSERVATION" for sid in ("S25", "S28", "S29", "S31", "S32", "S33", "S36", "S37", "S40")},
 }
