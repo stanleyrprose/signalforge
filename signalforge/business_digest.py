@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import html
 import os
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -12,12 +13,14 @@ from .briefing import business_briefing
 from .config import Registry, db_path
 from .db import connect
 from .telegram_delivery import TelegramDeliveryError, _send_message
+from .translation import translate_myanmar_to_zh_hans
 from .source_scorecard import source_scorecard
 
 DIGEST_VERSION = 1
 DIGEST_CHANNEL = "telegram-business-digest"
 DIGEST_TIMEZONE = ZoneInfo("Asia/Yangon")
 TELEGRAM_MESSAGE_LIMIT = 4096
+TranslationBatch = Callable[[list[str]], tuple[list[str], bool]]
 
 
 def _iso(value: datetime) -> str:
@@ -174,7 +177,11 @@ def business_digest(
     }
 
 
-def render_business_digest(digest: dict[str, object]) -> str:
+def render_business_digest(
+    digest: dict[str, object],
+    *,
+    translator: TranslationBatch | None = None,
+) -> str:
     sources = digest.get("sources") or {}
     activity = digest.get("activity_24h") or {}
     totals = digest.get("pipeline_totals") or {}
@@ -217,23 +224,30 @@ def render_business_digest(digest: dict[str, object]) -> str:
         f"📲 TG即时提醒：过去24h {totals.get('telegram_alerts_24h', 0)} · 累计 {totals.get('telegram_alerts', 0)}",
     ]
 
+    digest_was_translated = False
     if attention:
         lines.extend(["", "<b>值得现在看</b>"])
         icons = {"ACT_NOW": "🔴", "PRIORITIZE": "🟠", "REVIEW": "🟡"}
-        for item in attention[:4]:
-            if not isinstance(item, dict):
-                continue
+        attention_rows = [item for item in attention[:4] if isinstance(item, dict)]
+        translate_batch = translator or translate_myanmar_to_zh_hans
+        translated_issuers, digest_was_translated = translate_batch(
+            [str(item.get("issuer") or "") for item in attention_rows]
+        )
+        for index, item in enumerate(attention_rows):
             action = str(item.get("attention_action") or "REVIEW")
-            issuer = _compact(item.get("issuer"), 42)
+            issuer = _compact(translated_issuers[index], 42)
             relevance = str(item.get("primary_relevance") or "OTHER")
             deadline = _deadline_text(item)
             focus_count = int(item.get("focus_reference_count") or 0)
             focus = f" · 相关分包 {focus_count}" if focus_count else ""
             quality = ""
-            if isinstance(item.get("signal_quality_score"), int) and item.get("signal_quality_band"):
-                quality = f" · Q{item.get('signal_quality_score')}/{item.get('signal_quality_band')}"
+            quality_score = item.get("signal_quality_score")
+            quality_band = item.get("signal_quality_band")
+            if isinstance(quality_score, int) and quality_band:
+                quality = f" · Q{quality_score}/{quality_band}"
+            icon = icons.get(action, "•")
             lines.append(
-                f"{icons.get(action, '•')} {html.escape(action)} · {html.escape(issuer)} · {html.escape(relevance)} · {html.escape(deadline)}{quality}{focus}"
+                f"{icon} {html.escape(action)} · {html.escape(issuer)} · {html.escape(relevance)} · {html.escape(deadline)}{quality}{focus}"
             )
 
     watch_count = int(business.get("watchlist_count") or 0)
@@ -247,6 +261,8 @@ def render_business_digest(digest: dict[str, object]) -> str:
     if not isinstance(mpt, dict): mpt = {}
     if not isinstance(atom, dict): atom = {}
     mytel_missing = len(mytel.get("missing") or []) if isinstance(mytel.get("missing"), list) else mytel.get("missing", "?")
+    if digest_was_translated:
+        lines.append("🌐 缅文内容已机器翻译为中文（事实以官方原文为准）")
     lines.extend([
         "",
         f"🛡 Auditor：<b>{html.escape(str(auditor.get('status') or 'UNKNOWN'))}</b> · findings {auditor.get('finding_count', '?')}",

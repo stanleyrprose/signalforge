@@ -150,6 +150,26 @@ class BusinessDigestTests(unittest.TestCase):
         self.assertIn("Source产出：<b>1/2</b> proven", text)
         self.assertIn("1 effective / 1 raw signals", text)
 
+
+    def test_digest_translates_burmese_attention_issuers(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp, patch("signalforge.business_digest.business_briefing", return_value=_briefing()), patch(
+            "signalforge.business_digest.audit", return_value=_audit()
+        ), patch("signalforge.business_digest.source_scorecard", return_value=_scorecard()):
+            digest = business_digest(database=self._db(tmp), registry=_Registry(), now=datetime(2026,9,10,12,0,tzinfo=UTC))  # type: ignore[arg-type]
+        attention = digest["business"]["attention"]
+        attention[0]["issuer"] = "စွမ်းအင်ဝန်ကြီးဌာန"
+        attention[1]["issuer"] = "ဆေးဘက်ဆိုင်ရာဝန်ဆောင်မှုဌာန"
+
+        def fake_translator(values: list[str]) -> tuple[list[str], bool]:
+            self.assertEqual(len(values), 2)
+            return ["能源部", "医疗服务部"], True
+
+        text = render_business_digest(digest, translator=fake_translator)
+        self.assertIn("能源部", text)
+        self.assertIn("医疗服务部", text)
+        self.assertIn("🌐 缅文内容已机器翻译为中文", text)
+        self.assertNotIn("စွမ်းအင်", text)
+
     def test_dry_run_does_not_write_digest_receipt(self) -> None:
         with tempfile.TemporaryDirectory() as tmp, patch("signalforge.business_digest.business_briefing", return_value=_briefing()), patch(
             "signalforge.business_digest.audit", return_value=_audit()
