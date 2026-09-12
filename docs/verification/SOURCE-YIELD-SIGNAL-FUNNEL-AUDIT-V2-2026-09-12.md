@@ -211,3 +211,39 @@ At that gate, focus on:
 4. whether S21 continues to justify CORE status;
 5. whether S22 or S32 produce repeated actionable events sufficient for promotion;
 6. whether the current high concentration in S38/S21 persists or diversifies.
+
+## Production closure
+
+Implementation and production verification are complete.
+
+- PR: `#162`
+- GitHub Actions run: `34687272715`
+- verify job: `103536343350` — PASS
+- merged production release: `4e95655be793bd2a22507d3209a76fe3bc87c7f6`
+- previous rollback release: `73e406c3b8be4d8a458e5c55a1765e5bf26c318a`
+- release archive SHA256: `7f9d4b3215c2ea5d90f4704b3bc27121de65fd75c94aeb0f22514c7b3373aaeb`
+- local targeted tests: `10 passed`
+- local full suite: `316 passed`
+
+Live Bangkok verification after deployment returned:
+
+```text
+scorecard_version = 2
+SignalForge        = PASS / GREEN
+recovery_backlog   = 0
+active_sources     = 27
+health_green       = 27
+CORE               = 6
+STRATEGIC_WATCH    = 6
+CONTEXT            = 6
+OBSERVATION        = 9
+
+S21 = CORE / GREEN / 4 effective signals / 4 current HIGH opportunities / 4 TG alerts
+S22 = STRATEGIC_WATCH
+S16 = STRATEGIC_WATCH / GREEN / consecutive_failures=0
+S32 = OBSERVATION
+```
+
+All production timers remained active after deployment. Mac OAuth translation remained `PASS / ready=true` with no pending, failed or expired translation work.
+
+**Final result: PASS / PRODUCTION ACCEPTED.**
