@@ -290,7 +290,10 @@ def telegram_digest(
     digest = business_digest(database=target, now=now, audit_network=audit_network)
     digest_date = str(digest["digest_date"])
     key = _digest_key(digest_date)
-    text = render_business_digest(digest)
+    translator = None
+    if not dry_run:
+        translator = lambda values: translate_myanmar_to_zh_hans(values, database=target)
+    text = render_business_digest(digest, translator=translator)
     payload_sha256 = hashlib.sha256(text.encode("utf-8")).hexdigest()
 
     with connect(target) as conn:

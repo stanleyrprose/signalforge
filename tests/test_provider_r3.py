@@ -44,8 +44,35 @@ class ProviderR3Tests(unittest.TestCase):
             prepare_r3_gate(database=self.db, contract_path=self.contract_path, now=NOW)
 
     def test_release_deploy_makes_provider_dispatcher_executable(self) -> None:
-        deploy = (Path(__file__).resolve().parents[1] / "deploy" / "deploy-signalforge-release.sh").read_text(encoding="utf-8")
+        root = Path(__file__).resolve().parents[1]
+        deploy = (root / "deploy" / "deploy-signalforge-release.sh").read_text(encoding="utf-8")
         self.assertIn('chmod 0755 "$STAGE/bin/signalforge" "$STAGE/bin/signalforge-provider-dispatcher"', deploy)
+        self.assertIn('signalforge-provider-ssh-dispatch', deploy)
+        self.assertIn('signalforge-provider-sudoers', deploy)
+        self.assertIn('visudo -cf', deploy)
+
+    def test_forced_ssh_boundary_allows_only_browser_provider_and_translation_verbs(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        wrapper = (root / "deploy" / "signalforge-provider-ssh-dispatch").read_text(encoding="utf-8")
+        sudoers = (root / "deploy" / "signalforge-provider-sudoers").read_text(encoding="utf-8")
+        allowed = {
+            "provider-claim-v1",
+            "provider-submit-v1",
+            "provider-fail-v1",
+            "provider-status-v1",
+            "translation-claim-v1",
+            "translation-submit-v1",
+            "translation-fail-v1",
+            "translation-status-v1",
+        }
+        for command in allowed:
+            self.assertIn(command, wrapper)
+            self.assertIn(f"SSH_ORIGINAL_COMMAND={command}", sudoers)
+        self.assertEqual(sudoers.count("signalforge-provider ALL="), len(allowed))
+        self.assertIn('exit 126', wrapper)
+        self.assertNotIn('/bin/bash', wrapper)
+        self.assertNotIn('/bin/sh -c', wrapper)
+        self.assertNotIn('NOPASSWD: ALL', sudoers)
 
     def test_prepare_enqueues_exactly_c0_c1_c2_c3_without_business_side_effects(self) -> None:
         with patch("signalforge.provider_r3.Registry.load", return_value=self._pre_r4_registry()):

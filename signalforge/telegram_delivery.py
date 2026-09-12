@@ -252,7 +252,10 @@ def telegram_deliver(
             exists = conn.execute("SELECT 1 FROM delivery_receipts WHERE delivery_key=?", (key,)).fetchone()
             if exists is not None:
                 continue
-            text = render_telegram_message(item)
+            translator = None
+            if not dry_run:
+                translator = lambda values: translate_myanmar_to_zh_hans(values, database=target)
+            text = render_telegram_message(item, translator=translator)
             pending.append({**item, "delivery_key": key, "message": text, "payload_sha256": _payload_sha256(text)})
 
     if dry_run:

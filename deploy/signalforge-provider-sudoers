@@ -1,0 +1,8 @@
+signalforge-provider ALL=(signalforge) NOPASSWD: /usr/bin/env SSH_ORIGINAL_COMMAND=provider-claim-v1 /srv/signalforge/active/bin/signalforge-provider-dispatcher
+signalforge-provider ALL=(signalforge) NOPASSWD: /usr/bin/env SSH_ORIGINAL_COMMAND=provider-submit-v1 /srv/signalforge/active/bin/signalforge-provider-dispatcher
+signalforge-provider ALL=(signalforge) NOPASSWD: /usr/bin/env SSH_ORIGINAL_COMMAND=provider-fail-v1 /srv/signalforge/active/bin/signalforge-provider-dispatcher
+signalforge-provider ALL=(signalforge) NOPASSWD: /usr/bin/env SSH_ORIGINAL_COMMAND=provider-status-v1 /srv/signalforge/active/bin/signalforge-provider-dispatcher
+signalforge-provider ALL=(signalforge) NOPASSWD: /usr/bin/env SSH_ORIGINAL_COMMAND=translation-claim-v1 /srv/signalforge/active/bin/signalforge-provider-dispatcher
+signalforge-provider ALL=(signalforge) NOPASSWD: /usr/bin/env SSH_ORIGINAL_COMMAND=translation-submit-v1 /srv/signalforge/active/bin/signalforge-provider-dispatcher
+signalforge-provider ALL=(signalforge) NOPASSWD: /usr/bin/env SSH_ORIGINAL_COMMAND=translation-fail-v1 /srv/signalforge/active/bin/signalforge-provider-dispatcher
+signalforge-provider ALL=(signalforge) NOPASSWD: /usr/bin/env SSH_ORIGINAL_COMMAND=translation-status-v1 /srv/signalforge/active/bin/signalforge-provider-dispatcher

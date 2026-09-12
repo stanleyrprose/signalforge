@@ -17,6 +17,13 @@ from .provider_queue import (
     fail_provider_claim,
     provider_queue_status,
 )
+from .translation_queue import (
+    TranslationQueueError,
+    claim_next_translation_request,
+    complete_translation_claim,
+    fail_translation_claim,
+    translation_queue_status,
+)
 
 
 MAX_STDIN_BYTES = 64 * 1024
@@ -25,6 +32,10 @@ ALLOWED_COMMANDS = {
     "provider-status-v1",
     "provider-submit-v1",
     "provider-fail-v1",
+    "translation-claim-v1",
+    "translation-status-v1",
+    "translation-submit-v1",
+    "translation-fail-v1",
 }
 
 
@@ -67,6 +78,62 @@ def dispatch(
         if payload is not None:
             raise ProviderDispatcherError("provider-status-v1 accepts no payload")
         return provider_queue_status(provider_id=PIC_PROVIDER_ID, database=target_db, now=observed_now)
+
+    if command == "translation-claim-v1":
+        if payload is not None:
+            raise ProviderDispatcherError("translation-claim-v1 accepts no payload")
+        return claim_next_translation_request(database=target_db, now=observed_now, lease_seconds=45)
+
+    if command == "translation-status-v1":
+        if payload is not None:
+            raise ProviderDispatcherError("translation-status-v1 accepts no payload")
+        return translation_queue_status(database=target_db, now=observed_now)
+
+    if command == "translation-submit-v1":
+        body = _strict_payload(
+            payload,
+            {
+                "translation_request_id",
+                "translation_attempt_id",
+                "claim_token",
+                "request_sha256",
+                "values",
+                "model",
+                "duration_ms",
+                "usage",
+            },
+        )
+        return complete_translation_claim(
+            translation_request_id=str(body["translation_request_id"]),
+            translation_attempt_id=str(body["translation_attempt_id"]),
+            claim_token=str(body["claim_token"]),
+            request_sha256=str(body["request_sha256"]),
+            values=body["values"],
+            model=str(body["model"]),
+            duration_ms=body["duration_ms"] if isinstance(body["duration_ms"], int) else None,
+            usage=body["usage"],
+            database=target_db,
+            now=observed_now,
+        )
+
+    if command == "translation-fail-v1":
+        body = _strict_payload(
+            payload,
+            {
+                "translation_request_id",
+                "translation_attempt_id",
+                "claim_token",
+                "failure_class",
+            },
+        )
+        return fail_translation_claim(
+            translation_request_id=str(body["translation_request_id"]),
+            translation_attempt_id=str(body["translation_attempt_id"]),
+            claim_token=str(body["claim_token"]),
+            failure_class=str(body["failure_class"]),
+            database=target_db,
+            now=observed_now,
+        )
 
     if command == "provider-submit-v1":
         raise ProviderDispatcherError("provider-submit-v1 requires binary stream boundary")
@@ -116,13 +183,18 @@ def main() -> int:
             result = accept_result_stream(sys.stdin.buffer, database=db_path())
             print(json.dumps(result, ensure_ascii=False, sort_keys=True), flush=True)
             return 0
-        if original_command == "provider-fail-v1":
+        if original_command in {"provider-fail-v1", "translation-submit-v1", "translation-fail-v1"}:
             payload = _read_stdin_json(sys.stdin)
-        elif original_command in {"provider-claim-v1", "provider-status-v1"}:
+        elif original_command in {
+            "provider-claim-v1",
+            "provider-status-v1",
+            "translation-claim-v1",
+            "translation-status-v1",
+        }:
             # Do not consume arbitrary client data for no-payload commands.
             payload = None
         result = dispatch(original_command, payload)
-    except (ProviderDispatcherError, ProviderQueueError, ProviderResultError) as exc:
+    except (ProviderDispatcherError, ProviderQueueError, ProviderResultError, TranslationQueueError) as exc:
         print(json.dumps({"status": "DENY", "error": str(exc)}, sort_keys=True), flush=True)
         return 126
     except Exception as exc:
