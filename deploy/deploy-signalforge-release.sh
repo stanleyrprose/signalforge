@@ -111,6 +111,18 @@ ln -sfn "../../venvs/$RELEASE" "$FINAL/.venv"
 "$VENV/bin/python" -c 'import pypdf; assert pypdf.__version__ == "6.16.2"'
 
 ln -sfn "$FINAL" "$ROOT/active"
+
+# The Mac pull provider is intentionally exposed only through exact forced-SSH
+# verbs. Keep the wrapper and sudoers allowlist release-owned so translation
+# cannot accidentally become a generic shell or listener capability.
+id signalforge-provider >/dev/null 2>&1 || { echo "SignalForge provider identity missing" >&2; exit 78; }
+install -d -m 0755 -o root -g root /usr/local/libexec
+install -m 0755 -o root -g root "$FINAL/deploy/signalforge-provider-ssh-dispatch" /usr/local/libexec/signalforge-provider-ssh-dispatch
+SUDOERS_TMP=/etc/sudoers.d/.signalforge-provider.$$
+install -m 0440 -o root -g root "$FINAL/deploy/signalforge-provider-sudoers" "$SUDOERS_TMP"
+visudo -cf "$SUDOERS_TMP" >/dev/null
+mv "$SUDOERS_TMP" /etc/sudoers.d/signalforge-provider
+
 runuser -u signalforge -- env \
   SIGNALFORGE_STATE_ROOT="$ROOT/state" \
   SIGNALFORGE_EVIDENCE_ROOT="$ROOT/evidence" \

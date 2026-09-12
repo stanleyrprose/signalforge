@@ -20,7 +20,7 @@ from .provider_bridge import build_provider_request, import_provider_result, loa
 from .provider_r3 import prepare_r3_gate, r3_gate_status
 from .source_scorecard import source_scorecard
 from .telegram_delivery import telegram_deliver
-from .translation import translation_ready
+from .translation import translation_status
 
 
 def _parse_iso(value: str | None) -> datetime | None:
@@ -215,14 +215,7 @@ def status(*, now: datetime | None = None, registry: Registry | None = None) -> 
         "signalforge_health": signalforge_health,
         "canonical_node": registry.raw["production_policy"]["canonical_node"],
         "browser_production_approved": registry.raw["production_policy"]["browser_production_approved"],
-        "telegram_translation": {
-            "provider": "microsoft",
-            "source_language": "my",
-            "target_language": "zh-Hans",
-            "ready": translation_ready(),
-            "presentation_only": True,
-            "fail_open_to_original": True,
-        },
+        "telegram_translation": translation_status(database=database),
         "sources": sources,
         "counts": counts,
         "recent_runs": recent,

@@ -9,6 +9,7 @@ from pathlib import Path
 from signalforge.provider_dispatcher import ProviderDispatcherError, dispatch
 from signalforge.provider_invocation import CAPABILITY_TOOL_MAP, build_provider_request
 from signalforge.provider_queue import enqueue_provider_request
+from signalforge.translation_queue import enqueue_translation_request
 
 
 NOW = datetime(2026, 9, 8, 5, 30, tzinfo=UTC)
@@ -115,6 +116,46 @@ class ProviderDispatcherTests(unittest.TestCase):
         }
         result = dispatch("provider-fail-v1", payload, database=self.db, now=NOW + timedelta(seconds=1))
         self.assertEqual(result["state"], "FAILED")
+
+    def test_translation_claim_submit_and_status_use_separate_contract(self) -> None:
+        enqueue_translation_request(["အိတ်ဖွင့်တင်ဒါ 15.9.2026"], database=self.db, now=NOW)
+        claimed = dispatch("translation-claim-v1", database=self.db, now=NOW)
+        self.assertEqual(claimed["provider_id"], "mac-oauth-llm")
+        request = claimed["request"]
+        result = dispatch(
+            "translation-submit-v1",
+            {
+                "translation_request_id": claimed["translation_request_id"],
+                "translation_attempt_id": claimed["translation_attempt_id"],
+                "claim_token": claimed["claim_token"],
+                "request_sha256": request["request_sha256"],
+                "values": ["公开招标 15.9.2026"],
+                "model": "gpt-test",
+                "duration_ms": 12,
+                "usage": {"tokens": 20},
+            },
+            database=self.db,
+            now=NOW + timedelta(seconds=1),
+        )
+        self.assertEqual(result["status"], "SUCCEEDED")
+        status = dispatch("translation-status-v1", database=self.db, now=NOW + timedelta(seconds=1))
+        self.assertEqual(status["provider_id"], "mac-oauth-llm")
+        self.assertEqual(status["counts"]["SUCCEEDED"], 1)
+
+    def test_translation_commands_reject_payload_shape_drift(self) -> None:
+        with self.assertRaisesRegex(ProviderDispatcherError, "accepts no payload"):
+            dispatch("translation-claim-v1", {}, database=self.db, now=NOW)
+        enqueue_translation_request(["တင်ဒါ"], database=self.db, now=NOW)
+        claimed = dispatch("translation-claim-v1", database=self.db, now=NOW)
+        payload = {
+            "translation_request_id": claimed["translation_request_id"],
+            "translation_attempt_id": claimed["translation_attempt_id"],
+            "claim_token": claimed["claim_token"],
+            "failure_class": "TRANSLATION_PROVIDER_NOT_READY",
+            "unexpected": True,
+        }
+        with self.assertRaisesRegex(ProviderDispatcherError, "fields"):
+            dispatch("translation-fail-v1", payload, database=self.db, now=NOW)
 
     def test_no_json_command_accepts_provider_id_from_client(self) -> None:
         item = request()

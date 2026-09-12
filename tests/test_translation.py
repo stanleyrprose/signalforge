@@ -56,6 +56,39 @@ class TranslationTests(unittest.TestCase):
         self.assertEqual(req.get_header("Ocp-apim-subscription-key"), "test-key")
         self.assertEqual(req.get_header("Ocp-apim-subscription-region"), "southeastasia")
 
+    def test_google_cloud_translation_is_optional_fallback(self) -> None:
+        payload = {"data": {"translations": [{"translatedText": "公开招标"}]}}
+        with patch("signalforge.translation.urlopen", return_value=_Response(payload)) as request:
+            result, translated = translate_myanmar_to_zh_hans(
+                ["အိတ်ဖွင့်တင်ဒါ"],
+                provider_priority="google",
+                google_key="google-test-key",
+                google_endpoint="https://google-translator.test/v2",
+            )
+        self.assertEqual(result, ["公开招标"])
+        self.assertTrue(translated)
+        req = request.call_args.args[0]
+        self.assertIn("key=google-test-key", req.full_url)
+        body = json.loads(req.data.decode("utf-8"))
+        self.assertEqual(body["source"], "my")
+        self.assertEqual(body["target"], "zh-CN")
+
+    def test_mac_oauth_provider_is_first_when_database_is_supplied(self) -> None:
+        values = ["Keep English", "အိတ်ဖွင့်တင်ဒါ"]
+        with patch(
+            "signalforge.translation.request_translation_and_wait",
+            return_value=(["公开招标"], True),
+        ) as mac, patch("signalforge.translation.urlopen") as cloud:
+            result, translated = translate_myanmar_to_zh_hans(
+                values,
+                database=__import__("pathlib").Path("/tmp/fake.db"),
+                provider_priority="mac_oauth_llm,microsoft,google",
+            )
+        self.assertEqual(result, ["Keep English", "公开招标"])
+        self.assertTrue(translated)
+        mac.assert_called_once()
+        cloud.assert_not_called()
+
     def test_transport_failure_keeps_original_burmese(self) -> None:
         values = ["အိတ်ဖွင့်တင်ဒါ"]
         with patch("signalforge.translation.urlopen", side_effect=URLError("offline")):
