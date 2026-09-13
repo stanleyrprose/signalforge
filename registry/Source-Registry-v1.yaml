@@ -2066,6 +2066,12 @@
       "first_baseline_customer_signal": false,
       "bootstrap_seed_urls": [],
       "selection_policy_version": 1,
+      "detail_parser_replay_migration": {
+        "from_version": "industry-announcement-detail-v1",
+        "to_version": "industry-announcement-detail-v2",
+        "zero_items_only": true,
+        "suppress_signal_once": true
+      },
       "health_policy": {
         "freshness_yellow_seconds": 3600,
         "freshness_red_seconds": 5400,
