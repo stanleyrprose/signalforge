@@ -1551,3 +1551,17 @@ Evidence: `docs/verification/SOURCE-EXPANSION-CONSTRUCTION-TELECOM-2026-09-12.md
 - No Business Fit layer, TLS bypass, Browser/OCR expansion, schema migration, immediate-delivery policy change, Beijing role change or topology change.
 
 Evidence: `docs/verification/PTD-POLICY-STRATEGIC-DIGEST-2026-09-13.md`.
+
+## Authoritative S23 National MOC READY_TLS_BLOCKED checkpoint — 2026-09-14
+
+- PR #172 implemented the national Ministry of Construction source as a listing-complete `moc_tender` adapter using issuer `/letter-download/<uuid>` identity; official title, region badge, date-only `End Date`, download URL and PDF metadata are preserved without inventing a deadline time.
+- Real saved issuer HTML replay produced exactly the two reviewed September records: UUID `18be5b60-accb-11f1-b41f-3517e3a380a0` / End Date `2026-09-23`, and UUID `0f39a580-a813-11f1-97b9-bbf17f490ccf` / End Date `2026-09-16`.
+- S23 registry is fully specified but remains `enabled=false / role=DEFERRED_READY / audit_status=READY_TLS_BLOCKED_ISSUER_CERT_EXPIRED`. Activation gate is `STRICT_TLS_HTTPS`; any enabled source with `enable_only_after_gate_pass=true` and status other than `PASS` is rejected by `Registry.load()`.
+- Fresh Mac and Bangkok gate checks both return `curl 60 / SSL certificate problem: certificate has expired`. `deploy/check-moc-activation-gate.sh` intentionally uses normal strict certificate verification; no `-k`, `--insecure`, Browser certificate bypass, or unverified mirror is authorized.
+- PR #172 Actions `34771313418` / job `103761309219` PASS; targeted tests `8 passed`; full suite `333 passed`; `git diff --check` PASS.
+- Active Bangkok runtime: `b46f12b98d6a765c1a4a19e9c3c72dd96f764fb2`; rollback `b8bcf6d2d41d7899cdc21397b8ec029b624f8b84`; exact archive SHA256 `45579ea4b6e4e61f7f361fe4826fdecb7e65f1b28f4e4727aadb3de8c6f6fe62`.
+- Post-deploy isolation: `31 active / S23 enabled=false / scheduler_runs=0 / canonical=0 / signals=0`; acquisition, immediate Telegram and daily Digest timers are active. S23 therefore has zero production side effects while waiting for issuer TLS repair.
+- Global SignalForge status immediately after this deployment was DEGRADED/RED because S21 Myanma Railways had 33 consecutive fetch timeouts; S23 has no runs and is not the cause. Treat S21 as a separate source-health incident.
+- Activation requires: Bangkok gate PASS with strict TLS + HTTP 200, live parser re-verification, a reviewed `gate=PASS + enabled=true` change, silent first baseline, then bounded actionable reconciliation. Until then S23 remains READY_TLS_BLOCKED.
+
+Evidence: `docs/verification/S23-MOC-READY-TLS-BLOCKED-PRODUCTION-CLOSURE-2026-09-14.md`.
