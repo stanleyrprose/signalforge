@@ -169,7 +169,20 @@ def score_signal_quality(item: dict[str, object], source_policy: dict[str, Any] 
 
     categories = [str(v) for v in (item.get("relevance_categories") or [])]
     relevance_score = max((_RELEVANCE_SCORES.get(v, 0) for v in categories), default=0)
-    dimensions["strategic_relevance"] = _dimension(relevance_score, 10, ",".join(categories) or "UNCLASSIFIED")
+    relevance_provenance = item.get("relevance_provenance")
+    if isinstance(relevance_provenance, dict):
+        relevance_evidence = " | ".join(
+            f"{category}={relevance_provenance.get(category)}"
+            for category in categories
+            if relevance_provenance.get(category)
+        )
+    else:
+        relevance_evidence = ""
+    dimensions["strategic_relevance"] = _dimension(
+        relevance_score,
+        10,
+        relevance_evidence or ",".join(categories) or "UNCLASSIFIED",
+    )
     if relevance_score >= 10:
         strengths.append("ICT_TELECOM_STRATEGIC_FIT")
     elif relevance_score == 0:
@@ -181,11 +194,26 @@ def score_signal_quality(item: dict[str, object], source_policy: dict[str, Any] 
     if urgency in {"URGENT", "SOON"}:
         strengths.append(f"{urgency}_WINDOW")
 
-    score = sum(int(value["score"]) for value in dimensions.values())
+    evidence_dimension_names = (
+        "issuer",
+        "scope_quantity",
+        "time",
+        "location",
+        "next_action",
+        "official_evidence",
+    )
+    context_dimension_names = ("strategic_relevance", "urgency")
+    evidence_score = sum(int(dimensions[name]["score"]) for name in evidence_dimension_names)
+    context_score = sum(int(dimensions[name]["score"]) for name in context_dimension_names)
+    score = evidence_score + context_score
     return {
         "signal_quality_model_version": SIGNAL_QUALITY_MODEL_VERSION,
         "signal_quality_score": score,
         "signal_quality_band": _band(score),
+        "signal_quality_evidence_score": evidence_score,
+        "signal_quality_evidence_max": 85,
+        "signal_quality_context_score": context_score,
+        "signal_quality_context_max": 15,
         "signal_quality_dimensions": dimensions,
         "signal_quality_strengths": strengths,
         "signal_quality_gaps": gaps,

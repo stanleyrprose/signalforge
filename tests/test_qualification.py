@@ -43,6 +43,11 @@ class QualificationTests(unittest.TestCase):
         self.assertEqual(result["priority_band"], "HIGH")
         self.assertIn("ICT", result["relevance_categories"])
         self.assertNotIn("ENERGY", result["relevance_categories"])
+        self.assertEqual(result["relevance_provenance"]["ICT"], "ITEM_TEXT_KEYWORD:data server")
+        self.assertIn(
+            "ICT=ITEM_TEXT_KEYWORD:data server",
+            result["signal_quality_dimensions"]["strategic_relevance"]["evidence"],
+        )
 
     def test_industry_engine_power_does_not_create_energy_false_positive(self) -> None:
         item = {
@@ -60,6 +65,38 @@ class QualificationTests(unittest.TestCase):
         self.assertIn("INDUSTRIAL", result["relevance_categories"])
         self.assertNotIn("ENERGY", result["relevance_categories"])
         self.assertEqual(result["evidence_level"], "OFFICIAL_HTML_VIA_PROVIDER")
+
+    def test_source_policy_name_keyword_is_distinct_from_item_evidence(self) -> None:
+        item = {
+            "source_id": "SX",
+            "title": "Tender references",
+            "scope_summary": "Official attachment metadata for three procurement references with enough business detail.",
+            "deadline_status": "UNKNOWN",
+            "remaining_seconds": None,
+            "detail_completeness": "HTML_SCOPE_ATTACHMENT_METADATA",
+            "reference_no": "REF-1",
+        }
+        result = qualify_opportunity(item, {"engine": "direct_http", "name": "Medical Procurement Opportunities"})
+        self.assertIn("MEDICAL", result["relevance_categories"])
+        self.assertEqual(result["relevance_provenance"]["MEDICAL"], "SOURCE_POLICY_NAME_KEYWORD:medical")
+
+    def test_source_category_fallback_is_explicitly_provenanced(self) -> None:
+        item = {
+            "source_id": "S26",
+            "title": "Tender references",
+            "scope_summary": "Official attachment metadata for three procurement references with enough business detail.",
+            "deadline_status": "UNKNOWN",
+            "remaining_seconds": None,
+            "detail_completeness": "HTML_SCOPE_ATTACHMENT_METADATA",
+            "reference_no": "8DMS/2026-2027(L)",
+        }
+        result = qualify_opportunity(item, {"engine": "direct_http", "name": "Issuer Procurement Opportunities"})
+        self.assertIn("MEDICAL", result["relevance_categories"])
+        self.assertEqual(result["relevance_provenance"]["MEDICAL"], "SOURCE_CATEGORY_FALLBACK:S26")
+        self.assertIn(
+            "MEDICAL=SOURCE_CATEGORY_FALLBACK:S26",
+            result["signal_quality_dimensions"]["strategic_relevance"]["evidence"],
+        )
 
     def test_unknown_deadline_stays_review_grade(self) -> None:
         item = {
