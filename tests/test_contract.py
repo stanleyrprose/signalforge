@@ -25,7 +25,7 @@ class ContractTests(unittest.TestCase):
         )
         self.assertEqual(manifest["verbs"]["signalforge-refresh"]["argument"], "source_id")
         self.assertEqual(manifest["grammar"]["source_id"], "^[A-Z][A-Z0-9]{0,15}$")
-        self.assertEqual(manifest["active_source_ids"], ["S05A", "S07", "S08A", "S10", "S12", "S13", "S16", "S20", "S21", "S22", "S25", "S26", "S28", "S29", "S30", "S31", "S32", "S33", "S34", "S35", "S36", "S37", "S39", "S40", "S41", "S27", "S38"])
+        self.assertEqual(manifest["active_source_ids"], ["S05A", "S07", "S08A", "S10", "S12", "S13", "S16", "S20", "S21", "S22", "S25", "S26", "S28", "S29", "S30", "S31", "S32", "S33", "S34", "S35", "S36", "S37", "S39", "S40", "S41", "S43", "S44", "S45", "S27", "S38"])
 
         registry = Registry.load(ROOT)
         with self.assertRaisesRegex(ConfigError, "invalid source id"):
@@ -100,6 +100,26 @@ class ContractTests(unittest.TestCase):
         self.assertFalse(moba["attachment_policy"]["fetch_in_primary_pipeline"])
         self.assertNotIn("S27", registry.raw["deferred_sources"])
 
+        construction = registry.source("S43")
+        self.assertEqual(construction["adapter"], "yangon_construction_tender")
+        self.assertEqual(construction["engine"], "direct_http")
+        self.assertEqual(construction["role"], "ACTIVE_PRIMARY")
+        self.assertEqual(construction["discovery_url"], "https://www.yangon.gov.mm/category/ministry-of-construction/")
+        self.assertTrue(construction["discovery_is_tender_only"])
+        self.assertEqual(construction["item_kind"], "TENDER")
+
+        atom_network = registry.source("S44")
+        self.assertEqual(atom_network["adapter"], "atom_network_notice")
+        self.assertEqual(atom_network["item_kind"], "REGULATORY_NOTICE")
+        self.assertTrue(atom_network["listing_complete_business_records"])
+        self.assertEqual(atom_network["discovery_url"], "https://www.atom.com.mm/api/v1/medias?locale=en&search=5G&page=1")
+
+        mpt_network = registry.source("S45")
+        self.assertEqual(mpt_network["adapter"], "mpt_network_notice")
+        self.assertEqual(mpt_network["item_kind"], "REGULATORY_NOTICE")
+        self.assertTrue(mpt_network["listing_complete_business_records"])
+        self.assertEqual(mpt_network["discovery_url"], "https://mpt.com.mm/en/about-home/media-press-releases/latest-news/")
+
         energy = registry.source("S39")
         self.assertEqual(energy["adapter"], "energy_tender")
         self.assertEqual(energy["engine"], "direct_http")
@@ -131,7 +151,7 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(labour["acquisition_policy"]["supplementary"], energy["acquisition_policy"]["supplementary"])
 
         enabled = registry.enabled_sources()
-        self.assertEqual([sid for sid, _source in enabled[-5:]], ["S39", "S40", "S41", "S27", "S38"])
+        self.assertEqual([sid for sid, _source in enabled[-5:]], ["S43", "S44", "S45", "S27", "S38"])
         self.assertTrue(all(source["engine"] == "direct_http" for _sid, source in enabled[:-2]))
         self.assertTrue(all(source["engine"] == "provider" for _sid, source in enabled[-2:]))
         self.assertFalse(moi["attachment_policy"]["fetch_in_primary_pipeline"])
