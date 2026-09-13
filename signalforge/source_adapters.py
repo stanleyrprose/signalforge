@@ -51,6 +51,7 @@ from .ptd import extract_tender_pdf_urls as extract_ptd_tender_pdf_urls
 from .ptd import parse_tender_detail as parse_ptd_tender_detail
 from .ptd import parse_tender_detail_with_attachments as parse_ptd_tender_detail_with_attachments
 from .ptd import parse_tender_listing as parse_ptd_tender_listing
+from .ptd_policy import parse_policy_records as parse_ptd_policy_records
 from .railways import parse_tender_detail as parse_railways_tender_detail
 from .railways import parse_tender_listing
 from .yangon_construction import parse_tender_detail as parse_yangon_construction_detail
@@ -496,6 +497,17 @@ ADAPTERS = {
         parse_discovery=_empty_discovery,
         parse_detail=lambda _payload, _url: [],
         parse_discovery_records=parse_mpt_network_records,
+    ),
+    "ptd_policy_notice": SourceAdapter(
+        name="ptd_policy_notice",
+        discovery_content_types=("text/html",),
+        discovery_parser_version="ptd-policy-table-strategic-v1",
+        detail_parser_version="not-applicable",
+        normalizer_version="ptd-policy-normalize-v1",
+        canonicalizer_version="ptd-policy-title-date-v1",
+        parse_discovery=_empty_discovery,
+        parse_detail=lambda _payload, _url: [],
+        parse_discovery_records=parse_ptd_policy_records,
     ),
 }
 
