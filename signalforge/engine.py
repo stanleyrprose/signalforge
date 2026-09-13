@@ -195,6 +195,89 @@ def _upsert_discovery_snapshot(
         )
 
 
+def _schedule_detail_parser_replay(
+    conn,  # type: ignore[no-untyped-def]
+    *,
+    source_id: str,
+    source: dict,
+    adapter,  # type: ignore[no-untyped-def]
+    entries: list[SitemapEntry],
+    observed_at: str,
+) -> int:
+    """Re-open bounded historical zero-item parses after an explicit parser migration.
+
+    This is intentionally opt-in and fail-closed. It only replays URLs that are still
+    present in the current issuer discovery surface, have never produced a canonical
+    item, were successfully processed as zero items by the configured old parser, and
+    have not already been successfully processed by the configured new parser.
+    """
+    migration = source.get("detail_parser_replay_migration") or {}
+    if not isinstance(migration, dict):
+        return 0
+    if migration.get("zero_items_only") is not True or migration.get("suppress_signal_once") is not True:
+        return 0
+    from_version = migration.get("from_version")
+    to_version = migration.get("to_version")
+    if not isinstance(from_version, str) or not from_version:
+        return 0
+    if not isinstance(to_version, str) or not to_version or to_version == from_version:
+        return 0
+    if str(adapter.detail_parser_version) != to_version:
+        return 0
+
+    scheduled = 0
+    for entry in entries:
+        discovery = conn.execute(
+            """
+            SELECT canonical_key,lastmod,fetched_lastmod,pending_since_at
+            FROM discovery_items
+            WHERE source_id=? AND url=?
+            """,
+            (source_id, entry.url),
+        ).fetchone()
+        if discovery is None or discovery["canonical_key"] is not None:
+            continue
+        # Only reopen rows that the old parser actually acknowledged at this same issuer revision.
+        if discovery["fetched_lastmod"] != discovery["lastmod"]:
+            continue
+        old_zero = conn.execute(
+            """
+            SELECT 1
+            FROM processing_records AS p
+            JOIN evidence_envelopes AS e ON e.evidence_id=p.evidence_id
+            WHERE p.source_id=? AND p.parser_version=? AND p.status='SUCCESS' AND p.items_found=0
+              AND (e.requested_url=? OR e.final_url=?)
+            LIMIT 1
+            """,
+            (source_id, from_version, entry.url, entry.url),
+        ).fetchone()
+        if old_zero is None:
+            continue
+        already_replayed = conn.execute(
+            """
+            SELECT 1
+            FROM processing_records AS p
+            JOIN evidence_envelopes AS e ON e.evidence_id=p.evidence_id
+            WHERE p.source_id=? AND p.parser_version=? AND p.status='SUCCESS'
+              AND (e.requested_url=? OR e.final_url=?)
+            LIMIT 1
+            """,
+            (source_id, to_version, entry.url, entry.url),
+        ).fetchone()
+        if already_replayed is not None:
+            continue
+        conn.execute(
+            """
+            UPDATE discovery_items
+            SET pending_since_at=COALESCE(pending_since_at,?), suppress_signal_once=1
+            WHERE source_id=? AND url=? AND canonical_key IS NULL
+            """,
+            (observed_at, source_id, entry.url),
+        )
+        scheduled += 1
+    return scheduled
+
+
 def _acknowledge_baseline_exclusions(
     conn,  # type: ignore[no-untyped-def]
     source_id: str,
@@ -775,6 +858,14 @@ def run_source(
                 candidates = _baseline_candidates(entries, now=now, source=source)
                 _acknowledge_baseline_exclusions(conn, source_id, entries, candidates)
             else:
+                _schedule_detail_parser_replay(
+                    conn,
+                    source_id=source_id,
+                    source=source,
+                    adapter=adapter,
+                    entries=entries,
+                    observed_at=observed_at,
+                )
                 candidates = _pending_candidates(conn, source_id, int(source["delta_detail_limit"]))
 
         known_tender_urls = set(str(url) for url in source.get("bootstrap_seed_urls", []))

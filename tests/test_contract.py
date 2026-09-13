@@ -84,6 +84,15 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(industry["health_policy"]["parse_sample_source"], "BUSINESS_PROCESSING")
         self.assertFalse(industry["first_baseline_customer_signal"])
         self.assertEqual(
+            industry["detail_parser_replay_migration"],
+            {
+                "from_version": "industry-announcement-detail-v1",
+                "to_version": "industry-announcement-detail-v2",
+                "zero_items_only": True,
+                "suppress_signal_once": True,
+            },
+        )
+        self.assertEqual(
             industry["actionable_baseline_signal_policy"],
             {"enabled": True, "min_remaining_seconds": 43200, "max_signals_per_run": 3},
         )
