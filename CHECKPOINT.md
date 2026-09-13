@@ -1535,3 +1535,19 @@ Source Yield / Signal Funnel v2 production closure: PR #162 CI PASS (`3468727271
 - No Business Fit layer, schema migration, qualification change, delivery-policy change, Browser/OCR expansion, TLS bypass, Beijing role change or topology change. S43/S44/S45 start as analytical `STRATEGIC_WATCH`; tier labels do not mutate runtime role/priority/polling.
 
 Evidence: `docs/verification/SOURCE-EXPANSION-CONSTRUCTION-TELECOM-2026-09-12.md`.
+
+
+## Authoritative PTD policy + strategic digest checkpoint — 2026-09-13
+
+- Active Bangkok runtime: `f75767db4c30cc2a12f0fd9f1e166910082e72db`; rollback `14f0301a4dcceaaee9aa2451384c17d36ed1a7bb`; exact archive SHA256 `777c676e3fa5a6550fc96fb0c36657ed6c7d84703e4c588d1c6178839a5d3861`.
+- PR #166 GitHub Actions verify run `34729932374` / job `103650719930` PASS; final full suite `323 passed`; `git diff --check` PASS.
+- S46 `PTD Spectrum and Telecom Policy`: `ACTIVE_SELECTIVE / direct_http / strict TLS / official LawsFP table / listing complete`. Selects bounded strategic telecom policy titles and stores official PTD PDF as the detail link without primary-pipeline PDF fetch. Item kind `REGULATORY_NOTICE`, business stage `STRATEGIC_INTELLIGENCE`, relevance `TELECOM`.
+- Production S46 baseline: `SUCCESS / baseline=true / discovered9 / changed9 / signals0 / listing_complete=true`; state `baseline_complete=1 / consecutive_failures=0 / last_error=null`; canonical9/signals0/GREEN.
+- Daily Business Digest now has a bounded `📡 战略动态` section for up to four last-24h `REGULATORY_NOTICE` Signals explicitly marked `STRATEGIC_INTELLIGENCE`, showing source, NEW/UPDATED, strategic kind, publication date, title and official HTTPS link. This is digest-only and does not create immediate Telegram alerts or Tender opportunities.
+- Current production dry-run has `strategic_notices=[]`, correctly, because the S46 first run was baseline-suppressed and no strategic NEW/UPDATED Signal occurred in the last 24h. The detail/link path was verified pre-merge using a temporary TEST_ONLY DB; production was not injected with test Signals.
+- Post-deploy portfolio: `31 active / 31 GREEN / 225 active canonical / 227 DB canonical / 53 raw signals / 32 effective / 21 known noise / 15 current opportunities / 2 current ICT-Telecom opportunities / 11 cumulative TG alerts / backlog0`. Opportunities remain `14 OPEN + 1 UNKNOWN`, priorities `8 HIGH / 5 MEDIUM / 2 REVIEW`. Immediate Telegram dry-run pending0; DB quick_check `ok`; translation ready=true; all three timers enabled+active.
+- S46 source-scorecard state: `BASELINE_ONLY / STRATEGIC_WATCH / KEEP_STRATEGIC`, canonical9, raw/effective Signals0, TG alerts0, GREEN.
+- Construction/real-estate source audit did not justify another source: existing S16 covers YCDC Building/PPP/Affordable Housing, S43 covers Ministry of Construction Roads/Bridges; YCDC Roads/Urban stable guessed routes were 404 and the general Yangon tender board is low-yield/overlap-heavy. No random ciphertext locator or low-value duplicate source is authorized.
+- No Business Fit layer, TLS bypass, Browser/OCR expansion, schema migration, immediate-delivery policy change, Beijing role change or topology change.
+
+Evidence: `docs/verification/PTD-POLICY-STRATEGIC-DIGEST-2026-09-13.md`.

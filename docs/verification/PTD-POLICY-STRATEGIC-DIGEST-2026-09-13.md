@@ -72,3 +72,46 @@ YCDC Roads & Bridges / Urban Planning / Urban Land Management were audited befor
 - TEST_ONLY strategic Signal -> daily digest detail + official link: PASS
 
 Production deployment evidence will be appended after CI and Bangkok activation.
+
+
+## Production closure
+
+PR #166 passed GitHub Actions verify run `34729932374` / job `103650719930` and squash-merged as `f75767db4c30cc2a12f0fd9f1e166910082e72db`. The exact release archive SHA256 was `777c676e3fa5a6550fc96fb0c36657ed6c7d84703e4c588d1c6178839a5d3861`, matched locally and on Bangkok. Production deployed successfully with rollback target `14f0301a4dcceaaee9aa2451384c17d36ed1a7bb`.
+
+Formal production S46 baseline:
+
+```text
+S46: SUCCESS / baseline=true / discovered=9 / changed=9 / signals_created=0 / listing_complete=true
+canonical_items=9 / signals=0 / baseline_complete=1 / consecutive_failures=0 / last_error=null
+```
+
+Post-deploy production acceptance:
+
+```text
+active runtime                f75767db4c30cc2a12f0fd9f1e166910082e72db
+active sources                31
+GREEN sources                 31
+active-source canonical       225
+database canonical            227
+raw signals                   53
+effective signals             32
+known audited noise           21
+current opportunities         15 = 14 OPEN + 1 UNKNOWN
+priority distribution         8 HIGH / 5 MEDIUM / 2 REVIEW
+current ICT/Telecom opps      2
+Telegram alerts cumulative    11
+Telegram immediate pending    0
+recovery backlog              0
+DB quick_check                ok
+translation ready             true
+```
+
+S46 added exactly 9 baseline canonical rows while total Signal count remained exactly 53. The current opportunity funnel stayed exactly 15, proving that strategic PTD policy records do not enter procurement opportunities and that historical policies are suppressed correctly.
+
+`source-scorecard --window-days 30` reports S46 as `BASELINE_ONLY / STRATEGIC_WATCH / KEEP_STRATEGIC`, with 9 canonical items, zero raw/effective Signals, zero Telegram alerts, and GREEN health. Portfolio totals are `31 active / 31 GREEN / 225 active canonical / 227 DB canonical / 53 raw / 32 effective / 21 known noise / 15 current opportunities / 2 current ICT-Telecom opportunities / 11 Telegram alerts`.
+
+Production `telegram-digest --dry-run --no-network` returned PASS and showed 31 monitored / 31 GREEN / 15 current opportunities. `strategic_notices=[]` in the current production window is expected because S46's first run was baseline-suppressed and no S44/S45/S46 strategic NEW/UPDATED Signal occurred in the last 24h. The strategic-notice render path was separately proven with a TEST_ONLY temporary database before merge; no test Signal was inserted into production.
+
+Immediate Telegram `--dry-run` returned `pending_count=0`. Mac OAuth translation remains PASS/ready with zero pending/failed requests. Acquisition, immediate Telegram delivery and daily digest timers are all enabled and active.
+
+Construction/real-estate coverage remains intentionally S16 + S43 after the stable-source audit: S16 covers YCDC Building/PPP/Affordable Housing and S43 covers Ministry of Construction Roads/Bridges. No low-yield/overlapping general board was added merely to increase source count.
