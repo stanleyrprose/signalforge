@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import html
+import json
 import os
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
@@ -92,6 +93,37 @@ def business_digest(
             "SELECT source_id,COUNT(*) AS n FROM signals WHERE created_at>=? GROUP BY source_id ORDER BY n DESC,source_id LIMIT 5",
             (cutoff_iso,),
         ).fetchall()
+        strategic_rows = conn.execute(
+            """
+            SELECT s.source_id,s.signal_type,s.created_at,s.payload_json
+            FROM signals s
+            JOIN canonical_items c ON c.canonical_key=s.canonical_key
+            WHERE s.created_at>=? AND c.item_kind='REGULATORY_NOTICE'
+            ORDER BY s.created_at DESC,s.signal_id DESC
+            LIMIT 50
+            """,
+            (cutoff_iso,),
+        ).fetchall()
+        strategic_notices: list[dict[str, object]] = []
+        for row in strategic_rows:
+            try:
+                payload = json.loads(str(row["payload_json"]))
+            except (TypeError, ValueError, json.JSONDecodeError):
+                continue
+            if not isinstance(payload, dict) or payload.get("business_stage") != "STRATEGIC_INTELLIGENCE":
+                continue
+            strategic_notices.append({
+                "source_id": str(row["source_id"]),
+                "signal_type": str(row["signal_type"]),
+                "created_at": str(row["created_at"]),
+                "title": str(payload.get("title") or payload.get("project_name") or ""),
+                "issuer": str(payload.get("issuer") or ""),
+                "publication_date": payload.get("publication_date"),
+                "telecom_signal_kind": payload.get("telecom_signal_kind"),
+                "url": str(payload.get("url") or payload.get("attachment_url") or ""),
+            })
+            if len(strategic_notices) >= 4:
+                break
         alert_total = int(conn.execute("SELECT COUNT(*) FROM delivery_receipts WHERE channel='telegram'").fetchone()[0])
         alert_24h = int(conn.execute("SELECT COUNT(*) FROM delivery_receipts WHERE channel='telegram' AND sent_at>=?", (cutoff_iso,)).fetchone()[0])
         digest_total = int(conn.execute("SELECT COUNT(*) FROM digest_delivery_receipts WHERE channel=?", (DIGEST_CHANNEL,)).fetchone()[0])
@@ -145,6 +177,7 @@ def business_digest(
             "new_signals": int(signal_counts.get("NEW", 0)),
             "updated_signals": int(signal_counts.get("UPDATED", 0)),
             "signal_sources": [{"source_id": str(row["source_id"]), "count": int(row["n"])} for row in signal_source_rows],
+            "strategic_notices": strategic_notices,
         },
         "pipeline_totals": {
             "canonical_items": canonical_total,
@@ -218,11 +251,29 @@ def render_business_digest(
         f"🔄 采集：{activity.get('scheduler_runs', 0)} runs · {sources.get('changed_24h', 0)} sources changed · {activity.get('records_changed', 0)} records changed",
         f"🧾 Evidence：{activity.get('evidence_fetched', 0)} fetched · {activity.get('items_parsed', 0)} items parsed",
         f"📈 Signals：<b>{activity.get('signals', 0)}</b>（NEW {activity.get('new_signals', 0)} / UPDATED {activity.get('updated_signals', 0)}）",
+    ]
+
+    strategic_notices = activity.get("strategic_notices") or []
+    if isinstance(strategic_notices, list) and strategic_notices:
+        lines.extend(["", "<b>📡 战略动态</b>"])
+        for notice in strategic_notices[:4]:
+            if not isinstance(notice, dict):
+                continue
+            source_id = html.escape(str(notice.get("source_id") or ""))
+            signal_type = html.escape(str(notice.get("signal_type") or ""))
+            kind = html.escape(str(notice.get("telecom_signal_kind") or "STRATEGIC_INTELLIGENCE"))
+            date = html.escape(str(notice.get("publication_date") or ""))
+            title = html.escape(_compact(notice.get("title"), 120))
+            url = str(notice.get("url") or "")
+            link = f' · <a href="{html.escape(url, quote=True)}">官方详情</a>' if url.startswith("https://") else ""
+            lines.append(f"• {source_id} · {signal_type} · {kind} · {date} · {title}{link}")
+
+    lines.extend([
         "",
         f"🎯 当前机会：<b>{business.get('current_opportunities', 0)}</b> · HIGH {priorities.get('HIGH', 0)} · MEDIUM {priorities.get('MEDIUM', 0)} · REVIEW {priorities.get('REVIEW', 0)}",
         f"🧭 Signal质量：均分 {quality_avg} · VERY_HIGH {quality_counts.get('VERY_HIGH', 0)} · HIGH {quality_counts.get('HIGH', 0)} · MEDIUM {quality_counts.get('MEDIUM', 0)} · REVIEW {quality_counts.get('REVIEW', 0)}",
         f"📲 TG即时提醒：过去24h {totals.get('telegram_alerts_24h', 0)} · 累计 {totals.get('telegram_alerts', 0)}",
-    ]
+    ])
 
     digest_was_translated = False
     if attention:

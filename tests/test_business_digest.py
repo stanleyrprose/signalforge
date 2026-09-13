@@ -151,6 +151,39 @@ class BusinessDigestTests(unittest.TestCase):
         self.assertIn("1 effective / 1 raw signals", text)
 
 
+    def test_digest_renders_recent_strategic_notice_with_official_link(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp, patch("signalforge.business_digest.business_briefing", return_value=_briefing()), patch(
+            "signalforge.business_digest.audit", return_value=_audit()
+        ), patch("signalforge.business_digest.source_scorecard", return_value=_scorecard()):
+            database = self._db(tmp)
+            payload = {
+                "item_kind": "REGULATORY_NOTICE",
+                "business_stage": "STRATEGIC_INTELLIGENCE",
+                "issuer": "Posts and Telecommunications Department",
+                "title": "Spectrum Roadmap 2026-2030",
+                "publication_date": "2026-09-10",
+                "telecom_signal_kind": "SPECTRUM_5G_POLICY",
+                "url": "https://www.ptd.gov.mm/Uploads/LawFP/Attach/policy.pdf",
+            }
+            with connect(database) as conn, conn:
+                conn.execute(
+                    """INSERT INTO canonical_items(canonical_key,source_id,item_kind,title,reference_no,project_name,publication_date,deadline,location,url,content_hash,evidence_sha256,payload_json,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    ("ptd-policy:1", "S46", "REGULATORY_NOTICE", payload["title"], "PTD-POLICY-1", payload["title"], "2026-09-10", None, "Myanmar", payload["url"], "h", "e", json.dumps(payload), "2026-09-10T10:00:00Z", "2026-09-10T10:00:00Z"),
+                )
+                conn.execute(
+                    "INSERT INTO signals(signal_id,source_id,canonical_key,signal_type,created_at,payload_json) VALUES (?,?,?,?,?,?)",
+                    ("sig-strategic", "S46", "ptd-policy:1", "NEW", "2026-09-10T11:00:00Z", json.dumps({"signal_type": "NEW", "canonical_key": "ptd-policy:1", **payload})),
+                )
+            digest = business_digest(database=database, registry=_Registry(), now=datetime(2026,9,10,12,0,tzinfo=UTC))  # type: ignore[arg-type]
+        notices = digest["activity_24h"]["strategic_notices"]
+        self.assertEqual(len(notices), 1)
+        self.assertEqual(notices[0]["source_id"], "S46")
+        text = render_business_digest(digest)
+        self.assertIn("📡 战略动态", text)
+        self.assertIn("Spectrum Roadmap 2026-2030", text)
+        self.assertIn("SPECTRUM_5G_POLICY", text)
+        self.assertIn('href="https://www.ptd.gov.mm/Uploads/LawFP/Attach/policy.pdf"', text)
+
     def test_digest_translates_burmese_attention_issuers(self) -> None:
         with tempfile.TemporaryDirectory() as tmp, patch("signalforge.business_digest.business_briefing", return_value=_briefing()), patch(
             "signalforge.business_digest.audit", return_value=_audit()

@@ -2738,6 +2738,75 @@
         "current_health": "OFFICIAL_MEDIA_TITLE_EXCERPT",
         "fetch_in_primary_pipeline": false
       }
+    },
+    "S46": {
+      "name": "PTD Spectrum and Telecom Policy",
+      "adapter": "ptd_policy_notice",
+      "enabled": true,
+      "role": "ACTIVE_SELECTIVE",
+      "audit_status": "GREEN_DIRECT_HTTP_OFFICIAL_POLICY_TABLE_STRATEGIC_TELECOM",
+      "item_kind": "REGULATORY_NOTICE",
+      "network_zone": "myanmar-international",
+      "engine": "direct_http",
+      "landing_url": "https://www.ptd.gov.mm/LawsFP.aspx",
+      "discovery_url": "https://www.ptd.gov.mm/LawsFP.aspx",
+      "listing_complete_business_records": true,
+      "language": "en",
+      "poll_interval_seconds": 21600,
+      "retry_interval_seconds": 1800,
+      "priority": 96,
+      "recovery_slo_seconds": 21600,
+      "availability_policy": {
+        "class": "DELAY_TOLERANT_MONITORED",
+        "accepted_collection_outage_seconds": 86400,
+        "collection_rto_seconds": 21600,
+        "business_data_rpo_target_seconds": 21600,
+        "outage_status": "DATA_COLLECTION_DELAYED",
+        "delivery_during_recovery": "CONTINUE_WITH_DEGRADED_HEALTH"
+      },
+      "baseline_lookback_days": 0,
+      "baseline_detail_limit": 0,
+      "delta_detail_limit": 0,
+      "request_timeout_seconds": 30,
+      "request_max_bytes": 300000,
+      "request_delay_ms": 0,
+      "canonical_key": "ptd_policy_title_publication_date",
+      "first_baseline_customer_signal": false,
+      "bootstrap_seed_urls": [],
+      "selection_policy_version": 1,
+      "health_policy": {
+        "freshness_yellow_seconds": 43200,
+        "freshness_red_seconds": 86400,
+        "fetch_yellow_failures": 1,
+        "fetch_red_failures": 3,
+        "parse_window_runs": 10,
+        "parse_min_attempts": 1,
+        "parse_yellow_ratio": 0.9,
+        "parse_red_ratio": 0.7,
+        "parse_probe_interval_seconds": 43200,
+        "parse_sample_source": "BUSINESS_PROCESSING"
+      },
+      "source_policy_version": 1,
+      "egress_profile": "mm-intl-datacenter",
+      "acquisition_policy": {
+        "enabled": true,
+        "primary": {"method": "DIRECT_HTTP", "target_kind": "HTML"},
+        "supplementary": [],
+        "escalation": {
+          "DNS_FAILURE": {"action": "RETRY"},
+          "CONNECT_TIMEOUT": {"action": "RETRY"},
+          "HTTP_429": {"action": "RETRY"},
+          "HTTP_403": {"action": "REVIEW"},
+          "TLS_FAILURE": {"action": "FAIL"},
+          "JS_RENDER_REQUIRED": {"action": "REVIEW_CAPABILITY"},
+          "PARSER_DRIFT": {"action": "REAUDIT"}
+        }
+      },
+      "attachment_policy": {
+        "mode": "METADATA_ONLY_OFFICIAL_PDF",
+        "current_health": "OFFICIAL_POLICY_TABLE_TITLE_DATE_PDF_LINK",
+        "fetch_in_primary_pipeline": false
+      }
     }
   },
   "deferred_sources": {
