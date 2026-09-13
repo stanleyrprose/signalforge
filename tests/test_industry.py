@@ -10,6 +10,15 @@ LIST_URL = "https://www.industrymsme.gov.mm/announcements"
 DETAIL_URL = "https://www.industrymsme.gov.mm/announcements/1036"
 
 
+def _detail_html(*, title: str, date: str, body: str) -> bytes:
+    return f"""<html><body>
+    <h3 class="title-bg">{title}</h3>
+    <span class="date">{date}</span>
+    <span class="author">Official business unit</span>
+    <div class="member-desc"><p>{body}</p></div>
+    </body></html>""".encode("utf-8")
+
+
 class IndustryTests(unittest.TestCase):
     def test_listing_selects_current_tenders_with_native_ids(self) -> None:
         entries = parse_tender_listing((ROOT / "industry-listing.html").read_bytes())
@@ -31,6 +40,53 @@ class IndustryTests(unittest.TestCase):
         self.assertEqual(tender.business_unit, "No.1 Heavy Industrial Enterprise")
         self.assertIn("Chemical Reagent", tender.scope_summary)
         self.assertIn("Sample Gas", tender.scope_summary)
+
+
+    def test_detail_accepts_live_issuer_close_label_variants(self) -> None:
+        cases = [
+            (
+                "1042",
+                "အမှတ်(၃)အကြီးစားစက်မှုလုပ်ငန်း၊ အမှတ်(၈)အထည်စက်ရုံခွဲ (ရမည်းသင်း)တွင် ၁/၇ ပီစီချည်(ရောင်စုံ) ၄၉,၄၆ဝ ပေါင် ဝယ်ယူရန် အိတ်ဖွင့်တင်ဒါခေါ်ယူခြင်း",
+                "Fri 11-09-2026",
+                "တင်ဒါစတင်ရောင်းချမည့်ရက် - ၁၁-၉-၂၀၂၆ (၉:၃၀)နာရီ တင်ဒါပိတ်ရက် - ၁၈-၉-၂၀၂၆ (၁၆:၃၀)နာရီ",
+                "2026-09-18",
+                "16:30",
+            ),
+            (
+                "1040",
+                "အမှတ်(၁)အကြီးစားစက်မှုလုပ်ငန်း၊ အမှတ်(၁)သံမဏိစက်ရုံ(မြင်းခြံ)ရှိ သံရည်ပျက်တုံး (၅၀၀)တန် ဖြတ်တောက်ခြင်းလုပ်ငန်းကို လုပ်ငန်းအပ်နှံဆောင်ရွက်လိုပါသဖြင့် အိတ်ဖွင့်တင်ဒါဖိတ်ခေါ်ခြင်း",
+                "Tue 08-09-2026",
+                "တင်ဒါပုံစံစတင်ရောင်းချမည့်ရက် - ၈- ၉ - ၂ဝ၂၆ ရက် (ရုံးချိန်အတွင်း) တင်ဒါပိတ်ရက် - ၂၃ - ၉ - ၂ဝ၂၆ ရက် (၁၆ : ၀၀)နာရီ",
+                "2026-09-23",
+                "16:00",
+            ),
+            (
+                "1038",
+                "မြန်မာ့ဆေးဝါးလုပ်ငန်းမှ ဆေးဝါးကုန်ကြမ်းနှင့် ထုပ်ပိုးခွံများ သယ်ယူပို့ဆောင်ရန် ကုန်သေတ္တာတင်ယာဉ် ငှားရမ်းခ အိတ်ဖွင့်တင်ဒါခေါ်ယူခြင်း",
+                "Mon 07-09-2026",
+                "ဈေးနှုန်းတင်သွင်းလွှာပုံစံများ စတင်ရောင်းချမည့်ရက် - ၇. ၉ .၂၀၂၆ တင်ဒါပိတ်မည့်ရက်နှင့်အချိန် - ၆. ၁၀.၂၀၂၆ ၊ (၁၆:၀၀)နာရီ",
+                "2026-10-06",
+                "16:00",
+            ),
+        ]
+        for record_id, title, date, body, expected_date, expected_time in cases:
+            with self.subTest(record_id=record_id):
+                tender = parse_tender_detail(
+                    _detail_html(title=title, date=date, body=body),
+                    f"https://www.industrymsme.gov.mm/announcements/{record_id}",
+                )
+                self.assertIsNotNone(tender)
+                assert tender is not None
+                self.assertEqual(tender.deadline, expected_date)
+                self.assertEqual(tender.deadline_time, expected_time)
+
+    def test_detail_does_not_treat_sale_date_as_deadline_without_close_label(self) -> None:
+        payload = _detail_html(
+            title="အိတ်ဖွင့်တင်ဒါခေါ်ယူခြင်း",
+            date="Fri 11-09-2026",
+            body="တင်ဒါစတင်ရောင်းချမည့်ရက် - ၁၁-၉-၂၀၂၆ (၉:၃၀)နာရီ",
+        )
+        self.assertIsNone(parse_tender_detail(payload, "https://www.industrymsme.gov.mm/announcements/9999"))
 
     def test_detail_fails_closed_for_wrong_issuer_url(self) -> None:
         payload = (ROOT / "industry-1036.html").read_bytes()

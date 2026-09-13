@@ -29,7 +29,7 @@ _EXCLUDE_TOKENS = (
 )
 _MYANMAR_DIGITS = str.maketrans("၀၁၂၃၄၅၆၇၈၉", "0123456789")
 _DEADLINE_RE = re.compile(
-    r"တင်ဒါပိတ်ရက်နှင့်အချိန်.{0,220}?\(?\s*(?P<day>\d{1,2})\s*[.\-/]\s*(?P<month>\d{1,2})\s*[.\-/]\s*(?P<year>20\d{2})\s*\)?"
+    r"တင်ဒါပိတ်(?:မည့်)?ရက်(?:(?:နှင့်|နှင့်)အချိန်)?.{0,220}?\(?\s*(?P<day>\d{1,2})\s*[.\-/]\s*(?P<month>\d{1,2})\s*[.\-/]\s*(?P<year>20\d{2})\s*\)?"
     r".{0,100}?\(?\s*(?P<hour>\d{1,2})\s*:\s*(?P<minute>\d{2})\s*\)?",
     re.S,
 )
@@ -95,6 +95,9 @@ def _detail_publication_date(value: str) -> str | None:
 
 def _deadline(value: str) -> tuple[str | None, str | None]:
     text = normalize_text(value).translate(_MYANMAR_DIGITS)
+    # The issuer occasionally types Myanmar letter Wa (ဝ) as numeric zero inside a date year (for example ၂ဝ၂၆).
+    # Normalize only when the glyph is sandwiched by digits so ordinary Burmese words are untouched.
+    text = re.sub(r"(?<=\d)ဝ(?=\d)", "0", text)
     match = _DEADLINE_RE.search(text)
     if match is None:
         return None, None
