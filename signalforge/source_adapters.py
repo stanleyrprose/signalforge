@@ -43,6 +43,7 @@ from .moi import parse_tender_listing as parse_moi_tender_listing
 from .moba import parse_tender_detail as parse_moba_tender_detail
 from .moba import parse_tender_listing as parse_moba_tender_listing
 from .mcrd import parse_tender_records as parse_mcrd_tender_records
+from .moc import parse_tender_records as parse_moc_tender_records
 from .mte import parse_tender_records as parse_mte_tender_records
 from .mpt import SitemapEntry, parse_sitemap, parse_tender_detail as parse_mpt_tender_detail
 from .mpt_network import parse_network_records as parse_mpt_network_records
@@ -465,6 +466,17 @@ ADAPTERS = {
         canonicalizer_version="dwir-joomla-article-id-v1",
         parse_discovery=parse_dwir_tender_listing,
         parse_detail=_parse_dwir_detail,
+    ),
+    "moc_tender": SourceAdapter(
+        name="moc_tender",
+        discovery_content_types=("text/html",),
+        discovery_parser_version="moc-national-tender-board-v1",
+        detail_parser_version="not-applicable",
+        normalizer_version="moc-national-tender-normalize-v1",
+        canonicalizer_version="moc-issuer-uuid-v1",
+        parse_discovery=_empty_discovery,
+        parse_detail=lambda _payload, _url: [],
+        parse_discovery_records=parse_moc_tender_records,
     ),
     "yangon_construction_tender": SourceAdapter(
         name="yangon_construction_tender",

@@ -90,6 +90,13 @@ class Registry:
         for source_id, source in sources.items():
             if not isinstance(source, dict) or source.get("enabled") is not True:
                 continue
+            activation_gate = source.get("activation_gate")
+            if (
+                isinstance(activation_gate, dict)
+                and activation_gate.get("enable_only_after_gate_pass") is True
+                and activation_gate.get("status") != "PASS"
+            ):
+                raise ConfigError(f"source activation gate not passed: {source_id}")
             adapter = source.get("adapter")
             if not isinstance(adapter, str) or adapter not in ADAPTERS:
                 raise ConfigError(f"unsupported source adapter: {source_id}")
