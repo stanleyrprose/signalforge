@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable
 
+from .atom_network import parse_network_records as parse_atom_network_records
 from .commerce import parse_notification_detail as parse_commerce_notification_detail
 from .commerce import parse_notification_listing as parse_commerce_notification_listing
 from .customs import parse_notification_records as parse_customs_notification_records
@@ -44,6 +45,7 @@ from .moba import parse_tender_listing as parse_moba_tender_listing
 from .mcrd import parse_tender_records as parse_mcrd_tender_records
 from .mte import parse_tender_records as parse_mte_tender_records
 from .mpt import SitemapEntry, parse_sitemap, parse_tender_detail as parse_mpt_tender_detail
+from .mpt_network import parse_network_records as parse_mpt_network_records
 from .mytel import parse_tender_records as parse_mytel_tender_records
 from .ptd import extract_tender_pdf_urls as extract_ptd_tender_pdf_urls
 from .ptd import parse_tender_detail as parse_ptd_tender_detail
@@ -51,6 +53,8 @@ from .ptd import parse_tender_detail_with_attachments as parse_ptd_tender_detail
 from .ptd import parse_tender_listing as parse_ptd_tender_listing
 from .railways import parse_tender_detail as parse_railways_tender_detail
 from .railways import parse_tender_listing
+from .yangon_construction import parse_tender_detail as parse_yangon_construction_detail
+from .yangon_construction import parse_tender_listing as parse_yangon_construction_listing
 from .ycdc_building import parse_tender_records as parse_ycdc_building_tender_records
 
 
@@ -86,6 +90,11 @@ def _empty_discovery(_payload: bytes) -> list[SitemapEntry]:
 
 def _parse_mpt_detail(payload: bytes, url: str) -> list[object]:
     tender = parse_mpt_tender_detail(payload, url)
+    return [tender] if tender is not None else []
+
+
+def _parse_yangon_construction_detail(payload: bytes, url: str) -> list[object]:
+    tender = parse_yangon_construction_detail(payload, url)
     return [tender] if tender is not None else []
 
 
@@ -455,6 +464,38 @@ ADAPTERS = {
         canonicalizer_version="dwir-joomla-article-id-v1",
         parse_discovery=parse_dwir_tender_listing,
         parse_detail=_parse_dwir_detail,
+    ),
+    "yangon_construction_tender": SourceAdapter(
+        name="yangon_construction_tender",
+        discovery_content_types=("text/html",),
+        discovery_parser_version="yangon-moc-wordpress-category-v1",
+        detail_parser_version="yangon-moc-wordpress-detail-v1",
+        normalizer_version="yangon-construction-normalize-v1",
+        canonicalizer_version="yangon-wordpress-post-id-v1",
+        parse_discovery=parse_yangon_construction_listing,
+        parse_detail=_parse_yangon_construction_detail,
+    ),
+    "atom_network_notice": SourceAdapter(
+        name="atom_network_notice",
+        discovery_content_types=("application/json",),
+        discovery_parser_version="atom-media-api-network-filter-v1",
+        detail_parser_version="not-applicable",
+        normalizer_version="atom-network-normalize-v1",
+        canonicalizer_version="atom-media-id-v1",
+        parse_discovery=_empty_discovery,
+        parse_detail=lambda _payload, _url: [],
+        parse_discovery_records=parse_atom_network_records,
+    ),
+    "mpt_network_notice": SourceAdapter(
+        name="mpt_network_notice",
+        discovery_content_types=("text/html",),
+        discovery_parser_version="mpt-latest-news-network-filter-v1",
+        detail_parser_version="not-applicable",
+        normalizer_version="mpt-network-normalize-v1",
+        canonicalizer_version="mpt-press-release-slug-v1",
+        parse_discovery=_empty_discovery,
+        parse_detail=lambda _payload, _url: [],
+        parse_discovery_records=parse_mpt_network_records,
     ),
 }
 
