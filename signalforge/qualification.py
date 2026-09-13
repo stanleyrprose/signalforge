@@ -99,27 +99,48 @@ def _evidence_level(item: dict[str, object], source_policy: dict[str, Any] | Non
     return "OFFICIAL_HTML"
 
 
-def _relevance_categories(item: dict[str, object], source_policy: dict[str, Any] | None) -> list[str]:
-    text = " ".join(
+def _relevance_categories(
+    item: dict[str, object], source_policy: dict[str, Any] | None
+) -> tuple[list[str], dict[str, str]]:
+    item_text = " ".join(
         str(value or "")
         for value in (
             item.get("title"),
             item.get("scope_summary"),
             item.get("issuer"),
             item.get("reference_no"),
-            (source_policy or {}).get("name"),
         )
     ).lower()
-    padded = f" {text} "
-    categories = [category for category, words in _KEYWORDS.items() if any(word in padded for word in words)]
-    fallback = _SOURCE_CATEGORY_FALLBACK.get(str(item.get("source_id") or ""))
+    source_name = str((source_policy or {}).get("name") or "").lower()
+    item_padded = f" {item_text} "
+    source_padded = f" {source_name} "
+    categories: list[str] = []
+    provenance: dict[str, str] = {}
+    for category, words in _KEYWORDS.items():
+        item_match = next((word.strip() for word in words if word in item_padded), None)
+        source_match = next((word.strip() for word in words if word in source_padded), None)
+        matched = item_match or source_match
+        if matched is not None:
+            categories.append(category)
+            provenance[category] = (
+                f"ITEM_TEXT_KEYWORD:{item_match}"
+                if item_match is not None
+                else f"SOURCE_POLICY_NAME_KEYWORD:{source_match}"
+            )
+
+    source_id = str(item.get("source_id") or "")
+    fallback = _SOURCE_CATEGORY_FALLBACK.get(source_id)
     if fallback and fallback not in categories:
         categories.append(fallback)
+        provenance[fallback] = f"SOURCE_CATEGORY_FALLBACK:{source_id}"
     if not categories:
         categories.append("OTHER")
-    return [category for category in _PRIMARY_RELEVANCE_ORDER if category in categories] + [
+        provenance["OTHER"] = "NO_CATEGORY_MATCH"
+
+    ordered = [category for category in _PRIMARY_RELEVANCE_ORDER if category in categories] + [
         category for category in categories if category not in _PRIMARY_RELEVANCE_ORDER
     ]
+    return ordered, {category: provenance[category] for category in ordered}
 
 
 def qualify_opportunity(item: dict[str, object], source_policy: dict[str, Any] | None = None) -> dict[str, object]:
@@ -153,7 +174,7 @@ def qualify_opportunity(item: dict[str, object], source_policy: dict[str, Any] |
         completeness = "MINIMAL"
         trust_grade = "C"
 
-    relevance_categories = _relevance_categories(item, source_policy)
+    relevance_categories, relevance_provenance = _relevance_categories(item, source_policy)
     primary_relevance = relevance_categories[0]
     strategic = any(category in {"ICT", "TELECOM"} for category in relevance_categories)
 
@@ -193,6 +214,7 @@ def qualify_opportunity(item: dict[str, object], source_policy: dict[str, Any] |
         "evidence_level": evidence_level,
         "completeness": completeness,
         "relevance_categories": relevance_categories,
+        "relevance_provenance": relevance_provenance,
         "primary_relevance": primary_relevance,
         "priority_band": priority_band,
         "qualification_reasons": reasons,

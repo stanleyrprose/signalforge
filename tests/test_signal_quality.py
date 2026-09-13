@@ -21,6 +21,12 @@ class SignalQualityTests(unittest.TestCase):
         result = score_signal_quality(item)
         self.assertGreaterEqual(result["signal_quality_score"], 85)
         self.assertEqual(result["signal_quality_band"], "VERY_HIGH")
+        self.assertEqual(
+            result["signal_quality_score"],
+            result["signal_quality_evidence_score"] + result["signal_quality_context_score"],
+        )
+        self.assertEqual(result["signal_quality_evidence_max"], 85)
+        self.assertEqual(result["signal_quality_context_max"], 15)
         self.assertIn("QUANTIFIED_SCOPE", result["signal_quality_strengths"])
         self.assertIn("PARTICIPATION_PATH_KNOWN", result["signal_quality_strengths"])
 
