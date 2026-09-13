@@ -112,9 +112,51 @@ This expansion does not authorize:
 
 ## Pre-merge verification
 
-- targeted source/registry/opportunity tests: `23 passed` before final tier assertion;
-- full suite before final naming/tier assertion: `319 passed`;
+- final targeted source/registry/scorecard/opportunity tests: `24 passed`;
+- final full suite: `320 passed`;
 - live parser smokes: PASS;
 - clean-DB baseline semantics: PASS.
 
 Production deployment evidence is appended after CI and live Bangkok activation.
+
+
+## Production closure — 2026-09-13
+
+PR #164 passed GitHub Actions verify run `34729187724` / job `103648717733` and squash-merged as `14f0301a4dcceaaee9aa2451384c17d36ed1a7bb`. The exact release archive SHA256 was `f72f8ceb735a02f939330d0b250147d81e27c7c05e3136a9c96f865d6de04bd6`, matched locally and on Bangkok, and deployed atomically with rollback target `4e95655be793bd2a22507d3209a76fe3bc87c7f6`.
+
+Formal production Worker baselines completed successfully:
+
+```text
+S43: SUCCESS / baseline=true / discovered=2 / changed=2 / signals_created=0 / details=2/2
+S44: SUCCESS / baseline=true / discovered=1 / changed=1 / signals_created=0 / listing_complete=true
+S45: SUCCESS / baseline=true / discovered=3 / changed=3 / signals_created=0 / listing_complete=true
+```
+
+Post-deploy production acceptance:
+
+```text
+active release               14f0301a4dcceaaee9aa2451384c17d36ed1a7bb
+active sources               30
+GREEN sources                30
+active-source canonical      216
+database canonical           218
+raw signals                  53
+effective signals            32
+known audited noise          21
+current opportunities        15 = 14 OPEN + 1 UNKNOWN
+priority distribution        8 HIGH / 5 MEDIUM / 2 REVIEW
+current ICT/Telecom opps     2
+Telegram alerts cumulative   11
+Telegram immediate pending   0
+recovery backlog             0
+DB quick_check               ok
+translation ready            true
+```
+
+The six new canonical rows are exactly `S43=2 + S44=1 + S45=3`; each new source has `baseline_complete=1`, `consecutive_failures=0`, `last_error=null`, `signals=0`, and source health GREEN. Global canonical count moved `212 -> 218` while global Signal count remained exactly `53`, proving no historical baseline noise. The current business funnel remained exactly 15 opportunities, so the telecom strategic-intelligence rows did not pollute procurement opportunities and the expired S43 construction baseline did not become current business output.
+
+`source-scorecard --window-days 30` reports `30 active / 30 GREEN / 216 active canonical / 218 DB canonical / 53 raw / 32 effective / 21 known noise / 15 opportunities / 2 ICT-Telecom opportunities / 11 Telegram alerts`. Yield-state distribution is now `ACTIONABLE_PROVEN=7 / SIGNAL_PROVEN=3 / BASELINE_ONLY=18 / NOISE_ONLY_HISTORY=1 / EMPTY=1`; S43/S44/S45 begin as `BASELINE_ONLY / STRATEGIC_WATCH`, which is analytical only.
+
+All three production timers are `enabled + active`: acquisition, immediate Telegram delivery, and daily Telegram digest. Mac OAuth translation remains `PASS / ready=true`, with queue `PENDING=0 / FAILED=0`. Immediate Telegram dry-run after deployment returned `PASS / pending_count=0`.
+
+This closes the requested coverage expansion without a Business Fit layer. S23 remains deferred until the issuer repairs its expired TLS certificate. No Browser/OCR expansion, TLS bypass, Beijing role change, schema migration, qualification change, or Telegram delivery-policy change was introduced.
