@@ -25,8 +25,8 @@ def contract() -> dict:
         "source_policies": {"S38": {"enabled": True,"source_policy_version": 1,"allowed_capabilities": list(CAPABILITY_TOOL_MAP),"targets": {"LISTING": {"capabilities": list(CAPABILITY_TOOL_MAP),"exact_urls": ["https://www.industrymsme.gov.mm/announcements"],"max_bytes": 1000000,"max_run_seconds": 60}}}},
     }
 
-def request() -> dict:
-    return build_provider_request(contract=contract(), source_id="S38", source_policy_version=1, capability="C0_FETCH", target_role="LISTING", requested_url="https://www.industrymsme.gov.mm/announcements", signalforge_job_id=str(uuid.uuid4()), acquisition_request_id=str(uuid.uuid4()), acquisition_attempt_id=str(uuid.uuid4()), max_bytes=1000000, max_run_seconds=60, now=NOW, ttl_seconds=120)
+def request(*, max_bytes: int = 1000000) -> dict:
+    return build_provider_request(contract=contract(), source_id="S38", source_policy_version=1, capability="C0_FETCH", target_role="LISTING", requested_url="https://www.industrymsme.gov.mm/announcements", signalforge_job_id=str(uuid.uuid4()), acquisition_request_id=str(uuid.uuid4()), acquisition_attempt_id=str(uuid.uuid4()), max_bytes=max_bytes, max_run_seconds=60, now=NOW, ttl_seconds=120)
 
 def framed(req: dict, claim: dict, artifact: bytes = b"<html>ok</html>", **changes) -> bytes:
     manifest = {
@@ -107,6 +107,19 @@ class ProviderResultTests(unittest.TestCase):
         manifest = json.loads(line); manifest["provider_id"] = "client-controlled"
         with self.assertRaisesRegex(ProviderResultError, "fields"):
             parse_result_stream(io.BytesIO(json.dumps(manifest).encode()+b"\n"+artifact))
+
+    def test_rejects_artifact_larger_than_original_request_budget(self) -> None:
+        small_db = Path(self.tmp.name) / "small-budget.db"
+        small_req = request(max_bytes=8)
+        enqueue_provider_request(small_req, contract=contract(), database=small_db, now=NOW)
+        small_claim = claim_next_provider_request(provider_id="mac-mm-01", database=small_db, now=NOW, lease_seconds=60)
+        with self.assertRaisesRegex(ProviderResultError, "request max_bytes"):
+            accept_result_stream(
+                io.BytesIO(framed(small_req, small_claim, artifact=b"123456789")),
+                database=small_db,
+                evidence_directory=self.evidence,
+                now=NOW + timedelta(seconds=1),
+            )
 
 if __name__ == "__main__":
     unittest.main()

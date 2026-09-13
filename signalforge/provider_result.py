@@ -85,6 +85,9 @@ def _validate_claim_metadata(manifest: dict[str, Any], *, database: Path) -> dic
     if str(row["request_sha256"]) != str(manifest["request_sha256"]):
         raise ProviderResultError("provider result request SHA mismatch")
     request = json.loads(str(row["request_json"]))
+    request_max_bytes = request.get("max_bytes")
+    if not isinstance(request_max_bytes, int) or int(manifest["artifact_bytes"]) > request_max_bytes:
+        raise ProviderResultError("provider artifact exceeds request max_bytes")
     if str(request.get("mcp_tool")) != str(manifest["mcp_tool"]):
         raise ProviderResultError("provider result MCP tool mismatch")
     try:
