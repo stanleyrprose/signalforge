@@ -311,17 +311,20 @@ def render_business_digest(
     digest_was_translated = False
 
     def business_subject(item: dict[str, object]) -> str:
-        title = _compact(item.get("title"), 120)
-        quantity = _compact(item.get("quantity_or_lot_summary"), 90)
-        scope = _compact(item.get("scope_excerpt"), 130)
+        title = _compact(item.get("title"), 115)
+        quantity = _compact(item.get("quantity_or_lot_summary"), 70)
+        scope = _compact(item.get("scope_excerpt"), 105)
         parts: list[str] = []
         if title:
             parts.append(title)
         if quantity and quantity not in title:
             parts.append(quantity)
-        elif scope and scope not in title:
-            parts.append(scope)
-        return _compact("；".join(parts) or "采购/招标内容待补充", 190)
+        else:
+            relevance = str(item.get("primary_relevance") or "")
+            focus_count = int(item.get("focus_reference_count") or 0)
+            if scope and scope not in title and (relevance in {"ICT", "TELECOM"} or focus_count > 0 or not title):
+                parts.append(scope)
+        return _compact("；".join(parts) or scope or "采购/招标内容待补充", 145)
 
     def translate_values(values: list[str], limit: int) -> list[str]:
         nonlocal digest_was_translated
@@ -332,10 +335,17 @@ def render_business_digest(
         return [_compact(value, limit) for value in translated]
 
     def translated_subjects(rows: list[dict[str, object]]) -> list[str]:
-        return translate_values([business_subject(item) for item in rows], 170)
+        return translate_values([business_subject(item) for item in rows], 135)
 
     def translated_issuers(rows: list[dict[str, object]]) -> list[str]:
         return translate_values([str(item.get("issuer") or "") for item in rows], 46)
+
+
+    def official_link(url: object, label: str = "官方") -> str:
+        value = str(url or "")
+        if not value.startswith("https://") or len(value) > 140:
+            return ""
+        return f' · <a href="{html.escape(value, quote=True)}">{label}</a>'
 
     lines = [
         "📊 <b>SignalForge Myanmar 商机简报</b>",
@@ -367,16 +377,37 @@ def render_business_digest(
                 action = str(attention_match.get("attention_action") or "")
                 icon = {"ACT_NOW": "🔴", "PRIORITIZE": "🟠", "REVIEW": "🟡"}.get(action, "•")
                 action_text = f" · {html.escape(action)}" if action else ""
-            url = str(item.get("url") or "")
-            link = f' · <a href="{html.escape(url, quote=True)}">官方</a>' if url.startswith("https://") else ""
+            link = official_link(item.get("url"))
             lines.append(f"{icon} <b>[{source_id}] {issuer}</b> · {signal_type}{action_text} · 截止 <b>{deadline}</b>{ref_text}{link}")
             lines.append(f"  采购/招标：{subject}")
 
     if attention:
-        attention_rows = [
+        attention_candidates = [
             item for item in attention
             if isinstance(item, dict) and str(item.get("canonical_key")) not in change_keys
-        ][:4]
+        ]
+        attention_rows: list[dict[str, object]] = []
+        used_sources: set[str] = set()
+        for item in attention_candidates:
+            if str(item.get("primary_relevance") or "") not in {"ICT", "TELECOM"}:
+                continue
+            source = str(item.get("source_id") or item.get("canonical_key") or "?").split(":", 1)[0]
+            if source in used_sources:
+                continue
+            attention_rows.append(item)
+            used_sources.add(source)
+            if len(attention_rows) >= 2:
+                break
+        for item in attention_candidates:
+            if item in attention_rows:
+                continue
+            source = str(item.get("source_id") or item.get("canonical_key") or "?").split(":", 1)[0]
+            if source in used_sources:
+                continue
+            attention_rows.append(item)
+            used_sources.add(source)
+            if len(attention_rows) >= 4:
+                break
         attention_issuers = translated_issuers(attention_rows)
         attention_subjects = translated_subjects(attention_rows)
         if attention_rows:
@@ -395,8 +426,7 @@ def render_business_digest(
             quality_band = item.get("signal_quality_band")
             if isinstance(quality_score, int) and quality_band:
                 quality = f" · Q{quality_score}/{html.escape(str(quality_band))}"
-            url = str(item.get("url") or "")
-            link = f' · <a href="{html.escape(url, quote=True)}">官方</a>' if url.startswith("https://") else ""
+            link = official_link(item.get("url"))
             focus_count = int(item.get("focus_reference_count") or 0)
             focus = f" · 相关分包 {focus_count}" if focus_count else ""
             icon = icons.get(action, "•")
@@ -413,12 +443,15 @@ def render_business_digest(
             location = html.escape(str(gap.get("location") or ""))
             title = html.escape(_compact(gap.get("title"), 130))
             url = str(gap.get("url") or "")
-            link = f' · <a href="{html.escape(url, quote=True)}">官方记录</a>' if url.startswith("https://construction.gov.mm/") else ""
+            link = official_link(url, "官方记录") if url.startswith("https://construction.gov.mm/") else ""
             lines.append(f"• <b>[{source_id}]</b> {title} · {location} · 截止 <b>{deadline}</b>{link}")
         lines.append("<i>不计入 canonical、Signal 或当前机会数量。</i>")
 
     watch_count = int(business.get("watchlist_count") or 0)
-    watch_rows = [item for item in watch_items[:3] if isinstance(item, dict)]
+    watch_rows = [
+        item for item in watch_items
+        if isinstance(item, dict) and str(item.get("canonical_key")) not in change_keys
+    ][:2]
     if watch_rows:
         watch_subjects = translated_subjects(watch_rows)
         lines.extend(["", f"<b>🟡 Watchlist：{watch_count} 条 MEDIUM（展示前 {len(watch_rows)} 条）</b>"])
