@@ -12,6 +12,7 @@ from zoneinfo import ZoneInfo
 from .auditor import audit
 from .briefing import business_briefing
 from .config import Registry, db_path
+from .coverage_gaps import reviewed_coverage_gaps
 from .db import connect
 from .telegram_delivery import TelegramDeliveryError, _send_message
 from .translation import translate_myanmar_to_zh_hans
@@ -152,6 +153,7 @@ def business_digest(
     s13 = strategic.get("S13") or {}
     s41 = strategic.get("S41") or {}
     atom = checks.get("atom_surface_trigger") or {}
+    coverage_gaps = reviewed_coverage_gaps(now=now)
 
     return {
         "status": "PASS",
@@ -198,6 +200,9 @@ def business_digest(
             "watchlist_count": int(watchlist.get("count") or 0),
             "watchlist_relevance": watchlist.get("primary_relevance_counts") or {},
             "watchlist_delivery_policy": "VALID_MEDIUM_NOT_IMMEDIATE_ALERT; escalates on strategic fit or <=72h urgency",
+            "coverage_gap_count": len(coverage_gaps),
+            "coverage_gaps": coverage_gaps,
+            "coverage_gap_policy": "REVIEWED_READ_ONLY_OUTSIDE_CANONICAL_SIGNAL_PIPELINE",
         },
         "auditor": {
             "status": audit_result.get("status"),
@@ -267,6 +272,21 @@ def render_business_digest(
             url = str(notice.get("url") or "")
             link = f' · <a href="{html.escape(url, quote=True)}">官方详情</a>' if url.startswith("https://") else ""
             lines.append(f"• {source_id} · {signal_type} · {kind} · {date} · {title}{link}")
+
+    coverage_gaps = business.get("coverage_gaps") or []
+    if isinstance(coverage_gaps, list) and coverage_gaps:
+        lines.extend(["", "<b>⚠️ 覆盖缺口（非正式 Signal）</b>"])
+        for gap in coverage_gaps[:4]:
+            if not isinstance(gap, dict):
+                continue
+            source_id = html.escape(str(gap.get("source_id") or ""))
+            deadline = html.escape(str(gap.get("deadline") or ""))
+            location = html.escape(str(gap.get("location") or ""))
+            title = html.escape(_compact(gap.get("title"), 120))
+            url = str(gap.get("url") or "")
+            link = f' · <a href="{html.escape(url, quote=True)}">官方记录</a>' if url.startswith("https://construction.gov.mm/") else ""
+            lines.append(f"• {source_id} · 截止 <b>{deadline}</b> · {location} · {title}{link}")
+        lines.append("<i>说明：人工核验覆盖缺口；不计入 canonical、Signal 或当前机会数量。</i>")
 
     lines.extend([
         "",
