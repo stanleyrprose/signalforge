@@ -53,6 +53,7 @@ def _why_now(item: dict[str, object]) -> list[str]:
 def _attention_item(item: dict[str, object]) -> dict[str, object]:
     return {
         "canonical_key": item.get("canonical_key"),
+        "source_id": item.get("source_id"),
         "item_kind": item.get("item_kind"),
         "commercial_event_type": item.get("commercial_event_type"),
         "commercial_direction": item.get("commercial_direction"),
@@ -158,6 +159,7 @@ def business_briefing(
             "count": len(watch_rows),
             "primary_relevance_counts": dict(sorted(watch_relevance.items())),
             "canonical_keys": [item.get("canonical_key") for item in watch_rows],
+            "items": [_attention_item(item) for item in watch_rows[:5]],
         },
         "delivery_contract": {
             "generator": "external_agent_or_chatgpt",
