@@ -277,6 +277,30 @@ class BusinessDigestTests(unittest.TestCase):
         self.assertIn("🌐 缅文内容已机器翻译为中文", text)
         self.assertNotIn("စွမ်းအင်", text)
 
+    def test_attention_selection_stops_at_six_after_strategic_fill(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp, patch("signalforge.business_digest.business_briefing", return_value=_briefing()), patch(
+            "signalforge.business_digest.audit", return_value=_audit()
+        ), patch("signalforge.business_digest.source_scorecard", return_value=_scorecard()):
+            digest = business_digest(database=self._db(tmp), registry=_Registry(), now=datetime(2026,9,14,2,0,tzinfo=UTC))  # type: ignore[arg-type]
+        rows = []
+        for index in range(8):
+            rows.append({
+                "canonical_key": f"opp:{index}",
+                "source_id": f"S{30 + index}",
+                "item_kind": "TENDER",
+                "attention_action": "PRIORITIZE",
+                "primary_relevance": "ICT" if index in {4, 5} else "INDUSTRIAL",
+                "issuer": f"Issuer {index}",
+                "title": f"Opportunity {index}",
+                "deadline": "2026-09-18",
+                "deadline_status": "OPEN",
+            })
+        digest["business"]["attention"] = rows
+        text = render_business_digest(digest)
+        self.assertIn("今天先看：8 条需处理（展示前 6 条）", text)
+        self.assertIn("Opportunity 5", text)
+        self.assertNotIn("Opportunity 6", text)
+
     def test_render_truncates_only_at_line_boundaries(self) -> None:
         with tempfile.TemporaryDirectory() as tmp, patch("signalforge.business_digest.business_briefing", return_value=_briefing()), patch(
             "signalforge.business_digest.audit", return_value=_audit()

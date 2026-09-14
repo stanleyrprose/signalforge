@@ -391,13 +391,13 @@ def render_business_digest(
         if len(attention_rows) >= 6:
             break
     for item in all_attention_rows:
+        if len(attention_rows) >= 6:
+            break
         key = str(item.get("canonical_key") or "")
         if key in selected_keys:
             continue
         attention_rows.append(item)
         selected_keys.add(key)
-        if len(attention_rows) >= 6:
-            break
     attention_keys = {key for key in selected_keys if key}
     if attention_rows:
         attention_issuers = translated_issuers(attention_rows)
