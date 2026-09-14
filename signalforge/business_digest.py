@@ -335,7 +335,7 @@ def render_business_digest(
         return [_compact(value, limit) for value in translated]
 
     def translated_subjects(rows: list[dict[str, object]]) -> list[str]:
-        return translate_values([business_subject(item) for item in rows], 135)
+        return translate_values([business_subject(item) for item in rows], 105)
 
     def translated_issuers(rows: list[dict[str, object]]) -> list[str]:
         return translate_values([str(item.get("issuer") or "") for item in rows], 46)
@@ -368,7 +368,7 @@ def render_business_digest(
             signal_type = html.escape(str(item.get("signal_type") or ""))
             subject = html.escape(change_subjects[index])
             deadline = html.escape(_deadline_text(item))
-            reference = _compact(item.get("reference_no"), 42)
+            reference = _compact(item.get("reference_no"), 28)
             ref_text = f" · Ref {html.escape(reference)}" if reference else ""
             attention_match = attention_by_key.get(str(item.get("canonical_key")))
             action_text = ""
@@ -378,8 +378,7 @@ def render_business_digest(
                 icon = {"ACT_NOW": "🔴", "PRIORITIZE": "🟠", "REVIEW": "🟡"}.get(action, "•")
                 action_text = f" · {html.escape(action)}" if action else ""
             link = official_link(item.get("url"))
-            lines.append(f"{icon} <b>[{source_id}] {issuer}</b> · {signal_type}{action_text} · 截止 <b>{deadline}</b>{ref_text}{link}")
-            lines.append(f"  采购/招标：{subject}")
+            lines.append(f"{icon} <b>[{source_id}] {issuer}</b> · {subject} · 截止 <b>{deadline}</b>{action_text}{ref_text}{link}")
 
     if attention:
         attention_candidates = [
@@ -419,7 +418,7 @@ def render_business_digest(
             issuer = html.escape(attention_issuers[index])
             subject = html.escape(attention_subjects[index])
             deadline = html.escape(_deadline_text(item))
-            reference = _compact(item.get("reference_no"), 42)
+            reference = _compact(item.get("reference_no"), 28)
             ref_text = f" · Ref {html.escape(reference)}" if reference else ""
             quality = ""
             quality_score = item.get("signal_quality_score")
@@ -430,8 +429,7 @@ def render_business_digest(
             focus_count = int(item.get("focus_reference_count") or 0)
             focus = f" · 相关分包 {focus_count}" if focus_count else ""
             icon = icons.get(action, "•")
-            lines.append(f"{icon} <b>[{source_id}] {issuer}</b> · {html.escape(action)} · 截止 <b>{deadline}</b>{ref_text}{quality}{focus}{link}")
-            lines.append(f"  采购/招标：{subject}")
+            lines.append(f"{icon} <b>[{source_id}] {issuer}</b> · {subject} · 截止 <b>{deadline}</b> · {html.escape(action)}{quality}{focus}{link}")
 
     if coverage_gaps:
         lines.extend(["", "<b>⚠️ 覆盖缺口（非正式 Signal）</b> · 人工核验"])
@@ -441,7 +439,7 @@ def render_business_digest(
             source_id = html.escape(str(gap.get("source_id") or ""))
             deadline = html.escape(str(gap.get("deadline") or ""))
             location = html.escape(str(gap.get("location") or ""))
-            title = html.escape(_compact(gap.get("title"), 130))
+            title = html.escape(_compact(gap.get("title"), 100))
             url = str(gap.get("url") or "")
             link = official_link(url, "官方记录") if url.startswith("https://construction.gov.mm/") else ""
             lines.append(f"• <b>[{source_id}]</b> {title} · {location} · 截止 <b>{deadline}</b>{link}")
@@ -481,12 +479,9 @@ def render_business_digest(
         "",
         f"<b>📌 业务漏斗</b>：当前机会：<b>{business.get('current_opportunities', 0)}</b> · HIGH {priorities.get('HIGH', 0)} · MEDIUM {priorities.get('MEDIUM', 0)} · REVIEW {priorities.get('REVIEW', 0)}",
         f"🧭 Signal质量：均分 {quality_avg} · VERY_HIGH {quality_counts.get('VERY_HIGH', 0)} · HIGH {quality_counts.get('HIGH', 0)} · MEDIUM {quality_counts.get('MEDIUM', 0)} · REVIEW {quality_counts.get('REVIEW', 0)}",
-        f"📲 TG即时提醒：过去24h {totals.get('telegram_alerts_24h', 0)} · 累计 {totals.get('telegram_alerts', 0)}",
         "",
-        f"<b>⚙️ 系统状态</b>",
-        f"📡 Sources：<b>{sources.get('monitored', 0)}</b> monitored · {sources.get('green', 0)} GREEN · {sources.get('non_green', 0)} degraded",
-        f"📈 Signals：<b>{activity.get('signals', 0)}</b>（NEW {activity.get('new_signals', 0)} / UPDATED {activity.get('updated_signals', 0)}）",
-        f"Source产出：<b>{proven_sources}/{source_yield.get('active_sources', sources.get('monitored', 0))}</b> proven · 累计 {totals.get('canonical_items', 0)} canonical · {source_yield.get('effective_signals', '?')} effective / {totals.get('signals', 0)} raw",
+        f"⚙️ Sources：<b>{sources.get('monitored', 0)}</b> monitored · {sources.get('green', 0)} GREEN · {sources.get('non_green', 0)} degraded · Signals：<b>{activity.get('signals', 0)}</b>",
+        f"Source产出：<b>{proven_sources}/{source_yield.get('active_sources', sources.get('monitored', 0))}</b> proven · {source_yield.get('effective_signals', '?')} effective / {totals.get('signals', 0)} raw signals",
     ])
 
     mytel = auditor.get("mytel") or {}
@@ -498,12 +493,9 @@ def render_business_digest(
     mytel_missing = len(mytel.get("missing") or []) if isinstance(mytel.get("missing"), list) else mytel.get("missing", "?")
     if digest_was_translated:
         lines.append("🌐 缅文内容已机器翻译为中文（事实以官方原文为准）")
-    lines.extend([
-        "",
-        f"🛡 Auditor：<b>{html.escape(str(auditor.get('status') or 'UNKNOWN'))}</b> · findings {auditor.get('finding_count', '?')}",
-        f"📶 Telecom覆盖：MPT missing {mpt.get('missing', '?')} · MYTEL {mytel.get('canonical_keys', '?')}/{mytel.get('official_keys', '?')}（missing {mytel_missing}） · ATOM {atom.get('status', 'UNKNOWN')}",
-        f"🗃 累计：{totals.get('canonical_items', 0)} canonical · {source_yield.get('effective_signals', '?')} effective / {totals.get('signals', 0)} raw signals",
-    ])
+    lines.append(
+        f"🛡 Auditor {html.escape(str(auditor.get('status') or 'UNKNOWN'))} · Telecom MPT missing {mpt.get('missing', '?')} · MYTEL {mytel.get('canonical_keys', '?')}/{mytel.get('official_keys', '?')} · ATOM {atom.get('status', 'UNKNOWN')}"
+    )
 
     text = "\n".join(lines)
     if len(text) > TELEGRAM_MESSAGE_LIMIT:
