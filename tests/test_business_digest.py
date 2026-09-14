@@ -138,17 +138,18 @@ class BusinessDigestTests(unittest.TestCase):
         ), patch("signalforge.business_digest.source_scorecard", return_value=_scorecard()):
             digest = business_digest(database=self._db(tmp), registry=_Registry(), now=datetime(2026,9,10,12,0,tzinfo=UTC))  # type: ignore[arg-type]
         text = render_business_digest(digest)
-        self.assertIn("Sources：<b>2</b> monitored", text)
-        self.assertIn("Signals：<b>1</b>", text)
-        self.assertIn("当前机会：<b>3</b> · HIGH 1 · MEDIUM 1 · REVIEW 1", text)
-        self.assertIn("Signal质量：均分 68.0 · VERY_HIGH 1 · HIGH 1 · MEDIUM 0 · REVIEW 1", text)
-        self.assertIn("Q81/HIGH", text)
+        self.assertIn("SignalForge Myanmar 商机日报", text)
+        self.assertIn("🔥 今天先看：2 条需处理", text)
         self.assertIn("Ministry of Energy", text)
+        self.assertIn("优先跟进", text)
         self.assertIn("相关分包 4", text)
-        self.assertIn("Watchlist：1 条 MEDIUM", text)
-        self.assertIn("MYTEL 15/15", text)
-        self.assertIn("Source产出：<b>1/2</b> proven", text)
-        self.assertIn("1 effective / 1 raw signals", text)
+        self.assertIn("后续跟进：1 条 MEDIUM", text)
+        self.assertIn("业务概览</b>：当前 <b>3</b> 个机会 · HIGH 1 · MEDIUM 1 · REVIEW 1", text)
+        self.assertIn("系统：2/2 GREEN", text)
+        self.assertIn("MPT 完整 · MYTEL 15/15", text)
+        self.assertNotIn("Source产出", text)
+        self.assertNotIn("Signal质量：均分", text)
+        self.assertNotIn("Q81/HIGH", text)
 
 
     def test_digest_surfaces_which_source_is_buying_what(self) -> None:
@@ -180,11 +181,49 @@ class BusinessDigestTests(unittest.TestCase):
         changes = digest["activity_24h"]["business_changes"]
         self.assertEqual(changes[0]["source_id"], "S38")
         text = render_business_digest(digest)
-        self.assertIn("🆕 过去24h 新增/更新", text)
-        self.assertIn("[S38] Ministry of Industry, Myanmar", text)
-        self.assertIn("Steel Scrap (HMS-1) 1,000 tons", text)
+        self.assertIn("🆕 24h 新增/更新", text)
+        self.assertIn("Ministry of Industry, Myanmar</b> · [S38]", text)
+        self.assertIn("采购/招标：<b>Steel Scrap (HMS-1) 1,000 tons", text)
         self.assertIn("2026-09-14 16:00", text)
         self.assertIn('href="https://www.industrymsme.gov.mm/announcements/1027"', text)
+
+    def test_render_keeps_distinct_opportunities_from_same_source(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp, patch("signalforge.business_digest.business_briefing", return_value=_briefing()), patch(
+            "signalforge.business_digest.audit", return_value=_audit()
+        ), patch("signalforge.business_digest.source_scorecard", return_value=_scorecard()):
+            digest = business_digest(database=self._db(tmp), registry=_Registry(), now=datetime(2026,9,14,2,0,tzinfo=UTC))  # type: ignore[arg-type]
+        digest["business"]["attention"] = [
+            {
+                "canonical_key": "industry:steel",
+                "source_id": "S38",
+                "item_kind": "TENDER",
+                "attention_action": "ACT_NOW",
+                "primary_relevance": "INDUSTRIAL",
+                "issuer": "Ministry of Industry, Myanmar",
+                "title": "Steel Scrap (HMS-1) 1,000 tons procurement",
+                "deadline": "2026-09-14",
+                "deadline_time": "16:00",
+                "deadline_status": "OPEN",
+                "url": "https://www.industrymsme.gov.mm/announcements/1027",
+            },
+            {
+                "canonical_key": "industry:oxygen",
+                "source_id": "S38",
+                "item_kind": "TENDER",
+                "attention_action": "ACT_NOW",
+                "primary_relevance": "INDUSTRIAL",
+                "issuer": "Ministry of Industry, Myanmar",
+                "title": "Industrial Oxygen Gas procurement",
+                "deadline": "2026-09-14",
+                "deadline_time": "16:00",
+                "deadline_status": "OPEN",
+                "url": "https://www.industrymsme.gov.mm/announcements/1028",
+            },
+        ]
+        text = render_business_digest(digest)
+        self.assertIn("Steel Scrap (HMS-1) 1,000 tons procurement", text)
+        self.assertIn("Industrial Oxygen Gas procurement", text)
+        self.assertGreaterEqual(text.count("[S38]"), 2)
 
     def test_digest_renders_recent_strategic_notice_with_official_link(self) -> None:
         with tempfile.TemporaryDirectory() as tmp, patch("signalforge.business_digest.business_briefing", return_value=_briefing()), patch(
@@ -237,6 +276,38 @@ class BusinessDigestTests(unittest.TestCase):
         self.assertIn("医疗服务部", text)
         self.assertIn("🌐 缅文内容已机器翻译为中文", text)
         self.assertNotIn("စွမ်းအင်", text)
+
+    def test_render_truncates_only_at_line_boundaries(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp, patch("signalforge.business_digest.business_briefing", return_value=_briefing()), patch(
+            "signalforge.business_digest.audit", return_value=_audit()
+        ), patch("signalforge.business_digest.source_scorecard", return_value=_scorecard()):
+            digest = business_digest(database=self._db(tmp), registry=_Registry(), now=datetime(2026,9,14,2,0,tzinfo=UTC))  # type: ignore[arg-type]
+        rows = []
+        for index in range(12):
+            rows.append({
+                "canonical_key": f"industry:{index}",
+                "source_id": "S38",
+                "item_kind": "TENDER",
+                "attention_action": "ACT_NOW",
+                "primary_relevance": "INDUSTRIAL",
+                "issuer": "Ministry of Industry, Myanmar",
+                "title": (f"Procurement package {index} " + "X" * 160),
+                "reference_no": f"REF-{index}-" + "R" * 40,
+                "deadline": "2026-09-16",
+                "deadline_time": "16:00",
+                "deadline_status": "OPEN",
+                "location": "Nay Pyi Taw " + "L" * 50,
+                "next_action_summary": "Collect tender documents and validate commercial fit " + "N" * 90,
+                "url": f"https://example.gov.mm/tender/{index}",
+            })
+        digest["business"]["attention"] = rows
+        digest["activity_24h"]["business_changes"] = [dict(item, signal_type="NEW") for item in rows[6:12]]
+        digest["business"]["watchlist_items"] = [dict(item, canonical_key=f"watch:{index}") for index, item in enumerate(rows[:2])]
+        digest["business"]["watchlist_count"] = 2
+        text = render_business_digest(digest)
+        self.assertLessEqual(len(text), 4096)
+        self.assertEqual(text.count("<b>"), text.count("</b>"))
+        self.assertEqual(text.count("<a href="), text.count("</a>"))
 
     def test_dry_run_does_not_write_digest_receipt(self) -> None:
         with tempfile.TemporaryDirectory() as tmp, patch("signalforge.business_digest.business_briefing", return_value=_briefing()), patch(

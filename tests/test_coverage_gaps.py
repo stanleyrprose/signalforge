@@ -41,8 +41,8 @@ def test_business_digest_renders_coverage_gap_separately_from_opportunities() ->
         "auditor": {},
     }
     text = render_business_digest(digest)
-    assert "⚠️ 覆盖缺口（非正式 Signal）" in text
+    assert "⚠️ 人工核验机会（尚未进入正式 Signal）" in text
     assert "2026-09-16" in text
     assert "2026-09-23" in text
-    assert "当前机会：<b>21</b>" in text
-    assert "不计入 canonical、Signal 或当前机会数量" in text
+    assert "业务概览</b>：当前 <b>21</b> 个机会" in text
+    assert "暂不计入正式机会数" in text

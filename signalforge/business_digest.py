@@ -18,7 +18,7 @@ from .telegram_delivery import TelegramDeliveryError, _send_message
 from .translation import contains_myanmar, translate_myanmar_to_zh_hans
 from .source_scorecard import source_scorecard
 
-DIGEST_VERSION = 1
+DIGEST_VERSION = 2
 DIGEST_CHANNEL = "telegram-business-digest"
 DIGEST_TIMEZONE = ZoneInfo("Asia/Yangon")
 TELEGRAM_MESSAGE_LIMIT = 4096
@@ -124,6 +124,8 @@ def business_digest(
                 "signal_type": str(row["signal_type"]),
                 "created_at": str(row["created_at"]),
                 "item_kind": str(row["item_kind"]),
+                "commercial_event_type": payload.get("commercial_event_type"),
+                "commercial_direction": payload.get("commercial_direction"),
                 "issuer": str(payload.get("issuer") or ""),
                 "title": str(payload.get("title") or payload.get("project_name") or ""),
                 "reference_no": payload.get("reference_no"),
@@ -134,6 +136,7 @@ def business_digest(
                 "action_time": payload.get("action_time"),
                 "location": payload.get("location"),
                 "quantity_or_lot_summary": payload.get("quantity_or_lot_summary"),
+                "next_action_summary": payload.get("next_action_summary"),
                 "scope_excerpt": _compact(payload.get("focus_scope_summary") or payload.get("scope_summary") or "", 180),
                 "url": str(payload.get("url") or payload.get("attachment_url") or ""),
             })
@@ -335,7 +338,7 @@ def render_business_digest(
         return [_compact(value, limit) for value in translated]
 
     def translated_subjects(rows: list[dict[str, object]]) -> list[str]:
-        return translate_values([business_subject(item) for item in rows], 105)
+        return translate_values([business_subject(item) for item in rows], 120)
 
     def translated_issuers(rows: list[dict[str, object]]) -> list[str]:
         return translate_values([str(item.get("issuer") or "") for item in rows], 46)
@@ -347,141 +350,166 @@ def render_business_digest(
             return ""
         return f' · <a href="{html.escape(value, quote=True)}">{label}</a>'
 
+    def action_label(action: object) -> str:
+        return {
+            "ACT_NOW": "现在处理",
+            "PRIORITIZE": "优先跟进",
+            "REVIEW": "人工核验",
+        }.get(str(action or ""), "关注")
+
+    def business_label(item: dict[str, object]) -> str:
+        kind = str(item.get("item_kind") or "")
+        direction = str(item.get("commercial_direction") or "")
+        if kind == "TENDER":
+            return "采购/招标"
+        if kind == "AUCTION_NOTICE" and direction == "BUY_FROM_ISSUER":
+            return "竞买/采购机会"
+        if kind == "AUCTION_NOTICE":
+            return "拍卖/商业机会"
+        return "业务事项"
+
+    def timing_text(item: dict[str, object]) -> str:
+        value = _deadline_text(item)
+        if value.startswith("活动日"):
+            return value
+        return f"截止 {value}"
+
     lines = [
-        "📊 <b>SignalForge Myanmar 商机简报</b>",
+        "📊 <b>SignalForge Myanmar 商机日报</b>",
         f"🗓 {html.escape(str(digest.get('digest_date') or ''))} · 过去24小时",
     ]
 
-    attention_by_key = {
-        str(item.get("canonical_key")): item
-        for item in attention
-        if isinstance(item, dict) and item.get("canonical_key")
-    }
-    change_rows = [item for item in business_changes[:6] if isinstance(item, dict)]
-    change_keys = {str(item.get("canonical_key")) for item in change_rows if item.get("canonical_key")}
-    if change_rows:
-        change_subjects = translated_subjects(change_rows)
-        lines.extend(["", f"<b>🆕 过去24h 新增/更新：{len(change_rows)} 条</b>"])
-        for index, item in enumerate(change_rows):
-            source_id = html.escape(str(item.get("source_id") or "?"))
-            issuer = html.escape(_compact(item.get("issuer"), 46))
-            signal_type = html.escape(str(item.get("signal_type") or ""))
-            subject = html.escape(change_subjects[index])
-            deadline = html.escape(_deadline_text(item))
-            reference = _compact(item.get("reference_no"), 28)
-            ref_text = f" · Ref {html.escape(reference)}" if reference else ""
-            attention_match = attention_by_key.get(str(item.get("canonical_key")))
-            action_text = ""
-            icon = "•"
-            if isinstance(attention_match, dict):
-                action = str(attention_match.get("attention_action") or "")
-                icon = {"ACT_NOW": "🔴", "PRIORITIZE": "🟠", "REVIEW": "🟡"}.get(action, "•")
-                action_text = f" · {html.escape(action)}" if action else ""
-            link = official_link(item.get("url"))
-            lines.append(f"{icon} <b>[{source_id}] {issuer}</b> · {subject} · 截止 <b>{deadline}</b>{action_text}{ref_text}{link}")
-
-    if attention:
-        attention_candidates = [
-            item for item in attention
-            if isinstance(item, dict) and str(item.get("canonical_key")) not in change_keys
-        ]
-        attention_rows: list[dict[str, object]] = []
-        used_sources: set[str] = set()
-        for item in attention_candidates:
-            if str(item.get("primary_relevance") or "") not in {"ICT", "TELECOM"}:
-                continue
-            source = str(item.get("source_id") or item.get("canonical_key") or "?").split(":", 1)[0]
-            if source in used_sources:
-                continue
-            attention_rows.append(item)
-            used_sources.add(source)
-            if len(attention_rows) >= 2:
-                break
-        for item in attention_candidates:
-            if item in attention_rows:
-                continue
-            source = str(item.get("source_id") or item.get("canonical_key") or "?").split(":", 1)[0]
-            if source in used_sources:
-                continue
-            attention_rows.append(item)
-            used_sources.add(source)
-            if len(attention_rows) >= 4:
-                break
+    all_attention_rows = [item for item in attention if isinstance(item, dict)]
+    attention_rows = all_attention_rows[:4]
+    selected_keys = {str(item.get("canonical_key") or "") for item in attention_rows}
+    for item in all_attention_rows:
+        key = str(item.get("canonical_key") or "")
+        if key in selected_keys or str(item.get("primary_relevance") or "") not in {"ICT", "TELECOM"}:
+            continue
+        attention_rows.append(item)
+        selected_keys.add(key)
+        if len(attention_rows) >= 6:
+            break
+    for item in all_attention_rows:
+        key = str(item.get("canonical_key") or "")
+        if key in selected_keys:
+            continue
+        attention_rows.append(item)
+        selected_keys.add(key)
+        if len(attention_rows) >= 6:
+            break
+    attention_keys = {key for key in selected_keys if key}
+    if attention_rows:
         attention_issuers = translated_issuers(attention_rows)
         attention_subjects = translated_subjects(attention_rows)
-        if attention_rows:
-            lines.extend(["", "<b>🔥 其他高优先级机会</b>"])
+        attention_locations = translate_values([str(item.get("location") or "") for item in attention_rows], 38)
+        attention_actions = translate_values([str(item.get("next_action_summary") or "") for item in attention_rows], 72)
+        total_attention = len([item for item in attention if isinstance(item, dict)])
+        shown = len(attention_rows)
+        suffix = f"（展示前 {shown} 条）" if total_attention > shown else ""
+        lines.extend(["", f"<b>🔥 今天先看：{total_attention} 条需处理{suffix}</b>"])
         icons = {"ACT_NOW": "🔴", "PRIORITIZE": "🟠", "REVIEW": "🟡"}
         for index, item in enumerate(attention_rows):
             action = str(item.get("attention_action") or "REVIEW")
             source_id = html.escape(str(item.get("source_id") or "?"))
             issuer = html.escape(attention_issuers[index])
             subject = html.escape(attention_subjects[index])
-            deadline = html.escape(_deadline_text(item))
-            reference = _compact(item.get("reference_no"), 28)
-            ref_text = f" · Ref {html.escape(reference)}" if reference else ""
-            quality = ""
-            quality_score = item.get("signal_quality_score")
-            quality_band = item.get("signal_quality_band")
-            if isinstance(quality_score, int) and quality_band:
-                quality = f" · Q{quality_score}/{html.escape(str(quality_band))}"
-            link = official_link(item.get("url"))
-            focus_count = int(item.get("focus_reference_count") or 0)
-            focus = f" · 相关分包 {focus_count}" if focus_count else ""
             icon = icons.get(action, "•")
-            lines.append(f"{icon} <b>[{source_id}] {issuer}</b> · {subject} · 截止 <b>{deadline}</b> · {html.escape(action)}{quality}{focus}{link}")
+            lines.append(f"{icon} <b>{issuer}</b> · [{source_id}] · {action_label(action)}")
+            lines.append(f"   {business_label(item)}：<b>{subject}</b>")
+            meta = [timing_text(item)]
+            location = attention_locations[index]
+            if location:
+                meta.append(f"地点 {location}")
+            reference = _compact(item.get("reference_no"), 28)
+            if reference:
+                meta.append(f"Ref {reference}")
+            focus_count = int(item.get("focus_reference_count") or 0)
+            if focus_count:
+                meta.append(f"相关分包 {focus_count}")
+            next_action = attention_actions[index]
+            if next_action:
+                meta.append(f"下一步 {next_action}")
+            link = official_link(item.get("url"))
+            lines.append("   " + html.escape(" · ".join(meta)) + link)
+
+    change_rows = [
+        item for item in business_changes
+        if isinstance(item, dict) and str(item.get("canonical_key")) not in attention_keys
+    ][:3]
+    if change_rows:
+        change_issuers = translated_issuers(change_rows)
+        change_subjects = translated_subjects(change_rows)
+        lines.extend(["", f"<b>🆕 24h 新增/更新：{len(change_rows)} 条（未在上方重复）</b>"])
+        for index, item in enumerate(change_rows):
+            source_id = html.escape(str(item.get("source_id") or "?"))
+            issuer = html.escape(change_issuers[index])
+            subject = html.escape(change_subjects[index])
+            signal_type = html.escape(str(item.get("signal_type") or ""))
+            meta = [timing_text(item)]
+            location = _compact(item.get("location"), 32)
+            if location:
+                meta.append(f"地点 {location}")
+            reference = _compact(item.get("reference_no"), 28)
+            if reference:
+                meta.append(f"Ref {reference}")
+            link = official_link(item.get("url"))
+            lines.append(f"• <b>{issuer}</b> · [{source_id}] · {signal_type}")
+            lines.append(f"   {business_label(item)}：<b>{subject}</b>")
+            lines.append("   " + html.escape(" · ".join(meta)) + link)
 
     if coverage_gaps:
-        lines.extend(["", "<b>⚠️ 覆盖缺口（非正式 Signal）</b> · 人工核验"])
-        for gap in coverage_gaps[:4]:
-            if not isinstance(gap, dict):
-                continue
+        lines.extend(["", "<b>⚠️ 人工核验机会（尚未进入正式 Signal）</b>"])
+        gap_rows = [gap for gap in coverage_gaps[:4] if isinstance(gap, dict)]
+        gap_issuers = translate_values([str(gap.get("issuer") or "") for gap in gap_rows], 46)
+        gap_titles = translate_values([str(gap.get("title") or "") for gap in gap_rows], 110)
+        gap_locations = translate_values([str(gap.get("location") or "") for gap in gap_rows], 34)
+        for index, gap in enumerate(gap_rows):
             source_id = html.escape(str(gap.get("source_id") or ""))
+            issuer = html.escape(gap_issuers[index])
+            title = html.escape(gap_titles[index])
             deadline = html.escape(str(gap.get("deadline") or ""))
-            location = html.escape(str(gap.get("location") or ""))
-            title = html.escape(_compact(gap.get("title"), 100))
+            location = html.escape(gap_locations[index])
             url = str(gap.get("url") or "")
             link = official_link(url, "官方记录") if url.startswith("https://construction.gov.mm/") else ""
-            lines.append(f"• <b>[{source_id}]</b> {title} · {location} · 截止 <b>{deadline}</b>{link}")
-        lines.append("<i>不计入 canonical、Signal 或当前机会数量。</i>")
+            lines.append(f"• <b>{issuer}</b> · [{source_id}]")
+            lines.append(f"   招标：<b>{title}</b> · {location} · 截止 <b>{deadline}</b>{link}")
+        lines.append("<i>已人工核验，但因来源接入门槛未满足，暂不计入正式机会数。</i>")
 
     watch_count = int(business.get("watchlist_count") or 0)
     watch_rows = [
         item for item in watch_items
-        if isinstance(item, dict) and str(item.get("canonical_key")) not in change_keys
+        if isinstance(item, dict) and str(item.get("canonical_key")) not in attention_keys
     ][:2]
     if watch_rows:
+        watch_issuers = translated_issuers(watch_rows)
         watch_subjects = translated_subjects(watch_rows)
-        lines.extend(["", f"<b>🟡 Watchlist：{watch_count} 条 MEDIUM（展示前 {len(watch_rows)} 条）</b>"])
+        lines.extend(["", f"<b>🟡 后续跟进：{watch_count} 条 MEDIUM（展示前 {len(watch_rows)} 条）</b>"])
         for index, item in enumerate(watch_rows):
             source_id = html.escape(str(item.get("source_id") or "?"))
-            issuer = html.escape(_compact(item.get("issuer"), 42))
+            issuer = html.escape(watch_issuers[index])
             subject = html.escape(watch_subjects[index])
-            deadline = html.escape(_deadline_text(item))
-            lines.append(f"• [{source_id}] {issuer} · {subject} · 截止 {deadline}")
+            deadline = html.escape(timing_text(item))
+            lines.append(f"• [{source_id}] <b>{issuer}</b> · {subject} · {deadline}")
     elif watch_count:
-        lines.extend(["", f"🟡 Watchlist：{watch_count} 条 MEDIUM"])
+        lines.extend(["", f"🟡 后续跟进：{watch_count} 条 MEDIUM"])
 
     if strategic_notices:
         lines.extend(["", "<b>📡 战略动态</b>"])
-        for notice in strategic_notices[:3]:
-            if not isinstance(notice, dict):
-                continue
+        strategic_rows = [notice for notice in strategic_notices[:3] if isinstance(notice, dict)]
+        strategic_titles = translate_values([str(notice.get("title") or "") for notice in strategic_rows], 125)
+        for index, notice in enumerate(strategic_rows):
             source_id = html.escape(str(notice.get("source_id") or ""))
             date = html.escape(str(notice.get("publication_date") or ""))
             kind = html.escape(str(notice.get("telecom_signal_kind") or "STRATEGIC_INTELLIGENCE"))
-            title = html.escape(_compact(notice.get("title"), 125))
+            title = html.escape(strategic_titles[index])
             url = str(notice.get("url") or "")
             link = f' · <a href="{html.escape(url, quote=True)}">官方详情</a>' if url.startswith("https://") else ""
-            lines.append(f"• [{source_id}] {kind} · {date} · {title}{link}")
+            lines.append(f"• [{source_id}] {date} · <b>{title}</b> · {kind}{link}")
 
     lines.extend([
         "",
-        f"<b>📌 业务漏斗</b>：当前机会：<b>{business.get('current_opportunities', 0)}</b> · HIGH {priorities.get('HIGH', 0)} · MEDIUM {priorities.get('MEDIUM', 0)} · REVIEW {priorities.get('REVIEW', 0)}",
-        f"🧭 Signal质量：均分 {quality_avg} · VERY_HIGH {quality_counts.get('VERY_HIGH', 0)} · HIGH {quality_counts.get('HIGH', 0)} · MEDIUM {quality_counts.get('MEDIUM', 0)} · REVIEW {quality_counts.get('REVIEW', 0)}",
-        "",
-        f"⚙️ Sources：<b>{sources.get('monitored', 0)}</b> monitored · {sources.get('green', 0)} GREEN · {sources.get('non_green', 0)} degraded · Signals：<b>{activity.get('signals', 0)}</b>",
-        f"Source产出：<b>{proven_sources}/{source_yield.get('active_sources', sources.get('monitored', 0))}</b> proven · {source_yield.get('effective_signals', '?')} effective / {totals.get('signals', 0)} raw signals",
+        f"<b>📌 业务概览</b>：当前 <b>{business.get('current_opportunities', 0)}</b> 个机会 · HIGH {priorities.get('HIGH', 0)} · MEDIUM {priorities.get('MEDIUM', 0)} · REVIEW {priorities.get('REVIEW', 0)}",
     ])
 
     mytel = auditor.get("mytel") or {}
@@ -490,16 +518,31 @@ def render_business_digest(
     if not isinstance(mytel, dict): mytel = {}
     if not isinstance(mpt, dict): mpt = {}
     if not isinstance(atom, dict): atom = {}
-    mytel_missing = len(mytel.get("missing") or []) if isinstance(mytel.get("missing"), list) else mytel.get("missing", "?")
+    findings = int(auditor.get("finding_count") or 0)
+    system_icon = "✅" if int(sources.get("non_green", 0) or 0) == 0 and findings == 0 else "⚠️"
+    lines.append(
+        f"{system_icon} 系统：{sources.get('green', 0)}/{sources.get('monitored', 0)} GREEN · "
+        f"degraded {sources.get('non_green', 0)} · Auditor {html.escape(str(auditor.get('status') or 'UNKNOWN'))}({findings})"
+    )
+    mpt_missing = mpt.get("missing", "?")
+    mpt_label = "MPT 完整" if mpt_missing == 0 else f"MPT 缺 {mpt_missing}"
+    lines.append(
+        f"📶 Telecom：{mpt_label} · MYTEL {mytel.get('canonical_keys', '?')}/{mytel.get('official_keys', '?')} · ATOM {atom.get('status', 'UNKNOWN')}"
+    )
     if digest_was_translated:
         lines.append("🌐 缅文内容已机器翻译为中文（事实以官方原文为准）")
-    lines.append(
-        f"🛡 Auditor {html.escape(str(auditor.get('status') or 'UNKNOWN'))} · Telecom MPT missing {mpt.get('missing', '?')} · MYTEL {mytel.get('canonical_keys', '?')}/{mytel.get('official_keys', '?')} · ATOM {atom.get('status', 'UNKNOWN')}"
-    )
 
     text = "\n".join(lines)
     if len(text) > TELEGRAM_MESSAGE_LIMIT:
-        text = text[: TELEGRAM_MESSAGE_LIMIT - 1].rstrip() + "…"
+        kept: list[str] = []
+        for line in lines:
+            candidate = "\n".join([*kept, line])
+            if len(candidate) + 2 > TELEGRAM_MESSAGE_LIMIT:
+                break
+            kept.append(line)
+        while kept and len("\n".join([*kept, "…"])) > TELEGRAM_MESSAGE_LIMIT:
+            kept.pop()
+        text = "\n".join([*kept, "…"])
     return text
 
 
