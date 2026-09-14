@@ -15,7 +15,7 @@ from .config import Registry, db_path
 from .coverage_gaps import reviewed_coverage_gaps
 from .db import connect
 from .telegram_delivery import TelegramDeliveryError, _send_message
-from .translation import translate_myanmar_to_zh_hans
+from .translation import contains_myanmar, translate_myanmar_to_zh_hans
 from .source_scorecard import source_scorecard
 
 DIGEST_VERSION = 1
@@ -94,6 +94,51 @@ def business_digest(
             "SELECT source_id,COUNT(*) AS n FROM signals WHERE created_at>=? GROUP BY source_id ORDER BY n DESC,source_id LIMIT 5",
             (cutoff_iso,),
         ).fetchall()
+        business_change_rows = conn.execute(
+            """
+            SELECT s.canonical_key,s.source_id,s.signal_type,s.created_at,s.payload_json,c.item_kind
+            FROM signals s
+            JOIN canonical_items c ON c.canonical_key=s.canonical_key
+            WHERE s.created_at>=? AND c.item_kind IN ('TENDER','AUCTION_NOTICE')
+            ORDER BY s.created_at DESC,s.signal_id DESC
+            LIMIT 50
+            """,
+            (cutoff_iso,),
+        ).fetchall()
+        business_changes: list[dict[str, object]] = []
+        seen_business_keys: set[str] = set()
+        for row in business_change_rows:
+            canonical_key = str(row["canonical_key"])
+            if canonical_key in seen_business_keys:
+                continue
+            try:
+                payload = json.loads(str(row["payload_json"]))
+            except (TypeError, ValueError, json.JSONDecodeError):
+                continue
+            if not isinstance(payload, dict):
+                continue
+            seen_business_keys.add(canonical_key)
+            business_changes.append({
+                "canonical_key": canonical_key,
+                "source_id": str(row["source_id"]),
+                "signal_type": str(row["signal_type"]),
+                "created_at": str(row["created_at"]),
+                "item_kind": str(row["item_kind"]),
+                "issuer": str(payload.get("issuer") or ""),
+                "title": str(payload.get("title") or payload.get("project_name") or ""),
+                "reference_no": payload.get("reference_no"),
+                "deadline": payload.get("deadline"),
+                "deadline_time": payload.get("deadline_time"),
+                "deadline_status": payload.get("deadline_status"),
+                "action_date": payload.get("action_date"),
+                "action_time": payload.get("action_time"),
+                "location": payload.get("location"),
+                "quantity_or_lot_summary": payload.get("quantity_or_lot_summary"),
+                "scope_excerpt": _compact(payload.get("focus_scope_summary") or payload.get("scope_summary") or "", 180),
+                "url": str(payload.get("url") or payload.get("attachment_url") or ""),
+            })
+            if len(business_changes) >= 6:
+                break
         strategic_rows = conn.execute(
             """
             SELECT s.source_id,s.signal_type,s.created_at,s.payload_json
@@ -179,6 +224,7 @@ def business_digest(
             "new_signals": int(signal_counts.get("NEW", 0)),
             "updated_signals": int(signal_counts.get("UPDATED", 0)),
             "signal_sources": [{"source_id": str(row["source_id"]), "count": int(row["n"])} for row in signal_source_rows],
+            "business_changes": business_changes,
             "strategic_notices": strategic_notices,
         },
         "pipeline_totals": {
@@ -199,6 +245,7 @@ def business_digest(
             "attention": attention,
             "watchlist_count": int(watchlist.get("count") or 0),
             "watchlist_relevance": watchlist.get("primary_relevance_counts") or {},
+            "watchlist_items": watchlist.get("items") or [],
             "watchlist_delivery_policy": "VALID_MEDIUM_NOT_IMMEDIATE_ALERT; escalates on strategic fit or <=72h urgency",
             "coverage_gap_count": len(coverage_gaps),
             "coverage_gaps": coverage_gaps,
@@ -247,83 +294,167 @@ def render_business_digest(
         yield_states = {}
     proven_sources = int(yield_states.get("ACTIONABLE_PROVEN", 0) or 0) + int(yield_states.get("SIGNAL_PROVEN", 0) or 0)
 
+    business_changes = activity.get("business_changes") or []
+    if not isinstance(business_changes, list):
+        business_changes = []
+    coverage_gaps = business.get("coverage_gaps") or []
+    if not isinstance(coverage_gaps, list):
+        coverage_gaps = []
+    watch_items = business.get("watchlist_items") or []
+    if not isinstance(watch_items, list):
+        watch_items = []
+    strategic_notices = activity.get("strategic_notices") or []
+    if not isinstance(strategic_notices, list):
+        strategic_notices = []
+
+    translate_batch = translator or translate_myanmar_to_zh_hans
+    digest_was_translated = False
+
+    def business_subject(item: dict[str, object]) -> str:
+        title = _compact(item.get("title"), 120)
+        quantity = _compact(item.get("quantity_or_lot_summary"), 90)
+        scope = _compact(item.get("scope_excerpt"), 130)
+        parts: list[str] = []
+        if title:
+            parts.append(title)
+        if quantity and quantity not in title:
+            parts.append(quantity)
+        elif scope and scope not in title:
+            parts.append(scope)
+        return _compact("；".join(parts) or "采购/招标内容待补充", 190)
+
+    def translate_values(values: list[str], limit: int) -> list[str]:
+        nonlocal digest_was_translated
+        if not values or not any(contains_myanmar(value) for value in values):
+            return [_compact(value, limit) for value in values]
+        translated, used = translate_batch(values)
+        digest_was_translated = digest_was_translated or used
+        return [_compact(value, limit) for value in translated]
+
+    def translated_subjects(rows: list[dict[str, object]]) -> list[str]:
+        return translate_values([business_subject(item) for item in rows], 170)
+
+    def translated_issuers(rows: list[dict[str, object]]) -> list[str]:
+        return translate_values([str(item.get("issuer") or "") for item in rows], 46)
+
     lines = [
-        "📊 <b>SignalForge Myanmar Business Digest</b>",
+        "📊 <b>SignalForge Myanmar 商机简报</b>",
         f"🗓 {html.escape(str(digest.get('digest_date') or ''))} · 过去24小时",
-        "",
-        f"📡 Sources：<b>{sources.get('monitored', 0)}</b> monitored · {sources.get('green', 0)} GREEN · {sources.get('non_green', 0)} degraded",
-        f"🧭 Source产出：<b>{proven_sources}/{source_yield.get('active_sources', sources.get('monitored', 0))}</b> proven · actionable {yield_states.get('ACTIONABLE_PROVEN', 0)} · signal-only {yield_states.get('SIGNAL_PROVEN', 0)} · baseline {yield_states.get('BASELINE_ONLY', 0)} · noise-only {yield_states.get('NOISE_ONLY_HISTORY', 0)} · empty {yield_states.get('EMPTY', 0)}",
-        f"🔄 采集：{activity.get('scheduler_runs', 0)} runs · {sources.get('changed_24h', 0)} sources changed · {activity.get('records_changed', 0)} records changed",
-        f"🧾 Evidence：{activity.get('evidence_fetched', 0)} fetched · {activity.get('items_parsed', 0)} items parsed",
-        f"📈 Signals：<b>{activity.get('signals', 0)}</b>（NEW {activity.get('new_signals', 0)} / UPDATED {activity.get('updated_signals', 0)}）",
     ]
 
-    strategic_notices = activity.get("strategic_notices") or []
-    if isinstance(strategic_notices, list) and strategic_notices:
-        lines.extend(["", "<b>📡 战略动态</b>"])
-        for notice in strategic_notices[:4]:
-            if not isinstance(notice, dict):
-                continue
-            source_id = html.escape(str(notice.get("source_id") or ""))
-            signal_type = html.escape(str(notice.get("signal_type") or ""))
-            kind = html.escape(str(notice.get("telecom_signal_kind") or "STRATEGIC_INTELLIGENCE"))
-            date = html.escape(str(notice.get("publication_date") or ""))
-            title = html.escape(_compact(notice.get("title"), 120))
-            url = str(notice.get("url") or "")
-            link = f' · <a href="{html.escape(url, quote=True)}">官方详情</a>' if url.startswith("https://") else ""
-            lines.append(f"• {source_id} · {signal_type} · {kind} · {date} · {title}{link}")
+    attention_by_key = {
+        str(item.get("canonical_key")): item
+        for item in attention
+        if isinstance(item, dict) and item.get("canonical_key")
+    }
+    change_rows = [item for item in business_changes[:6] if isinstance(item, dict)]
+    change_keys = {str(item.get("canonical_key")) for item in change_rows if item.get("canonical_key")}
+    if change_rows:
+        change_subjects = translated_subjects(change_rows)
+        lines.extend(["", f"<b>🆕 过去24h 新增/更新：{len(change_rows)} 条</b>"])
+        for index, item in enumerate(change_rows):
+            source_id = html.escape(str(item.get("source_id") or "?"))
+            issuer = html.escape(_compact(item.get("issuer"), 46))
+            signal_type = html.escape(str(item.get("signal_type") or ""))
+            subject = html.escape(change_subjects[index])
+            deadline = html.escape(_deadline_text(item))
+            reference = _compact(item.get("reference_no"), 42)
+            ref_text = f" · Ref {html.escape(reference)}" if reference else ""
+            attention_match = attention_by_key.get(str(item.get("canonical_key")))
+            action_text = ""
+            icon = "•"
+            if isinstance(attention_match, dict):
+                action = str(attention_match.get("attention_action") or "")
+                icon = {"ACT_NOW": "🔴", "PRIORITIZE": "🟠", "REVIEW": "🟡"}.get(action, "•")
+                action_text = f" · {html.escape(action)}" if action else ""
+            url = str(item.get("url") or "")
+            link = f' · <a href="{html.escape(url, quote=True)}">官方</a>' if url.startswith("https://") else ""
+            lines.append(f"{icon} <b>[{source_id}] {issuer}</b> · {signal_type}{action_text} · 截止 <b>{deadline}</b>{ref_text}{link}")
+            lines.append(f"  采购/招标：{subject}")
 
-    coverage_gaps = business.get("coverage_gaps") or []
-    if isinstance(coverage_gaps, list) and coverage_gaps:
-        lines.extend(["", "<b>⚠️ 覆盖缺口（非正式 Signal）</b>"])
+    if attention:
+        attention_rows = [
+            item for item in attention
+            if isinstance(item, dict) and str(item.get("canonical_key")) not in change_keys
+        ][:4]
+        attention_issuers = translated_issuers(attention_rows)
+        attention_subjects = translated_subjects(attention_rows)
+        if attention_rows:
+            lines.extend(["", "<b>🔥 其他高优先级机会</b>"])
+        icons = {"ACT_NOW": "🔴", "PRIORITIZE": "🟠", "REVIEW": "🟡"}
+        for index, item in enumerate(attention_rows):
+            action = str(item.get("attention_action") or "REVIEW")
+            source_id = html.escape(str(item.get("source_id") or "?"))
+            issuer = html.escape(attention_issuers[index])
+            subject = html.escape(attention_subjects[index])
+            deadline = html.escape(_deadline_text(item))
+            reference = _compact(item.get("reference_no"), 42)
+            ref_text = f" · Ref {html.escape(reference)}" if reference else ""
+            quality = ""
+            quality_score = item.get("signal_quality_score")
+            quality_band = item.get("signal_quality_band")
+            if isinstance(quality_score, int) and quality_band:
+                quality = f" · Q{quality_score}/{html.escape(str(quality_band))}"
+            url = str(item.get("url") or "")
+            link = f' · <a href="{html.escape(url, quote=True)}">官方</a>' if url.startswith("https://") else ""
+            focus_count = int(item.get("focus_reference_count") or 0)
+            focus = f" · 相关分包 {focus_count}" if focus_count else ""
+            icon = icons.get(action, "•")
+            lines.append(f"{icon} <b>[{source_id}] {issuer}</b> · {html.escape(action)} · 截止 <b>{deadline}</b>{ref_text}{quality}{focus}{link}")
+            lines.append(f"  采购/招标：{subject}")
+
+    if coverage_gaps:
+        lines.extend(["", "<b>⚠️ 覆盖缺口（非正式 Signal）</b> · 人工核验"])
         for gap in coverage_gaps[:4]:
             if not isinstance(gap, dict):
                 continue
             source_id = html.escape(str(gap.get("source_id") or ""))
             deadline = html.escape(str(gap.get("deadline") or ""))
             location = html.escape(str(gap.get("location") or ""))
-            title = html.escape(_compact(gap.get("title"), 120))
+            title = html.escape(_compact(gap.get("title"), 130))
             url = str(gap.get("url") or "")
             link = f' · <a href="{html.escape(url, quote=True)}">官方记录</a>' if url.startswith("https://construction.gov.mm/") else ""
-            lines.append(f"• {source_id} · 截止 <b>{deadline}</b> · {location} · {title}{link}")
-        lines.append("<i>说明：人工核验覆盖缺口；不计入 canonical、Signal 或当前机会数量。</i>")
+            lines.append(f"• <b>[{source_id}]</b> {title} · {location} · 截止 <b>{deadline}</b>{link}")
+        lines.append("<i>不计入 canonical、Signal 或当前机会数量。</i>")
+
+    watch_count = int(business.get("watchlist_count") or 0)
+    watch_rows = [item for item in watch_items[:3] if isinstance(item, dict)]
+    if watch_rows:
+        watch_subjects = translated_subjects(watch_rows)
+        lines.extend(["", f"<b>🟡 Watchlist：{watch_count} 条 MEDIUM（展示前 {len(watch_rows)} 条）</b>"])
+        for index, item in enumerate(watch_rows):
+            source_id = html.escape(str(item.get("source_id") or "?"))
+            issuer = html.escape(_compact(item.get("issuer"), 42))
+            subject = html.escape(watch_subjects[index])
+            deadline = html.escape(_deadline_text(item))
+            lines.append(f"• [{source_id}] {issuer} · {subject} · 截止 {deadline}")
+    elif watch_count:
+        lines.extend(["", f"🟡 Watchlist：{watch_count} 条 MEDIUM"])
+
+    if strategic_notices:
+        lines.extend(["", "<b>📡 战略动态</b>"])
+        for notice in strategic_notices[:3]:
+            if not isinstance(notice, dict):
+                continue
+            source_id = html.escape(str(notice.get("source_id") or ""))
+            date = html.escape(str(notice.get("publication_date") or ""))
+            kind = html.escape(str(notice.get("telecom_signal_kind") or "STRATEGIC_INTELLIGENCE"))
+            title = html.escape(_compact(notice.get("title"), 125))
+            url = str(notice.get("url") or "")
+            link = f' · <a href="{html.escape(url, quote=True)}">官方详情</a>' if url.startswith("https://") else ""
+            lines.append(f"• [{source_id}] {kind} · {date} · {title}{link}")
 
     lines.extend([
         "",
-        f"🎯 当前机会：<b>{business.get('current_opportunities', 0)}</b> · HIGH {priorities.get('HIGH', 0)} · MEDIUM {priorities.get('MEDIUM', 0)} · REVIEW {priorities.get('REVIEW', 0)}",
+        f"<b>📌 业务漏斗</b>：当前机会：<b>{business.get('current_opportunities', 0)}</b> · HIGH {priorities.get('HIGH', 0)} · MEDIUM {priorities.get('MEDIUM', 0)} · REVIEW {priorities.get('REVIEW', 0)}",
         f"🧭 Signal质量：均分 {quality_avg} · VERY_HIGH {quality_counts.get('VERY_HIGH', 0)} · HIGH {quality_counts.get('HIGH', 0)} · MEDIUM {quality_counts.get('MEDIUM', 0)} · REVIEW {quality_counts.get('REVIEW', 0)}",
         f"📲 TG即时提醒：过去24h {totals.get('telegram_alerts_24h', 0)} · 累计 {totals.get('telegram_alerts', 0)}",
+        "",
+        f"<b>⚙️ 系统状态</b>",
+        f"📡 Sources：<b>{sources.get('monitored', 0)}</b> monitored · {sources.get('green', 0)} GREEN · {sources.get('non_green', 0)} degraded",
+        f"📈 Signals：<b>{activity.get('signals', 0)}</b>（NEW {activity.get('new_signals', 0)} / UPDATED {activity.get('updated_signals', 0)}）",
+        f"Source产出：<b>{proven_sources}/{source_yield.get('active_sources', sources.get('monitored', 0))}</b> proven · 累计 {totals.get('canonical_items', 0)} canonical · {source_yield.get('effective_signals', '?')} effective / {totals.get('signals', 0)} raw",
     ])
-
-    digest_was_translated = False
-    if attention:
-        lines.extend(["", "<b>值得现在看</b>"])
-        icons = {"ACT_NOW": "🔴", "PRIORITIZE": "🟠", "REVIEW": "🟡"}
-        attention_rows = [item for item in attention[:4] if isinstance(item, dict)]
-        translate_batch = translator or translate_myanmar_to_zh_hans
-        translated_issuers, digest_was_translated = translate_batch(
-            [str(item.get("issuer") or "") for item in attention_rows]
-        )
-        for index, item in enumerate(attention_rows):
-            action = str(item.get("attention_action") or "REVIEW")
-            issuer = _compact(translated_issuers[index], 42)
-            relevance = str(item.get("primary_relevance") or "OTHER")
-            deadline = _deadline_text(item)
-            focus_count = int(item.get("focus_reference_count") or 0)
-            focus = f" · 相关分包 {focus_count}" if focus_count else ""
-            quality = ""
-            quality_score = item.get("signal_quality_score")
-            quality_band = item.get("signal_quality_band")
-            if isinstance(quality_score, int) and quality_band:
-                quality = f" · Q{quality_score}/{quality_band}"
-            icon = icons.get(action, "•")
-            lines.append(
-                f"{icon} {html.escape(action)} · {html.escape(issuer)} · {html.escape(relevance)} · {html.escape(deadline)}{quality}{focus}"
-            )
-
-    watch_count = int(business.get("watchlist_count") or 0)
-    if watch_count:
-        lines.append(f"🟡 Watchlist：{watch_count} 条 MEDIUM（有效但不即时打扰；进入72h或战略升级再提醒）")
 
     mytel = auditor.get("mytel") or {}
     mpt = auditor.get("mpt") or {}

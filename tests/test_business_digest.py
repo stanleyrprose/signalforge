@@ -151,6 +151,41 @@ class BusinessDigestTests(unittest.TestCase):
         self.assertIn("1 effective / 1 raw signals", text)
 
 
+    def test_digest_surfaces_which_source_is_buying_what(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp, patch("signalforge.business_digest.business_briefing", return_value=_briefing()), patch(
+            "signalforge.business_digest.audit", return_value=_audit()
+        ), patch("signalforge.business_digest.source_scorecard", return_value=_scorecard()):
+            database = self._db(tmp)
+            payload = {
+                "item_kind": "TENDER",
+                "issuer": "Ministry of Industry, Myanmar",
+                "title": "Steel Scrap (HMS-1) 1,000 tons procurement",
+                "reference_no": "HIE-1/Myingyan/26-27/Steel Scrap/015",
+                "deadline": "2026-09-14",
+                "deadline_time": "16:00",
+                "deadline_status": "OPEN",
+                "scope_summary": "Purchase Steel Scrap (HMS-1), 1,000 tons",
+                "url": "https://www.industrymsme.gov.mm/announcements/1027",
+            }
+            with connect(database) as conn, conn:
+                conn.execute(
+                    """INSERT INTO canonical_items(canonical_key,source_id,item_kind,title,reference_no,project_name,publication_date,deadline,location,url,content_hash,evidence_sha256,payload_json,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    ("industry:1027", "S38", "TENDER", payload["title"], payload["reference_no"], payload["title"], "2026-09-13", payload["deadline"], None, payload["url"], "h2", "e2", json.dumps(payload), "2026-09-13T11:00:00Z", "2026-09-13T11:00:00Z"),
+                )
+                conn.execute(
+                    "INSERT INTO signals(signal_id,source_id,canonical_key,signal_type,created_at,payload_json) VALUES (?,?,?,?,?,?)",
+                    ("sig-industry", "S38", "industry:1027", "NEW", "2026-09-14T01:00:00Z", json.dumps({"signal_type": "NEW", "canonical_key": "industry:1027", **payload})),
+                )
+            digest = business_digest(database=database, registry=_Registry(), now=datetime(2026,9,14,2,0,tzinfo=UTC))  # type: ignore[arg-type]
+        changes = digest["activity_24h"]["business_changes"]
+        self.assertEqual(changes[0]["source_id"], "S38")
+        text = render_business_digest(digest)
+        self.assertIn("🆕 过去24h 新增/更新", text)
+        self.assertIn("[S38] Ministry of Industry, Myanmar", text)
+        self.assertIn("Steel Scrap (HMS-1) 1,000 tons", text)
+        self.assertIn("2026-09-14 16:00", text)
+        self.assertIn('href="https://www.industrymsme.gov.mm/announcements/1027"', text)
+
     def test_digest_renders_recent_strategic_notice_with_official_link(self) -> None:
         with tempfile.TemporaryDirectory() as tmp, patch("signalforge.business_digest.business_briefing", return_value=_briefing()), patch(
             "signalforge.business_digest.audit", return_value=_audit()
