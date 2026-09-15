@@ -263,6 +263,26 @@ class BusinessDigestTests(unittest.TestCase):
         self.assertIn("Lot 2：水泥实验室设备 31类", text)
         self.assertIn("Lot 3：钢铁实验室设备 9类", text)
 
+    def test_digest_extracts_industry_yarn_item_without_translation_dependency(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp, patch("signalforge.business_digest.business_briefing", return_value=_briefing()), patch(
+            "signalforge.business_digest.audit", return_value=_audit()
+        ), patch("signalforge.business_digest.source_scorecard", return_value=_scorecard()):
+            digest = business_digest(database=self._db(tmp), registry=_Registry(), now=datetime(2026,9,15,2,0,tzinfo=UTC))  # type: ignore[arg-type]
+        digest["business"]["attention"] = [{
+            "canonical_key": "industry:1042",
+            "source_id": "S38",
+            "item_kind": "TENDER",
+            "attention_action": "PRIORITIZE",
+            "primary_relevance": "INDUSTRIAL",
+            "issuer": "Ministry of Industry, Myanmar",
+            "title": "အမှတ်(၃)အကြီးစားစက်မှုလုပ်ငန်း၊ အမှတ်(၈)အထည်စက်ရုံခွဲတွင် ၁/၇ ပီစီချည်(ရောင်စုံ) ၄၉,၄၆ဝ ပေါင် ဝယ်ယူရန် အိတ်ဖွင့်တင်ဒါခေါ်ယူခြင်း",
+            "deadline": "2026-09-18",
+            "deadline_status": "OPEN",
+        }]
+        text = render_business_digest(digest, translator=lambda values: (values, False))
+        self.assertIn("1/7 PC 彩色纱线 49,460 磅", text)
+        self.assertNotIn("ပီစီချည်", text)
+
     def test_render_keeps_distinct_opportunities_from_same_source(self) -> None:
         with tempfile.TemporaryDirectory() as tmp, patch("signalforge.business_digest.business_briefing", return_value=_briefing()), patch(
             "signalforge.business_digest.audit", return_value=_audit()

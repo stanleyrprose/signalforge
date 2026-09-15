@@ -106,9 +106,12 @@ def _title_product_fragments(title: object) -> list[str]:
     relay = re.search(r"(Schneider\s+SEPAM\s+Relay\s+for\s+MSDS)\s*\((\d+)\s*No\)", raw, re.IGNORECASE)
     if relay:
         fragments.append(f"{relay.group(1)} ×{relay.group(2)}")
-    pump = re.search(r"(Equipments?\s+for\s+Second\s+Lift\s+Pump\s+House)\s+设备(\d+)类", raw, re.IGNORECASE)
+    pump = re.search(r"Equipments?\s+for\s+Second\s+Lift\s+Pump\s+House\s+设备(\d+)类", raw, re.IGNORECASE)
     if pump:
-        fragments.append(f"{pump.group(1)} ×{pump.group(2)}类")
+        fragments.append(f"Second Lift Pump House equipment ×{pump.group(1)}类")
+    yarn = re.search(r"(1/7)\s+ပီစီချည်\(ရောင်စုံ\)\s+([0-9,]+)\s+ပေါင်", raw)
+    if yarn:
+        fragments.append(f"{yarn.group(1)} PC 彩色纱线 {yarn.group(2)} 磅")
     return fragments
 
 
