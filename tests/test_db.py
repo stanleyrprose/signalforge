@@ -85,7 +85,7 @@ class DatabaseMigrationTests(unittest.TestCase):
 
             self.assertEqual(discovery, ("2026-09-02T11:00:00+00:00", "2026-09-02T11:00:00+00:00", None, 0))
             self.assertEqual(state, ("2026-09-02T12:00:00Z", "2026-09-02T12:00:00Z", 0, None, None))
-            self.assertEqual(versions, [1, 2, 3, 4, 5, 6, 7])
+            self.assertEqual(versions, [1, 2, 3, 4, 5, 6, 7, 8])
             self.assertEqual(canonical, ("TENDER", "Existing Tender", "Existing Tender"))
             self.assertTrue({"item_kind", "title"} <= canonical_columns)
             self.assertTrue({"recovery", "outage_window_start", "outage_window_end", "backlog_remaining", "details_attempted", "details_succeeded", "tenders_parsed", "items_parsed"} <= scheduler_columns)
@@ -124,7 +124,7 @@ class DatabaseMigrationTests(unittest.TestCase):
                 versions = [value[0] for value in conn.execute("SELECT version FROM schema_meta ORDER BY version")]
 
             self.assertEqual(row, (7, 7))
-            self.assertEqual(versions, [4, 5, 6, 7])
+            self.assertEqual(versions, [4, 5, 6, 7, 8])
 
 
 if __name__ == "__main__":

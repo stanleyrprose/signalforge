@@ -7,6 +7,18 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from . import VERB_MANIFEST_VERSION
+from .assurance import (
+    assurance_status,
+    list_manual_promotions,
+    list_missed_signals,
+    list_noise_samples,
+    record_manual_promotion,
+    record_missed_signal,
+    resolve_manual_promotion,
+    resolve_missed_signal,
+    review_noise_sample,
+    run_assurance,
+)
 from .auditor import audit
 from .briefing import business_briefing
 from .business_digest import business_digest, telegram_digest
@@ -43,6 +55,10 @@ def verb_manifest() -> dict[str, object]:
             "signalforge-briefing": {"helper_command": "briefing", "argument": None},
             "signalforge-audit": {"helper_command": "audit", "argument": None},
             "signalforge-source-scorecard": {"helper_command": "source-scorecard", "argument": None},
+            "signalforge-assurance-run": {"helper_command": "assurance-run", "argument": None},
+            "signalforge-assurance-status": {"helper_command": "assurance-status", "argument": None},
+            "signalforge-misses": {"helper_command": "misses", "argument": None},
+            "signalforge-manual-promotions": {"helper_command": "manual-promotions", "argument": None},
             "signalforge-run-due": {"helper_command": "run-due", "argument": None},
             "signalforge-refresh": {"helper_command": "refresh-source", "argument": "source_id"},
             "signalforge-pause": {"helper_command": None, "argument": None},
@@ -210,12 +226,18 @@ def status(*, now: datetime | None = None, registry: Registry | None = None) -> 
     source_states = [str((source.get("health") or {}).get("source_health") or "RED") for source in sources]
     signalforge_health = max(source_states, key=_health_rank) if source_states else "RED"
     degraded = signalforge_health in {"YELLOW", "RED"}
+    assurance = assurance_status(database=database)
     return {
         "status": "DEGRADED" if degraded else "PASS",
         "signalforge_health": signalforge_health,
         "canonical_node": registry.raw["production_policy"]["canonical_node"],
         "browser_production_approved": registry.raw["production_policy"]["browser_production_approved"],
         "telegram_translation": translation_status(database=database),
+        "assurance": {
+            "status": assurance.get("status"),
+            "counts": assurance.get("counts"),
+            "metric_validity": (assurance.get("latest_metric_review") or {}).get("status") if isinstance(assurance.get("latest_metric_review"), dict) else "NOT_RUN",
+        },
         "sources": sources,
         "counts": counts,
         "recent_runs": recent,
@@ -279,6 +301,52 @@ def main(argv: list[str] | None = None) -> int:
     digest_parser.add_argument("--no-network", action="store_true")
     scorecard_parser = sub.add_parser("source-scorecard")
     scorecard_parser.add_argument("--window-days", type=int, default=30)
+    assurance_run_parser = sub.add_parser("assurance-run")
+    assurance_run_parser.add_argument("--no-network", action="store_true")
+    assurance_run_parser.add_argument("--noise-sample-size", type=int, default=5)
+    sub.add_parser("assurance-status")
+    misses_parser = sub.add_parser("misses")
+    misses_parser.add_argument("--status", choices=("OPEN", "RESOLVED", "FALSE_POSITIVE", "ALL"), default="OPEN")
+    misses_parser.add_argument("--limit", type=int, default=100)
+    record_miss_parser = sub.add_parser("record-miss")
+    record_miss_parser.add_argument("--source-id", required=True)
+    record_miss_parser.add_argument("--title", required=True)
+    record_miss_parser.add_argument("--reason", required=True)
+    record_miss_parser.add_argument("--severity", choices=("RED", "YELLOW"), default="RED")
+    record_miss_parser.add_argument("--url")
+    record_miss_parser.add_argument("--canonical-key")
+    record_miss_parser.add_argument("--detected-by", default="MANUAL")
+    resolve_miss_parser = sub.add_parser("resolve-miss")
+    resolve_miss_parser.add_argument("miss_id")
+    resolve_miss_parser.add_argument("--outcome", choices=("RESOLVED", "FALSE_POSITIVE"), default="RESOLVED")
+    resolve_miss_parser.add_argument("--note", required=True)
+    resolve_miss_parser.add_argument("--by", default="operator")
+    noise_samples_parser = sub.add_parser("noise-samples")
+    noise_samples_parser.add_argument("--status", choices=("PENDING", "CONFIRMED_NOISE", "FALSE_NEGATIVE", "INCONCLUSIVE", "ALL"), default="PENDING")
+    noise_samples_parser.add_argument("--limit", type=int, default=100)
+    noise_review_parser = sub.add_parser("noise-review")
+    noise_review_parser.add_argument("noise_sample_id")
+    noise_review_parser.add_argument("--outcome", choices=("CONFIRMED_NOISE", "FALSE_NEGATIVE", "INCONCLUSIVE"), required=True)
+    noise_review_parser.add_argument("--note", required=True)
+    noise_review_parser.add_argument("--by", default="operator")
+    noise_review_parser.add_argument("--miss-title")
+    manual_promote_parser = sub.add_parser("manual-promote")
+    manual_promote_parser.add_argument("--source-id", required=True)
+    manual_promote_parser.add_argument("--title", required=True)
+    manual_promote_parser.add_argument("--summary", required=True)
+    manual_promote_parser.add_argument("--reason", required=True)
+    manual_promote_parser.add_argument("--priority", choices=("HIGH", "REVIEW"), default="HIGH")
+    manual_promote_parser.add_argument("--url")
+    manual_promote_parser.add_argument("--deadline")
+    manual_promote_parser.add_argument("--location")
+    manual_promote_parser.add_argument("--by", default="operator")
+    manual_list_parser = sub.add_parser("manual-promotions")
+    manual_list_parser.add_argument("--status", choices=("ACTIVE", "RESOLVED"), default="ACTIVE")
+    manual_list_parser.add_argument("--limit", type=int, default=100)
+    manual_resolve_parser = sub.add_parser("manual-resolve")
+    manual_resolve_parser.add_argument("promotion_id")
+    manual_resolve_parser.add_argument("--note", required=True)
+    manual_resolve_parser.add_argument("--by", default="operator")
     telegram_parser = sub.add_parser("telegram-deliver")
     telegram_parser.add_argument("--dry-run", action="store_true")
     telegram_digest_parser = sub.add_parser("telegram-digest")
@@ -396,6 +464,50 @@ def main(argv: list[str] | None = None) -> int:
             result = business_digest(audit_network=not bool(args.no_network))
         elif args.cmd == "source-scorecard":
             result = source_scorecard(window_days=int(args.window_days))
+        elif args.cmd == "assurance-run":
+            result = run_assurance(network=not bool(args.no_network), noise_sample_size=int(args.noise_sample_size))
+        elif args.cmd == "assurance-status":
+            result = assurance_status()
+        elif args.cmd == "misses":
+            result = list_missed_signals(status=None if args.status == "ALL" else args.status, limit=int(args.limit))
+        elif args.cmd == "record-miss":
+            result = record_missed_signal(
+                source_id=args.source_id,
+                title=args.title,
+                reason=args.reason,
+                severity=args.severity,
+                detected_by=args.detected_by,
+                url=args.url,
+                canonical_key=args.canonical_key,
+            )
+        elif args.cmd == "resolve-miss":
+            result = resolve_missed_signal(args.miss_id, outcome=args.outcome, note=args.note, resolved_by=args.by)
+        elif args.cmd == "noise-samples":
+            result = list_noise_samples(status=None if args.status == "ALL" else args.status, limit=int(args.limit))
+        elif args.cmd == "noise-review":
+            result = review_noise_sample(
+                args.noise_sample_id,
+                outcome=args.outcome,
+                note=args.note,
+                reviewed_by=args.by,
+                miss_title=args.miss_title,
+            )
+        elif args.cmd == "manual-promote":
+            result = record_manual_promotion(
+                source_id=args.source_id,
+                title=args.title,
+                summary=args.summary,
+                reason=args.reason,
+                priority_band=args.priority,
+                url=args.url,
+                deadline=args.deadline,
+                location=args.location,
+                created_by=args.by,
+            )
+        elif args.cmd == "manual-promotions":
+            result = list_manual_promotions(status=args.status, limit=int(args.limit))
+        elif args.cmd == "manual-resolve":
+            result = resolve_manual_promotion(args.promotion_id, note=args.note, resolved_by=args.by)
         elif args.cmd == "telegram-deliver":
             result = telegram_deliver(dry_run=bool(args.dry_run))
         elif args.cmd == "telegram-digest":

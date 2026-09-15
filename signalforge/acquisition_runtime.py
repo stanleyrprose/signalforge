@@ -36,6 +36,17 @@ class AcquisitionCapture:
     sha256: str
 
 
+@dataclass(frozen=True)
+class ProviderDiagnosticCapture:
+    payload: bytes
+    provider_request_id: str
+    sha256: str
+    media_type: str
+    final_url: str | None
+    http_status: int | None
+    artifact_path: str
+
+
 def _json(value: object) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
@@ -194,6 +205,100 @@ def _load_provider_contract() -> dict:
     if value.get("enabled") is not True:
         raise RuntimeError("production provider contract is disabled")
     return value
+
+
+def acquire_provider_diagnostic_bytes(
+    *,
+    database: Path,
+    assurance_run_id: str,
+    source_id: str,
+    source_policy_version: int,
+    target_role: str,
+    url: str,
+    timeout_seconds: int,
+    max_bytes: int,
+    expected_content_types: list[str],
+    capability: str = ProviderCapability.C0_FETCH.value,
+    poll_interval_seconds: float = 0.5,
+    sleeper: Callable[[float], None] = time.sleep,
+    request_now: datetime | None = None,
+) -> ProviderDiagnosticCapture:
+    """Fetch provider bytes for assurance/diagnostics without fabricating a scheduler run.
+
+    This uses the same production provider contract and queue as business acquisition,
+    but intentionally does not create acquisition_requests/evidence_envelopes because
+    those tables require a real scheduler_runs parent. The provider queue itself is
+    the audit trail for this non-business fetch.
+    """
+    if not assurance_run_id:
+        raise ValueError("assurance_run_id is required")
+    try:
+        uuid.UUID(assurance_run_id)
+    except ValueError as exc:
+        raise ValueError("assurance_run_id must be UUID") from exc
+    if not expected_content_types or not all(isinstance(item, str) and item for item in expected_content_types):
+        raise ValueError("expected_content_types must be non-empty strings")
+    contract = _load_provider_contract()
+    requested_time = (request_now or datetime.now(UTC)).astimezone(UTC)
+    ttl_seconds = min(int(contract["limits"]["max_request_ttl_seconds"]), max(timeout_seconds + 30, 60))
+    request_id = str(uuid.uuid4())
+    attempt_id = str(uuid.uuid4())
+    provider_request = build_provider_request(
+        contract=contract,
+        source_id=source_id,
+        source_policy_version=source_policy_version,
+        capability=capability,
+        target_role=target_role,
+        requested_url=url,
+        signalforge_job_id=assurance_run_id,
+        acquisition_request_id=request_id,
+        acquisition_attempt_id=attempt_id,
+        max_bytes=max_bytes,
+        max_run_seconds=min(timeout_seconds, int(contract["limits"]["max_run_seconds"])),
+        now=requested_time,
+        ttl_seconds=ttl_seconds,
+    )
+    initialize_provider_queue(database)
+    enqueue_provider_request(provider_request, contract=contract, database=database, priority=90, now=requested_time)
+
+    deadline = time.monotonic() + timeout_seconds
+    row = None
+    while time.monotonic() < deadline:
+        with connect(database) as conn:
+            row = conn.execute(
+                "SELECT * FROM provider_requests WHERE provider_request_id=?",
+                (provider_request["provider_request_id"],),
+            ).fetchone()
+        if row is not None and str(row["state"]) == "SUCCEEDED":
+            break
+        if row is not None and str(row["state"]) in PROVIDER_TERMINAL_FAILURES:
+            raise RuntimeError(f"provider diagnostic acquisition failed: {row['failure_class'] or 'PROVIDER_RESULT_INVALID'}")
+        sleeper(max(0.05, poll_interval_seconds))
+    else:
+        raise TimeoutError(f"provider diagnostic acquisition timed out: {source_id} {target_role}")
+
+    assert row is not None
+    artifact_path = Path(str(row["result_artifact_path"] or ""))
+    if not artifact_path.is_file():
+        raise RuntimeError("provider diagnostic result artifact missing")
+    payload = artifact_path.read_bytes()
+    digest = hashlib.sha256(payload).hexdigest()
+    if digest != str(row["result_sha256"] or "") or len(payload) != int(row["result_artifact_bytes"] or -1):
+        raise RuntimeError("provider diagnostic artifact integrity mismatch")
+    media_type = str(row["result_media_type"] or "")
+    if media_type not in expected_content_types:
+        raise RuntimeError(f"provider diagnostic content type mismatch: {media_type}")
+    if str(row["result_request_sha256"] or "") != str(provider_request["request_sha256"]):
+        raise RuntimeError("provider diagnostic request/result correlation mismatch")
+    return ProviderDiagnosticCapture(
+        payload=payload,
+        provider_request_id=str(provider_request["provider_request_id"]),
+        sha256=digest,
+        media_type=media_type,
+        final_url=str(row["result_final_url"]) if row["result_final_url"] else None,
+        http_status=int(row["result_http_status"]) if row["result_http_status"] is not None else None,
+        artifact_path=str(artifact_path),
+    )
 
 
 def acquire_provider_bytes(
