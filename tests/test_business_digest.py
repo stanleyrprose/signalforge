@@ -183,9 +183,85 @@ class BusinessDigestTests(unittest.TestCase):
         text = render_business_digest(digest)
         self.assertIn("🆕 24h 新增/更新", text)
         self.assertIn("Ministry of Industry, Myanmar</b> · [S38]", text)
-        self.assertIn("采购/招标：<b>Steel Scrap (HMS-1) 1,000 tons", text)
+        self.assertIn("采购内容：<b>Steel Scrap (HMS-1) 1,000 tons", text)
         self.assertIn("2026-09-14 16:00", text)
         self.assertIn('href="https://www.industrymsme.gov.mm/announcements/1027"', text)
+
+    def test_digest_prefers_concrete_procurement_facts_over_generic_titles(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp, patch("signalforge.business_digest.business_briefing", return_value=_briefing()), patch(
+            "signalforge.business_digest.audit", return_value=_audit()
+        ), patch("signalforge.business_digest.source_scorecard", return_value=_scorecard()):
+            digest = business_digest(database=self._db(tmp), registry=_Registry(), now=datetime(2026,9,15,2,0,tzinfo=UTC))  # type: ignore[arg-type]
+        digest["business"]["attention"] = [
+            {
+                "canonical_key": "energy:235",
+                "source_id": "S39",
+                "item_kind": "TENDER",
+                "attention_action": "PRIORITIZE",
+                "primary_relevance": "ICT",
+                "issuer": "Ministry of Energy, Myanmar",
+                "title": "Open Tender 27/2026-2027",
+                "scope_excerpt": "DMP/L-026(26-27)CAP Accessories for Communication and Information Ks | (Second Retender) Technology (2) Groups | DMP/L-067(26-27)CAP IOT Module (Siemens) (6) Nos Ks | DMP/L-073(26-27)CAP ICDD PDF-2 Software (1) Lot Ks | DMP/L-089(26-27)CAP Book Scanner, Motorized Screen, Desktop Computer and UPS (2) Groups Ks",
+                "deadline": "2026-09-18",
+                "deadline_time": "13:00",
+                "deadline_status": "OPEN",
+            },
+            {
+                "canonical_key": "mofa:59800",
+                "source_id": "S30",
+                "item_kind": "TENDER",
+                "attention_action": "PRIORITIZE",
+                "primary_relevance": "ICT",
+                "issuer": "Ministry of Foreign Affairs, Myanmar",
+                "title": "Open Tender",
+                "scope_excerpt": "Tender invitation | (a) Data Server (1) Set | eligibility terms",
+                "deadline": "2026-09-18",
+                "deadline_time": "16:30",
+                "deadline_status": "OPEN",
+            },
+            {
+                "canonical_key": "doms:12735",
+                "source_id": "S26",
+                "item_kind": "TENDER",
+                "attention_action": "REVIEW",
+                "primary_relevance": "MEDICAL",
+                "issuer": "Department of Medical Services",
+                "title": "Tender Nos 8DMS/2026-2027(L), 9DMS/2026-2027(L), 10DMS/2026-2027(F)",
+                "scope_excerpt": "8DMS(2026-2027)(L)_ad9e1cc0-dc4c-4e87-8b04-8ca27e94ce68 9DMS(2026-2027)(L)_99c2e627-1816-4a8a-9b27-8f0b5d94acf0",
+                "deadline": None,
+                "deadline_status": "UNKNOWN",
+            },
+        ]
+        text = render_business_digest(digest)
+        self.assertIn("Accessories for Communication and Information Technology ×2组", text)
+        self.assertIn("IOT Module (Siemens) ×6", text)
+        self.assertIn("ICDD PDF-2 Software ×1 Lot", text)
+        self.assertIn("Book Scanner, Motorized Screen, Desktop Computer and UPS ×2组", text)
+        self.assertIn("Data Server ×1套", text)
+        self.assertIn("采购明细尚未从官方附件抽取", text)
+        self.assertNotIn("采购内容：<b>Open Tender 27/2026-2027", text)
+
+    def test_digest_extracts_industry_lot_procurement_summary(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp, patch("signalforge.business_digest.business_briefing", return_value=_briefing()), patch(
+            "signalforge.business_digest.audit", return_value=_audit()
+        ), patch("signalforge.business_digest.source_scorecard", return_value=_scorecard()):
+            digest = business_digest(database=self._db(tmp), registry=_Registry(), now=datetime(2026,9,15,2,0,tzinfo=UTC))  # type: ignore[arg-type]
+        digest["business"]["attention"] = [{
+            "canonical_key": "industry:1023",
+            "source_id": "S38",
+            "item_kind": "TENDER",
+            "attention_action": "PRIORITIZE",
+            "primary_relevance": "INDUSTRIAL",
+            "issuer": "Ministry of Industry, Myanmar",
+            "title": "Laboratory equipment tender",
+            "scope_excerpt": "Lot-1 သံ၊ သံမဏိဓာတ်ခွဲခန်းသုံး စက်ပစ္စည်း (၁၆)မျိုး Lot-2 ဘိလပ်မြေ ဓာတ်ခွဲခန်းသုံး စက်ပစ္စည်း (၃၁)မျိုး Lot-3 သံ၊ သံမဏိ ဓာတ်ခွဲခန်းသုံးစက်ပစ္စည်း (၉) မျိုး",
+            "deadline": "2026-09-18",
+            "deadline_status": "OPEN",
+        }]
+        text = render_business_digest(digest)
+        self.assertIn("Lot 1：钢铁实验室设备 16类", text)
+        self.assertIn("Lot 2：水泥实验室设备 31类", text)
+        self.assertIn("Lot 3：钢铁实验室设备 9类", text)
 
     def test_render_keeps_distinct_opportunities_from_same_source(self) -> None:
         with tempfile.TemporaryDirectory() as tmp, patch("signalforge.business_digest.business_briefing", return_value=_briefing()), patch(

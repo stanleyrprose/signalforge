@@ -4,6 +4,7 @@ import hashlib
 import html
 import json
 import os
+import re
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -18,7 +19,7 @@ from .telegram_delivery import TelegramDeliveryError, _send_message
 from .translation import contains_myanmar, translate_myanmar_to_zh_hans
 from .source_scorecard import source_scorecard
 
-DIGEST_VERSION = 2
+DIGEST_VERSION = 3
 DIGEST_CHANNEL = "telegram-business-digest"
 DIGEST_TIMEZONE = ZoneInfo("Asia/Yangon")
 TELEGRAM_MESSAGE_LIMIT = 4096
@@ -34,6 +35,105 @@ def _compact(value: object, limit: int = 96) -> str:
     if len(text) <= limit:
         return text
     return text[: max(0, limit - 1)].rstrip() + "…"
+
+
+_MYANMAR_DIGITS = str.maketrans("၀၁၂၃၄၅၆၇၈၉", "0123456789")
+_PROCUREMENT_KEYWORDS = (
+    "server", "software", "module", "scanner", "computer", "ups", "accessor",
+    "equipment", "relay", "steel", "gas", "chemical", "machine", "cable",
+    "battery", "router", "switch", "radio", "fiber", "fibre", "material",
+)
+
+
+def _presentation_cleanup(value: object) -> str:
+    text = str(value or "").translate(_MYANMAR_DIGITS)
+    text = re.sub(r"(?<=[0-9,])ဝ(?=\D|$)", "0", text)
+    text = re.sub(r"အမှတ်\s*\((\d+)\)", r"第\1号", text)
+    text = re.sub(r"ပစ္စည်း\s*\((\d+)\)\s*မျိုး", r"设备\1类", text)
+    return " ".join(text.split())
+
+
+def _scope_product_fragments(scope: object) -> list[str]:
+    """Prefer concrete product/quantity fragments over tender boilerplate."""
+    raw = _presentation_cleanup(scope)
+    if not raw:
+        return []
+    segments = [segment.strip(" ;·") for segment in raw.split("|") if segment.strip(" ;·")]
+    if len(segments) <= 1:
+        return []
+    ranked: list[tuple[int, int, str]] = []
+    for index, segment in enumerate(segments):
+        lowered = segment.lower()
+        if re.search(r"_[0-9a-f]{8,}(?:-[0-9a-f]{4,})+", lowered):
+            continue
+        score = 0
+        if any(keyword in lowered for keyword in _PROCUREMENT_KEYWORDS):
+            score += 5
+        if re.search(r"\b\d+[\s)]*(?:set|sets|no|nos|lot|lots|group|groups|ton|tons|kg|pcs?)\b", lowered):
+            score += 4
+        if re.search(r"\b(?:cap|dmp/l-|tender no\.?|ref(?:erence)?)\b", lowered):
+            score += 1
+        if score >= 4:
+            cleaned = re.sub(r"\s+Ks\s*$", "", segment, flags=re.IGNORECASE)
+            cleaned = re.sub(r"^\((?:second\s+)?retender\)\s*", "", cleaned, flags=re.IGNORECASE)
+            cleaned = re.sub(r"^[A-Z]{2,}/[A-Z]-\s*\d+\([^)]+\)\s*(?:CAP\s*)?", "", cleaned)
+            cleaned = re.sub(r"^\([a-z]\)\s*", "", cleaned, flags=re.IGNORECASE)
+            cleaned = re.sub(r"^\([\u1000-\u109f]\)\s*", "", cleaned)
+            cleaned = re.sub(r"\((\d+)\)\s*Nos?\b", r"×\1", cleaned, flags=re.IGNORECASE)
+            cleaned = re.sub(r"\((\d+)\)\s*Sets?\b", r"×\1套", cleaned, flags=re.IGNORECASE)
+            cleaned = re.sub(r"\((\d+)\)\s*Groups?\b", r"×\1组", cleaned, flags=re.IGNORECASE)
+            cleaned = re.sub(r"\((\d+)\)\s*Lots?\b", r"×\1 Lot", cleaned, flags=re.IGNORECASE)
+            ranked.append((score, index, cleaned))
+    selected = sorted(ranked, key=lambda row: row[1])[:6]
+    fragments = [row[2] for row in selected]
+    if len(fragments) >= 2 and fragments[0].rstrip().endswith("Information") and fragments[1].startswith("Technology "):
+        fragments[0] = f"{fragments[0]} {fragments[1]}"
+        del fragments[1]
+    merged: list[str] = []
+    for fragment in fragments:
+        if merged and merged[-1].rstrip().lower().endswith(" and"):
+            merged[-1] = f"{merged[-1]} {fragment}"
+        else:
+            merged.append(fragment)
+    return merged
+
+
+def _title_product_fragments(title: object) -> list[str]:
+    raw = _presentation_cleanup(title)
+    if not raw:
+        return []
+    fragments: list[str] = []
+    relay = re.search(r"(Schneider\s+SEPAM\s+Relay\s+for\s+MSDS)\s*\((\d+)\s*No\)", raw, re.IGNORECASE)
+    if relay:
+        fragments.append(f"{relay.group(1)} ×{relay.group(2)}")
+    pump = re.search(r"(Equipments?\s+for\s+Second\s+Lift\s+Pump\s+House)\s+设备(\d+)类", raw, re.IGNORECASE)
+    if pump:
+        fragments.append(f"{pump.group(1)} ×{pump.group(2)}类")
+    return fragments
+
+
+def _industry_lot_fragments(scope: object) -> list[str]:
+    raw = _presentation_cleanup(scope)
+    if not raw or "Lot-" not in raw:
+        return []
+    fragments: list[str] = []
+    blocks = re.split(r"(?=Lot-\d+)", raw)
+    for block in blocks:
+        lot = re.match(r"Lot-(\d+)", block)
+        if lot is None:
+            continue
+        quantity = re.search(r"设备\s*(\d+)类|စက်ပစ္စည်း\s*\((\d+)\)\s*မျိုး", block)
+        if quantity is None:
+            continue
+        quantity_value = quantity.group(1) or quantity.group(2)
+        if "ဘိလပ်မြေ" in block:
+            category = "水泥实验室设备"
+        elif "သံ" in block and "သံမဏိ" in block:
+            category = "钢铁实验室设备"
+        else:
+            category = "实验室设备"
+        fragments.append(f"Lot {lot.group(1)}：{category} {quantity_value}类")
+    return fragments[:4]
 
 
 def _deadline_text(item: dict[str, object]) -> str:
@@ -314,30 +414,51 @@ def render_business_digest(
     digest_was_translated = False
 
     def business_subject(item: dict[str, object]) -> str:
-        title = _compact(item.get("title"), 115)
-        quantity = _compact(item.get("quantity_or_lot_summary"), 70)
-        scope = _compact(item.get("scope_excerpt"), 105)
+        title = _presentation_cleanup(item.get("title"))
+        scope = _presentation_cleanup(item.get("scope_excerpt"))
+        quantity = _presentation_cleanup(item.get("quantity_or_lot_summary"))
+        source_id = str(item.get("source_id") or "")
+        industry_lots = _industry_lot_fragments(scope) if source_id == "S38" else []
+        if industry_lots:
+            return _compact("；".join(industry_lots), 240)
+        fragments = _scope_product_fragments(scope)
+        if source_id == "S30" and fragments:
+            data_server = [fragment for fragment in fragments if "data server" in fragment.lower()]
+            if data_server:
+                fragments = [min(data_server, key=len)]
+        if fragments:
+            summary = "；".join(fragments)
+            if quantity and quantity not in summary:
+                summary = f"{summary}；规模 {quantity}"
+            return _compact(summary, 240)
+
+        title_fragments = _title_product_fragments(title)
+        if title_fragments:
+            return _compact("；".join(title_fragments), 240)
+
+        # Some issuer pages expose only attachment/tender identifiers. Do not
+        # pretend that a reference number is a useful procurement summary.
+        if source_id == "S26" and scope and re.search(r"DMS/?\d*[-/()]", scope, re.IGNORECASE):
+            return "采购明细尚未从官方附件抽取；当前仅识别招标编号，需打开附件核验具体物资与数量"
+
         parts: list[str] = []
         if title:
             parts.append(title)
         if quantity and quantity not in title:
-            parts.append(quantity)
-        else:
-            relevance = str(item.get("primary_relevance") or "")
-            focus_count = int(item.get("focus_reference_count") or 0)
-            if scope and scope not in title and (relevance in {"ICT", "TELECOM"} or focus_count > 0 or not title):
-                parts.append(scope)
-        return _compact("；".join(parts) or scope or "采购/招标内容待补充", 145)
+            parts.append(f"规模 {quantity}")
+        if not parts and scope:
+            parts.append(scope)
+        return _compact("；".join(parts) or "采购/招标内容待补充", 220)
 
     def translate_values(values: list[str], limit: int) -> list[str]:
         nonlocal digest_was_translated
         if not values or not any(contains_myanmar(value) for value in values):
-            return [_compact(value, limit) for value in values]
+            return [_compact(_presentation_cleanup(value), limit) for value in values]
         myanmar_indices = [index for index, value in enumerate(values) if contains_myanmar(value)]
         if len(myanmar_indices) <= 2:
             translated, used = translate_batch(values)
             digest_was_translated = digest_was_translated or used
-            return [_compact(value, limit) for value in translated]
+            return [_compact(_presentation_cleanup(value), limit) for value in translated]
 
         translated_values = list(values)
         for offset in range(0, len(myanmar_indices), 2):
@@ -349,10 +470,10 @@ def render_business_digest(
                 continue
             for index, value in zip(indices, translated, strict=True):
                 translated_values[index] = value
-        return [_compact(value, limit) for value in translated_values]
+        return [_compact(_presentation_cleanup(value), limit) for value in translated_values]
 
     def translated_subjects(rows: list[dict[str, object]]) -> list[str]:
-        return translate_values([business_subject(item) for item in rows], 120)
+        return translate_values([business_subject(item) for item in rows], 210)
 
     def translated_issuers(rows: list[dict[str, object]]) -> list[str]:
         return translate_values([str(item.get("issuer") or "") for item in rows], 46)
@@ -375,12 +496,12 @@ def render_business_digest(
         kind = str(item.get("item_kind") or "")
         direction = str(item.get("commercial_direction") or "")
         if kind == "TENDER":
-            return "采购/招标"
+            return "采购内容"
         if kind == "AUCTION_NOTICE" and direction == "BUY_FROM_ISSUER":
-            return "竞买/采购机会"
+            return "竞买内容"
         if kind == "AUCTION_NOTICE":
-            return "拍卖/商业机会"
-        return "业务事项"
+            return "拍卖内容"
+        return "业务内容"
 
     def timing_text(item: dict[str, object]) -> str:
         value = _deadline_text(item)

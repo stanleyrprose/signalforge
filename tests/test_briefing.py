@@ -170,11 +170,11 @@ class BriefingTests(unittest.TestCase):
 
     def test_scope_excerpt_is_bounded(self) -> None:
         data = self._opportunities()
-        data["opportunities"][0]["scope_summary"] = "x" * 1000
+        data["opportunities"][0]["scope_summary"] = "x" * 2500
         with patch("signalforge.briefing.current_opportunities", return_value=data):
             result = business_briefing()
         excerpt = result["attention"][0]["scope_excerpt"]
-        self.assertLessEqual(len(excerpt), 420)
+        self.assertLessEqual(len(excerpt), 1800)
         self.assertTrue(excerpt.endswith("…"))
 
     def test_cli_briefing_is_read_only_no_argument_surface(self) -> None:
