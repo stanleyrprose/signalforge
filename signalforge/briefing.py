@@ -14,7 +14,7 @@ def _collapse(value: object) -> str:
     return re.sub(r"\s+", " ", str(value or "")).strip()
 
 
-def _excerpt(value: object, limit: int = 420) -> str:
+def _excerpt(value: object, limit: int = 1800) -> str:
     text = _collapse(value)
     if len(text) <= limit:
         return text
