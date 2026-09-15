@@ -80,7 +80,7 @@ class AssuranceTests(unittest.TestCase):
         cases = [
             ("S20", "moep_tender_list.html", "https://moep.gov.mm/mm/ignite/page/62", 2),
             ("S21", "railways_tender_list.html", "https://www.railways.gov.mm/category/tender/", 2),
-            ("S30", "mofa_announcement_list.html", "https://www.mofa.gov.mm/category/announcement/", 3),
+            ("S30", "mofa_announcement_list.html", "https://www.mofa.gov.mm/category/announcement/", 2),
             ("S38", "industry-listing.html", "https://www.industrymsme.gov.mm/announcements", 16),
             ("S39", "energy-tenders.html", "https://energy.gov.mm/tenders", 4),
         ]
@@ -89,6 +89,10 @@ class AssuranceTests(unittest.TestCase):
                 rows = _source_candidates(source_id, (FIXTURES / fixture).read_bytes(), base)
                 self.assertGreaterEqual(len(rows), minimum)
                 self.assertTrue(all(str(row["url"]).startswith("https://") for row in rows))
+        mofa_payload = (FIXTURES / "mofa_announcement_list.html").read_bytes()
+        mofa_nonstandard = _nonstandard_candidates("S30", mofa_payload, "https://www.mofa.gov.mm/category/announcement/")
+        self.assertEqual(len(mofa_nonstandard), 1)
+        self.assertIn("တင်ဒါအောင်မြင်ကြောင်း", mofa_nonstandard[0]["title"])
         industry_payload = (FIXTURES / "industry-listing.html").read_bytes()
         nonstandard = _nonstandard_candidates("S38", industry_payload, "https://www.industrymsme.gov.mm/announcements")
         self.assertEqual(len(nonstandard), 4)
