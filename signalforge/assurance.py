@@ -95,6 +95,20 @@ def _all_links(payload: bytes, base_url: str) -> list[tuple[str, str]]:
     return [(url, dedup[url]) for url in sorted(dedup)]
 
 
+def _is_tender_result_notice(text: str) -> bool:
+    lowered = " ".join(text.lower().split())
+    markers = (
+        "တင်ဒါအောင်မြင်ကြောင်း",
+        "တင်ဒါအောင်စာရင်း",
+        "tender award",
+        "award notice",
+        "successful bidder",
+        "tender result",
+        "bid result",
+    )
+    return any(marker in lowered for marker in markers)
+
+
 def _source_candidates(source_id: str, payload: bytes, base_url: str) -> list[dict[str, str]]:
     text_payload = payload.decode("utf-8", errors="replace")
     if source_id == "S20":
@@ -142,6 +156,7 @@ def _source_candidates(source_id: str, payload: bytes, base_url: str) -> list[di
                 and path not in {"/", "/category/announcement"}
                 and not path.startswith(("/category/", "/tag/", "/author/", "/wp-", "/page/"))
                 and any(term in text.lower() if term.isascii() else term in text for term in tender_terms)
+                and not _is_tender_result_notice(text)
             )
         elif source_id == "S38":
             match = (
@@ -160,20 +175,30 @@ def _source_candidates(source_id: str, payload: bytes, base_url: str) -> list[di
 
 
 def _nonstandard_candidates(source_id: str, payload: bytes, base_url: str) -> list[dict[str, str]]:
-    if source_id != "S38":
+    if source_id not in {"S30", "S38"}:
         return []
     standard = {_normalize_url(item["url"]) for item in _source_candidates(source_id, payload, base_url)}
     rows: list[dict[str, str]] = []
     for url, text in _all_links(payload, base_url):
         parsed = urlparse(url)
+        host = parsed.netloc.lower()
         path = parsed.path.rstrip("/") or "/"
         normalized = _normalize_url(url)
-        if (
-            parsed.netloc.lower() in {"industrymsme.gov.mm", "www.industrymsme.gov.mm"}
-            and re.fullmatch(r"/announcements/\d+", path) is not None
-            and normalized not in standard
-            and text.strip()
-        ):
+        if normalized in standard or not text.strip():
+            continue
+        if source_id == "S38":
+            match = (
+                host in {"industrymsme.gov.mm", "www.industrymsme.gov.mm"}
+                and re.fullmatch(r"/announcements/\d+", path) is not None
+            )
+        else:
+            match = (
+                host in {"mofa.gov.mm", "www.mofa.gov.mm"}
+                and path not in {"/", "/category/announcement"}
+                and not path.startswith(("/category/", "/tag/", "/author/", "/wp-", "/page/"))
+                and _is_tender_result_notice(text)
+            )
+        if match:
             rows.append({"url": url, "title": text[:300]})
     return rows
 
@@ -499,10 +524,14 @@ def _noise_candidates(conn) -> list[dict[str, object]]:  # type: ignore[no-untyp
                 "payload": {"processing_id": row["processing_id"], "parser_version": row["parser_version"], "finished_at": row["finished_at"], "artifact_sha256": row["artifact_sha256"]},
             }
         )
-    latest_nonstandard = conn.execute(
-        "SELECT details_json FROM coverage_audit_results WHERE source_id='S38' ORDER BY checked_at DESC LIMIT 1"
-    ).fetchone()
-    if latest_nonstandard is not None:
+    seen_nonstandard_sources: set[str] = set()
+    for latest_nonstandard in conn.execute(
+        "SELECT source_id,details_json FROM coverage_audit_results ORDER BY checked_at DESC"
+    ):
+        source_id = str(latest_nonstandard["source_id"])
+        if source_id in seen_nonstandard_sources:
+            continue
+        seen_nonstandard_sources.add(source_id)
         try:
             details = json.loads(str(latest_nonstandard["details_json"] or "{}"))
         except json.JSONDecodeError:
@@ -518,7 +547,7 @@ def _noise_candidates(conn) -> list[dict[str, object]]:  # type: ignore[no-untyp
                     continue
                 candidates.append(
                     {
-                        "source_id": "S38",
+                        "source_id": source_id,
                         "candidate_kind": "INDEPENDENT_LISTING_NONSTANDARD",
                         "candidate_ref": f"url:{_normalize_url(url)}",
                         "evidence_url": url,
