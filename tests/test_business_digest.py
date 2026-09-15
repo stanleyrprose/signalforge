@@ -277,6 +277,36 @@ class BusinessDigestTests(unittest.TestCase):
         self.assertIn("🌐 缅文内容已机器翻译为中文", text)
         self.assertNotIn("စွမ်းအင်", text)
 
+    def test_digest_chunks_large_burmese_translation_batches(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp, patch("signalforge.business_digest.business_briefing", return_value=_briefing()), patch(
+            "signalforge.business_digest.audit", return_value=_audit()
+        ), patch("signalforge.business_digest.source_scorecard", return_value=_scorecard()):
+            digest = business_digest(database=self._db(tmp), registry=_Registry(), now=datetime(2026,9,14,2,0,tzinfo=UTC))  # type: ignore[arg-type]
+        digest["business"]["attention"] = [
+            {
+                "canonical_key": f"my:{index}",
+                "source_id": "S21",
+                "item_kind": "TENDER",
+                "attention_action": "ACT_NOW",
+                "primary_relevance": "OTHER",
+                "issuer": "Myanma Railways",
+                "title": f"စက်ပစ္စည်း ဝယ်ယူရန် {index}",
+                "deadline": "2026-09-18",
+                "deadline_status": "OPEN",
+            }
+            for index in range(5)
+        ]
+        batch_sizes: list[int] = []
+
+        def fake_translator(values: list[str]) -> tuple[list[str], bool]:
+            batch_sizes.append(len(values))
+            return [f"中文采购项目 {len(batch_sizes)}-{index}" for index, _ in enumerate(values)], True
+
+        text = render_business_digest(digest, translator=fake_translator)
+        self.assertEqual(batch_sizes, [2, 2, 1])
+        self.assertIn("中文采购项目", text)
+        self.assertNotIn("စက်ပစ္စည်း", text)
+
     def test_attention_selection_stops_at_six_after_strategic_fill(self) -> None:
         with tempfile.TemporaryDirectory() as tmp, patch("signalforge.business_digest.business_briefing", return_value=_briefing()), patch(
             "signalforge.business_digest.audit", return_value=_audit()

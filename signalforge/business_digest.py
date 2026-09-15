@@ -333,9 +333,23 @@ def render_business_digest(
         nonlocal digest_was_translated
         if not values or not any(contains_myanmar(value) for value in values):
             return [_compact(value, limit) for value in values]
-        translated, used = translate_batch(values)
-        digest_was_translated = digest_was_translated or used
-        return [_compact(value, limit) for value in translated]
+        myanmar_indices = [index for index, value in enumerate(values) if contains_myanmar(value)]
+        if len(myanmar_indices) <= 2:
+            translated, used = translate_batch(values)
+            digest_was_translated = digest_was_translated or used
+            return [_compact(value, limit) for value in translated]
+
+        translated_values = list(values)
+        for offset in range(0, len(myanmar_indices), 2):
+            indices = myanmar_indices[offset : offset + 2]
+            batch = [values[index] for index in indices]
+            translated, used = translate_batch(batch)
+            digest_was_translated = digest_was_translated or used
+            if not used or len(translated) != len(indices):
+                continue
+            for index, value in zip(indices, translated, strict=True):
+                translated_values[index] = value
+        return [_compact(value, limit) for value in translated_values]
 
     def translated_subjects(rows: list[dict[str, object]]) -> list[str]:
         return translate_values([business_subject(item) for item in rows], 120)
