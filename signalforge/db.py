@@ -8,7 +8,7 @@ from typing import Iterator
 from .config import db_path
 
 
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 
 
 @contextmanager
@@ -252,6 +252,123 @@ def migrate(path: Path | None = None) -> None:
             );
             CREATE INDEX IF NOT EXISTS idx_processing_source_finished
                 ON processing_records(source_id, finished_at DESC);
+
+            CREATE TABLE IF NOT EXISTS assurance_runs (
+                assurance_run_id TEXT PRIMARY KEY,
+                started_at TEXT NOT NULL,
+                finished_at TEXT,
+                status TEXT NOT NULL,
+                network_checks INTEGER NOT NULL DEFAULT 1,
+                summary_json TEXT NOT NULL DEFAULT '{}'
+            );
+            CREATE INDEX IF NOT EXISTS idx_assurance_runs_started
+                ON assurance_runs(started_at DESC);
+
+            CREATE TABLE IF NOT EXISTS coverage_audit_results (
+                coverage_audit_id TEXT PRIMARY KEY,
+                assurance_run_id TEXT NOT NULL,
+                source_id TEXT NOT NULL,
+                audit_method TEXT NOT NULL,
+                status TEXT NOT NULL,
+                official_candidate_count INTEGER NOT NULL DEFAULT 0,
+                canonical_covered_count INTEGER NOT NULL DEFAULT 0,
+                missing_count INTEGER NOT NULL DEFAULT 0,
+                checked_at TEXT NOT NULL,
+                details_json TEXT NOT NULL DEFAULT '{}',
+                FOREIGN KEY(assurance_run_id) REFERENCES assurance_runs(assurance_run_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_coverage_audit_run_source
+                ON coverage_audit_results(assurance_run_id, source_id);
+            CREATE INDEX IF NOT EXISTS idx_coverage_audit_source_checked
+                ON coverage_audit_results(source_id, checked_at DESC);
+
+            CREATE TABLE IF NOT EXISTS noise_review_samples (
+                noise_sample_id TEXT PRIMARY KEY,
+                assurance_run_id TEXT,
+                source_id TEXT NOT NULL,
+                candidate_kind TEXT NOT NULL,
+                candidate_ref TEXT NOT NULL,
+                evidence_url TEXT,
+                sample_basis TEXT NOT NULL,
+                sampled_at TEXT NOT NULL,
+                payload_json TEXT NOT NULL DEFAULT '{}',
+                review_status TEXT NOT NULL DEFAULT 'PENDING',
+                reviewed_at TEXT,
+                reviewed_by TEXT,
+                review_note TEXT,
+                UNIQUE(source_id, candidate_kind, candidate_ref),
+                FOREIGN KEY(assurance_run_id) REFERENCES assurance_runs(assurance_run_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_noise_review_status_sampled
+                ON noise_review_samples(review_status, sampled_at DESC);
+
+            CREATE TABLE IF NOT EXISTS missed_signals (
+                miss_id TEXT PRIMARY KEY,
+                dedupe_key TEXT NOT NULL UNIQUE,
+                source_id TEXT NOT NULL,
+                detected_at TEXT NOT NULL,
+                detected_by TEXT NOT NULL,
+                title TEXT NOT NULL,
+                url TEXT,
+                reason TEXT NOT NULL,
+                severity TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'OPEN',
+                canonical_key TEXT,
+                resolution_note TEXT,
+                resolved_at TEXT,
+                resolved_by TEXT,
+                metadata_json TEXT NOT NULL DEFAULT '{}'
+            );
+            CREATE INDEX IF NOT EXISTS idx_missed_signals_status_detected
+                ON missed_signals(status, detected_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_missed_signals_source_status
+                ON missed_signals(source_id, status);
+
+            CREATE TABLE IF NOT EXISTS manual_promotions (
+                promotion_id TEXT PRIMARY KEY,
+                source_id TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                created_by TEXT NOT NULL,
+                title TEXT NOT NULL,
+                summary TEXT NOT NULL,
+                url TEXT,
+                reason TEXT NOT NULL,
+                priority_band TEXT NOT NULL,
+                deadline TEXT,
+                location TEXT,
+                status TEXT NOT NULL DEFAULT 'ACTIVE',
+                resolved_at TEXT,
+                resolved_by TEXT,
+                resolution_note TEXT
+            );
+            CREATE INDEX IF NOT EXISTS idx_manual_promotions_status_created
+                ON manual_promotions(status, created_at DESC);
+
+            CREATE TABLE IF NOT EXISTS manual_delivery_receipts (
+                delivery_key TEXT PRIMARY KEY,
+                channel TEXT NOT NULL,
+                promotion_id TEXT NOT NULL,
+                payload_sha256 TEXT NOT NULL,
+                provider_message_id TEXT,
+                sent_at TEXT NOT NULL,
+                UNIQUE(channel, promotion_id),
+                FOREIGN KEY(promotion_id) REFERENCES manual_promotions(promotion_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_manual_delivery_channel_sent
+                ON manual_delivery_receipts(channel, sent_at DESC);
+
+            CREATE TABLE IF NOT EXISTS metric_reviews (
+                metric_review_id TEXT PRIMARY KEY,
+                assurance_run_id TEXT NOT NULL,
+                observed_at TEXT NOT NULL,
+                window_days INTEGER NOT NULL,
+                status TEXT NOT NULL,
+                metrics_json TEXT NOT NULL,
+                conclusions_json TEXT NOT NULL,
+                FOREIGN KEY(assurance_run_id) REFERENCES assurance_runs(assurance_run_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_metric_reviews_observed
+                ON metric_reviews(observed_at DESC);
             """
         )
 

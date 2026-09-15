@@ -1,0 +1,13 @@
+[Unit]
+Description=SignalForge weekly assurance timer
+
+[Timer]
+# Sunday 21:10 Asia/Yangon = Sunday 14:40 UTC.
+OnCalendar=Sun *-*-* 14:40:00 UTC
+Persistent=true
+RandomizedDelaySec=5m
+AccuracySec=1m
+Unit=signalforge-assurance.service
+
+[Install]
+WantedBy=timers.target

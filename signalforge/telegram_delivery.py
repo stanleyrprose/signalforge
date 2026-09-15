@@ -40,6 +40,48 @@ def _payload_sha256(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
+def _manual_delivery_key(item: dict[str, object]) -> str:
+    raw = "|".join((CHANNEL, "manual-promotion", str(item.get("promotion_id") or "")))
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def render_manual_promotion_message(
+    item: dict[str, object],
+    *,
+    translator: TranslationBatch | None = None,
+) -> str:
+    raw_values = [
+        str(item.get("title") or "Important nonstandard signal"),
+        str(item.get("summary") or ""),
+        str(item.get("reason") or ""),
+        str(item.get("location") or ""),
+    ]
+    translate_batch = translator or translate_myanmar_to_zh_hans
+    translated, was_translated = translate_batch(raw_values)
+    title, summary, reason, location = [html.escape(value) for value in translated]
+    source_id = html.escape(str(item.get("source_id") or "MANUAL"))
+    priority = html.escape(str(item.get("priority_band") or "HIGH"))
+    lines = [
+        f"🧑 <b>人工升级 · {priority}</b> · [{source_id}]",
+        f"<b>{title}</b>",
+        "<i>重要但无法标准化；不是 canonical Signal。</i>",
+    ]
+    if summary:
+        lines.append(f"📦 内容：{summary}")
+    if reason:
+        lines.append(f"🎯 升级原因：{reason}")
+    if item.get("deadline"):
+        lines.append(f"⏰ 截止：<b>{html.escape(str(item.get('deadline')))}</b>")
+    if location:
+        lines.append(f"📍 地点：{location}")
+    url = html.escape(str(item.get("url") or ""), quote=True)
+    if url.startswith("https://"):
+        lines.append(f'🔗 <a href="{url}">来源</a>')
+    if was_translated:
+        lines.append("🌐 缅文内容已机器翻译为中文（事实以原始来源为准）")
+    return "\n".join(lines)[:TELEGRAM_MESSAGE_LIMIT]
+
+
 def _deadline_text(item: dict[str, object]) -> str:
     if item.get("deadline_status") == "UNKNOWN":
         return "UNKNOWN（官方材料未提供）"
@@ -239,8 +281,21 @@ def telegram_deliver(
     briefing = business_briefing(database=target, now=now)
     rows = briefing.get("attention") or []
     assert isinstance(rows, list)
+    manual_bundle = briefing.get("manual_promotions") or {}
+    if not isinstance(manual_bundle, dict):
+        manual_bundle = {}
+    manual_rows = manual_bundle.get("items") or []
+    if not isinstance(manual_rows, list):
+        manual_rows = []
 
     pending: list[dict[str, object]] = []
+    manual_pending: list[dict[str, object]] = []
+    translator: TranslationBatch | None = None
+    if not dry_run:
+        def translate_for_delivery(values: list[str]) -> tuple[list[str], bool]:
+            return translate_myanmar_to_zh_hans(values, database=target)
+
+        translator = translate_for_delivery
     with connect(target) as conn:
         for item in rows:
             if not isinstance(item, dict):
@@ -252,19 +307,33 @@ def telegram_deliver(
             exists = conn.execute("SELECT 1 FROM delivery_receipts WHERE delivery_key=?", (key,)).fetchone()
             if exists is not None:
                 continue
-            translator = None
-            if not dry_run:
-                translator = lambda values: translate_myanmar_to_zh_hans(values, database=target)
             text = render_telegram_message(item, translator=translator)
             pending.append({**item, "delivery_key": key, "message": text, "payload_sha256": _payload_sha256(text)})
+        for item in manual_rows:
+            if not isinstance(item, dict):
+                continue
+            promotion_id = str(item.get("promotion_id") or "")
+            if not promotion_id:
+                continue
+            key = _manual_delivery_key(item)
+            exists = conn.execute(
+                "SELECT 1 FROM manual_delivery_receipts WHERE delivery_key=? OR (channel=? AND promotion_id=?)",
+                (key, CHANNEL, promotion_id),
+            ).fetchone()
+            if exists is not None:
+                continue
+            text = render_manual_promotion_message(item, translator=translator)
+            manual_pending.append({**item, "delivery_key": key, "message": text, "payload_sha256": _payload_sha256(text)})
 
     if dry_run:
         return {
             "status": "PASS",
             "channel": CHANNEL,
             "dry_run": True,
-            "pending_count": len(pending),
-            "pending": pending,
+            "pending_count": len(pending) + len(manual_pending),
+            "signal_pending_count": len(pending),
+            "manual_pending_count": len(manual_pending),
+            "pending": [*pending, *manual_pending],
         }
 
     token = bot_token or os.environ.get("SIGNALFORGE_TELEGRAM_BOT_TOKEN", "")
@@ -304,12 +373,39 @@ def telegram_deliver(
             }
         )
 
+    manual_sent: list[dict[str, object]] = []
+    for item in manual_pending:
+        message_id = _send_message(bot_token=token, chat_id=target_chat, text=str(item["message"]))
+        sent_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+        with connect(target) as conn, conn:
+            conn.execute(
+                """
+                INSERT OR IGNORE INTO manual_delivery_receipts(
+                    delivery_key,channel,promotion_id,payload_sha256,provider_message_id,sent_at
+                ) VALUES (?,?,?,?,?,?)
+                """,
+                (
+                    item["delivery_key"],
+                    CHANNEL,
+                    item["promotion_id"],
+                    item["payload_sha256"],
+                    message_id,
+                    sent_at,
+                ),
+            )
+        manual_sent.append({"promotion_id": item["promotion_id"], "message_id": message_id})
+
     return {
         "status": "PASS",
         "channel": CHANNEL,
         "dry_run": False,
-        "pending_count": len(pending),
-        "sent_count": len(sent),
+        "pending_count": len(pending) + len(manual_pending),
+        "signal_pending_count": len(pending),
+        "manual_pending_count": len(manual_pending),
+        "sent_count": len(sent) + len(manual_sent),
+        "signal_sent_count": len(sent),
+        "manual_sent_count": len(manual_sent),
         "sent": sent,
-        "delivery_semantics": "AT_LEAST_ONCE_WITH_SUCCESS_RECEIPT_DEDUP",
+        "manual_sent": manual_sent,
+        "delivery_semantics": "AT_LEAST_ONCE_WITH_SEPARATE_SIGNAL_AND_MANUAL_SUCCESS_RECEIPTS",
     }

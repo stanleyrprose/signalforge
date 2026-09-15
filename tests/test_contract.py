@@ -21,7 +21,7 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(manifest["verb_manifest_version"], 1)
         self.assertEqual(
             set(manifest["verbs"]),
-            {"signalforge-status", "signalforge-opportunities", "signalforge-briefing", "signalforge-audit", "signalforge-source-scorecard", "signalforge-run-due", "signalforge-refresh", "signalforge-pause", "signalforge-resume"},
+            {"signalforge-status", "signalforge-opportunities", "signalforge-briefing", "signalforge-audit", "signalforge-source-scorecard", "signalforge-assurance-run", "signalforge-assurance-status", "signalforge-misses", "signalforge-manual-promotions", "signalforge-run-due", "signalforge-refresh", "signalforge-pause", "signalforge-resume"},
         )
         self.assertEqual(manifest["verbs"]["signalforge-refresh"]["argument"], "source_id")
         self.assertEqual(manifest["grammar"]["source_id"], "^[A-Z][A-Z0-9]{0,15}$")
@@ -387,11 +387,16 @@ class ContractTests(unittest.TestCase):
         self.assertIn("signalforge-telegram-digest.service", deploy)
         self.assertIn("signalforge-telegram-digest.timer", deploy)
         self.assertIn("DIGEST_TIMER_WAS_ENABLED", deploy)
+        self.assertIn("signalforge-assurance.service", deploy)
+        self.assertIn("signalforge-assurance.timer", deploy)
+        self.assertIn("ASSURANCE_TIMER_WAS_ENABLED", deploy)
         self.assertIn("/etc/signalforge", deploy)
         service = (ROOT / "systemd" / "signalforge-telegram-deliver.service").read_text(encoding="utf-8")
         timer = (ROOT / "systemd" / "signalforge-telegram-deliver.timer").read_text(encoding="utf-8")
         digest_service = (ROOT / "systemd" / "signalforge-telegram-digest.service").read_text(encoding="utf-8")
         digest_timer = (ROOT / "systemd" / "signalforge-telegram-digest.timer").read_text(encoding="utf-8")
+        assurance_service = (ROOT / "systemd" / "signalforge-assurance.service").read_text(encoding="utf-8")
+        assurance_timer = (ROOT / "systemd" / "signalforge-assurance.timer").read_text(encoding="utf-8")
         self.assertIn("EnvironmentFile=/etc/signalforge/telegram.env", service)
         self.assertIn("ExecStart=/srv/signalforge/active/bin/signalforge telegram-deliver", service)
         self.assertIn("User=signalforge", service)
@@ -401,6 +406,10 @@ class ContractTests(unittest.TestCase):
         self.assertIn("User=signalforge", digest_service)
         self.assertIn("OnCalendar=*-*-* 02:00:00 UTC", digest_timer)
         self.assertIn("Persistent=true", digest_timer)
+        self.assertIn("ExecStart=/srv/signalforge/active/bin/signalforge assurance-run", assurance_service)
+        self.assertNotIn("telegram.env", assurance_service)
+        self.assertIn("OnCalendar=Sun *-*-* 14:40:00 UTC", assurance_timer)
+        self.assertIn("Persistent=true", assurance_timer)
 
     def test_worker_application_correlation_is_fail_closed(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

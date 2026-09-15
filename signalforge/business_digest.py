@@ -353,6 +353,8 @@ def business_digest(
             "watchlist_relevance": watchlist.get("primary_relevance_counts") or {},
             "watchlist_items": watchlist.get("items") or [],
             "watchlist_delivery_policy": "VALID_MEDIUM_NOT_IMMEDIATE_ALERT; escalates on strategic fit or <=72h urgency",
+            "manual_promotions": briefing.get("manual_promotions") or {"count": 0, "items": []},
+            "assurance": briefing.get("assurance") or {"open_misses": 0, "open_red_misses": 0, "metric_validity": "NOT_RUN"},
             "coverage_gap_count": len(coverage_gaps),
             "coverage_gaps": coverage_gaps,
             "coverage_gap_policy": "REVIEWED_READ_ONLY_OUTSIDE_CANONICAL_SIGNAL_PIPELINE",
@@ -390,7 +392,6 @@ def render_business_digest(
     quality_counts = qualification_counts.get("signal_quality_band") or {}
     if not isinstance(quality_counts, dict):
         quality_counts = {}
-    quality_avg = qualification_counts.get("signal_quality_score_avg", 0)
     attention = business.get("attention") or []
     if not isinstance(attention, list):
         attention = []
@@ -398,7 +399,6 @@ def render_business_digest(
     yield_states = source_yield.get("yield_states") or {}
     if not isinstance(yield_states, dict):
         yield_states = {}
-    proven_sources = int(yield_states.get("ACTIONABLE_PROVEN", 0) or 0) + int(yield_states.get("SIGNAL_PROVEN", 0) or 0)
 
     business_changes = activity.get("business_changes") or []
     if not isinstance(business_changes, list):
@@ -409,6 +409,15 @@ def render_business_digest(
     watch_items = business.get("watchlist_items") or []
     if not isinstance(watch_items, list):
         watch_items = []
+    manual_promotions = business.get("manual_promotions") or {}
+    if not isinstance(manual_promotions, dict):
+        manual_promotions = {}
+    manual_items = manual_promotions.get("items") or []
+    if not isinstance(manual_items, list):
+        manual_items = []
+    assurance = business.get("assurance") or {}
+    if not isinstance(assurance, dict):
+        assurance = {}
     strategic_notices = activity.get("strategic_notices") or []
     if not isinstance(strategic_notices, list):
         strategic_notices = []
@@ -614,6 +623,32 @@ def render_business_digest(
             lines.append(f"   招标：<b>{title}</b> · {location} · 截止 <b>{deadline}</b>{link}")
         lines.append("<i>已人工核验，但因来源接入门槛未满足，暂不计入正式机会数。</i>")
 
+    manual_rows = [item for item in manual_items[:3] if isinstance(item, dict)]
+    if manual_rows:
+        manual_titles = translate_values([str(item.get("title") or "") for item in manual_rows], 100)
+        manual_summaries = translate_values([str(item.get("summary") or "") for item in manual_rows], 160)
+        manual_reasons = translate_values([str(item.get("reason") or "") for item in manual_rows], 90)
+        lines.extend(["", f"<b>🧑 人工升级：{int(manual_promotions.get('count') or len(manual_rows))} 条</b>"])
+        for index, item in enumerate(manual_rows):
+            source_id = html.escape(str(item.get("source_id") or "MANUAL"))
+            priority = html.escape(str(item.get("priority_band") or "HIGH"))
+            title = html.escape(manual_titles[index])
+            summary = html.escape(manual_summaries[index])
+            reason = html.escape(manual_reasons[index])
+            lines.append(f"• [{source_id}] <b>{title}</b> · {priority} · <i>非标准化人工升级</i>")
+            if summary:
+                lines.append(f"   内容：{summary}")
+            meta: list[str] = []
+            if item.get("deadline"):
+                meta.append(f"截止 {item.get('deadline')}")
+            if item.get("location"):
+                meta.append(f"地点 {_compact(item.get('location'), 34)}")
+            if reason:
+                meta.append(f"升级原因 {reason}")
+            link = official_link(item.get("url"), "来源")
+            if meta or link:
+                lines.append("   " + html.escape(" · ".join(meta)) + link)
+
     watch_count = int(business.get("watchlist_count") or 0)
     watch_rows = [
         item for item in watch_items
@@ -649,13 +684,21 @@ def render_business_digest(
         "",
         f"<b>📌 业务概览</b>：当前 <b>{business.get('current_opportunities', 0)}</b> 个机会 · HIGH {priorities.get('HIGH', 0)} · MEDIUM {priorities.get('MEDIUM', 0)} · REVIEW {priorities.get('REVIEW', 0)}",
     ])
+    open_misses = int(assurance.get("open_misses") or 0)
+    red_misses = int(assurance.get("open_red_misses") or 0)
+    metric_validity = html.escape(str(assurance.get("metric_validity") or "NOT_RUN"))
+    miss_icon = "🔴" if red_misses else ("⚠️" if open_misses else "✅")
+    lines.append(f"{miss_icon} Assurance：漏报 OPEN {open_misses} · RED {red_misses} · 指标有效性 {metric_validity}")
 
     mytel = auditor.get("mytel") or {}
     mpt = auditor.get("mpt") or {}
     atom = auditor.get("atom") or {}
-    if not isinstance(mytel, dict): mytel = {}
-    if not isinstance(mpt, dict): mpt = {}
-    if not isinstance(atom, dict): atom = {}
+    if not isinstance(mytel, dict):
+        mytel = {}
+    if not isinstance(mpt, dict):
+        mpt = {}
+    if not isinstance(atom, dict):
+        atom = {}
     findings = int(auditor.get("finding_count") or 0)
     system_icon = "✅" if int(sources.get("non_green", 0) or 0) == 0 and findings == 0 else "⚠️"
     lines.append(
@@ -698,9 +741,12 @@ def telegram_digest(
     digest = business_digest(database=target, now=now, audit_network=audit_network)
     digest_date = str(digest["digest_date"])
     key = _digest_key(digest_date)
-    translator = None
+    translator: TranslationBatch | None = None
     if not dry_run:
-        translator = lambda values: translate_myanmar_to_zh_hans(values, database=target)
+        def translate_for_digest(values: list[str]) -> tuple[list[str], bool]:
+            return translate_myanmar_to_zh_hans(values, database=target)
+
+        translator = translate_for_digest
     text = render_business_digest(digest, translator=translator)
     payload_sha256 = hashlib.sha256(text.encode("utf-8")).hexdigest()
 

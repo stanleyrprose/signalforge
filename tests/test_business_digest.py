@@ -493,7 +493,7 @@ class BusinessDigestTests(unittest.TestCase):
                 names = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
                 version = conn.execute("SELECT MAX(version) FROM schema_meta").fetchone()[0]
         self.assertIn("digest_delivery_receipts", names)
-        self.assertEqual(version, 7)
+        self.assertEqual(version, 8)
 
 
 if __name__ == "__main__":

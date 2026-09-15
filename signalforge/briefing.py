@@ -4,7 +4,8 @@ import re
 from datetime import datetime
 from pathlib import Path
 
-from .config import Registry
+from .config import Registry, db_path
+from .db import connect, migrate
 from .opportunities import current_opportunities
 
 BRIEFING_POLICY_VERSION = 1
@@ -143,6 +144,34 @@ def business_briefing(
         category = str(item.get("primary_relevance") or "OTHER")
         watch_relevance[category] = watch_relevance.get(category, 0) + 1
 
+    target = database or db_path()
+    manual_promotions: list[dict[str, object]] = []
+    open_misses = 0
+    open_red_misses = 0
+    oldest_open_miss = None
+    latest_metric = None
+    # current_opportunities() already migrates the real runtime DB. Keep pure
+    # renderer/unit-test calls side-effect free when that dependency is mocked.
+    if target.exists():
+        migrate(target)
+        with connect(target) as conn:
+            manual_promotions = [
+                dict(row)
+                for row in conn.execute(
+                    "SELECT * FROM manual_promotions WHERE status='ACTIVE' ORDER BY created_at DESC LIMIT 10"
+                )
+            ]
+            open_misses = int(conn.execute("SELECT COUNT(*) FROM missed_signals WHERE status='OPEN'").fetchone()[0])
+            open_red_misses = int(
+                conn.execute("SELECT COUNT(*) FROM missed_signals WHERE status='OPEN' AND severity='RED'").fetchone()[0]
+            )
+            oldest_open_miss = conn.execute(
+                "SELECT MIN(detected_at) FROM missed_signals WHERE status='OPEN'"
+            ).fetchone()[0]
+            latest_metric = conn.execute(
+                "SELECT status,observed_at FROM metric_reviews ORDER BY observed_at DESC LIMIT 1"
+            ).fetchone()
+
     return {
         "status": "PASS",
         "briefing_policy_version": BRIEFING_POLICY_VERSION,
@@ -160,6 +189,18 @@ def business_briefing(
             "primary_relevance_counts": dict(sorted(watch_relevance.items())),
             "canonical_keys": [item.get("canonical_key") for item in watch_rows],
             "items": [_attention_item(item) for item in watch_rows[:5]],
+        },
+        "manual_promotions": {
+            "count": len(manual_promotions),
+            "items": manual_promotions,
+            "semantics": "HUMAN_PROMOTED_NONSTANDARD_NOT_CANONICAL_SIGNAL",
+        },
+        "assurance": {
+            "open_misses": open_misses,
+            "open_red_misses": open_red_misses,
+            "oldest_open_miss_at": oldest_open_miss,
+            "metric_validity": str(latest_metric["status"]) if latest_metric is not None else "NOT_RUN",
+            "metric_reviewed_at": latest_metric["observed_at"] if latest_metric is not None else None,
         },
         "delivery_contract": {
             "generator": "external_agent_or_chatgpt",
