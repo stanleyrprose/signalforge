@@ -188,7 +188,7 @@ def business_briefing(
             "count": len(watch_rows),
             "primary_relevance_counts": dict(sorted(watch_relevance.items())),
             "canonical_keys": [item.get("canonical_key") for item in watch_rows],
-            "items": [_attention_item(item) for item in watch_rows[:5]],
+            "items": [_attention_item(item) for item in watch_rows],
         },
         "manual_promotions": {
             "count": len(manual_promotions),

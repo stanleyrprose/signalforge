@@ -112,6 +112,40 @@ def _title_product_fragments(title: object) -> list[str]:
     yarn = re.search(r"(1/7)\s+ပီစီချည်\(ရောင်စုံ\)\s+([0-9,]+)\s+ပေါင်", raw)
     if yarn:
         fragments.append(f"{yarn.group(1)} PC 彩色纱线 {yarn.group(2)} 磅")
+    vessel = re.search(r"ရေယာဉ်\s+(\d+)\s+စီး", raw)
+    if vessel:
+        fragments.append(f"船舶 ×{vessel.group(1)}艘")
+    if "ကုန်သေတ္တာတင်ယာဉ်" in raw and "ငှားရမ်း" in raw:
+        fragments.append("医药原料、包装材料及机器备件集装箱卡车运输服务")
+    return fragments
+
+
+def _industry_scope_product_fragments(scope: object) -> list[str]:
+    """Extract the concrete goods/services already present in current S38 scope text."""
+    raw = _presentation_cleanup(scope)
+    if not raw:
+        return []
+    patterns = (
+        (r"Laboratory\s+Appratus\s+for\s+Enviromental\s+Control\s+System\s+设备(\d+)类", "环境控制实验室设备 {0}类"),
+        (r"Chemical\s+Reagent\s*\((\d+)\)\s*မျိုး", "Chemical Reagent {0}类"),
+        (r"Sample\s+Gas\s*\((\d+)\)\s*မျိုး", "Sample Gas {0}类"),
+        (r"စက်ဆီ၊?ချောဆီ\s*\((\d+)\)\s*မျိုး", "润滑油 {0}类"),
+        (r"Electrical\s+စက်အရန်\s+设备(\d+)类", "Electrical 备件 {0}类"),
+        (r"Mechanical\s+စက်အရန်\s*设备(\d+)类", "Mechanical 备件 {0}类"),
+        (r"Refractory\s*\((\d+)\)\s*မျိုး", "Refractory {0}类"),
+        (r"Castable\s+Mortar\s*\((\d+)\)\s*မျိုး", "Castable Mortar {0}类"),
+        (r"Consumable\s*\((\d+)\)\s*မျိုး", "Consumable {0}类"),
+        (r"HMS-1\s*\(([0-9,]+)\)\s*Tons?", "HMS-1 {0}吨"),
+        (r"HMS-2\s*\(([0-9,]+)\)\s*Tons?", "HMS-2 {0}吨"),
+        (r"သံရည်ပျက်တုံး\s*\(([0-9,]+)\)\s*တန်\s*ဖြတ်တောက်ခြင်း", "废钢块切割服务 {0}吨"),
+    )
+    fragments: list[str] = []
+    for pattern, template in patterns:
+        match = re.search(pattern, raw, re.IGNORECASE)
+        if match:
+            fragments.append(template.format(match.group(1)))
+    if "ကုန်သေတ္တာတင်ယာဉ်" in raw and "ငှားရမ်း" in raw:
+        fragments.append("医药原料、包装材料及机器备件集装箱卡车运输服务")
     return fragments
 
 
@@ -433,6 +467,9 @@ def render_business_digest(
         industry_lots = _industry_lot_fragments(scope) if source_id == "S38" else []
         if industry_lots:
             return _compact("；".join(industry_lots), 240)
+        industry_products = _industry_scope_product_fragments(scope) if source_id == "S38" else []
+        if industry_products:
+            return _compact("；".join(industry_products), 240)
         fragments = _scope_product_fragments(scope)
         if source_id == "S30" and fragments:
             data_server = [fragment for fragment in fragments if "data server" in fragment.lower()]
@@ -523,7 +560,7 @@ def render_business_digest(
 
     lines = [
         "📊 <b>SignalForge Myanmar 商机日报</b>",
-        f"🗓 {html.escape(str(digest.get('digest_date') or ''))} · 过去24小时",
+        f"🗓 {html.escape(str(digest.get('digest_date') or ''))} · 当前有效机会 + 过去24小时变化",
     ]
 
     all_attention_rows = [item for item in attention if isinstance(item, dict)]
@@ -653,15 +690,15 @@ def render_business_digest(
     watch_rows = [
         item for item in watch_items
         if isinstance(item, dict) and str(item.get("canonical_key")) not in attention_keys
-    ][:2]
+    ]
     if watch_rows:
         watch_issuers = translated_issuers(watch_rows)
         watch_subjects = translated_subjects(watch_rows)
-        lines.extend(["", f"<b>🟡 后续跟进：{watch_count} 条 MEDIUM（展示前 {len(watch_rows)} 条）</b>"])
+        lines.extend(["", f"<b>🟡 后续跟进：{watch_count} 条 MEDIUM</b>"])
         for index, item in enumerate(watch_rows):
             source_id = html.escape(str(item.get("source_id") or "?"))
             issuer = html.escape(watch_issuers[index])
-            subject = html.escape(watch_subjects[index])
+            subject = html.escape(_compact(watch_subjects[index], 132))
             deadline = html.escape(timing_text(item))
             lines.append(f"• [{source_id}] <b>{issuer}</b> · {subject} · {deadline}")
     elif watch_count:
