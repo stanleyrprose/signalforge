@@ -285,6 +285,76 @@ class AssuranceTests(unittest.TestCase):
             self.assertIsNone(metrics["noise_false_negative_rate"])
             self.assertIn("NO_CONCLUSIVE_NOISE_SAMPLE_IN_WINDOW", reasons)
 
+    def test_assurance_status_separates_coverage_risk_from_confirmed_miss(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            database = self._db(tmp)
+            run_id = "00000000-0000-4000-8000-000000000211"
+            with connect(database) as conn, conn:
+                conn.execute(
+                    "INSERT INTO assurance_runs(assurance_run_id,started_at,status,network_checks,summary_json) VALUES (?,?,?,1,'{}')",
+                    (run_id, "2026-09-16T10:00:00Z", "REVIEW"),
+                )
+                conn.execute(
+                    """
+                    INSERT INTO coverage_audit_results(
+                        coverage_audit_id,assurance_run_id,source_id,audit_method,status,official_candidate_count,
+                        canonical_covered_count,missing_count,checked_at,details_json
+                    ) VALUES (?,?,?,?,?,?,?,?,?,?)
+                    """,
+                    (
+                        "coverage-risk-s21",
+                        run_id,
+                        "S21",
+                        "independent-listing-links",
+                        "CHECK_FAILED",
+                        0,
+                        0,
+                        0,
+                        "2026-09-16T10:00:00Z",
+                        json.dumps({"error": "FetchError: issuer origin timed out"}),
+                    ),
+                )
+                conn.execute(
+                    """
+                    INSERT INTO source_state(
+                        source_id,baseline_complete,last_success_at,next_due_at,last_error,consecutive_failures,updated_at
+                    ) VALUES (?,?,?,?,?,?,?)
+                    """,
+                    (
+                        "S21",
+                        1,
+                        "2026-09-13T13:00:46Z",
+                        "2026-09-16T10:30:00Z",
+                        "FetchError: issuer origin timed out",
+                        509,
+                        "2026-09-16T10:00:00Z",
+                    ),
+                )
+
+            latest = assurance_status(database=database)
+            self.assertEqual(latest["counts"]["open_misses"], 0)
+            self.assertEqual(latest["coverage_risk_count"], 1)
+            risk = latest["coverage_risks"][0]
+            self.assertEqual(risk["source_id"], "S21")
+            self.assertEqual(risk["source_name"], "Myanma Railways Tenders")
+            self.assertEqual(risk["coverage_status"], "CHECK_FAILED")
+            self.assertEqual(risk["last_success_at"], "2026-09-13T13:00:46Z")
+            self.assertFalse(risk["known_miss"])
+            self.assertEqual(risk["semantics"], "COVERAGE_RISK_NOT_CONFIRMED_MISS")
+
+            with patch("signalforge.briefing.current_opportunities", return_value={
+                "qualification_policy_version": 1,
+                "as_of": "2026-09-16T10:00:00Z",
+                "count": 0,
+                "counts": {"OPEN": 0, "UNKNOWN": 0, "EXPIRED": 0},
+                "qualification_counts": {},
+                "opportunities": [],
+            }):
+                briefing = business_briefing(database=database)
+            self.assertEqual(briefing["assurance"]["open_misses"], 0)
+            self.assertEqual(briefing["assurance"]["coverage_risk_count"], 1)
+            self.assertEqual(briefing["assurance"]["coverage_risks"][0]["source_id"], "S21")
+
     def test_metric_validity_is_review_when_coverage_unproven_and_fail_with_red_miss(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             database = self._db(tmp)

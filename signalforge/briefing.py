@@ -4,6 +4,7 @@ import re
 from datetime import datetime
 from pathlib import Path
 
+from .assurance import assurance_status
 from .config import Registry, db_path
 from .db import connect, migrate
 from .mission_focus import MISSION_POLICY_VERSION, MISSION_STATEMENT, classify_mission_fit
@@ -183,6 +184,7 @@ def business_briefing(
     open_red_misses = 0
     oldest_open_miss = None
     latest_metric = None
+    coverage_risks: list[dict[str, object]] = []
     # current_opportunities() already migrates the real runtime DB. Keep pure
     # renderer/unit-test calls side-effect free when that dependency is mocked.
     if target.exists():
@@ -204,6 +206,10 @@ def business_briefing(
             latest_metric = conn.execute(
                 "SELECT status,observed_at FROM metric_reviews ORDER BY observed_at DESC LIMIT 1"
             ).fetchone()
+        latest_assurance = assurance_status(database=target)
+        raw_coverage_risks = latest_assurance.get("coverage_risks") or []
+        if isinstance(raw_coverage_risks, list):
+            coverage_risks = [item for item in raw_coverage_risks if isinstance(item, dict)]
 
     return {
         "status": "PASS",
@@ -244,6 +250,9 @@ def business_briefing(
             "open_misses": open_misses,
             "open_red_misses": open_red_misses,
             "oldest_open_miss_at": oldest_open_miss,
+            "coverage_risk_count": len(coverage_risks),
+            "coverage_risks": coverage_risks,
+            "coverage_risk_semantics": "COVERAGE_NOT_PROVEN_IS_NOT_CONFIRMED_MISS",
             "metric_validity": str(latest_metric["status"]) if latest_metric is not None else "NOT_RUN",
             "metric_reviewed_at": latest_metric["observed_at"] if latest_metric is not None else None,
         },
