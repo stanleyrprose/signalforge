@@ -35,11 +35,11 @@ Recommended diagnostic: same URL / same Mac egress / same time window across Chr
 - `HTTP_403`
 - `TRANSPORT_UNKNOWN`
 
-A generic HTTP 403 is never converted directly into browser escalation. Authentication, authorization, regional policy, WAF policy, rate limiting, or account state must be excluded first.
+A generic HTTP 403 is never converted directly into browser escalation. Authentication, authorization, regional policy, WAF policy, rate limiting, or account state must be excluded first. When review-only and known non-browser failures coexist, the report follows the dominant evidence count rather than allowing one isolated unknown/403 to override a much larger known transport pattern.
 
 ### `NOT_BROWSER`
 
-DNS, strict-TLS, connect-timeout, 404, 429, 5xx, authentication, content-contract, and Provider lifecycle/integrity failures are classified as non-browser problems.
+DNS, strict-TLS, connect-timeout, 404, 429, 5xx, authentication, content-contract, Provider-not-ready, and Provider lifecycle/integrity failures are classified as non-browser problems.
 
 ## Real-source rationale
 
@@ -82,6 +82,8 @@ Implementation tests cover:
 - `CONTENT_EMPTY` and `BOT_BLOCKED` -> `AB_TEST_CANDIDATE`;
 - repeated `HTTP_403` -> `REVIEW_FIRST`, never browser-eligible;
 - `CONNECT_TIMEOUT` -> `NOT_BROWSER` even with a high consecutive-failure count;
+- mixed `CONNECT_TIMEOUT` + isolated `TRANSPORT_UNKNOWN` follows the dominant non-browser evidence;
+- `PROVIDER_NOT_READY` -> `NOT_BROWSER`;
 - PDF failures excluded from browser evidence;
 - failures outside the selected time window ignored;
 - window/limit bounds;

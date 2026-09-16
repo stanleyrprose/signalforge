@@ -26,6 +26,13 @@ class _Registry:
                 "engine": "direct_http",
                 "discovery_url": "https://example.test/railways",
             },
+            "S38": {
+                "name": "Ministry of Industry",
+                "role": "ACTIVE_PRIMARY",
+                "priority": 90,
+                "engine": "provider",
+                "discovery_url": "https://example.test/industry",
+            },
             "S41": {
                 "name": "MYTEL Procurement",
                 "role": "ACTIVE_PRIMARY",
@@ -125,7 +132,10 @@ class BrowserEscalationCandidateTests(unittest.TestCase):
         migrate(database)
         with connect(database) as conn, conn:
             _add_attempt(conn, source_id="S16", suffix="empty", failure="CONTENT_EMPTY")
-            _add_attempt(conn, source_id="S21", suffix="timeout", failure="CONNECT_TIMEOUT", target_kind="DISCOVERY")
+            _add_attempt(conn, source_id="S21", suffix="timeout1", failure="CONNECT_TIMEOUT", target_kind="DISCOVERY")
+            _add_attempt(conn, source_id="S21", suffix="timeout2", failure="CONNECT_TIMEOUT", started_at="2026-09-16T05:01:00Z", target_kind="DISCOVERY")
+            _add_attempt(conn, source_id="S21", suffix="unknown", failure="TRANSPORT_UNKNOWN", started_at="2026-09-16T05:02:00Z", target_kind="DISCOVERY")
+            _add_attempt(conn, source_id="S38", suffix="not-ready", failure="PROVIDER_NOT_READY", target_kind="DISCOVERY")
             _add_attempt(conn, source_id="S41", suffix="bot", failure="BOT_BLOCKED")
             _add_attempt(conn, source_id="S99", suffix="403a", failure="HTTP_403")
             _add_attempt(conn, source_id="S99", suffix="403b", failure="HTTP_403", started_at="2026-09-16T05:05:00Z")
@@ -134,6 +144,7 @@ class BrowserEscalationCandidateTests(unittest.TestCase):
             for source_id, failures, last_error in (
                 ("S16", 1, "empty content"),
                 ("S21", 33, "timeout"),
+                ("S38", 1, "provider not ready"),
                 ("S41", 1, "bot blocked"),
                 ("S99", 2, "HTTP 403"),
             ):
@@ -160,7 +171,7 @@ class BrowserEscalationCandidateTests(unittest.TestCase):
         self.assertEqual(result["report_version"], REPORT_VERSION)
         self.assertEqual(result["summary"]["browser_ab_candidates"], 2)
         self.assertEqual(result["summary"]["review_first"], 1)
-        self.assertEqual(result["summary"]["not_browser"], 1)
+        self.assertEqual(result["summary"]["not_browser"], 2)
         by_id = {row["source_id"]: row for row in result["sources"]}
 
         self.assertEqual(by_id["S41"]["decision"], "AB_TEST_CANDIDATE")
@@ -170,7 +181,10 @@ class BrowserEscalationCandidateTests(unittest.TestCase):
         self.assertEqual(by_id["S16"]["failure_counts"], {"CONTENT_EMPTY": 1})
         self.assertEqual(by_id["S21"]["decision"], "NOT_BROWSER")
         self.assertFalse(by_id["S21"]["browser_ab_eligible"])
+        self.assertEqual(by_id["S21"]["failure_counts"], {"CONNECT_TIMEOUT": 2, "TRANSPORT_UNKNOWN": 1})
         self.assertEqual(by_id["S21"]["current_consecutive_failures"], 33)
+        self.assertEqual(by_id["S38"]["decision"], "NOT_BROWSER")
+        self.assertEqual(by_id["S38"]["failure_counts"], {"PROVIDER_NOT_READY": 1})
         self.assertEqual(by_id["S99"]["decision"], "REVIEW_FIRST")
         self.assertEqual(by_id["S99"]["candidate_score"], 60)
         self.assertFalse(by_id["S99"]["browser_ab_eligible"])
