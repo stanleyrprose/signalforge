@@ -25,7 +25,7 @@ class ContractTests(unittest.TestCase):
         )
         self.assertEqual(manifest["verbs"]["signalforge-refresh"]["argument"], "source_id")
         self.assertEqual(manifest["grammar"]["source_id"], "^[A-Z][A-Z0-9]{0,15}$")
-        self.assertEqual(manifest["active_source_ids"], ["S05A", "S07", "S08A", "S10", "S12", "S13", "S16", "S20", "S21", "S22", "S25", "S26", "S28", "S29", "S30", "S31", "S32", "S33", "S34", "S35", "S36", "S37", "S39", "S40", "S41", "S43", "S44", "S45", "S46", "S27", "S38"])
+        self.assertEqual(manifest["active_source_ids"], ["S05A", "S07", "S08A", "S10", "S12", "S13", "S16", "S20", "S21", "S22", "S25", "S26", "S28", "S29", "S30", "S31", "S32", "S33", "S34", "S35", "S36", "S37", "S39", "S40", "S41", "S43", "S44", "S45", "S46", "S47", "S27", "S38"])
 
         registry = Registry.load(ROOT)
         with self.assertRaisesRegex(ConfigError, "invalid source id"):
@@ -137,6 +137,14 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(ptd_policy["discovery_url"], "https://www.ptd.gov.mm/LawsFP.aspx")
         self.assertEqual(ptd_policy["poll_interval_seconds"], 21600)
 
+        ycdc_mission = registry.source("S47")
+        self.assertEqual(ycdc_mission["adapter"], "yangon_ycdc_mission_tender")
+        self.assertEqual(ycdc_mission["role"], "ACTIVE_SELECTIVE")
+        self.assertEqual(ycdc_mission["discovery_url"], "https://www.yangon.gov.mm/category/tenders/")
+        self.assertTrue(ycdc_mission["discovery_is_tender_only"])
+        self.assertEqual(ycdc_mission["item_kind"], "TENDER")
+        self.assertEqual(ycdc_mission["actionable_baseline_signal_policy"]["min_remaining_seconds"], 43200)
+
         energy = registry.source("S39")
         self.assertEqual(energy["adapter"], "energy_tender")
         self.assertEqual(energy["engine"], "direct_http")
@@ -168,7 +176,7 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(labour["acquisition_policy"]["supplementary"], energy["acquisition_policy"]["supplementary"])
 
         enabled = registry.enabled_sources()
-        self.assertEqual([sid for sid, _source in enabled[-5:]], ["S44", "S45", "S46", "S27", "S38"])
+        self.assertEqual([sid for sid, _source in enabled[-6:]], ["S44", "S45", "S46", "S47", "S27", "S38"])
         self.assertTrue(all(source["engine"] == "direct_http" for _sid, source in enabled[:-2]))
         self.assertTrue(all(source["engine"] == "provider" for _sid, source in enabled[-2:]))
         self.assertFalse(moi["attachment_policy"]["fetch_in_primary_pipeline"])

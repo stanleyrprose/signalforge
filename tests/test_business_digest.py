@@ -153,6 +153,38 @@ class BusinessDigestTests(unittest.TestCase):
         self.assertNotIn("Q81/HIGH", text)
 
 
+    def test_render_deduplicates_new_medium_between_changes_and_watchlist_and_uses_s47_focus(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp, patch("signalforge.business_digest.business_briefing", return_value=_briefing()), patch(
+            "signalforge.business_digest.audit", return_value=_audit()
+        ), patch("signalforge.business_digest.source_scorecard", return_value=_scorecard()):
+            digest = business_digest(database=self._db(tmp), registry=_Registry(), now=datetime(2026,9,16,15,1,tzinfo=UTC))  # type: ignore[arg-type]
+        row = {
+            "canonical_key": "yangon-ycdc-mission:3755",
+            "source_id": "S47",
+            "issuer": "Yangon City Development Committee (YCDC)",
+            "title": "YCDC Open Tender",
+            "scope_excerpt": "Construction materials: HDPE pipe & fittings 1 Lot; Cement 25000 bags; HRB-400 rebar 246.201 tons",
+            "deadline": "2026-09-29",
+            "deadline_time": "12:00",
+            "deadline_status": "OPEN",
+            "signal_type": "NEW",
+            "priority_band": "MEDIUM",
+            "mission_sector": "CONSTRUCTION",
+            "location": "Yangon",
+            "reference_no": "YCDC-YRG-3755",
+            "url": "https://www.yangon.gov.mm/ycdc-current/",
+        }
+        digest["activity_24h"]["business_changes"] = [row]
+        digest["business"]["watchlist_count"] = 1
+        digest["business"]["watchlist_items"] = [row]
+        text = render_business_digest(digest, translator=lambda values: (values, False))
+        self.assertEqual(text.count("[S47]"), 1)
+        self.assertIn("HDPE pipe &amp; fittings 1 Lot", text)
+        self.assertIn("Cement 25000 bags", text)
+        self.assertIn("HRB-400 rebar 246.201 tons", text)
+        self.assertNotIn("🟡 后续跟进：1 条 MEDIUM", text)
+
+
     def test_render_surfaces_business_coverage_risk_without_technical_noise(self) -> None:
         briefing = _briefing()
         briefing["assurance"] = {

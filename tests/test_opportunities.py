@@ -165,6 +165,37 @@ class OpportunityViewTests(unittest.TestCase):
             self.assertEqual(row["deadline_kind"], "BID_SUBMISSION_DEADLINE")
 
 
+    def test_parser_provided_focus_scope_flows_through_read_view(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            database = Path(tmp) / "signalforge.db"
+            migrate(database)
+            payload = {
+                "item_kind": "TENDER",
+                "business_stage": "OPPORTUNITY",
+                "issuer": "Yangon City Development Committee (YCDC)",
+                "title": "YCDC construction materials tender",
+                "reference_no": "YCDC-YRG-3755",
+                "publication_date": "2026-09-15",
+                "deadline": "2026-09-29",
+                "deadline_time": "12:00",
+                "deadline_kind": "BID_SUBMISSION_DEADLINE",
+                "scope_summary": "Full scope including PACl, NaOCl, fogging and construction materials",
+                "focus_scope_summary": "Construction materials: HDPE pipe & fittings 1 Lot; Cement 25000 bags; HRB-400 rebar 246.201 tons",
+                "mission_sector_hint": "CONSTRUCTION",
+                "relevance_categories": ["CONSTRUCTION"],
+                "url": "https://www.yangon.gov.mm/ycdc-current/",
+            }
+            with connect(database) as conn, conn:
+                _insert_canonical(conn, key="yangon-ycdc-mission:3755", source_id="S47", payload=payload)
+                _insert_signal(conn, signal_id="sig-ycdc-3755", source_id="S47", key="yangon-ycdc-mission:3755", created_at="2026-09-16T02:00:00Z")
+            result = current_opportunities(database=database, now=datetime(2026, 9, 16, 4, 0, tzinfo=UTC), source_id="S47")
+            self.assertEqual(result["count"], 1)
+            row = result["opportunities"][0]
+            self.assertEqual(row["focus_scope_summary"], payload["focus_scope_summary"])
+            self.assertEqual(row["focus_relevance"], "CONSTRUCTION")
+            self.assertEqual(row["deadline_at"], "2026-09-29T12:00:00+06:30")
+
+
     def test_commercial_auction_notice_uses_action_date_without_fake_deadline(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             database = Path(tmp) / "signalforge.db"

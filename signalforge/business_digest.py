@@ -556,6 +556,8 @@ def render_business_digest(
             return _compact(scope, 180)
         if source_id == "S22" and str(item.get("canonical_key") or "") == "iwt:1038:2026-08-25":
             return "Coastal Cargo Vessel ×1艘"
+        if source_id == "S47" and scope:
+            return _compact(scope, 240)
         if source_id == "S30":
             mofa_summary = _mofa_business_summary(scope)
             if mofa_summary:
@@ -737,6 +739,7 @@ def render_business_digest(
         item for item in business_changes
         if isinstance(item, dict) and str(item.get("canonical_key")) not in attention_keys
     ][:3]
+    change_keys = {str(item.get("canonical_key")) for item in change_rows}
     if change_rows:
         change_issuers = translated_issuers(change_rows)
         change_subjects = translated_subjects(change_rows)
@@ -877,11 +880,14 @@ def render_business_digest(
             if meta or link:
                 lines.append("   " + html.escape(" · ".join(meta)) + link)
 
-    watch_count = int(business.get("watchlist_count") or 0)
+    raw_watch_count = int(business.get("watchlist_count") or 0)
     watch_rows = [
         item for item in watch_items
-        if isinstance(item, dict) and str(item.get("canonical_key")) not in attention_keys
+        if isinstance(item, dict)
+        and str(item.get("canonical_key")) not in attention_keys
+        and str(item.get("canonical_key")) not in change_keys
     ]
+    watch_count = len(watch_rows)
     if watch_rows:
         watch_issuers = translated_issuers(watch_rows)
         watch_subjects = translated_subjects(watch_rows)
@@ -892,8 +898,9 @@ def render_business_digest(
             subject = html.escape(_compact(watch_subjects[index], 132))
             deadline = html.escape(timing_text(item))
             lines.append(f"• [{source_id}] <b>{issuer}</b> · {subject} · {deadline}")
-    elif watch_count:
-        lines.extend(["", f"🟡 后续跟进：{watch_count} 条 MEDIUM"])
+
+    elif raw_watch_count and not watch_items:
+        lines.extend(["", f"🟡 后续跟进：{raw_watch_count} 条 MEDIUM"])
 
     if strategic_notices:
         lines.extend(["", "<b>📡 战略动态</b>"])

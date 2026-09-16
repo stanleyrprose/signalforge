@@ -57,6 +57,8 @@ from .railways import parse_tender_detail as parse_railways_tender_detail
 from .railways import parse_tender_listing
 from .yangon_construction import parse_tender_detail as parse_yangon_construction_detail
 from .yangon_construction import parse_tender_listing as parse_yangon_construction_listing
+from .yangon_ycdc_mission import parse_tender_detail as parse_yangon_ycdc_mission_detail
+from .yangon_ycdc_mission import parse_tender_listing as parse_yangon_ycdc_mission_listing
 from .ycdc_building import parse_tender_records as parse_ycdc_building_tender_records
 
 
@@ -97,6 +99,11 @@ def _parse_mpt_detail(payload: bytes, url: str) -> list[object]:
 
 def _parse_yangon_construction_detail(payload: bytes, url: str) -> list[object]:
     tender = parse_yangon_construction_detail(payload, url)
+    return [tender] if tender is not None else []
+
+
+def _parse_yangon_ycdc_mission_detail(payload: bytes, url: str) -> list[object]:
+    tender = parse_yangon_ycdc_mission_detail(payload, url)
     return [tender] if tender is not None else []
 
 
@@ -487,6 +494,16 @@ ADAPTERS = {
         canonicalizer_version="yangon-wordpress-post-id-v1",
         parse_discovery=parse_yangon_construction_listing,
         parse_detail=_parse_yangon_construction_detail,
+    ),
+    "yangon_ycdc_mission_tender": SourceAdapter(
+        name="yangon_ycdc_mission_tender",
+        discovery_content_types=("text/html",),
+        discovery_parser_version="yangon-region-tenders-ycdc-mission-filter-v1",
+        detail_parser_version="yangon-ycdc-mission-wordpress-detail-v1",
+        normalizer_version="yangon-ycdc-mission-normalize-v1",
+        canonicalizer_version="yangon-ycdc-wordpress-post-id-v1",
+        parse_discovery=parse_yangon_ycdc_mission_listing,
+        parse_detail=_parse_yangon_ycdc_mission_detail,
     ),
     "atom_network_notice": SourceAdapter(
         name="atom_network_notice",

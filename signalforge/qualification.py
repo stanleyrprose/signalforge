@@ -120,11 +120,19 @@ def _relevance_categories(
     source_padded = f" {source_name} "
     categories: list[str] = []
     provenance: dict[str, str] = {}
+    explicit = item.get("relevance_categories")
+    if isinstance(explicit, (list, tuple)):
+        supported = set(_KEYWORDS) | {"CONSTRUCTION"}
+        for value in explicit:
+            category = str(value).upper()
+            if category in supported and category not in categories:
+                categories.append(category)
+                provenance[category] = "CANONICAL_RELEVANCE_CATEGORY"
     for category, words in _KEYWORDS.items():
         item_match = next((word.strip() for word in words if word in item_padded), None)
         source_match = next((word.strip() for word in words if word in source_padded), None)
         matched = item_match or source_match
-        if matched is not None:
+        if matched is not None and category not in categories:
             categories.append(category)
             provenance[category] = (
                 f"ITEM_TEXT_KEYWORD:{item_match}"

@@ -315,6 +315,10 @@ def current_opportunities(
             focus_reference_numbers, focus_reference_count, focus_relevance, focus_scope_summary = _reference_focus(
                 payload, source_id_value, reference_numbers
             )
+            if focus_scope_summary is None and payload.get("focus_scope_summary"):
+                focus_scope_summary = payload.get("focus_scope_summary")
+            if focus_relevance is None and payload.get("mission_sector_hint"):
+                focus_relevance = payload.get("mission_sector_hint")
             item = {
                 "source_id": source_id_value,
                 "canonical_key": str(row["canonical_key"]),
@@ -349,6 +353,8 @@ def current_opportunities(
                 "location": payload.get("location") or row["location"],
                 "location_evidence": payload.get("location_evidence"),
                 "scope_summary": payload.get("scope_summary") or payload.get("project_name"),
+                "relevance_categories": payload.get("relevance_categories"),
+                "mission_sector_hint": payload.get("mission_sector_hint"),
                 "quantity_or_lot_summary": payload.get("quantity_or_lot_summary"),
                 "quantity_or_lot_evidence": payload.get("quantity_or_lot_evidence"),
                 "quantity_or_lot_confidence": payload.get("quantity_or_lot_confidence"),
