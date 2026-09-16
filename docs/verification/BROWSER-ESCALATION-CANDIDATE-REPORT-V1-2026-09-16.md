@@ -16,7 +16,7 @@ The command is intentionally **not** added to the remote Control Plane verb mani
 
 The report reads existing `acquisition_attempts`, `acquisition_requests`, `source_state`, and the current Source Registry. It performs no network I/O and no browser execution.
 
-Only failed primary HTML acquisition attempts inside the requested time window are considered. PDF failures are excluded because they are not evidence for choosing a browser rendering engine.
+Only failed primary webpage acquisition attempts inside the requested time window are considered: `DISCOVERY` listing fetches and `HTML` detail fetches. PDF failures are excluded because they are not evidence for choosing a browser rendering engine.
 
 ## Classification policy
 

@@ -146,7 +146,7 @@ def browser_escalation_candidates(
                 JOIN acquisition_requests r ON r.request_id=a.request_id
                 WHERE a.status='FAILED'
                   AND a.started_at>=?
-                  AND r.target_kind='HTML'
+                  AND r.target_kind IN ('DISCOVERY','HTML')
                 ORDER BY a.started_at DESC
                 """,
                 (cutoff_iso,),
