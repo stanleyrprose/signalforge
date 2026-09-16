@@ -120,27 +120,26 @@ class BriefingTests(unittest.TestCase):
         with patch("signalforge.briefing.current_opportunities", return_value=self._opportunities()):
             result = business_briefing()
 
-        self.assertEqual(result["briefing_policy_version"], 1)
+        self.assertEqual(result["briefing_policy_version"], 2)
+        self.assertEqual(result["mission_policy_version"], 1)
         self.assertEqual(result["qualification_policy_version"], 1)
-        self.assertEqual(result["attention_count"], 3)
-        self.assertEqual(result["attention_action_counts"], {"ACT_NOW": 1, "PRIORITIZE": 1, "REVIEW": 1})
-        self.assertEqual(
-            [item["canonical_key"] for item in result["attention"]],
-            ["industry:urgent", "mofa:ict", "doms:review"],
-        )
-        self.assertEqual(result["attention"][0]["attention_action"], "ACT_NOW")
-        self.assertIn("DEADLINE_WITHIN_72H", result["attention"][0]["why_now"])
-        self.assertEqual(result["attention"][1]["attention_action"], "PRIORITIZE")
-        self.assertIn("STRATEGIC_FIT_ICT_TELECOM", result["attention"][1]["why_now"])
-        self.assertEqual(result["attention"][2]["attention_action"], "REVIEW")
-        self.assertIn("DEADLINE_UNKNOWN", result["attention"][2]["why_now"])
-        self.assertEqual(result["watchlist"]["count"], 1)
-        self.assertEqual(result["watchlist"]["canonical_keys"], ["industry:watch"])
+        self.assertEqual(result["tracked_opportunities"], 4)
+        self.assertEqual(result["current_opportunities"], 1)
+        self.assertEqual(result["mission_excluded_count"], 3)
+        self.assertEqual(result["mission_sector_counts"], {"TELECOM_ICT_INFRA": 1})
+        self.assertEqual(result["attention_count"], 1)
+        self.assertEqual(result["attention_action_counts"], {"ACT_NOW": 0, "PRIORITIZE": 1, "REVIEW": 0})
+        self.assertEqual([item["canonical_key"] for item in result["attention"]], ["mofa:ict"])
+        self.assertEqual(result["attention"][0]["attention_action"], "PRIORITIZE")
+        self.assertEqual(result["attention"][0]["mission_sector"], "TELECOM_ICT_INFRA")
+        self.assertIn("STRATEGIC_FIT_ICT_TELECOM", result["attention"][0]["why_now"])
+        self.assertEqual(result["watchlist"]["count"], 0)
+        self.assertEqual(result["watchlist"]["canonical_keys"], [])
         self.assertTrue(result["delivery_contract"]["facts_must_not_be_inferred"])
 
     def test_deadline_kind_and_opening_semantics_are_preserved_for_delivery(self) -> None:
         data = self._opportunities()
-        item = data["opportunities"][0]
+        item = data["opportunities"][1]
         item["deadline_kind"] = "TENDER_FORM_SALE_CLOSE"
         item["tender_opening_date"] = "2026-09-15"
         item["tender_opening_time"] = "13:30"
@@ -161,7 +160,7 @@ class BriefingTests(unittest.TestCase):
         item["scope_summary"] = "Unrelated line pipe first | DMP/L-067 IOT Module | DMP/L-073 Software"
         with patch("signalforge.briefing.current_opportunities", return_value=data):
             result = business_briefing()
-        attention = result["attention"][1]
+        attention = result["attention"][0]
         self.assertEqual(attention["focus_reference_numbers"], ["DMP/L-067(26-27)", "DMP/L-073(26-27)"])
         self.assertEqual(attention["focus_reference_count"], 2)
         self.assertEqual(attention["focus_relevance"], "ICT_TELECOM")
@@ -170,7 +169,7 @@ class BriefingTests(unittest.TestCase):
 
     def test_scope_excerpt_is_bounded(self) -> None:
         data = self._opportunities()
-        data["opportunities"][0]["scope_summary"] = "x" * 2500
+        data["opportunities"][1]["scope_summary"] = "Data Server " + ("x" * 2500)
         with patch("signalforge.briefing.current_opportunities", return_value=data):
             result = business_briefing()
         excerpt = result["attention"][0]["scope_excerpt"]

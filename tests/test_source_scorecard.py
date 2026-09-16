@@ -125,7 +125,36 @@ class SourceScorecardTests(unittest.TestCase):
         self.assertEqual(row["current_priority_counts"]["HIGH"], 1)
         self.assertEqual(row["current_ict_telecom_opportunities"], 1)
         self.assertEqual(row["telegram_alerts_total"], 1)
+        self.assertEqual(row["tracked_current_opportunities"], 1)
+        self.assertEqual(row["tracked_telegram_alerts_total"], 1)
 
+    def test_off_mission_current_opportunity_does_not_count_as_business_yield(self) -> None:
+        off_mission = {
+            "opportunities": [{
+                "source_id": "S40",
+                "canonical_key": "labour:medical",
+                "item_kind": "TENDER",
+                "priority_band": "HIGH",
+                "primary_relevance": "MEDICAL",
+                "relevance_categories": ["MEDICAL"],
+                "issuer": "Government Department",
+                "scope_summary": "Medical X-Ray procurement",
+            }]
+        }
+        with tempfile.TemporaryDirectory() as tmp, patch("signalforge.source_scorecard.audit", return_value=_audit()), patch(
+            "signalforge.source_scorecard.current_opportunities", return_value=off_mission
+        ):
+            result = source_scorecard(
+                database=self._db(tmp),
+                registry=_Registry(),  # type: ignore[arg-type]
+                now=datetime(2026, 9, 10, 12, 0, tzinfo=UTC),
+            )
+        row = next(row for row in result["sources"] if row["source_id"] == "S40")
+        self.assertEqual(row["tracked_current_opportunities"], 1)
+        self.assertEqual(row["current_opportunities"], 0)
+        self.assertEqual(row["mission_excluded_current_opportunities"], 1)
+        self.assertEqual(result["summary"]["tracked_current_opportunities"], 1)
+        self.assertEqual(result["summary"]["current_opportunities"], 0)
 
     def test_s25_historical_noise_window_does_not_hide_later_real_signal(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -156,8 +185,8 @@ class SourceScorecardTests(unittest.TestCase):
         self.assertEqual(row["observed_yield"], "SIGNAL_PROVEN")
 
 
-    def test_portfolio_v2_promotes_s21_only_after_repeated_actionable_yield(self) -> None:
-        self.assertEqual(SCORECARD_VERSION, 2)
+    def test_portfolio_v3_keeps_tiers_while_business_yield_becomes_mission_filtered(self) -> None:
+        self.assertEqual(SCORECARD_VERSION, 3)
         self.assertEqual(PORTFOLIO_TIERS["S21"], "CORE")
         self.assertEqual(PORTFOLIO_TIERS["S22"], "STRATEGIC_WATCH")
         self.assertEqual(PORTFOLIO_TIERS["S32"], "OBSERVATION")

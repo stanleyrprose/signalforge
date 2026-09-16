@@ -1,14 +1,16 @@
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from .auditor import audit
 from .config import Registry, db_path
 from .db import connect
+from .mission_focus import MISSION_POLICY_VERSION, classify_mission_fit
 from .opportunities import current_opportunities
 
-SCORECARD_VERSION = 2
+SCORECARD_VERSION = 3
 DEFAULT_WINDOW_DAYS = 30
 
 # Provisional portfolio tiers frozen by the 2026-09-10 business-yield audit.
@@ -93,11 +95,16 @@ def source_scorecard(
     opportunities_result = current_opportunities(database=target, now=now, registry=registry, limit=500)
     opportunity_rows = opportunities_result.get("opportunities") or []
     assert isinstance(opportunity_rows, list)
+    tracked_opportunity_by_source: dict[str, list[dict[str, object]]] = {}
     opportunity_by_source: dict[str, list[dict[str, object]]] = {}
     for item in opportunity_rows:
         if not isinstance(item, dict):
             continue
-        opportunity_by_source.setdefault(str(item.get("source_id") or ""), []).append(item)
+        source_id = str(item.get("source_id") or "")
+        tracked_opportunity_by_source.setdefault(source_id, []).append(item)
+        classification = classify_mission_fit(item)
+        if classification["mission_fit"]:
+            opportunity_by_source.setdefault(source_id, []).append({**item, **classification})
 
     audit_result = audit(database=target, registry=registry, now=now, network=False)
     checks = audit_result.get("checks") or {}
@@ -141,17 +148,34 @@ def source_scorecard(
             if in_window:
                 bucket["effective_window"] += 1
 
-        delivery_rows = {
-            str(row["source_id"]): row
-            for row in conn.execute(
-                """
-                SELECT s.source_id,COUNT(*) AS n,MAX(d.sent_at) AS latest_sent
-                FROM delivery_receipts d JOIN signals s ON s.signal_id=d.signal_id
-                WHERE d.channel='telegram'
-                GROUP BY s.source_id
-                """
-            )
-        }
+        raw_delivery_rows = list(conn.execute(
+            """
+            SELECT s.source_id,d.sent_at,c.item_kind,c.payload_json
+            FROM delivery_receipts d
+            JOIN signals s ON s.signal_id=d.signal_id
+            JOIN canonical_items c ON c.canonical_key=s.canonical_key
+            WHERE d.channel='telegram'
+            """
+        ))
+        delivery_rows: dict[str, dict[str, object]] = {}
+        raw_delivery_counts: dict[str, int] = {}
+        for row in raw_delivery_rows:
+            source_id = str(row["source_id"])
+            raw_delivery_counts[source_id] = raw_delivery_counts.get(source_id, 0) + 1
+            try:
+                payload = json.loads(str(row["payload_json"] or "{}"))
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(payload, dict):
+                continue
+            mission = classify_mission_fit({**payload, "source_id": source_id, "item_kind": str(row["item_kind"] or "")})
+            if not mission["mission_fit"]:
+                continue
+            bucket = delivery_rows.setdefault(source_id, {"n": 0, "latest_sent": None})
+            bucket["n"] = int(bucket["n"]) + 1
+            sent_at = str(row["sent_at"] or "")
+            if sent_at > str(bucket.get("latest_sent") or ""):
+                bucket["latest_sent"] = sent_at
         run_rows = {
             str(row["source_id"]): row
             for row in conn.execute(
@@ -178,6 +202,7 @@ def source_scorecard(
         delivery = delivery_rows.get(source_id)
         run = run_rows.get(source_id)
         opps = opportunity_by_source.get(source_id, [])
+        tracked_opps = tracked_opportunity_by_source.get(source_id, [])
         priority_counts = {band: sum(1 for item in opps if item.get("priority_band") == band) for band in ("HIGH", "MEDIUM", "REVIEW", "LOW")}
         strategic_opportunities = sum(
             1
@@ -225,9 +250,12 @@ def source_scorecard(
                 "effective_signals_window": int(sig["effective_window"]),
                 "latest_signal_at": latest_signal.get(source_id),
                 "current_opportunities": len(opps),
+                "tracked_current_opportunities": len(tracked_opps),
+                "mission_excluded_current_opportunities": max(0, len(tracked_opps) - len(opps)),
                 "current_priority_counts": priority_counts,
                 "current_ict_telecom_opportunities": strategic_opportunities,
                 "telegram_alerts_total": tg_count,
+                "tracked_telegram_alerts_total": int(raw_delivery_counts.get(source_id, 0)),
                 "latest_telegram_at": delivery["latest_sent"] if delivery is not None else None,
             }
         )
@@ -260,8 +288,11 @@ def source_scorecard(
         "known_noise_signals": sum(int(row["known_noise_signals"]) for row in rows),
         "effective_signals": sum(int(row["effective_signals_total"]) for row in rows),
         "current_opportunities": sum(int(row["current_opportunities"]) for row in rows),
+        "tracked_current_opportunities": sum(int(row["tracked_current_opportunities"]) for row in rows),
+        "mission_excluded_current_opportunities": sum(int(row["mission_excluded_current_opportunities"]) for row in rows),
         "current_ict_telecom_opportunities": sum(int(row["current_ict_telecom_opportunities"]) for row in rows),
         "telegram_alerts": sum(int(row["telegram_alerts_total"]) for row in rows),
+        "tracked_telegram_alerts": sum(int(row["tracked_telegram_alerts_total"]) for row in rows),
         "yield_states": {
             state: sum(1 for row in rows if row["observed_yield"] == state)
             for state in ("ACTIONABLE_PROVEN", "SIGNAL_PROVEN", "BASELINE_ONLY", "NOISE_ONLY_HISTORY", "EMPTY")
@@ -274,6 +305,7 @@ def source_scorecard(
     return {
         "status": "PASS",
         "scorecard_version": SCORECARD_VERSION,
+        "mission_policy_version": MISSION_POLICY_VERSION,
         "as_of": now.isoformat().replace("+00:00", "Z"),
         "window_days": window_days,
         "pruning_gate_days": 30,
@@ -282,6 +314,7 @@ def source_scorecard(
         "policy": {
             "portfolio_tier_is_analytical_only": True,
             "observed_yield_is_not_strategic_value": True,
+            "business_yield_is_mission_filtered": True,
             "known_historical_noise_is_accounting_only": True,
             "no_runtime_role_priority_polling_changes": True,
             "pruning_before_30d_requires_concrete_failure_or_noise_evidence": True,

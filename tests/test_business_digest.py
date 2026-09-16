@@ -138,14 +138,14 @@ class BusinessDigestTests(unittest.TestCase):
         ), patch("signalforge.business_digest.source_scorecard", return_value=_scorecard()):
             digest = business_digest(database=self._db(tmp), registry=_Registry(), now=datetime(2026,9,10,12,0,tzinfo=UTC))  # type: ignore[arg-type]
         text = render_business_digest(digest)
-        self.assertIn("SignalForge Myanmar 商机日报", text)
-        self.assertIn("当前有效机会 + 过去24小时变化", text)
+        self.assertIn("SignalForge Myanmar 重点招投标", text)
+        self.assertIn("政府/国企 · 工程/建设/通讯/能源 · 当前+24h变化", text)
         self.assertIn("🔥 今天先看：2 条需处理", text)
         self.assertIn("Ministry of Energy", text)
         self.assertIn("优先跟进", text)
         self.assertIn("相关分包 4", text)
         self.assertIn("后续跟进：1 条 MEDIUM", text)
-        self.assertIn("业务概览</b>：当前 <b>3</b> 个机会 · HIGH 1 · MEDIUM 1 · REVIEW 1", text)
+        self.assertIn("业务概览</b>：目标内 <b>3</b> 个机会 · HIGH 1 · MEDIUM 1 · REVIEW 1", text)
         self.assertNotIn("源 GREEN", text)
         self.assertNotIn("Assurance ", text)
         self.assertNotIn("Source产出", text)
@@ -160,33 +160,34 @@ class BusinessDigestTests(unittest.TestCase):
             database = self._db(tmp)
             payload = {
                 "item_kind": "TENDER",
-                "issuer": "Ministry of Industry, Myanmar",
-                "title": "Steel Scrap (HMS-1) 1,000 tons procurement",
-                "reference_no": "HIE-1/Myingyan/26-27/Steel Scrap/015",
-                "deadline": "2026-09-14",
-                "deadline_time": "16:00",
+                "issuer": "Ministry of Foreign Affairs, Myanmar",
+                "title": "Data Server and Windows Server procurement",
+                "reference_no": "MOFA-POST-TEST",
+                "deadline": "2026-09-18",
+                "deadline_time": "16:30",
                 "deadline_status": "OPEN",
-                "scope_summary": "Purchase Steel Scrap (HMS-1), 1,000 tons",
-                "url": "https://www.industrymsme.gov.mm/announcements/1027",
+                "scope_summary": "Data Server with Windows Server 2025 Standard and SQL Server 2022 Standard",
+                "url": "https://www.mofa.gov.mm/server-test",
             }
             with connect(database) as conn, conn:
                 conn.execute(
                     """INSERT INTO canonical_items(canonical_key,source_id,item_kind,title,reference_no,project_name,publication_date,deadline,location,url,content_hash,evidence_sha256,payload_json,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                    ("industry:1027", "S38", "TENDER", payload["title"], payload["reference_no"], payload["title"], "2026-09-13", payload["deadline"], None, payload["url"], "h2", "e2", json.dumps(payload), "2026-09-13T11:00:00Z", "2026-09-13T11:00:00Z"),
+                    ("mofa:server-test", "S30", "TENDER", payload["title"], payload["reference_no"], payload["title"], "2026-09-13", payload["deadline"], None, payload["url"], "h2", "e2", json.dumps(payload), "2026-09-13T11:00:00Z", "2026-09-13T11:00:00Z"),
                 )
                 conn.execute(
                     "INSERT INTO signals(signal_id,source_id,canonical_key,signal_type,created_at,payload_json) VALUES (?,?,?,?,?,?)",
-                    ("sig-industry", "S38", "industry:1027", "NEW", "2026-09-14T01:00:00Z", json.dumps({"signal_type": "NEW", "canonical_key": "industry:1027", **payload})),
+                    ("sig-mofa", "S30", "mofa:server-test", "NEW", "2026-09-14T01:00:00Z", json.dumps({"signal_type": "NEW", "canonical_key": "mofa:server-test", **payload})),
                 )
             digest = business_digest(database=database, registry=_Registry(), now=datetime(2026,9,14,2,0,tzinfo=UTC))  # type: ignore[arg-type]
         changes = digest["activity_24h"]["business_changes"]
-        self.assertEqual(changes[0]["source_id"], "S38")
+        self.assertEqual(changes[0]["source_id"], "S30")
+        self.assertEqual(changes[0]["mission_sector"], "TELECOM_ICT_INFRA")
         text = render_business_digest(digest)
         self.assertIn("🆕 24h 新增/更新", text)
-        self.assertIn("Ministry of Industry</b> · [S38]", text)
-        self.assertIn("采购内容：<b>Steel Scrap (HMS-1) 1,000 tons", text)
-        self.assertIn("2026-09-14 16:00", text)
-        self.assertIn('href="https://www.industrymsme.gov.mm/announcements/1027"', text)
+        self.assertIn("MOFA</b> · [S30]", text)
+        self.assertIn("采购内容：<b>SQL Server 2022 Standard", text)
+        self.assertIn("2026-09-18 16:30", text)
+        self.assertIn('href="https://www.mofa.gov.mm/server-test"', text)
 
     def test_digest_prefers_concrete_procurement_facts_over_generic_titles(self) -> None:
         with tempfile.TemporaryDirectory() as tmp, patch("signalforge.business_digest.business_briefing", return_value=_briefing()), patch(
