@@ -6,11 +6,12 @@ from pathlib import Path
 
 from .auditor import audit
 from .config import Registry, db_path
+from .coverage_gaps import verified_external_opportunities
 from .db import connect
 from .mission_focus import MISSION_POLICY_VERSION, classify_mission_fit
 from .opportunities import current_opportunities
 
-SCORECARD_VERSION = 3
+SCORECARD_VERSION = 4
 DEFAULT_WINDOW_DAYS = 30
 
 # Provisional portfolio tiers frozen by the 2026-09-10 business-yield audit.
@@ -117,6 +118,11 @@ def source_scorecard(
     }
 
     with connect(target) as conn:
+        canonical_urls = {
+            str(row[0]).rstrip("/")
+            for row in conn.execute("SELECT url FROM canonical_items WHERE url IS NOT NULL")
+            if row[0]
+        }
         canonical_rows = {
             str(row["source_id"]): row
             for row in conn.execute(
@@ -192,6 +198,22 @@ def source_scorecard(
             "signals": int(conn.execute("SELECT COUNT(*) FROM signals").fetchone()[0]),
         }
 
+    verified_external_by_source: dict[str, list[dict[str, object]]] = {}
+    for raw in verified_external_opportunities(now=now):
+        url = str(raw.get("url") or "")
+        if url.rstrip("/") in canonical_urls:
+            continue
+        source_id = str(raw.get("target_source_id") or raw.get("source_id") or "")
+        mission = classify_mission_fit({
+            **raw,
+            "source_id": source_id,
+            "item_kind": str(raw.get("item_kind") or "TENDER"),
+            "scope_summary": raw.get("business_summary"),
+        })
+        if not mission["mission_fit"]:
+            continue
+        verified_external_by_source.setdefault(source_id, []).append({**raw, **mission})
+
     rows: list[dict[str, object]] = []
     sources_raw = registry.raw.get("sources") or {}
     for source_id, policy in registry.enabled_sources():
@@ -201,7 +223,9 @@ def source_scorecard(
         sig = signal_by_source.get(source_id, {"raw_total": 0, "effective_total": 0, "known_noise_total": 0, "raw_window": 0, "known_noise_window": 0, "effective_window": 0})
         delivery = delivery_rows.get(source_id)
         run = run_rows.get(source_id)
-        opps = opportunity_by_source.get(source_id, [])
+        canonical_opps = opportunity_by_source.get(source_id, [])
+        verified_external = verified_external_by_source.get(source_id, [])
+        opps = [*canonical_opps, *verified_external]
         tracked_opps = tracked_opportunity_by_source.get(source_id, [])
         priority_counts = {band: sum(1 for item in opps if item.get("priority_band") == band) for band in ("HIGH", "MEDIUM", "REVIEW", "LOW")}
         strategic_opportunities = sum(
@@ -250,8 +274,10 @@ def source_scorecard(
                 "effective_signals_window": int(sig["effective_window"]),
                 "latest_signal_at": latest_signal.get(source_id),
                 "current_opportunities": len(opps),
+                "canonical_current_opportunities": len(canonical_opps),
+                "verified_external_opportunities": len(verified_external),
                 "tracked_current_opportunities": len(tracked_opps),
-                "mission_excluded_current_opportunities": max(0, len(tracked_opps) - len(opps)),
+                "mission_excluded_current_opportunities": max(0, len(tracked_opps) - len(canonical_opps)),
                 "current_priority_counts": priority_counts,
                 "current_ict_telecom_opportunities": strategic_opportunities,
                 "telegram_alerts_total": tg_count,
@@ -288,6 +314,8 @@ def source_scorecard(
         "known_noise_signals": sum(int(row["known_noise_signals"]) for row in rows),
         "effective_signals": sum(int(row["effective_signals_total"]) for row in rows),
         "current_opportunities": sum(int(row["current_opportunities"]) for row in rows),
+        "canonical_current_opportunities": sum(int(row["canonical_current_opportunities"]) for row in rows),
+        "verified_external_opportunities": sum(int(row["verified_external_opportunities"]) for row in rows),
         "tracked_current_opportunities": sum(int(row["tracked_current_opportunities"]) for row in rows),
         "mission_excluded_current_opportunities": sum(int(row["mission_excluded_current_opportunities"]) for row in rows),
         "current_ict_telecom_opportunities": sum(int(row["current_ict_telecom_opportunities"]) for row in rows),
@@ -305,6 +333,7 @@ def source_scorecard(
     return {
         "status": "PASS",
         "scorecard_version": SCORECARD_VERSION,
+        "verified_external_business_coverage": True,
         "mission_policy_version": MISSION_POLICY_VERSION,
         "as_of": now.isoformat().replace("+00:00", "Z"),
         "window_days": window_days,

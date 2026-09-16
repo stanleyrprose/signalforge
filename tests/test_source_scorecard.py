@@ -156,6 +156,47 @@ class SourceScorecardTests(unittest.TestCase):
         self.assertEqual(result["summary"]["tracked_current_opportunities"], 1)
         self.assertEqual(result["summary"]["current_opportunities"], 0)
 
+    def test_verified_external_official_opportunity_counts_as_business_yield_without_becoming_canonical(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp, patch("signalforge.source_scorecard.audit", return_value=_audit()), patch(
+            "signalforge.source_scorecard.current_opportunities", return_value={"opportunities": []}
+        ):
+            result = source_scorecard(
+                database=self._db(tmp),
+                registry=_Registry(),  # type: ignore[arg-type]
+                now=datetime(2026, 9, 16, 12, 0, tzinfo=UTC),
+            )
+        row = next(row for row in result["sources"] if row["source_id"] == "S13")
+        self.assertEqual(row["current_opportunities"], 1)
+        self.assertEqual(row["canonical_current_opportunities"], 0)
+        self.assertEqual(row["verified_external_opportunities"], 1)
+        self.assertEqual(row["tracked_current_opportunities"], 0)
+        self.assertEqual(row["observed_yield"], "ACTIONABLE_PROVEN")
+        self.assertEqual(result["summary"]["current_opportunities"], 1)
+        self.assertEqual(result["summary"]["canonical_current_opportunities"], 0)
+        self.assertEqual(result["summary"]["verified_external_opportunities"], 1)
+
+    def test_canonical_url_supersedes_verified_external_without_double_counting(self) -> None:
+        from signalforge.coverage_gaps import verified_external_opportunities
+
+        mpt = verified_external_opportunities(now=datetime(2026, 9, 16, 12, 0, tzinfo=UTC))[0]
+        with tempfile.TemporaryDirectory() as tmp:
+            database = self._db(tmp)
+            with connect(database) as conn, conn:
+                conn.execute(
+                    """INSERT INTO canonical_items(canonical_key,source_id,item_kind,title,reference_no,project_name,publication_date,deadline,location,url,content_hash,evidence_sha256,payload_json,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    ("mpt:portal-recovered", "S13", "TENDER", "Recovered MPT", "MPT-X", "Recovered MPT", "2026-09-16", "2026-09-29", "Nay Pyi Taw", mpt["url"], "hx", "ex", "{}", "2026-09-16T00:00:00Z", "2026-09-16T00:00:00Z"),
+                )
+            with patch("signalforge.source_scorecard.audit", return_value=_audit()), patch(
+                "signalforge.source_scorecard.current_opportunities", return_value={"opportunities": []}
+            ):
+                result = source_scorecard(
+                    database=database, registry=_Registry(),  # type: ignore[arg-type]
+                    now=datetime(2026, 9, 16, 12, 0, tzinfo=UTC),
+                )
+        row = next(row for row in result["sources"] if row["source_id"] == "S13")
+        self.assertEqual(row["verified_external_opportunities"], 0)
+        self.assertEqual(row["current_opportunities"], 0)
+
     def test_s25_historical_noise_window_does_not_hide_later_real_signal(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             database = Path(tmp) / "signalforge.db"
@@ -186,7 +227,7 @@ class SourceScorecardTests(unittest.TestCase):
 
 
     def test_portfolio_v3_keeps_tiers_while_business_yield_becomes_mission_filtered(self) -> None:
-        self.assertEqual(SCORECARD_VERSION, 3)
+        self.assertEqual(SCORECARD_VERSION, 4)
         self.assertEqual(PORTFOLIO_TIERS["S21"], "CORE")
         self.assertEqual(PORTFOLIO_TIERS["S22"], "STRATEGIC_WATCH")
         self.assertEqual(PORTFOLIO_TIERS["S32"], "OBSERVATION")

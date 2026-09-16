@@ -13,14 +13,14 @@ from zoneinfo import ZoneInfo
 from .auditor import audit
 from .briefing import business_briefing
 from .config import Registry, db_path
-from .coverage_gaps import reviewed_coverage_gaps
+from .coverage_gaps import reviewed_coverage_gaps, verified_external_opportunities
 from .db import connect
 from .mission_focus import classify_mission_fit
 from .telegram_delivery import TelegramDeliveryError, _send_message
 from .translation import contains_myanmar, translate_myanmar_to_zh_hans
 from .source_scorecard import source_scorecard
 
-DIGEST_VERSION = 4
+DIGEST_VERSION = 5
 DIGEST_CHANNEL = "telegram-business-digest"
 DIGEST_TIMEZONE = ZoneInfo("Asia/Yangon")
 TELEGRAM_MESSAGE_LIMIT = 4096
@@ -256,6 +256,11 @@ def business_digest(
         ).fetchone()
         evidence_24h = int(conn.execute("SELECT COUNT(*) FROM evidence_envelopes WHERE fetched_at>=?", (cutoff_iso,)).fetchone()[0])
         canonical_total = int(conn.execute("SELECT COUNT(*) FROM canonical_items").fetchone()[0])
+        canonical_urls = {
+            str(row[0]).rstrip("/")
+            for row in conn.execute("SELECT url FROM canonical_items WHERE url IS NOT NULL")
+            if row[0]
+        }
         signal_total = int(conn.execute("SELECT COUNT(*) FROM signals").fetchone()[0])
         signal_rows = conn.execute(
             "SELECT signal_type,COUNT(*) AS n FROM signals WHERE created_at>=? GROUP BY signal_type",
@@ -381,6 +386,32 @@ def business_digest(
     s41 = strategic.get("S41") or {}
     atom = checks.get("atom_surface_trigger") or {}
     coverage_gaps = reviewed_coverage_gaps(now=now)
+    verified_external: list[dict[str, object]] = []
+    for raw in verified_external_opportunities(now=now):
+        url = str(raw.get("url") or "")
+        if url.rstrip("/") in canonical_urls:
+            continue
+        mission = classify_mission_fit({
+            **raw,
+            "source_id": str(raw.get("target_source_id") or raw.get("source_id") or ""),
+            "item_kind": str(raw.get("item_kind") or "TENDER"),
+            "scope_summary": raw.get("business_summary"),
+        })
+        if not mission["mission_fit"]:
+            continue
+        verified_external.append({**raw, **mission})
+
+    canonical_current = int(briefing.get("current_opportunities") or 0)
+    business_current = canonical_current + len(verified_external)
+    business_current_counts = dict(briefing.get("current_counts") or {})
+    business_current_counts["OPEN"] = int(business_current_counts.get("OPEN") or 0) + len(verified_external)
+    mission_sector_counts = dict(briefing.get("mission_sector_counts") or {})
+    priority_counts = dict(priority_counts)
+    for item in verified_external:
+        sector = str(item.get("mission_sector") or "OTHER")
+        mission_sector_counts[sector] = int(mission_sector_counts.get(sector) or 0) + 1
+        priority = str(item.get("priority_band") or "REVIEW")
+        priority_counts[priority] = int(priority_counts.get(priority) or 0) + 1
 
     return {
         "status": "PASS",
@@ -418,11 +449,16 @@ def business_digest(
         },
         "source_yield": scorecard_result.get("summary") or {},
         "business": {
-            "current_opportunities": briefing.get("current_opportunities"),
-            "current_counts": briefing.get("current_counts"),
+            "current_opportunities": business_current,
+            "canonical_current_opportunities": canonical_current,
+            "verified_external_opportunity_count": len(verified_external),
+            "verified_external_opportunities": verified_external,
+            "verified_external_policy": "OFFICIAL_ISSUER_DOCUMENT_REVIEWED_NON_CANONICAL_BUSINESS_COVERAGE",
+            "current_counts": business_current_counts,
+            "canonical_current_counts": briefing.get("current_counts"),
             "tracked_opportunities": briefing.get("tracked_opportunities", briefing.get("current_opportunities")),
             "mission_excluded_count": briefing.get("mission_excluded_count", 0),
-            "mission_sector_counts": briefing.get("mission_sector_counts") or {},
+            "mission_sector_counts": dict(sorted(mission_sector_counts.items())),
             "mission_policy_version": briefing.get("mission_policy_version"),
             "qualification_counts": qcounts,
             "priority_counts": priority_counts,
@@ -486,6 +522,9 @@ def render_business_digest(
     coverage_gaps = business.get("coverage_gaps") or []
     if not isinstance(coverage_gaps, list):
         coverage_gaps = []
+    verified_external = business.get("verified_external_opportunities") or []
+    if not isinstance(verified_external, list):
+        verified_external = []
     watch_items = business.get("watchlist_items") or []
     if not isinstance(watch_items, list):
         watch_items = []
@@ -716,8 +755,34 @@ def render_business_digest(
             lines.append(f"   {business_label(item)}：<b>{subject}</b>")
             lines.append("   " + html.escape(" · ".join(meta)) + link)
 
+    if verified_external:
+        verified_rows = [item for item in verified_external[:4] if isinstance(item, dict)]
+        verified_issuers = translate_values([str(item.get("issuer") or "") for item in verified_rows], 34)
+        verified_titles = translate_values([str(item.get("business_summary") or item.get("title") or "") for item in verified_rows], 120)
+        verified_locations = translate_values([str(item.get("location") or "") for item in verified_rows], 24)
+        lines.extend(["", f"<b>✅ 外部官方文件核验：{len(verified_rows)} 条</b>"])
+        for index, item in enumerate(verified_rows):
+            target_source = html.escape(str(item.get("target_source_id") or item.get("source_id") or ""))
+            origin = html.escape(str(item.get("coverage_origin") or ""))
+            issuer = html.escape(verified_issuers[index])
+            title = html.escape(verified_titles[index])
+            location = html.escape(verified_locations[index])
+            deadline = html.escape(
+                f"{item.get('deadline') or ''} {item.get('deadline_time') or ''}".strip()
+            )
+            next_action = html.escape(_compact(item.get("next_action_summary"), 70))
+            url = str(item.get("url") or "")
+            link = official_link(url, "官方PDF") if url.startswith(("https://myanmar.gov.mm/", "https://www.myanmar.gov.mm/")) else ""
+            provenance = f"[{target_source} ← {origin}]" if origin else f"[{target_source}]"
+            lines.append(f"• <b>{issuer}</b> · {provenance}")
+            detail = f"   工程/采购内容：<b>{title}</b> · {location} · 截止 <b>{deadline}</b>{link}"
+            if next_action:
+                detail += f" · 下一步 {next_action}"
+            lines.append(detail)
+        lines.append("<i>已计入目标机会；官方机构文件已核验，但不伪装成 canonical Signal。</i>")
+
     if coverage_gaps:
-        lines.extend(["", "<b>⚠️ 人工核验机会（尚未进入正式 Signal）</b>"])
+        lines.extend(["", "<b>⚠️ 人工核验机会（尚未形成可计入的官方覆盖）</b>"])
         gap_rows = [gap for gap in coverage_gaps[:4] if isinstance(gap, dict)]
         gap_issuers = translate_values([str(gap.get("issuer") or "") for gap in gap_rows], 34)
         gap_titles = translate_values([str(gap.get("business_summary") or gap.get("title") or "") for gap in gap_rows], 110)
@@ -750,7 +815,7 @@ def render_business_digest(
             if next_action:
                 detail += f" · 下一步 {html.escape(next_action)}"
             lines.append(detail)
-        lines.append("<i>人工核验线索，不计入正式机会数。</i>")
+        lines.append("<i>仍属 coverage gap，不计入目标机会数。</i>")
 
     manual_rows = [item for item in manual_items[:3] if isinstance(item, dict)]
     if manual_rows:
@@ -810,11 +875,14 @@ def render_business_digest(
             lines.append(f"• [{source_id}] {date} · <b>{title}</b> · {kind}{link}")
 
     current = int(business.get("current_opportunities") or 0)
-    tracked = int(business.get("tracked_opportunities") or current)
-    tracked_suffix = f" · 后台跟踪 {tracked}" if tracked != current else ""
+    canonical_current = int(business.get("canonical_current_opportunities") or current)
+    verified_count = int(business.get("verified_external_opportunity_count") or 0)
+    tracked = int(business.get("tracked_opportunities") or canonical_current)
+    mix = f"（canonical {canonical_current} + 外部官方核验 {verified_count}）" if verified_count else ""
+    tracked_suffix = f" · canonical后台 {tracked}" if tracked != canonical_current else ""
     lines.extend([
         "",
-        f"<b>📌 业务概览</b>：目标内 <b>{current}</b> 个机会{tracked_suffix} · HIGH {priorities.get('HIGH', 0)} · MEDIUM {priorities.get('MEDIUM', 0)} · REVIEW {priorities.get('REVIEW', 0)}",
+        f"<b>📌 业务概览</b>：目标内 <b>{current}</b> 个机会{mix}{tracked_suffix} · HIGH {priorities.get('HIGH', 0)} · MEDIUM {priorities.get('MEDIUM', 0)} · REVIEW {priorities.get('REVIEW', 0)}",
     ])
     if digest_was_translated:
         lines.append("🌐 缅文内容已机器翻译为中文（事实以官方原文为准）")

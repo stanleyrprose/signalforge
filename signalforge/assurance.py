@@ -15,7 +15,7 @@ from zoneinfo import ZoneInfo
 from .acquisition_runtime import acquire_provider_diagnostic_bytes
 from .auditor import audit
 from .config import Registry, db_path, evidence_root
-from .coverage_gaps import reviewed_coverage_gaps
+from .coverage_gaps import reviewed_coverage_gaps, verified_external_opportunities
 from .db import connect, migrate
 from .http import fetch_bytes
 from .national_portal import parse_current_high_value_tender_leads
@@ -566,13 +566,29 @@ def _coverage_from_aggregator_surface(
         for gap in reviewed_coverage_gaps(now=now)
         if str(gap.get("evidence_basis") or "").startswith("REVIEWED_NATIONAL_PORTAL_HOSTED_")
     }
+    verified_external = {
+        _normalize_url(str(item["url"])): item
+        for item in verified_external_opportunities(now=now)
+        if str(item.get("coverage_origin") or "") == source_id
+    }
     covered_leads: list[dict[str, object]] = []
+    verified_external_leads: list[dict[str, object]] = []
     confirmed_gaps: list[dict[str, object]] = []
     unresolved_leads: list[dict[str, object]] = []
     for lead in leads:
         normalized = _normalize_url(str(lead["url"]))
         if normalized in canonical_urls:
-            covered_leads.append(lead)
+            covered_leads.append({**lead, "coverage_resolution": "CANONICAL"})
+            continue
+        verified = verified_external.get(normalized)
+        if verified is not None:
+            resolved = {
+                **lead,
+                "coverage_resolution": "VERIFIED_EXTERNAL_OFFICIAL_OPPORTUNITY",
+                "verified_external": verified,
+            }
+            covered_leads.append(resolved)
+            verified_external_leads.append(resolved)
             continue
         reviewed_gap = reviewed.get(normalized)
         if reviewed_gap is not None:
@@ -602,11 +618,44 @@ def _coverage_from_aggregator_surface(
             "current_page_only": bool(policy.get("current_page_only", True)),
             "candidate_count": len(leads),
             "covered_leads": covered_leads[:50],
+            "verified_external_leads": verified_external_leads[:50],
             "confirmed_gaps": confirmed_gaps[:50],
             "unresolved_leads": unresolved_leads[:50],
+            "issuer_page_coverage_debt_retained": bool(verified_external_leads),
         },
     }
 
+
+
+def _resolve_verified_aggregator_misses(
+    conn, *, now: datetime, verified_urls: set[str]
+) -> int:  # type: ignore[no-untyped-def]
+    verified_urls = {_normalize_url(url) for url in verified_urls if url}
+    if not verified_urls:
+        return 0
+    resolved = 0
+    rows = conn.execute(
+        "SELECT miss_id,url FROM missed_signals WHERE status='OPEN' AND detected_by='AGGREGATOR_COVERAGE_AUDIT'"
+    ).fetchall()
+    for row in rows:
+        url = str(row["url"] or "")
+        if not url or _normalize_url(url) not in verified_urls:
+            continue
+        conn.execute(
+            """
+            UPDATE missed_signals
+            SET status='RESOLVED',resolution_note=?,resolved_at=?,resolved_by=?
+            WHERE miss_id=?
+            """,
+            (
+                "Business coverage restored by reviewed official issuer document on alternate official surface; issuer-page coverage debt remains diagnostic",
+                _iso(now),
+                "ASSURANCE_VERIFIED_EXTERNAL",
+                row["miss_id"],
+            ),
+        )
+        resolved += 1
+    return resolved
 
 def _resolve_expired_aggregator_misses(conn, *, now: datetime) -> int:  # type: ignore[no-untyped-def]
     today = now.astimezone(_LOCAL_TZ).date().isoformat()
@@ -883,6 +932,8 @@ def _metric_review(
         "filtered_zero_item_replayable_window": replayability["replayable"],
         "filtered_zero_item_unreplayable_window": replayability["unreplayable"],
         "current_opportunities": int(summary.get("current_opportunities") or 0),
+        "canonical_current_opportunities": int(summary.get("canonical_current_opportunities") or 0),
+        "verified_external_opportunities": int(summary.get("verified_external_opportunities") or 0),
         "raw_signals": int(summary.get("raw_signals") or 0),
         "known_noise_signals": int(summary.get("known_noise_signals") or 0),
         "effective_signals": int(summary.get("effective_signals") or 0),
@@ -918,7 +969,7 @@ def _metric_review(
     conclusions = {
         "fail_reasons": fail_reasons,
         "review_reasons": review_reasons,
-        "useful_metrics": ["mandatory_coverage_proof_rate", "open_misses", "noise_samples_conclusive_window", "noise_false_negative_rate", "filtered_zero_item_replayable_window", "current_opportunities", "effective_signals", "high_value_sources_with_recent_business_yield"],
+        "useful_metrics": ["mandatory_coverage_proof_rate", "open_misses", "noise_samples_conclusive_window", "noise_false_negative_rate", "filtered_zero_item_replayable_window", "current_opportunities", "canonical_current_opportunities", "verified_external_opportunities", "effective_signals", "high_value_sources_with_recent_business_yield"],
         "diagnostic_only_not_business_value_proof": ["active_sources", "green_sources", "raw_signals"],
         "principle": "Source count, GREEN health and raw Signal volume are diagnostics; none is sufficient evidence of commercial value without coverage and outcome evidence.",
     }
@@ -1075,7 +1126,20 @@ def run_assurance(
             )
             misses_created.append(miss)
 
+    verified_resolution_urls: set[str] = set()
+    for result in supplemental_coverage_rows:
+        details = result.get("details") or {}
+        rows = details.get("verified_external_leads") if isinstance(details, dict) else []
+        if not isinstance(rows, list):
+            continue
+        for item in rows:
+            if isinstance(item, dict) and item.get("url"):
+                verified_resolution_urls.add(str(item["url"]))
+
     with connect(target) as conn, conn:
+        verified_resolved_aggregator_misses = _resolve_verified_aggregator_misses(
+            conn, now=observed, verified_urls=verified_resolution_urls
+        )
         auto_resolved_aggregator_misses = _resolve_expired_aggregator_misses(conn, now=observed)
         metric_review = _metric_review(conn, assurance_run_id=run_id, coverage_rows=coverage_rows, now=observed, registry=registry)
         open_misses = int(conn.execute("SELECT COUNT(*) FROM missed_signals WHERE status='OPEN'").fetchone()[0])
@@ -1089,6 +1153,7 @@ def run_assurance(
                 "partial": sum(1 for row in supplemental_coverage_rows if row["status"] == "PARTIAL"),
             },
             "noise_samples_created": len(samples),
+            "verified_resolved_aggregator_misses": verified_resolved_aggregator_misses,
             "auto_resolved_aggregator_misses": auto_resolved_aggregator_misses,
             "open_misses": open_misses,
             "open_red_misses": red_misses,
@@ -1109,6 +1174,8 @@ def run_assurance(
         "supplemental_coverage": supplemental_coverage_rows,
         "noise_samples_created": samples,
         "coverage_misses_recorded": len(misses_created),
+        "verified_resolved_aggregator_misses": verified_resolved_aggregator_misses,
+        "auto_resolved_aggregator_misses": auto_resolved_aggregator_misses,
         "metric_review": metric_review,
         "contract": {"sends_telegram": False, "mutates_canonical_or_signals": False, "persists_assurance_state": True, "unsupported_coverage_never_defaults_to_pass": True},
     }

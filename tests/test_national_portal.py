@@ -59,7 +59,7 @@ class NationalPortalTests(unittest.TestCase):
         self.assertFalse(lead["canonical_truth"])
         self.assertTrue(lead["aggregator_only"])
 
-    def test_assurance_surface_marks_reviewed_mpt_gap_but_exact_canonical_url_closes_it(self) -> None:
+    def test_assurance_surface_accepts_verified_external_mpt_coverage_and_canonical_later_supersedes_it(self) -> None:
         registry = Registry.load(Path(__file__).resolve().parents[1])
         policy = registry.raw["assurance_surfaces"]["S01"]
         with tempfile.TemporaryDirectory() as tmp:
@@ -74,12 +74,14 @@ class NationalPortalTests(unittest.TestCase):
                         network=True,
                         now=datetime(2026, 9, 16, 5, 0, tzinfo=UTC),
                     )
-            self.assertEqual(gap["status"], "GAP")
+            self.assertEqual(gap["status"], "PASS")
             self.assertEqual(gap["official"], 1)
-            self.assertEqual(gap["covered"], 0)
-            self.assertEqual(gap["missing"], [MPT_URL])
-            confirmed = gap["details"]["confirmed_gaps"]
-            self.assertEqual(confirmed[0]["reviewed_gap"]["source_id"], "S13")
+            self.assertEqual(gap["covered"], 1)
+            self.assertEqual(gap["missing"], [])
+            verified = gap["details"]["verified_external_leads"]
+            self.assertEqual(verified[0]["coverage_resolution"], "VERIFIED_EXTERNAL_OFFICIAL_OPPORTUNITY")
+            self.assertEqual(verified[0]["verified_external"]["source_id"], "S13")
+            self.assertTrue(gap["details"]["issuer_page_coverage_debt_retained"])
             self.assertEqual(gap["details"]["closing_date_semantics"], "HINT_ONLY_NOT_CANONICAL")
 
             with connect(database) as conn, conn:
@@ -108,6 +110,8 @@ class NationalPortalTests(unittest.TestCase):
             self.assertEqual(covered["status"], "PASS")
             self.assertEqual(covered["covered"], 1)
             self.assertEqual(covered["missing"], [])
+            self.assertEqual(covered["details"]["covered_leads"][0]["coverage_resolution"], "CANONICAL")
+            self.assertEqual(covered["details"]["verified_external_leads"], [])
 
 
     def test_s01_is_assurance_only_and_not_an_active_source(self) -> None:
@@ -155,12 +159,35 @@ class NationalPortalTests(unittest.TestCase):
                     now=datetime(2026, 9, 16, 5, 0, tzinfo=UTC),
                 )
             misses = list_missed_signals(database=database)["misses"]
+            verified_coverage = {
+                "source_id": "S01",
+                "method": "official-aggregator-discovery-lead-resolution",
+                "status": "PASS",
+                "official": 1,
+                "covered": 1,
+                "missing": [],
+                "details": {
+                    "verified_external_leads": [{"url": MPT_URL}],
+                    "confirmed_gaps": [],
+                    "unresolved_leads": [],
+                },
+            }
+            with patch("signalforge.assurance._coverage_from_aggregator_surface", return_value=verified_coverage):
+                resolved_result = run_assurance(
+                    database=database, registry=registry, network=False, noise_sample_size=0,
+                    now=datetime(2026, 9, 16, 6, 0, tzinfo=UTC),
+                )
+            all_misses = list_missed_signals(database=database, status=None)["misses"]
         self.assertEqual(result["supplemental_coverage"][0]["status"], "GAP")
         self.assertEqual(result["status"], "FAIL")
         self.assertEqual(len(misses), 1)
         self.assertEqual(misses[0]["source_id"], "S13")
         self.assertEqual(misses[0]["detected_by"], "AGGREGATOR_COVERAGE_AUDIT")
         self.assertEqual(misses[0]["severity"], "RED")
+        self.assertEqual(resolved_result["supplemental_coverage"][0]["status"], "PASS")
+        self.assertEqual(resolved_result["verified_resolved_aggregator_misses"], 1)
+        self.assertEqual(all_misses[0]["status"], "RESOLVED")
+        self.assertEqual(all_misses[0]["resolved_by"], "ASSURANCE_VERIFIED_EXTERNAL")
 
 
 
