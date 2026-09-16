@@ -42,7 +42,27 @@
       "reviewed_at": "2026-09-16",
       "business_summary": "Pobbathiri Exchange Office 地震修复：RC柱墙/地基及屋顶/天花板维修",
       "next_action_summary": "9/24 16:30停售表格；9/25踏勘；9/29投标",
-      "document_sha256": "3dd5dd18a2395ba1bb18bdc31c9fa9850a98aced98fb05b7453c4380d24c9eea"
+      "document_sha256": "3dd5dd18a2395ba1bb18bdc31c9fa9850a98aced98fb05b7453c4380d24c9eea",
+      "resolution_mode": "VERIFIED_EXTERNAL_OFFICIAL_OPPORTUNITY",
+      "coverage_origin": "S01",
+      "target_source_id": "S13",
+      "item_kind": "TENDER",
+      "mission_sector": "CONSTRUCTION",
+      "relevance_categories": [
+        "CONSTRUCTION"
+      ],
+      "priority_band": "MEDIUM",
+      "issuer_document_verified": true,
+      "issuer_identity_verified": true,
+      "scope_verified": true,
+      "deadline_verified": true,
+      "verification_basis": "PORTAL_HOSTED_OFFICIAL_ISSUER_TEXT_PDF_SHA256_REVIEWED",
+      "canonical_truth": false,
+      "deadline_time": "14:00",
+      "deadline_kind": "BID_SUBMISSION_DEADLINE",
+      "tender_submission_start_time": "09:30",
+      "tender_form_sale_close": "2026-09-24 16:30",
+      "site_survey_date": "2026-09-25"
     }
   ]
 }

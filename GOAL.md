@@ -13,6 +13,10 @@ Source expansion, parser coverage, OCR, Assurance and delivery mechanics are mea
 
 The primary Telegram / briefing surface should therefore prefer **current, actionable, official government/SOE tenders with clear scope and dates**. Off-mission records (for example medical procurement, customs auctions, ordinary commodities, chemicals, yarn, consumer goods and general logistics) may remain in canonical storage for audit/research, but should not consume the main tender briefing unless a separately reviewed business reason promotes them.
 
+### Alternate official coverage rule
+
+Issuer-original canonical acquisition remains the preferred truth path. When an issuer's normal tender surface omits an opportunity, SignalForge may still count it as business coverage only when a reviewed alternate official surface provides the issuer's own document and all of the following are proven: issuer identity, business scope, deadline/actionability, allowlisted official URL, and retained document SHA256. Such records are labeled `VERIFIED_EXTERNAL_OFFICIAL_OPPORTUNITY`, remain `canonical_truth=false`, and must never be represented as canonical Signals. If the canonical pipeline later acquires the same official URL, canonical coverage supersedes the verified-external record without double counting.
+
 ## Engineering goal
 
 Expand and operate SignalForge across high-value Myanmar official sources while preserving the proven v1.5 local acquisition contract and the existing Worker / Control / Fleet boundaries.

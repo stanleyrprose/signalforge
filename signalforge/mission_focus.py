@@ -141,15 +141,6 @@ def classify_mission_fit(item: dict[str, object]) -> dict[str, object]:
             "mission_reason": "PRIVATE_ISSUER",
         }
 
-    source_id = str(item.get("source_id") or "")
-    source_sector = _SOURCE_TARGET_FALLBACK.get(source_id)
-    if source_sector:
-        return {
-            "mission_fit": True,
-            "mission_sector": source_sector,
-            "mission_reason": f"TARGET_SOURCE:{source_id}",
-        }
-
     direct = _DIRECT_TARGET_CATEGORIES & categories
     if "ENERGY" in direct:
         return {"mission_fit": True, "mission_sector": "ENERGY", "mission_reason": "TARGET_CATEGORY:ENERGY"}
@@ -160,6 +151,15 @@ def classify_mission_fit(item: dict[str, object]) -> dict[str, object]:
             "mission_fit": True,
             "mission_sector": "CONSTRUCTION",
             "mission_reason": "TARGET_CATEGORY:CONSTRUCTION",
+        }
+
+    source_id = str(item.get("source_id") or "")
+    source_sector = _SOURCE_TARGET_FALLBACK.get(source_id)
+    if source_sector:
+        return {
+            "mission_fit": True,
+            "mission_sector": source_sector,
+            "mission_reason": f"TARGET_SOURCE:{source_id}",
         }
 
     ict_term = next((term for term in _ICT_INFRA_TERMS if term in text), None)
