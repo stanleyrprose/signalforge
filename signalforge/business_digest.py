@@ -482,6 +482,8 @@ def render_business_digest(
         scope = _presentation_cleanup(item.get("scope_excerpt"))
         quantity = _presentation_cleanup(item.get("quantity_or_lot_summary"))
         source_id = str(item.get("source_id") or "")
+        if source_id == "S08A" and item.get("reviewed_enrichment_status") and scope:
+            return _compact(scope, 180)
         if source_id == "S20":
             moep_summary = _moep_business_summary(scope)
             if moep_summary:
@@ -553,7 +555,10 @@ def render_business_digest(
         values: list[str] = []
         for item in rows:
             issuer = str(item.get("issuer") or "")
-            if str(item.get("source_id") or "") == "S20":
+            source_id = str(item.get("source_id") or "")
+            if source_id == "S08A":
+                issuer = "Myanmar Customs"
+            elif source_id == "S20":
                 upper = issuer.upper()
                 if "DPTSC" in upper:
                     issuer = "MOEP / DPTSC"
@@ -588,7 +593,7 @@ def render_business_digest(
         if kind == "AUCTION_NOTICE" and direction == "BUY_FROM_ISSUER":
             return "竞买内容"
         if kind == "AUCTION_NOTICE":
-            return "拍卖内容"
+            return "竞买内容"
         return "业务内容"
 
     def timing_text(item: dict[str, object]) -> str:
@@ -628,7 +633,7 @@ def render_business_digest(
             if location:
                 meta.append(f"地点 {location}")
             reference = _compact(item.get("reference_no"), 28)
-            if reference:
+            if reference and source_id != "S08A":
                 meta.append(f"Ref {reference}")
             focus_count = int(item.get("focus_reference_count") or 0)
             if focus_count:
@@ -657,7 +662,7 @@ def render_business_digest(
             if location:
                 meta.append(f"地点 {location}")
             reference = _compact(item.get("reference_no"), 28)
-            if reference:
+            if reference and source_id != "S08A":
                 meta.append(f"Ref {reference}")
             link = official_link(item.get("url"))
             lines.append(f"• <b>{issuer}</b> · [{source_id}] · {signal_type}")
@@ -746,28 +751,11 @@ def render_business_digest(
     open_misses = int(assurance.get("open_misses") or 0)
     red_misses = int(assurance.get("open_red_misses") or 0)
     metric_validity = html.escape(str(assurance.get("metric_validity") or "NOT_RUN"))
-    miss_icon = "🔴" if red_misses else ("⚠️" if open_misses else "✅")
-    lines.append(f"{miss_icon} Assurance：漏报 OPEN {open_misses} · RED {red_misses} · 指标有效性 {metric_validity}")
-
-    mytel = auditor.get("mytel") or {}
-    mpt = auditor.get("mpt") or {}
-    atom = auditor.get("atom") or {}
-    if not isinstance(mytel, dict):
-        mytel = {}
-    if not isinstance(mpt, dict):
-        mpt = {}
-    if not isinstance(atom, dict):
-        atom = {}
     findings = int(auditor.get("finding_count") or 0)
-    system_icon = "✅" if int(sources.get("non_green", 0) or 0) == 0 and findings == 0 else "⚠️"
+    footer_icon = "🔴" if red_misses else ("⚠️" if int(sources.get("non_green", 0) or 0) or findings or open_misses else "✅")
     lines.append(
-        f"{system_icon} 系统：{sources.get('green', 0)}/{sources.get('monitored', 0)} GREEN · "
-        f"degraded {sources.get('non_green', 0)} · Auditor {html.escape(str(auditor.get('status') or 'UNKNOWN'))}({findings})"
-    )
-    mpt_missing = mpt.get("missing", "?")
-    mpt_label = "MPT 完整" if mpt_missing == 0 else f"MPT 缺 {mpt_missing}"
-    lines.append(
-        f"📶 Telecom：{mpt_label} · MYTEL {mytel.get('canonical_keys', '?')}/{mytel.get('official_keys', '?')} · ATOM {atom.get('status', 'UNKNOWN')}"
+        f"{footer_icon} {sources.get('green', 0)}/{sources.get('monitored', 0)}源 GREEN · "
+        f"Assurance {metric_validity} · 漏报 {open_misses}"
     )
     if digest_was_translated:
         lines.append("🌐 缅文内容已机器翻译为中文（事实以官方原文为准）")

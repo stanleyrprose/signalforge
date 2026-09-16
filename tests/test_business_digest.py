@@ -146,8 +146,8 @@ class BusinessDigestTests(unittest.TestCase):
         self.assertIn("相关分包 4", text)
         self.assertIn("后续跟进：1 条 MEDIUM", text)
         self.assertIn("业务概览</b>：当前 <b>3</b> 个机会 · HIGH 1 · MEDIUM 1 · REVIEW 1", text)
-        self.assertIn("系统：2/2 GREEN", text)
-        self.assertIn("MPT 完整 · MYTEL 15/15", text)
+        self.assertIn("2/2源 GREEN", text)
+        self.assertIn("Assurance", text)
         self.assertNotIn("Source产出", text)
         self.assertNotIn("Signal质量：均分", text)
         self.assertNotIn("Q81/HIGH", text)
@@ -505,6 +505,36 @@ class BusinessDigestTests(unittest.TestCase):
         self.assertIn("500kV Phayagyi、Hlaingtharyar、Taungoo", text)
         self.assertIn("水电站机械及电气备件 12类", text)
         self.assertIn("ACSR→ACCC 导线更换所需材料", text)
+
+    def test_reviewed_customs_attention_shows_business_event_not_generic_title(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp, patch("signalforge.business_digest.business_briefing", return_value=_briefing()), patch(
+            "signalforge.business_digest.audit", return_value=_audit()
+        ), patch("signalforge.business_digest.source_scorecard", return_value=_scorecard()):
+            digest = business_digest(database=self._db(tmp), registry=_Registry(), now=datetime(2026,9,16,2,0,tzinfo=UTC))  # type: ignore[arg-type]
+        digest["business"]["attention"] = [{
+            "canonical_key":"customs-auction:2026-09-08:de1e5fca89686a1f",
+            "source_id":"S08A",
+            "item_kind":"AUCTION_NOTICE",
+            "attention_action":"REVIEW",
+            "issuer":"Myanmar Customs Department",
+            "title":"Generic Customs auction announcement",
+            "scope_excerpt":"海关拍卖：钢铁/塑料原料/一般消费品",
+            "deadline_status":"UNKNOWN",
+            "action_date":"2026-09-28",
+            "action_time":"10:00",
+            "location":"Yangon Customs Training School",
+            "next_action_summary":"9/16–18买表格；9/21–25缴保证金/看货；9/28 10:00拍卖",
+            "reference_no":"CUSTOMS-AUCTION-20260908-de1e5fca",
+            "reviewed_enrichment_status":"REVIEWED_TEXT_PDF_CURRENT_EVENT",
+            "url":"https://customs.gov.mm/Announcements",
+        }]
+        text = render_business_digest(digest, translator=lambda values: (values, False))
+        self.assertIn("Myanmar Customs", text)
+        self.assertIn("竞买内容：<b>海关拍卖：钢铁/塑料原料/一般消费品</b>", text)
+        self.assertIn("活动日 2026-09-28 10:00", text)
+        self.assertIn("下一步 9/16–18买表格；9/21–25缴保证金/看货；9/28 10:00拍卖", text)
+        self.assertNotIn("Generic Customs auction announcement", text)
+        self.assertNotIn("CUSTOMS-AUCTION-20260908", text)
 
     def test_watchlist_renders_all_current_medium_opportunities(self) -> None:
         with tempfile.TemporaryDirectory() as tmp, patch("signalforge.business_digest.business_briefing", return_value=_briefing()), patch(

@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "records": {
+    "customs-auction:2026-09-08:de1e5fca89686a1f": {
+      "source_id": "S08A",
+      "item_kind": "AUCTION_NOTICE",
+      "reference_no": "CUSTOMS-AUCTION-20260908-de1e5fca",
+      "publication_date": "2026-09-08",
+      "attachment_url": "https://customs.gov.mm/admin/storage/files/Announcement-1.pdf",
+      "document_sha256": "a02568e14012a5547e950e22422821434d7c03656c73abb865b90fbbe6b5ad6b",
+      "review_status": "REVIEWED_TEXT_PDF_CURRENT_EVENT",
+      "reviewed_at": "2026-09-16",
+      "fields": {
+        "business_stage": "OPPORTUNITY",
+        "scope_summary": "海关拍卖：钢铁/塑料原料/一般消费品",
+        "action_date": "2026-09-28",
+        "action_time": "10:00",
+        "action_date_kind": "AUCTION_DATE",
+        "action_date_evidence": "OFFICIAL_TEXT_NATIVE_PDF_EXPLICIT_AUCTION_DATE_TIME",
+        "commercial_event_type": "CUSTOMS_PUBLIC_AUCTION",
+        "commercial_direction": "BUY_FROM_ISSUER",
+        "location": "Yangon Customs Training School",
+        "location_evidence": "OFFICIAL_TEXT_NATIVE_PDF_EXPLICIT_LOCATION",
+        "next_action_summary": "9/16–18买表格；9/21–25缴保证金/看货；9/28 10:00拍卖",
+        "next_action_evidence": "OFFICIAL_TEXT_NATIVE_PDF_EXPLICIT_FORM_SALE_DEPOSIT_VIEWING_AUCTION_SCHEDULE",
+        "detail_completeness": "HTML_EVENT_METADATA_PLUS_REVIEWED_TEXT_PDF_BUSINESS_EVENT"
+      }
+    }
+  }
+}
