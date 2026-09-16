@@ -1312,6 +1312,43 @@ def run_assurance(
     }
 
 
+def _retained_tender_context(
+    conn, *, source_id: str, checked_at: str | None
+) -> dict[str, object]:  # type: ignore[no-untyped-def]
+    """Summarize retained issuer tender state without claiming current coverage.
+
+    This context is intentionally weaker than an independent coverage proof. It
+    answers only what the last retained issuer records say, so a source outage
+    can be communicated in business terms without turning stale data into a
+    claim that no newer opportunity exists.
+    """
+
+    try:
+        reference_at = datetime.fromisoformat(str(checked_at or "").replace("Z", "+00:00")).astimezone(_LOCAL_TZ)
+    except ValueError:
+        reference_at = datetime.now(_LOCAL_TZ)
+    reference_date = reference_at.date().isoformat()
+    rows = conn.execute(
+        """
+        SELECT publication_date,deadline
+        FROM canonical_items
+        WHERE source_id=? AND item_kind='TENDER'
+        """,
+        (source_id,),
+    ).fetchall()
+    publications = [str(row["publication_date"]) for row in rows if row["publication_date"]]
+    deadlines = [str(row["deadline"]) for row in rows if row["deadline"]]
+    open_count = sum(1 for deadline in deadlines if deadline >= reference_date)
+    return {
+        "retained_tender_count": len(rows),
+        "retained_open_tender_count": open_count,
+        "latest_retained_tender_publication_date": max(publications) if publications else None,
+        "latest_retained_tender_deadline": max(deadlines) if deadlines else None,
+        "retained_tender_context_as_of": reference_date,
+        "retained_tender_context_semantics": "RETAINED_STATE_ONLY_NOT_CURRENT_COVERAGE_PROOF",
+    }
+
+
 def _coverage_risk_rows(
     conn,  # type: ignore[no-untyped-def]
     *,
@@ -1351,6 +1388,9 @@ def _coverage_risk_rows(
             source_name = str(policy["name"])
         reason = str(details.get("reason") or details.get("error") or "COVERAGE_NOT_PROVEN")
         last_success_at = row["last_success_at"]
+        retained_context = _retained_tender_context(
+            conn, source_id=source_id, checked_at=str(row["checked_at"] or "") or None
+        )
         risks.append(
             {
                 "source_id": source_id,
@@ -1365,6 +1405,7 @@ def _coverage_risk_rows(
                 "known_miss": False,
                 "semantics": "COVERAGE_RISK_NOT_CONFIRMED_MISS",
                 "interpretation": "NO_NEW_SIGNAL_DOES_NOT_PROVE_NO_NEW_OPPORTUNITY",
+                **retained_context,
             }
         )
     return risks
