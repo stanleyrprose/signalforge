@@ -253,6 +253,38 @@ class AssuranceTests(unittest.TestCase):
             resolved = resolve_manual_promotion(str(promoted["promotion"]["promotion_id"]), note="closed", database=database)
             self.assertEqual(resolved["promotion"]["status"], "RESOLVED")
 
+    def test_inconclusive_noise_review_does_not_dilute_false_negative_rate(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            database = self._db(tmp)
+            self._insert_known_noise(database)
+            sampled = run_assurance(
+                database=database,
+                network=False,
+                noise_sample_size=1,
+                now=datetime(2026, 9, 15, 2, 0, tzinfo=UTC),
+            )
+            sample_id = str(sampled["noise_samples_created"][0]["noise_sample_id"])
+            review_noise_sample(
+                sample_id,
+                outcome="INCONCLUSIVE",
+                note="historical raw evidence was not retained",
+                database=database,
+                now=datetime(2026, 9, 15, 3, 0, tzinfo=UTC),
+            )
+            reviewed = run_assurance(
+                database=database,
+                network=False,
+                noise_sample_size=0,
+                now=datetime(2026, 9, 15, 4, 0, tzinfo=UTC),
+            )
+            metrics = reviewed["metric_review"]["metrics"]
+            reasons = reviewed["metric_review"]["conclusions"]["review_reasons"]
+            self.assertEqual(metrics["noise_samples_reviewed_window"], 1)
+            self.assertEqual(metrics["noise_samples_conclusive_window"], 0)
+            self.assertEqual(metrics["noise_samples_inconclusive_window"], 1)
+            self.assertIsNone(metrics["noise_false_negative_rate"])
+            self.assertIn("NO_CONCLUSIVE_NOISE_SAMPLE_IN_WINDOW", reasons)
+
     def test_metric_validity_is_review_when_coverage_unproven_and_fail_with_red_miss(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             database = self._db(tmp)

@@ -671,6 +671,9 @@ def run_source(
         )
         sitemap_bytes = sitemap_capture.payload
         sitemap_hash = sitemap_capture.sha256
+        # Evidence retention is tied to acquisition success, not parser success.
+        # Assurance must be able to replay zero-item and parser-failure outcomes.
+        _write_evidence(source_id, sitemap_bytes, sitemap_hash, evidence)
 
         if adapter.parse_discovery_records is not None:
             try:
@@ -699,7 +702,6 @@ def run_source(
             listing_changed = 0
             listing_signals = 0
             try:
-                _write_evidence(source_id, sitemap_bytes, sitemap_hash, evidence)
                 with connect(database) as conn, conn:
                     for item in discovery_records:
                         listing_semantic_transition = _listing_semantic_transition_only(
@@ -936,6 +938,8 @@ def run_source(
             processing_capture = detail_capture
             attachment_captures = []
             attachment_payloads: list[tuple[str, bytes]] = []
+            # Preserve the acquired detail before attachment extraction or parsing.
+            _write_evidence(source_id, html, detail_capture.sha256, evidence)
 
             if adapter.extract_detail_attachments is not None:
                 attachment_policy = source.get("attachment_policy") or {}
@@ -982,6 +986,13 @@ def run_source(
                         )
                         attachment_captures.append(attachment_capture)
                         attachment_payloads.append((attachment_url, attachment_capture.payload))
+                        _write_evidence(
+                            source_id,
+                            attachment_capture.payload,
+                            attachment_capture.sha256,
+                            evidence,
+                            suffix=".pdf",
+                        )
                 except Exception:
                     if required_count > 0:
                         detail_errors += 1
@@ -1067,15 +1078,6 @@ def run_source(
             detail_changed = 0
             detail_signals = 0
             try:
-                _write_evidence(source_id, html, detail_capture.sha256, evidence)
-                for attachment_capture in attachment_captures:
-                    _write_evidence(
-                        source_id,
-                        attachment_capture.payload,
-                        attachment_capture.sha256,
-                        evidence,
-                        suffix=".pdf",
-                    )
                 with connect(database) as conn, conn:
                     canonical_marker = parsed_tenders[0].canonical_key if len(parsed_tenders) == 1 else None
                     conn.execute(

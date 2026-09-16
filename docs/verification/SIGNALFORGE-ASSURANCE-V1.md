@@ -27,9 +27,9 @@ S13/MPT and S41/MYTEL reuse the already independent auditor reconciliations. S20
 `noise_review_samples` provides a review queue. The candidate pool is limited to evidence SignalForge can actually prove it filtered or excludes:
 
 - exact audited historical Signal noise already excluded by Source Scorecard accounting;
-- `processing_records` where processing succeeded but produced zero items, joined to the original evidence envelope.
+- `processing_records` where processing succeeded but produced zero items and the original raw evidence is still retained and replayable, joined to the original evidence envelope.
 
-Selection is deterministic-random per calendar date and bounded. Previously sampled candidates are not repeatedly sampled while alternatives remain.
+Selection is deterministic-random per calendar date and bounded. Previously sampled candidates are not repeatedly sampled while alternatives remain. Acquisition evidence is persisted before parsing so future zero-item and parser-failure outcomes remain replayable. Historical zero-item rows whose raw artifact was not retained are measured as an auditability gap rather than silently treated as reviewable noise.
 
 Human outcomes are:
 
@@ -62,7 +62,8 @@ Each Assurance run persists a `metric_reviews` record. There is no opaque compos
 - active and GREEN sources;
 - mandatory coverage proof rate and status distribution;
 - open misses and open RED misses;
-- reviewed noise samples, false negatives, and false-negative rate;
+- reviewed, conclusive, and inconclusive noise samples; false negatives; false-negative rate over conclusive reviews only;
+- replayable vs unreplayable zero-item filtered evidence;
 - current opportunities;
 - effective vs raw Signals and known historical noise;
 - Telegram alerts;
@@ -72,7 +73,7 @@ Each Assurance run persists a `metric_reviews` record. There is no opaque compos
 Transparent rules:
 
 - `FAIL` if any open RED miss exists or a mandatory coverage source has a confirmed `GAP`.
-- `REVIEW` if mandatory coverage is `UNPROVEN`, `PARTIAL`, or `CHECK_FAILED`; if there is no reviewed noise sample in the current review window; or if technical health is healthy while no business outcome is being observed.
+- `REVIEW` if mandatory coverage is `UNPROVEN`, `PARTIAL`, or `CHECK_FAILED`; if there is no conclusive noise sample in the current review window; if recent filtered zero-item evidence is not replayable; if a recent noise review found a false negative; or if technical health is healthy while no business outcome is being observed.
 - `PASS` only when neither FAIL nor REVIEW conditions apply.
 
 `active_sources`, `green_sources`, and `raw_signals` are diagnostic metrics only. They are never sufficient proof of commercial value.

@@ -134,6 +134,45 @@ class EngineTests(unittest.TestCase):
             self.assertIsNone(discovery[1])
             self.assertEqual(discovery[2], 0)
 
+    def test_zero_item_detail_retains_raw_evidence_for_assurance(self) -> None:
+        registry = Registry.load(ROOT)
+        sitemap = _sitemap([(TENDER_URL, "2026-09-02T12:00:00+00:00")])
+        filtered_html = b"<html><body><h1>Not a tender detail</h1></body></html>"
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            db = base / "signalforge.db"
+            evidence = base / "evidence"
+            result = run_source(
+                "S13",
+                registry=registry,
+                now=datetime(2026, 9, 2, 12, 0, tzinfo=UTC),
+                fetcher=FixtureFetcher(sitemap, filtered_html),
+                sleeper=lambda _seconds: None,
+                force=True,
+                database=db,
+                evidence=evidence,
+                worker_context={"run_id": "zero-item-evidence"},
+            )
+            self.assertEqual(result["status"], "SUCCESS")
+            self.assertEqual(result["details_attempted"], 1)
+            self.assertEqual(result["tenders"], 0)
+            with sqlite3.connect(db) as conn:
+                artifact_sha = conn.execute(
+                    "SELECT artifact_sha256 FROM evidence_envelopes WHERE requested_url=?",
+                    (TENDER_URL,),
+                ).fetchone()[0]
+                processing = conn.execute(
+                    """
+                    SELECT p.status,p.items_found
+                    FROM processing_records p
+                    JOIN evidence_envelopes e ON e.evidence_id=p.evidence_id
+                    WHERE e.requested_url=?
+                    """,
+                    (TENDER_URL,),
+                ).fetchone()
+            self.assertEqual(processing, ("SUCCESS", 0))
+            self.assertEqual((evidence / "S13" / f"{artifact_sha}.html").read_bytes(), filtered_html)
+
     def test_baseline_suppresses_signal_then_material_change_updates(self) -> None:
         registry = Registry.load(ROOT)
         sitemap = (FIXTURES / "mpt_page_sitemap.xml").read_bytes()
