@@ -32,6 +32,8 @@ _KEYWORDS: dict[str, tuple[str, ...]] = {
         "network equipment",
         "network infrastructure",
         "scanner",
+        "scada",
+        "database",
     ),
     "ENERGY": (
         "energy",
@@ -76,6 +78,7 @@ _KEYWORDS: dict[str, tuple[str, ...]] = {
 }
 
 _SOURCE_CATEGORY_FALLBACK = {
+    "S20": "ENERGY",
     "S26": "MEDICAL",
     "S38": "INDUSTRIAL",
     "S39": "ENERGY",

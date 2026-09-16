@@ -12,6 +12,7 @@ from .mte_reviewed_enrichment import apply_reviewed_mte_overlay
 from .qualification import QUALIFICATION_POLICY_VERSION, qualify_opportunity
 
 MYANMAR_TZ = timezone(timedelta(hours=6, minutes=30))
+UNKNOWN_OPPORTUNITY_FRESHNESS_DAYS = 45
 
 
 def _deadline_kind(payload: dict[str, object], source_id: str) -> str | None:
@@ -225,6 +226,14 @@ def current_opportunities(
                 continue
             source_id_value = str(row["source_id"])
             source_policy = source_policies.get(source_id_value) if isinstance(source_policies, dict) else None
+            # S20 is an issuer tender-only surface. Older canonical rows predate the
+            # business-stage field even when they already have a real Signal. Keep
+            # this as a read-model compatibility rule instead of rewriting history.
+            if source_id_value == "S20" and str(row["item_kind"]) == "TENDER":
+                payload = dict(payload)
+                payload.setdefault("business_stage", "OPPORTUNITY")
+                if not payload.get("scope_summary"):
+                    payload["scope_summary"] = payload.get("project_name") or row["project_name"]
             stage = str(payload.get("business_stage") or "").upper()
             legacy_actionable_tender = (
                 stage == ""
@@ -271,6 +280,17 @@ def current_opportunities(
             else:
                 opportunity_status = "OPEN"
                 remaining_seconds = int((action_at - now).total_seconds())
+
+            # Unknown-deadline tenders are useful for a bounded review window, but
+            # must not remain in the "current" view forever.
+            if opportunity_status == "UNKNOWN":
+                publication_raw = payload.get("publication_date") or row["publication_date"]
+                try:
+                    publication_date = datetime.fromisoformat(str(publication_raw)).date()
+                except (TypeError, ValueError):
+                    publication_date = None
+                if publication_date is not None and publication_date < (now.astimezone(MYANMAR_TZ).date() - timedelta(days=UNKNOWN_OPPORTUNITY_FRESHNESS_DAYS)):
+                    opportunity_status = "EXPIRED"
 
             if opportunity_status == "EXPIRED" and not include_expired:
                 continue

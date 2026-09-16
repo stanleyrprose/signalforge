@@ -120,6 +120,24 @@ def _title_product_fragments(title: object) -> list[str]:
     return fragments
 
 
+def _moep_business_summary(scope: object) -> str | None:
+    raw = _presentation_cleanup(scope)
+    if not raw:
+        return None
+    if "Database Creation and Modification" in raw and re.search(r"SCADA[- ]+EMS", raw, re.IGNORECASE):
+        return "500kV Phayagyi、Hlaingtharyar、Taungoo 变电站现有 SCADA-EMS 数据库创建与修改"
+    spare_match = re.search(r"(?:စက်အရံ)?设备\s*(\d+)类", raw)
+    if spare_match and "လျှပ်စစ်" in raw:
+        return f"水电站机械及电气备件 {spare_match.group(1)}类"
+    if "ACSR Conductor" in raw and "ACCC Conductor" in raw:
+        distance = re.search(r"\(([0-9.]+)\)\s*မိုင်", raw)
+        distance_text = f" {distance.group(1)}英里" if distance else ""
+        return f"230kV Kamanat–Hlawga{distance_text}线路 ACSR→ACCC 导线更换所需材料"
+    if "အောက်ဖော်ပြပါပစ္စည်း" in raw or "လိုအပ်သော" in raw:
+        return "电力采购项目（官方附件当前失效，具体物资待核验）"
+    return None
+
+
 def _industry_scope_product_fragments(scope: object) -> list[str]:
     """Extract the concrete goods/services already present in current S38 scope text."""
     raw = _presentation_cleanup(scope)
@@ -464,6 +482,10 @@ def render_business_digest(
         scope = _presentation_cleanup(item.get("scope_excerpt"))
         quantity = _presentation_cleanup(item.get("quantity_or_lot_summary"))
         source_id = str(item.get("source_id") or "")
+        if source_id == "S20":
+            moep_summary = _moep_business_summary(scope)
+            if moep_summary:
+                return _compact(moep_summary, 240)
         industry_lots = _industry_lot_fragments(scope) if source_id == "S38" else []
         if industry_lots:
             return _compact("；".join(industry_lots), 240)
@@ -528,7 +550,21 @@ def render_business_digest(
         return translate_values([business_subject(item) for item in rows], 260)
 
     def translated_issuers(rows: list[dict[str, object]]) -> list[str]:
-        return translate_values([str(item.get("issuer") or "") for item in rows], 46)
+        values: list[str] = []
+        for item in rows:
+            issuer = str(item.get("issuer") or "")
+            if str(item.get("source_id") or "") == "S20":
+                upper = issuer.upper()
+                if "DPTSC" in upper:
+                    issuer = "MOEP / DPTSC"
+                elif "EPGE" in upper:
+                    issuer = "MOEP / EPGE"
+                elif "YESC" in upper:
+                    issuer = "MOEP / YESC"
+                else:
+                    issuer = "MOEP"
+            values.append(issuer)
+        return translate_values(values, 46)
 
 
     def official_link(url: object, label: str = "官方") -> str:
@@ -567,25 +603,8 @@ def render_business_digest(
     ]
 
     all_attention_rows = [item for item in attention if isinstance(item, dict)]
-    attention_rows = all_attention_rows[:4]
-    selected_keys = {str(item.get("canonical_key") or "") for item in attention_rows}
-    for item in all_attention_rows:
-        key = str(item.get("canonical_key") or "")
-        if key in selected_keys or str(item.get("primary_relevance") or "") not in {"ICT", "TELECOM"}:
-            continue
-        attention_rows.append(item)
-        selected_keys.add(key)
-        if len(attention_rows) >= 6:
-            break
-    for item in all_attention_rows:
-        if len(attention_rows) >= 6:
-            break
-        key = str(item.get("canonical_key") or "")
-        if key in selected_keys:
-            continue
-        attention_rows.append(item)
-        selected_keys.add(key)
-    attention_keys = {key for key in selected_keys if key}
+    attention_rows = all_attention_rows
+    attention_keys = {str(item.get("canonical_key") or "") for item in attention_rows if item.get("canonical_key")}
     if attention_rows:
         attention_issuers = translated_issuers(attention_rows)
         attention_subjects = translated_subjects(attention_rows)
