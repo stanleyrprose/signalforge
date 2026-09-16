@@ -5,6 +5,7 @@ from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 from zoneinfo import ZoneInfo
 
 from .config import repo_root
@@ -58,8 +59,21 @@ def reviewed_coverage_gaps(
             deadline = datetime.strptime(str(value["deadline"]), "%Y-%m-%d").date()
         except ValueError as exc:
             raise ValueError("invalid coverage-gap deadline") from exc
-        if not str(value["url"]).startswith("https://construction.gov.mm/letter-download/"):
-            raise ValueError("coverage-gap URL must be official MOC download URL")
+        url = str(value["url"])
+        parsed = urlparse(url)
+        source_id = str(value["source_id"])
+        if source_id == "S23":
+            valid_url = url.startswith("https://construction.gov.mm/letter-download/")
+        elif source_id == "S13" and str(value["evidence_basis"]).startswith("REVIEWED_NATIONAL_PORTAL_HOSTED_"):
+            valid_url = (
+                parsed.scheme == "https"
+                and parsed.hostname in {"myanmar.gov.mm", "www.myanmar.gov.mm"}
+                and parsed.path.startswith("/documents/")
+            )
+        else:
+            valid_url = False
+        if not valid_url:
+            raise ValueError("coverage-gap URL/evidence source combination is not allowlisted")
         if deadline < today:
             continue
         item = dict(value)

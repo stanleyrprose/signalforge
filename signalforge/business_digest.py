@@ -701,9 +701,9 @@ def render_business_digest(
     if coverage_gaps:
         lines.extend(["", "<b>⚠️ 人工核验机会（尚未进入正式 Signal）</b>"])
         gap_rows = [gap for gap in coverage_gaps[:4] if isinstance(gap, dict)]
-        gap_issuers = translate_values([str(gap.get("issuer") or "") for gap in gap_rows], 46)
-        gap_titles = translate_values([str(gap.get("business_summary") or gap.get("title") or "") for gap in gap_rows], 150)
-        gap_locations = translate_values([str(gap.get("location") or "") for gap in gap_rows], 34)
+        gap_issuers = translate_values([str(gap.get("issuer") or "") for gap in gap_rows], 34)
+        gap_titles = translate_values([str(gap.get("business_summary") or gap.get("title") or "") for gap in gap_rows], 110)
+        gap_locations = translate_values([str(gap.get("location") or "") for gap in gap_rows], 24)
         for index, gap in enumerate(gap_rows):
             source_id = html.escape(str(gap.get("source_id") or ""))
             issuer = html.escape(gap_issuers[index])
@@ -711,10 +711,28 @@ def render_business_digest(
             deadline = html.escape(str(gap.get("deadline") or ""))
             location = html.escape(gap_locations[index])
             url = str(gap.get("url") or "")
-            link = official_link(url, "官方记录") if url.startswith("https://construction.gov.mm/") else ""
+            allowed_gap_link = url.startswith((
+                "https://construction.gov.mm/",
+                "https://myanmar.gov.mm/documents/",
+                "https://www.myanmar.gov.mm/documents/",
+            ))
+            if url.startswith("https://construction.gov.mm/letter-download/"):
+                display_url = "https://construction.gov.mm/"
+            elif url.startswith((
+                "https://myanmar.gov.mm/documents/",
+                "https://www.myanmar.gov.mm/documents/",
+            )):
+                display_url = "https://myanmar.gov.mm/tenders"
+            else:
+                display_url = url
+            link = official_link(display_url, "官方记录") if allowed_gap_link else ""
+            next_action = _compact(gap.get("next_action_summary"), 60)
             lines.append(f"• <b>{issuer}</b> · [{source_id}]")
-            lines.append(f"   工程/采购内容：<b>{title}</b> · {location} · 截止 <b>{deadline}</b>{link}")
-        lines.append("<i>已人工核验，但因来源接入门槛未满足，暂不计入正式机会数。</i>")
+            detail = f"   工程/采购内容：<b>{title}</b> · {location} · 截止 <b>{deadline}</b>{link}"
+            if next_action:
+                detail += f" · 下一步 {html.escape(next_action)}"
+            lines.append(detail)
+        lines.append("<i>人工核验线索，不计入正式机会数。</i>")
 
     manual_rows = [item for item in manual_items[:3] if isinstance(item, dict)]
     if manual_rows:
@@ -777,15 +795,6 @@ def render_business_digest(
         "",
         f"<b>📌 业务概览</b>：当前 <b>{business.get('current_opportunities', 0)}</b> 个机会 · HIGH {priorities.get('HIGH', 0)} · MEDIUM {priorities.get('MEDIUM', 0)} · REVIEW {priorities.get('REVIEW', 0)}",
     ])
-    open_misses = int(assurance.get("open_misses") or 0)
-    red_misses = int(assurance.get("open_red_misses") or 0)
-    metric_validity = html.escape(str(assurance.get("metric_validity") or "NOT_RUN"))
-    findings = int(auditor.get("finding_count") or 0)
-    footer_icon = "🔴" if red_misses else ("⚠️" if int(sources.get("non_green", 0) or 0) or findings or open_misses else "✅")
-    lines.append(
-        f"{footer_icon} {sources.get('green', 0)}/{sources.get('monitored', 0)}源 GREEN · "
-        f"Assurance {metric_validity} · 漏报 {open_misses}"
-    )
     if digest_was_translated:
         lines.append("🌐 缅文内容已机器翻译为中文（事实以官方原文为准）")
 

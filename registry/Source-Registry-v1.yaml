@@ -83,6 +83,24 @@
       }
     }
   },
+  "assurance_surfaces": {
+    "S01": {
+      "name": "Myanmar National Portal Tenders",
+      "enabled": true,
+      "role": "DISCOVERY_AGGREGATOR_ONLY",
+      "landing_url": "https://myanmar.gov.mm/tenders",
+      "discovery_url": "https://myanmar.gov.mm/tenders",
+      "network_zone": "myanmar-international",
+      "engine": "direct_http",
+      "current_page_only": true,
+      "canonical_truth": false,
+      "closing_date_is_hint_only": true,
+      "request_timeout_seconds": 30,
+      "request_max_bytes": 500000,
+      "selection_policy_version": 1,
+      "source_policy_version": 1
+    }
+  },
   "sources": {
     "S13": {
       "name": "MPT Tender Information",
@@ -2900,7 +2918,7 @@
     }
   },
   "deferred_sources": {
-    "S01": "Myanmar National Portal Tenders — DEFER canonical onboarding; keep for future discovery-aggregator/issuer-resolution contract after 2026-09-04 metadata contradiction audit",
+    "S01": "Myanmar National Portal Tenders — CANONICAL STILL DEFERRED; Assurance discovery-aggregator surface activated after 2026-09-16 MPT coverage-gap proof. Closing Date remains hint-only and S01 never overrides issuer truth.",
     "S04": "Myanmar National Trade Portal Legal Documents — DEFER canonical onboarding; official multi-agency aggregator overlaps issuer-original S05A/S07/S12 and requires cross-source issuer-resolution/dedup contract",
     "S15A": "MPA Tender Category — DEFER automated production scheduling; Mac direct C0 + bounded Manual Provider Bridge LISTING/DETAIL/PDF path are GREEN while Bangkok strict-TLS remains RED (curl 60 / issuer chain incomplete); deterministic PDF classification and explicit operator-only manual canonical commit are authorized/implemented, but acquisition remains manual and mac-mm-01 remote invocation remains disabled; do not bypass TLS or add unattended Mac automation at the current low event rate",
     "S15B": "MPA legacy Tender URL — DEFER under the same Bangkok RED-TLS / Mac GREEN acquisition boundary and S15A onboarding decision",
