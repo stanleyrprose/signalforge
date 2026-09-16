@@ -139,6 +139,7 @@ class BusinessDigestTests(unittest.TestCase):
             digest = business_digest(database=self._db(tmp), registry=_Registry(), now=datetime(2026,9,10,12,0,tzinfo=UTC))  # type: ignore[arg-type]
         text = render_business_digest(digest)
         self.assertIn("SignalForge Myanmar 商机日报", text)
+        self.assertIn("当前有效机会 + 过去24小时变化", text)
         self.assertIn("🔥 今天先看：2 条需处理", text)
         self.assertIn("Ministry of Energy", text)
         self.assertIn("优先跟进", text)
@@ -283,6 +284,42 @@ class BusinessDigestTests(unittest.TestCase):
         self.assertIn("1/7 PC 彩色纱线 49,460 磅", text)
         self.assertNotIn("ပီစီချည်", text)
 
+    def test_digest_extracts_current_medium_procurement_content(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp, patch("signalforge.business_digest.business_briefing", return_value=_briefing()), patch(
+            "signalforge.business_digest.audit", return_value=_audit()
+        ), patch("signalforge.business_digest.source_scorecard", return_value=_scorecard()):
+            digest = business_digest(database=self._db(tmp), registry=_Registry(), now=datetime(2026,9,16,2,0,tzinfo=UTC))  # type: ignore[arg-type]
+        digest["business"]["attention"] = []
+        digest["business"]["watchlist_count"] = 3
+        digest["business"]["watchlist_items"] = [
+            {
+                "canonical_key": "industry:1035", "source_id": "S38", "item_kind": "TENDER",
+                "issuer": "Ministry of Industry, Myanmar", "title": "Raw materials tender",
+                "scope_excerpt": "Refractory (၅၀) မျိုး Castable Mortar (၁၀) မျိုး Consumable (၄) မျိုး Scrap ကုန်ကြမ်း HMS-1 (2000) Tons HMS-2 (1495) Tons",
+                "deadline": "2026-10-02", "deadline_status": "OPEN",
+            },
+            {
+                "canonical_key": "industry:1039", "source_id": "S38", "item_kind": "TENDER",
+                "issuer": "Ministry of Industry, Myanmar", "title": "Spares tender",
+                "scope_excerpt": "စက်ဆီ၊ချောဆီ (၉)မျိုး Electrical စက်အရန် ပစ္စည်း (၂၃)မျိုး Mechanical စက်အရန်ပစ္စည်း (၄၃)မျိုး",
+                "deadline": "2026-09-25", "deadline_status": "OPEN",
+            },
+            {
+                "canonical_key": "iwt:1038:2026-08-25", "source_id": "S22", "item_kind": "TENDER",
+                "issuer": "Inland Water Transport (Myanmar)",
+                "title": "အောက်ဖော်ပြပါရေယာဉ် ၁ စီးကို ဝယ်ယူရန် အပြိုင်ဈေးနှုန်းလွှာများ တင်သွင်းရန် ဖိတ်ခေါ်အပ်ပါသည်။",
+                "deadline": "2026-11-03", "deadline_status": "OPEN",
+            },
+        ]
+        text = render_business_digest(digest, translator=lambda values: (values, False))
+        self.assertIn("Refractory 50类", text)
+        self.assertIn("HMS-1 2000吨", text)
+        self.assertIn("HMS-2 1495吨", text)
+        self.assertIn("润滑油 9类", text)
+        self.assertIn("Electrical 备件 23类", text)
+        self.assertIn("Mechanical 备件 43类", text)
+        self.assertIn("船舶 ×1艘", text)
+
     def test_render_keeps_distinct_opportunities_from_same_source(self) -> None:
         with tempfile.TemporaryDirectory() as tmp, patch("signalforge.business_digest.business_briefing", return_value=_briefing()), patch(
             "signalforge.business_digest.audit", return_value=_audit()
@@ -426,6 +463,31 @@ class BusinessDigestTests(unittest.TestCase):
         self.assertIn("今天先看：8 条需处理（展示前 6 条）", text)
         self.assertIn("Opportunity 5", text)
         self.assertNotIn("Opportunity 6", text)
+
+    def test_watchlist_renders_all_current_medium_opportunities(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp, patch("signalforge.business_digest.business_briefing", return_value=_briefing()), patch(
+            "signalforge.business_digest.audit", return_value=_audit()
+        ), patch("signalforge.business_digest.source_scorecard", return_value=_scorecard()):
+            digest = business_digest(database=self._db(tmp), registry=_Registry(), now=datetime(2026,9,14,2,0,tzinfo=UTC))  # type: ignore[arg-type]
+        digest["business"]["attention"] = []
+        digest["business"]["watchlist_items"] = [
+            {
+                "canonical_key": f"watch:{index}",
+                "source_id": "S38" if index < 4 else "S22",
+                "item_kind": "TENDER",
+                "issuer": "Issuer",
+                "title": f"Medium opportunity {index}",
+                "deadline": f"2026-09-{20 + index:02d}",
+                "deadline_status": "OPEN",
+            }
+            for index in range(7)
+        ]
+        digest["business"]["watchlist_count"] = 7
+        text = render_business_digest(digest)
+        self.assertIn("后续跟进：7 条 MEDIUM", text)
+        self.assertNotIn("展示前 2 条", text)
+        for index in range(7):
+            self.assertIn(f"Medium opportunity {index}", text)
 
     def test_render_truncates_only_at_line_boundaries(self) -> None:
         with tempfile.TemporaryDirectory() as tmp, patch("signalforge.business_digest.business_briefing", return_value=_briefing()), patch(
