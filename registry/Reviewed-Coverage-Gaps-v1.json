@@ -10,8 +10,10 @@
       "deadline": "2026-09-16",
       "url": "https://construction.gov.mm/letter-download/0f39a580-a813-11f1-97b9-bbf17f490ccf",
       "reason": "S23_READY_TLS_BLOCKED_ISSUER_CERT_EXPIRED",
-      "evidence_basis": "REVIEWED_AUDIT_ONLY_OFFICIAL_HTML_SNAPSHOT",
-      "reviewed_at": "2026-09-13"
+      "evidence_basis": "REVIEWED_OFFICIAL_PDF_SCAN_OCR",
+      "reviewed_at": "2026-09-16",
+      "business_summary": "Ayeyarwady 桥梁工程：Bridge Construction Group (4) / Bridge Special Group (16) 2026–2027 桥梁项目所需采购、设备/服务租赁及运输服务",
+      "document_sha256": "a535ed98b05be836ef0d765feca644c75f58f5a60de82d3f3bd7cc55f36add5b"
     },
     {
       "gap_id": "S23:18be5b60-accb-11f1-b41f-3517e3a380a0",
@@ -22,8 +24,10 @@
       "deadline": "2026-09-23",
       "url": "https://construction.gov.mm/letter-download/18be5b60-accb-11f1-b41f-3517e3a380a0",
       "reason": "S23_READY_TLS_BLOCKED_ISSUER_CERT_EXPIRED",
-      "evidence_basis": "REVIEWED_AUDIT_ONLY_OFFICIAL_HTML_SNAPSHOT",
-      "reviewed_at": "2026-09-13"
+      "evidence_basis": "REVIEWED_OFFICIAL_TEXT_PDF",
+      "reviewed_at": "2026-09-16",
+      "business_summary": "Yangon–Mandalay Expressway 2026–2027 养护、维修及监管工程所需道路施工材料采购",
+      "document_sha256": "161e6400cb19ef0b6bf116d73745f4b2efdb8a0c7b45e9468632e388481277c0"
     }
   ]
 }

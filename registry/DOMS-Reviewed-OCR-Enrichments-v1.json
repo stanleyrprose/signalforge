@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "records": {
+    "doms:12735": {
+      "source_id": "S26",
+      "item_kind": "TENDER",
+      "reference_no": "8DMS/2026-2027(L)",
+      "article_url": "https://www.doms.gov.mm/2026/09/08/%E1%80%90%E1%80%84%E1%80%BA%E1%80%92%E1%80%AB%E1%80%A1%E1%80%99%E1%80%BE%E1%80%90%E1%80%BA-8dms-2026-2027l-9dms-2026-2027l-%E1%80%94%E1%80%BE%E1%80%84%E1%80%B7%E1%80%BA-10dms-2026-2027f/",
+      "review_status": "REVIEWED_OCR_SCOPE",
+      "reviewed_at": "2026-09-16",
+      "pdf_evidence": [
+        {
+          "tender_no": "8DMS/2026-2027(L)",
+          "sha256": "c7ca25083cef996573b8fdf8497d99cfe5b880963e2341e30034ff4247520d53"
+        },
+        {
+          "tender_no": "9DMS/2026-2027(L)",
+          "sha256": "f14670b56901aacb6a34c0cb1d3f6ab10add43516b3cedae237a7466e7011f03"
+        },
+        {
+          "tender_no": "10DMS/2026-2027(F)",
+          "sha256": "e1139db3982b451a2d4b7731a6e0d2a8beb7d71193ec82d30f7fd35c736e7f2b"
+        }
+      ],
+      "fields": {
+        "scope_summary": "8DMS：Normalizer 135/165/220KVA ×4/2/4；Ortho Instrument Set ×5。9DMS：Pleuro Bronchoscope；Dental CAD-CAM+3D Printer+Scanner ×1；OCT ×2；Optical Biometry ×4；OGD Scope；Laparoscope Set。10DMS：300mA X-Ray；Mammography；3-Probe Ultrasound；Spine/Traction Operation Table。",
+        "quantity_or_lot_summary": "已核验数量：Normalizer 4/2/4 台；Orthopaedic Instrument Set 5 套；Dental Lab Set 1 套；OCT AngioPlex 2 台；Optical Biometry 4 台；其余数量因扫描表格 OCR 不稳定暂不宣称",
+        "quantity_or_lot_evidence": "REVIEWED_OFFICIAL_SCAN_OCR_CROSS_CHECKED",
+        "quantity_or_lot_confidence": "MIXED_VERIFIED_ONLY",
+        "detail_completeness": "HTML_ATTACHMENT_METADATA_PLUS_REVIEWED_SCAN_OCR_SCOPE",
+        "image_review_notes": "Official DOMS scan-only PDFs reviewed with Mac Browser Plane artifact_ocr (Tesseract mya+eng). Tender identifiers were cross-checked against issuer HTML/attachment metadata. Only quantities stable across OCR layouts were retained; tender deadline remains unknown because it is not present in the reviewed attachment pages."
+      }
+    }
+  }
+}
