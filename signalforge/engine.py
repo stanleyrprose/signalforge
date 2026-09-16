@@ -44,6 +44,52 @@ def _json(value: object) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
 
+_OUTAGE_BACKOFF_FAILURES = {
+    "CONNECT_TIMEOUT",
+    "DNS_FAILURE",
+    "HTTP_429",
+    "HTTP_5XX",
+}
+
+
+def _latest_acquisition_failure(conn, scheduler_run_id: str) -> str | None:  # type: ignore[no-untyped-def]
+    row = conn.execute(
+        """
+        SELECT a.acquisition_failure_class
+        FROM acquisition_attempts a
+        JOIN acquisition_requests r ON r.request_id=a.request_id
+        WHERE r.scheduler_run_id=?
+          AND a.status='FAILED'
+          AND a.acquisition_failure_class IS NOT NULL
+        ORDER BY a.started_at DESC, a.attempt_number DESC
+        LIMIT 1
+        """,
+        (scheduler_run_id,),
+    ).fetchone()
+    return str(row[0]) if row is not None else None
+
+
+def _failure_retry_delay_seconds(
+    source: dict[str, object],
+    *,
+    failure_class: str | None,
+    consecutive_failures_after: int,
+) -> int:
+    base = int(source["retry_interval_seconds"])
+    if failure_class not in _OUTAGE_BACKOFF_FAILURES:
+        return base
+
+    raw_cap = source.get("recovery_slo_seconds")
+    if isinstance(raw_cap, int) and raw_cap > 0:
+        cap = max(base, raw_cap)
+    else:
+        cap = max(base, int(source.get("poll_interval_seconds", base)))
+
+    tier = max(0, (consecutive_failures_after - 1) // 3)
+    multiplier = 1 << min(tier, 8)
+    return min(base * multiplier, cap)
+
+
 def _material_hash(payload: dict[str, object]) -> str:
     return hashlib.sha256(_json(payload).encode("utf-8")).hexdigest()
 
@@ -1232,12 +1278,19 @@ def run_source(
             "next_due_at": next_due,
         }
     except Exception as exc:
-        retry_due = _iso(now + timedelta(seconds=int(source["retry_interval_seconds"])))
         error = f"{type(exc).__name__}: {exc}"[:300]
         with connect(database) as conn:
             existing = _source_state(conn, source_id)
             existing_failures = int(existing["consecutive_failures"] or 0) if existing is not None else 0
             backlog_remaining, _oldest_pending = _pending_summary(conn, source_id)
+            acquisition_failure = _latest_acquisition_failure(conn, app_run_id)
+        consecutive_failures_after = existing_failures + 1
+        retry_delay_seconds = _failure_retry_delay_seconds(
+            source,
+            failure_class=acquisition_failure,
+            consecutive_failures_after=consecutive_failures_after,
+        )
+        retry_due = _iso(now + timedelta(seconds=retry_delay_seconds))
         with connect(database) as conn, conn:
             conn.execute(
                 """
@@ -1258,7 +1311,7 @@ def run_source(
                     int(not baseline),
                     retry_due,
                     error,
-                    existing_failures + 1,
+                    consecutive_failures_after,
                     outage_start,
                     outage_end,
                     observed_at,

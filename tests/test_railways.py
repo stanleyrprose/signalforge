@@ -8,7 +8,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from signalforge.config import Registry
-from signalforge.engine import run_source
+from signalforge.db import migrate
+from signalforge.engine import _failure_retry_delay_seconds, run_source
 from signalforge.railways import parse_tender_detail, parse_tender_listing
 
 
@@ -66,6 +67,100 @@ class RailwayParserTests(unittest.TestCase):
 
 
 class RailwayEngineTests(unittest.TestCase):
+    def test_connect_timeout_retry_backoff_is_capped_by_recovery_slo(self) -> None:
+        source = _railway_registry().raw["sources"]["S21"]
+        expected = {
+            1: 300,
+            3: 300,
+            4: 600,
+            6: 600,
+            7: 1200,
+            9: 1200,
+            10: 1800,
+            500: 1800,
+        }
+        for failures, delay in expected.items():
+            self.assertEqual(
+                _failure_retry_delay_seconds(
+                    source,
+                    failure_class="CONNECT_TIMEOUT",
+                    consecutive_failures_after=failures,
+                ),
+                delay,
+            )
+        self.assertEqual(
+            _failure_retry_delay_seconds(
+                source,
+                failure_class="TRANSPORT_UNKNOWN",
+                consecutive_failures_after=500,
+            ),
+            300,
+        )
+
+    def test_failed_acquisition_uses_persisted_failure_class_for_backoff(self) -> None:
+        registry = _railway_registry()
+
+        def timeout_fetcher(_url: str, **_kwargs) -> bytes:
+            raise TimeoutError("connect timed out")
+
+        now = datetime(2026, 9, 16, 9, 0, tzinfo=UTC)
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            db = base / "signalforge.db"
+            evidence = base / "evidence"
+            migrate(db)
+            with sqlite3.connect(db) as conn:
+                conn.execute(
+                    """
+                    INSERT INTO source_state(
+                        source_id,baseline_complete,last_success_at,next_due_at,last_error,
+                        consecutive_failures,updated_at
+                    ) VALUES (?,?,?,?,?,?,?)
+                    """,
+                    (
+                        "S21",
+                        1,
+                        "2026-09-13T13:00:00Z",
+                        "2026-09-16T09:00:00Z",
+                        "previous timeout",
+                        9,
+                        "2026-09-16T08:30:00Z",
+                    ),
+                )
+
+            with self.assertRaises(TimeoutError):
+                run_source(
+                    "S21",
+                    registry=registry,
+                    now=now,
+                    fetcher=timeout_fetcher,
+                    sleeper=lambda _seconds: None,
+                    force=True,
+                    database=db,
+                    evidence=evidence,
+                    worker_context={"run_id": "railways-timeout-backoff"},
+                )
+
+            with sqlite3.connect(db) as conn:
+                state = conn.execute(
+                    "SELECT next_due_at,consecutive_failures FROM source_state WHERE source_id='S21'"
+                ).fetchone()
+                failure = conn.execute(
+                    """
+                    SELECT a.acquisition_failure_class
+                    FROM acquisition_attempts a
+                    JOIN acquisition_requests r ON r.request_id=a.request_id
+                    WHERE r.scheduler_run_id=(
+                        SELECT app_run_id FROM scheduler_runs WHERE source_id='S21' ORDER BY started_at DESC LIMIT 1
+                    )
+                    ORDER BY a.started_at DESC
+                    LIMIT 1
+                    """
+                ).fetchone()[0]
+
+            self.assertEqual(state, ("2026-09-16T09:30:00Z", 10))
+            self.assertEqual(failure, "CONNECT_TIMEOUT")
+
     def test_baseline_multi_item_page_is_signal_free_then_one_material_change_signals_once(self) -> None:
         registry = _railway_registry()
         listing = (FIXTURES / "railways_tender_list.html").read_bytes()
