@@ -98,6 +98,22 @@ class QualificationTests(unittest.TestCase):
             result["signal_quality_dimensions"]["strategic_relevance"]["evidence"],
         )
 
+    def test_doms_medical_source_keeps_medical_primary_when_scope_contains_scanner(self) -> None:
+        item = {
+            "source_id": "S26",
+            "title": "Tender 8DMS, 9DMS and 10DMS",
+            "scope_summary": "Dental CAD-CAM, 3D Printer, Intra Oral Scanner, OCT, X-Ray and medical equipment",
+            "deadline_status": "UNKNOWN",
+            "remaining_seconds": None,
+            "detail_completeness": "HTML_ATTACHMENT_METADATA_PLUS_REVIEWED_SCAN_OCR_SCOPE",
+            "reference_no": "8DMS/2026-2027(L)",
+        }
+        result = qualify_opportunity(item, {"engine": "direct_http", "name": "DOMS Medical Procurement Opportunities"})
+        self.assertEqual(result["primary_relevance"], "MEDICAL")
+        self.assertEqual(result["relevance_categories"][0], "MEDICAL")
+        self.assertIn("ICT", result["relevance_categories"])
+        self.assertEqual(result["relevance_provenance"]["MEDICAL"], "ITEM_TEXT_KEYWORD:medical")
+
     def test_unknown_deadline_stays_review_grade(self) -> None:
         item = {
             "source_id": "S26",

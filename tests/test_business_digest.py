@@ -183,7 +183,7 @@ class BusinessDigestTests(unittest.TestCase):
         self.assertEqual(changes[0]["source_id"], "S38")
         text = render_business_digest(digest)
         self.assertIn("🆕 24h 新增/更新", text)
-        self.assertIn("Ministry of Industry, Myanmar</b> · [S38]", text)
+        self.assertIn("Ministry of Industry</b> · [S38]", text)
         self.assertIn("采购内容：<b>Steel Scrap (HMS-1) 1,000 tons", text)
         self.assertIn("2026-09-14 16:00", text)
         self.assertIn('href="https://www.industrymsme.gov.mm/announcements/1027"', text)
@@ -215,7 +215,7 @@ class BusinessDigestTests(unittest.TestCase):
                 "primary_relevance": "ICT",
                 "issuer": "Ministry of Foreign Affairs, Myanmar",
                 "title": "Open Tender",
-                "scope_excerpt": "Tender invitation | (a) Data Server (1) Set | eligibility terms",
+                "scope_excerpt": "Tender invitation | (a) Data Server (1) Set | Windows Server 2025 Standard 24 Core with Microsoft License | Microsoft SQL Server 2022 Standard",
                 "deadline": "2026-09-18",
                 "deadline_time": "16:30",
                 "deadline_status": "OPEN",
@@ -239,6 +239,8 @@ class BusinessDigestTests(unittest.TestCase):
         self.assertIn("ICDD PDF-2 Software ×1 Lot", text)
         self.assertIn("Book Scanner, Motorized Screen, Desktop Computer and UPS ×2组", text)
         self.assertIn("Data Server ×1套", text)
+        self.assertIn("Windows Server 2025 Standard 24 Core", text)
+        self.assertIn("SQL Server 2022 Standard", text)
         self.assertIn("采购明细尚未从官方附件抽取", text)
         self.assertNotIn("采购内容：<b>Open Tender 27/2026-2027", text)
 
@@ -342,7 +344,7 @@ class BusinessDigestTests(unittest.TestCase):
         self.assertIn("润滑油 9类", text)
         self.assertIn("Electrical 备件 23类", text)
         self.assertIn("Mechanical 备件 43类", text)
-        self.assertIn("船舶 ×1艘", text)
+        self.assertIn("Coastal Cargo Vessel ×1艘", text)
 
     def test_render_keeps_distinct_opportunities_from_same_source(self) -> None:
         with tempfile.TemporaryDirectory() as tmp, patch("signalforge.business_digest.business_briefing", return_value=_briefing()), patch(

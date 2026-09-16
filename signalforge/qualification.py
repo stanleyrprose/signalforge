@@ -85,6 +85,7 @@ _SOURCE_CATEGORY_FALLBACK = {
 }
 
 _PRIMARY_RELEVANCE_ORDER = ("TELECOM", "ICT", "ENERGY", "INDUSTRIAL", "MEDICAL", "CONSTRUCTION")
+_SOURCE_PRIMARY_RELEVANCE = {"S26": "MEDICAL"}
 
 
 def _has_business_scope(item: dict[str, object]) -> bool:
@@ -143,6 +144,9 @@ def _relevance_categories(
     ordered = [category for category in _PRIMARY_RELEVANCE_ORDER if category in categories] + [
         category for category in categories if category not in _PRIMARY_RELEVANCE_ORDER
     ]
+    preferred = _SOURCE_PRIMARY_RELEVANCE.get(source_id)
+    if preferred in ordered:
+        ordered = [preferred] + [category for category in ordered if category != preferred]
     return ordered, {category: provenance[category] for category in ordered}
 
 

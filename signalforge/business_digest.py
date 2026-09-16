@@ -120,6 +120,23 @@ def _title_product_fragments(title: object) -> list[str]:
     return fragments
 
 
+def _mofa_business_summary(scope: object) -> str | None:
+    raw = _presentation_cleanup(scope)
+    if not raw:
+        return None
+    fragments: list[str] = []
+    server = re.search(r"Data Server\s*\(?\s*(\d+)\s*\)?\s*Set", raw, re.IGNORECASE)
+    if server:
+        fragments.append(f"Data Server ×{server.group(1)}套")
+    windows = re.search(r"Windows Server\s+(20\d{2})\s+Standard\s+(\d+)\s+Core", raw, re.IGNORECASE)
+    if windows:
+        fragments.append(f"Windows Server {windows.group(1)} Standard {windows.group(2)} Core")
+    sql = re.search(r"(?:Microsoft\s+)?SQL Server\s+(20\d{2})\s+Standard", raw, re.IGNORECASE)
+    if sql:
+        fragments.append(f"SQL Server {sql.group(1)} Standard")
+    return "；".join(fragments) if fragments else None
+
+
 def _moep_business_summary(scope: object) -> str | None:
     raw = _presentation_cleanup(scope)
     if not raw:
@@ -484,6 +501,12 @@ def render_business_digest(
         source_id = str(item.get("source_id") or "")
         if source_id == "S08A" and item.get("reviewed_enrichment_status") and scope:
             return _compact(scope, 180)
+        if source_id == "S22" and str(item.get("canonical_key") or "") == "iwt:1038:2026-08-25":
+            return "Coastal Cargo Vessel ×1艘"
+        if source_id == "S30":
+            mofa_summary = _mofa_business_summary(scope)
+            if mofa_summary:
+                return _compact(mofa_summary, 240)
         if source_id == "S20":
             moep_summary = _moep_business_summary(scope)
             if moep_summary:
@@ -495,10 +518,6 @@ def render_business_digest(
         if industry_products:
             return _compact("；".join(industry_products), 240)
         fragments = _scope_product_fragments(scope)
-        if source_id == "S30" and fragments:
-            data_server = [fragment for fragment in fragments if "data server" in fragment.lower()]
-            if data_server:
-                fragments = [min(data_server, key=len)]
         if fragments:
             summary = "；".join(fragments)
             if quantity and quantity not in summary:
@@ -558,6 +577,16 @@ def render_business_digest(
             source_id = str(item.get("source_id") or "")
             if source_id == "S08A":
                 issuer = "Myanmar Customs"
+            elif source_id == "S22":
+                issuer = "IWT"
+            elif source_id == "S26":
+                issuer = "DOMS / Ministry of Health"
+            elif source_id == "S30":
+                issuer = "MOFA"
+            elif source_id == "S38":
+                issuer = "Ministry of Industry"
+            elif source_id == "S39":
+                issuer = "Ministry of Energy"
             elif source_id == "S20":
                 upper = issuer.upper()
                 if "DPTSC" in upper:
