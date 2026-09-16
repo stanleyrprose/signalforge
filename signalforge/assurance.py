@@ -13,7 +13,7 @@ from urllib.parse import urljoin, urlparse
 
 from .acquisition_runtime import acquire_provider_diagnostic_bytes
 from .auditor import audit
-from .config import Registry, db_path
+from .config import Registry, db_path, evidence_root
 from .db import connect, migrate
 from .http import fetch_bytes
 from .source_scorecard import PORTFOLIO_TIERS, _is_known_historical_noise, source_scorecard
@@ -490,6 +490,37 @@ def _coverage_from_listing(
     return {"source_id": source_id, "method": method, "status": status, "official": len(official_urls), "covered": covered, "missing": missing_urls, "details": details}
 
 
+def _retained_evidence_path(source_id: str, artifact_sha256: str, media_type: str) -> Path | None:
+    if not artifact_sha256:
+        return None
+    suffix = ".pdf" if "pdf" in media_type.lower() else ".html"
+    path = evidence_root() / source_id / f"{artifact_sha256}{suffix}"
+    return path if path.is_file() else None
+
+
+def _zero_item_replayability(conn, *, cutoff: str) -> dict[str, int]:  # type: ignore[no-untyped-def]
+    rows = conn.execute(
+        """
+        SELECT p.source_id,e.artifact_sha256,e.artifact_media_type
+        FROM processing_records p
+        JOIN evidence_envelopes e ON e.evidence_id=p.evidence_id
+        WHERE p.status='SUCCESS' AND p.items_found=0 AND p.finished_at>=?
+        """,
+        (cutoff,),
+    ).fetchall()
+    replayable = sum(
+        1
+        for row in rows
+        if _retained_evidence_path(
+            str(row["source_id"]),
+            str(row["artifact_sha256"] or ""),
+            str(row["artifact_media_type"] or ""),
+        )
+        is not None
+    )
+    return {"total": len(rows), "replayable": replayable, "unreplayable": len(rows) - replayable}
+
+
 def _noise_candidates(conn) -> list[dict[str, object]]:  # type: ignore[no-untyped-def]
     candidates: list[dict[str, object]] = []
     for row in conn.execute("SELECT signal_id,source_id,canonical_key,signal_type,created_at,payload_json FROM signals"):
@@ -506,7 +537,7 @@ def _noise_candidates(conn) -> list[dict[str, object]]:  # type: ignore[no-untyp
             )
     zero_rows = conn.execute(
         """
-        SELECT p.processing_id,p.source_id,p.parser_version,p.finished_at,e.requested_url,e.final_url,e.artifact_sha256
+        SELECT p.processing_id,p.source_id,p.parser_version,p.finished_at,e.requested_url,e.final_url,e.artifact_sha256,e.artifact_media_type
         FROM processing_records p
         JOIN evidence_envelopes e ON e.evidence_id=p.evidence_id
         WHERE p.status='SUCCESS' AND p.items_found=0
@@ -514,14 +545,27 @@ def _noise_candidates(conn) -> list[dict[str, object]]:  # type: ignore[no-untyp
         """
     ).fetchall()
     for row in zero_rows:
+        retained_path = _retained_evidence_path(
+            str(row["source_id"]),
+            str(row["artifact_sha256"] or ""),
+            str(row["artifact_media_type"] or ""),
+        )
+        if retained_path is None:
+            continue
         candidates.append(
             {
                 "source_id": str(row["source_id"]),
                 "candidate_kind": "ZERO_ITEM_PROCESSING",
                 "candidate_ref": f"processing:{row['processing_id']}",
                 "evidence_url": str(row["final_url"] or row["requested_url"] or "") or None,
-                "sample_basis": "SUCCESSFUL_PROCESSING_FILTERED_TO_ZERO_ITEMS",
-                "payload": {"processing_id": row["processing_id"], "parser_version": row["parser_version"], "finished_at": row["finished_at"], "artifact_sha256": row["artifact_sha256"]},
+                "sample_basis": "SUCCESSFUL_PROCESSING_FILTERED_TO_ZERO_ITEMS_WITH_RETAINED_EVIDENCE",
+                "payload": {
+                    "processing_id": row["processing_id"],
+                    "parser_version": row["parser_version"],
+                    "finished_at": row["finished_at"],
+                    "artifact_sha256": row["artifact_sha256"],
+                    "artifact_path": str(retained_path),
+                },
             }
         )
     seen_nonstandard_sources: set[str] = set()
@@ -662,7 +706,14 @@ def _metric_review(
     open_miss_rows = conn.execute("SELECT severity,detected_at FROM missed_signals WHERE status='OPEN'").fetchall()
     cutoff = _iso(now - timedelta(days=window_days))
     reviewed = conn.execute("SELECT review_status FROM noise_review_samples WHERE reviewed_at>=?", (cutoff,)).fetchall()
-    false_negatives = sum(1 for row in reviewed if str(row["review_status"]) == "FALSE_NEGATIVE")
+    conclusive = [
+        row
+        for row in reviewed
+        if str(row["review_status"]) in {"CONFIRMED_NOISE", "FALSE_NEGATIVE"}
+    ]
+    inconclusive = sum(1 for row in reviewed if str(row["review_status"]) == "INCONCLUSIVE")
+    false_negatives = sum(1 for row in conclusive if str(row["review_status"]) == "FALSE_NEGATIVE")
+    replayability = _zero_item_replayability(conn, cutoff=cutoff)
     active_manual = int(conn.execute("SELECT COUNT(*) FROM manual_promotions WHERE status='ACTIVE'").fetchone()[0])
     high_value_recent_yield = 0
     source_by_id = {str(row.get("source_id")): row for row in source_rows if isinstance(row, dict)}
@@ -680,8 +731,13 @@ def _metric_review(
         "open_misses": len(open_miss_rows),
         "open_red_misses": sum(1 for row in open_miss_rows if str(row["severity"]) == "RED"),
         "noise_samples_reviewed_window": len(reviewed),
+        "noise_samples_conclusive_window": len(conclusive),
+        "noise_samples_inconclusive_window": inconclusive,
         "noise_false_negatives_window": false_negatives,
-        "noise_false_negative_rate": round(false_negatives / len(reviewed), 4) if reviewed else None,
+        "noise_false_negative_rate": round(false_negatives / len(conclusive), 4) if conclusive else None,
+        "filtered_zero_item_records_window": replayability["total"],
+        "filtered_zero_item_replayable_window": replayability["replayable"],
+        "filtered_zero_item_unreplayable_window": replayability["unreplayable"],
         "current_opportunities": int(summary.get("current_opportunities") or 0),
         "raw_signals": int(summary.get("raw_signals") or 0),
         "known_noise_signals": int(summary.get("known_noise_signals") or 0),
@@ -701,8 +757,12 @@ def _metric_review(
     unproven = sum(coverage_distribution.get(state, 0) for state in ("UNPROVEN", "CHECK_FAILED", "PARTIAL"))
     if unproven:
         review_reasons.append("MANDATORY_COVERAGE_NOT_FULLY_PROVEN")
-    if not reviewed:
-        review_reasons.append("NO_REVIEWED_NOISE_SAMPLE_IN_WINDOW")
+    if not conclusive:
+        review_reasons.append("NO_CONCLUSIVE_NOISE_SAMPLE_IN_WINDOW")
+    if int(metrics["filtered_zero_item_unreplayable_window"]) > 0:
+        review_reasons.append("FILTERED_EVIDENCE_NOT_REPLAYABLE")
+    if false_negatives > 0:
+        review_reasons.append("RECENT_NOISE_FALSE_NEGATIVE_EXISTS")
     if int(metrics["green_sources"]) > 0 and int(metrics["current_opportunities"]) == 0 and int(metrics["effective_signals"]) == 0:
         review_reasons.append("TECHNICAL_HEALTH_WITHOUT_BUSINESS_OUTCOME")
     if fail_reasons:
@@ -714,7 +774,7 @@ def _metric_review(
     conclusions = {
         "fail_reasons": fail_reasons,
         "review_reasons": review_reasons,
-        "useful_metrics": ["mandatory_coverage_proof_rate", "open_misses", "noise_false_negative_rate", "current_opportunities", "effective_signals", "high_value_sources_with_recent_business_yield"],
+        "useful_metrics": ["mandatory_coverage_proof_rate", "open_misses", "noise_samples_conclusive_window", "noise_false_negative_rate", "filtered_zero_item_replayable_window", "current_opportunities", "effective_signals", "high_value_sources_with_recent_business_yield"],
         "diagnostic_only_not_business_value_proof": ["active_sources", "green_sources", "raw_signals"],
         "principle": "Source count, GREEN health and raw Signal volume are diagnostics; none is sufficient evidence of commercial value without coverage and outcome evidence.",
     }

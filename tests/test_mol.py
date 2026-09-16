@@ -109,6 +109,7 @@ class MolEngineTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
             database = base / "signalforge.db"
+            evidence_dir = base / "evidence"
             result = run_source(
                 "S40",
                 registry=registry,
@@ -117,7 +118,7 @@ class MolEngineTests(unittest.TestCase):
                 sleeper=lambda _seconds: None,
                 force=True,
                 database=database,
-                evidence=base / "evidence",
+                evidence=evidence_dir,
                 worker_context={"run_id": "mol-zero-baseline"},
             )
             self.assertEqual(result["status"], "SUCCESS")
@@ -134,7 +135,9 @@ class MolEngineTests(unittest.TestCase):
                 signals = conn.execute("select count(*) from signals where source_id='S40'").fetchone()[0]
                 target_counts = dict(conn.execute("select target_kind,count(*) from acquisition_requests where source_id='S40' group by target_kind"))
                 evidence = conn.execute("select count(*) from evidence_envelopes where source_id='S40'").fetchone()[0]
+                artifact_sha = conn.execute("select artifact_sha256 from evidence_envelopes where source_id='S40'").fetchone()[0]
                 processing = conn.execute("select count(*) from processing_records where source_id='S40' and status='SUCCESS'").fetchone()[0]
+            self.assertEqual((evidence_dir / "S40" / f"{artifact_sha}.html").read_bytes(), _fixture("mol-tenders.html"))
             self.assertEqual(canonical, 0)
             self.assertEqual(signals, 0)
             self.assertEqual(target_counts, {"DISCOVERY": 1})
