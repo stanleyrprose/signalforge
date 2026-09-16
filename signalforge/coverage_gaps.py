@@ -78,6 +78,16 @@ def _active_reviewed_records(
             raise ValueError("coverage-gap URL/evidence source combination is not allowlisted")
         if reviewed_at > today or deadline < today:
             continue
+        deadline_time_raw = str(value.get("deadline_time") or "").strip()
+        if deadline_time_raw:
+            try:
+                deadline_local = datetime.strptime(
+                    f"{deadline.isoformat()} {deadline_time_raw}", "%Y-%m-%d %H:%M"
+                ).replace(tzinfo=_LOCAL_TZ)
+            except ValueError as exc:
+                raise ValueError("invalid coverage-gap deadline_time") from exc
+            if deadline_local <= local_now:
+                continue
         item = dict(value)
         item["reviewed_read_only"] = True
         item["canonical_signal_status"] = "OUTSIDE_CANONICAL_SIGNAL_PIPELINE"

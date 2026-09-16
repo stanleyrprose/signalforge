@@ -42,6 +42,26 @@ def test_reviewed_records_expire_by_deadline_date() -> None:
     assert verified_external_opportunities(now=datetime(2026, 9, 30, tzinfo=UTC)) == []
 
 
+
+def test_reviewed_records_expire_at_exact_local_deadline_time() -> None:
+    # Myanmar is UTC+06:30. At 09:29 UTC it is 15:59 local, so the 16:00 bridge tender is still active.
+    before_bridge_close = reviewed_coverage_gaps(now=datetime(2026, 9, 16, 9, 29, tzinfo=UTC))
+    assert [item["gap_id"] for item in before_bridge_close] == [
+        "S23:0f39a580-a813-11f1-97b9-bbf17f490ccf",
+        "S23:18be5b60-accb-11f1-b41f-3517e3a380a0",
+    ]
+    after_bridge_close = reviewed_coverage_gaps(now=datetime(2026, 9, 16, 9, 30, tzinfo=UTC))
+    assert [item["gap_id"] for item in after_bridge_close] == [
+        "S23:18be5b60-accb-11f1-b41f-3517e3a380a0"
+    ]
+    after_highway_close = reviewed_coverage_gaps(now=datetime(2026, 9, 23, 9, 30, tzinfo=UTC))
+    assert after_highway_close == []
+
+    before_mpt_close = verified_external_opportunities(now=datetime(2026, 9, 29, 7, 29, tzinfo=UTC))
+    assert len(before_mpt_close) == 1
+    after_mpt_close = verified_external_opportunities(now=datetime(2026, 9, 29, 7, 30, tzinfo=UTC))
+    assert after_mpt_close == []
+
 def test_business_digest_renders_verified_external_separately_from_unresolved_gaps() -> None:
     now = datetime(2026, 9, 16, tzinfo=UTC)
     gaps = reviewed_coverage_gaps(now=now)

@@ -808,7 +808,9 @@ def render_business_digest(
             source_id = html.escape(str(gap.get("source_id") or ""))
             issuer = html.escape(gap_issuers[index])
             title = html.escape(gap_titles[index])
-            deadline = html.escape(str(gap.get("deadline") or ""))
+            deadline = html.escape(
+                f"{gap.get('deadline') or ''} {gap.get('deadline_time') or ''}".strip()
+            )
             location = html.escape(gap_locations[index])
             url = str(gap.get("url") or "")
             allowed_gap_link = url.startswith((
