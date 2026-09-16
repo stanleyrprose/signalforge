@@ -21,6 +21,7 @@ from .assurance import (
 )
 from .auditor import audit
 from .briefing import business_briefing
+from .browser_escalation import browser_escalation_candidates
 from .business_digest import business_digest, telegram_digest
 from .config import Registry, SOURCE_ID_PATTERN, db_path
 from .db import connect, migrate
@@ -301,6 +302,9 @@ def main(argv: list[str] | None = None) -> int:
     digest_parser.add_argument("--no-network", action="store_true")
     scorecard_parser = sub.add_parser("source-scorecard")
     scorecard_parser.add_argument("--window-days", type=int, default=30)
+    browser_escalation_parser = sub.add_parser("browser-escalation-candidates")
+    browser_escalation_parser.add_argument("--window-days", type=int, default=7)
+    browser_escalation_parser.add_argument("--limit", type=int, default=20)
     assurance_run_parser = sub.add_parser("assurance-run")
     assurance_run_parser.add_argument("--no-network", action="store_true")
     assurance_run_parser.add_argument("--noise-sample-size", type=int, default=5)
@@ -464,6 +468,8 @@ def main(argv: list[str] | None = None) -> int:
             result = business_digest(audit_network=not bool(args.no_network))
         elif args.cmd == "source-scorecard":
             result = source_scorecard(window_days=int(args.window_days))
+        elif args.cmd == "browser-escalation-candidates":
+            result = browser_escalation_candidates(window_days=int(args.window_days), limit=int(args.limit))
         elif args.cmd == "assurance-run":
             result = run_assurance(network=not bool(args.no_network), noise_sample_size=int(args.noise_sample_size))
         elif args.cmd == "assurance-status":
