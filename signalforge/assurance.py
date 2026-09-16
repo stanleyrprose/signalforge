@@ -10,12 +10,15 @@ from datetime import UTC, datetime, timedelta
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
+from zoneinfo import ZoneInfo
 
 from .acquisition_runtime import acquire_provider_diagnostic_bytes
 from .auditor import audit
 from .config import Registry, db_path, evidence_root
+from .coverage_gaps import reviewed_coverage_gaps
 from .db import connect, migrate
 from .http import fetch_bytes
+from .national_portal import parse_current_high_value_tender_leads
 from .source_scorecard import PORTFOLIO_TIERS, _is_known_historical_noise, source_scorecard
 
 ASSURANCE_VERSION = 1
@@ -28,6 +31,7 @@ MISS_SEVERITIES = {"RED", "YELLOW"}
 NOISE_REVIEW_STATUSES = {"PENDING", "CONFIRMED_NOISE", "FALSE_NEGATIVE", "INCONCLUSIVE"}
 PROMOTION_STATUSES = {"ACTIVE", "RESOLVED"}
 PROMOTION_PRIORITIES = {"HIGH", "REVIEW"}
+_LOCAL_TZ = ZoneInfo("Asia/Yangon")
 
 
 def _iso(value: datetime) -> str:
@@ -490,6 +494,146 @@ def _coverage_from_listing(
     return {"source_id": source_id, "method": method, "status": status, "official": len(official_urls), "covered": covered, "missing": missing_urls, "details": details}
 
 
+def _coverage_from_aggregator_surface(
+    conn,  # type: ignore[no-untyped-def]
+    *,
+    source_id: str,
+    policy: dict[str, object],
+    network: bool,
+    now: datetime,
+) -> dict[str, object]:
+    method = "official-aggregator-discovery-lead-resolution"
+    if policy.get("enabled") is not True:
+        return {
+            "source_id": source_id,
+            "method": method,
+            "status": "UNPROVEN",
+            "official": 0,
+            "covered": 0,
+            "missing": [],
+            "details": {"reason": "ASSURANCE_SURFACE_DISABLED"},
+        }
+    discovery_url = str(policy.get("discovery_url") or "")
+    if not discovery_url:
+        return {
+            "source_id": source_id,
+            "method": method,
+            "status": "UNPROVEN",
+            "official": 0,
+            "covered": 0,
+            "missing": [],
+            "details": {"reason": "DISCOVERY_URL_MISSING"},
+        }
+    if not network:
+        return {
+            "source_id": source_id,
+            "method": method,
+            "status": "UNPROVEN",
+            "official": 0,
+            "covered": 0,
+            "missing": [],
+            "details": {"reason": "NETWORK_DISABLED", "canonical_truth": False},
+        }
+    try:
+        payload = fetch_bytes(
+            discovery_url,
+            timeout=int(policy.get("request_timeout_seconds") or 30),
+            max_bytes=int(policy.get("request_max_bytes") or 500_000),
+        )
+        leads = parse_current_high_value_tender_leads(
+            payload,
+            base_url=discovery_url,
+            today=now.astimezone(_LOCAL_TZ).date(),
+        )
+    except Exception as exc:
+        return {
+            "source_id": source_id,
+            "method": method,
+            "status": "CHECK_FAILED",
+            "official": 0,
+            "covered": 0,
+            "missing": [],
+            "details": {"error": f"{type(exc).__name__}: {exc}", "canonical_truth": False},
+        }
+
+    canonical_urls = {
+        _normalize_url(str(row[0]))
+        for row in conn.execute("SELECT url FROM canonical_items WHERE url IS NOT NULL")
+        if row[0]
+    }
+    reviewed = {
+        _normalize_url(str(gap["url"])): gap
+        for gap in reviewed_coverage_gaps(now=now)
+        if str(gap.get("evidence_basis") or "").startswith("REVIEWED_NATIONAL_PORTAL_HOSTED_")
+    }
+    covered_leads: list[dict[str, object]] = []
+    confirmed_gaps: list[dict[str, object]] = []
+    unresolved_leads: list[dict[str, object]] = []
+    for lead in leads:
+        normalized = _normalize_url(str(lead["url"]))
+        if normalized in canonical_urls:
+            covered_leads.append(lead)
+            continue
+        reviewed_gap = reviewed.get(normalized)
+        if reviewed_gap is not None:
+            confirmed_gaps.append({**lead, "reviewed_gap": reviewed_gap})
+            continue
+        unresolved_leads.append(lead)
+
+    if confirmed_gaps:
+        status = "GAP"
+    elif unresolved_leads:
+        status = "PARTIAL"
+    elif leads:
+        status = "PASS"
+    else:
+        status = "UNPROVEN"
+    return {
+        "source_id": source_id,
+        "method": method,
+        "status": status,
+        "official": len(leads),
+        "covered": len(covered_leads),
+        "missing": [str(item["url"]) for item in confirmed_gaps],
+        "details": {
+            "contract": "DISCOVERY_AGGREGATOR_ONLY",
+            "canonical_truth": False,
+            "closing_date_semantics": "HINT_ONLY_NOT_CANONICAL",
+            "current_page_only": bool(policy.get("current_page_only", True)),
+            "candidate_count": len(leads),
+            "covered_leads": covered_leads[:50],
+            "confirmed_gaps": confirmed_gaps[:50],
+            "unresolved_leads": unresolved_leads[:50],
+        },
+    }
+
+
+def _resolve_expired_aggregator_misses(conn, *, now: datetime) -> int:  # type: ignore[no-untyped-def]
+    today = now.astimezone(_LOCAL_TZ).date().isoformat()
+    resolved = 0
+    rows = conn.execute(
+        "SELECT miss_id,metadata_json FROM missed_signals WHERE status='OPEN' AND detected_by='AGGREGATOR_COVERAGE_AUDIT'"
+    ).fetchall()
+    for row in rows:
+        try:
+            metadata = json.loads(str(row["metadata_json"] or "{}"))
+        except json.JSONDecodeError:
+            continue
+        deadline = str(metadata.get("deadline") or "")
+        if not deadline or deadline >= today:
+            continue
+        conn.execute(
+            """
+            UPDATE missed_signals
+            SET status='RESOLVED',resolution_note=?,resolved_at=?,resolved_by=?
+            WHERE miss_id=?
+            """,
+            ("Aggregator-discovered opportunity window expired; retained in miss history", _iso(now), "ASSURANCE_AUTO_EXPIRY", row["miss_id"]),
+        )
+        resolved += 1
+    return resolved
+
+
 def _retained_evidence_path(source_id: str, artifact_sha256: str, media_type: str) -> Path | None:
     if not artifact_sha256:
         return None
@@ -845,6 +989,38 @@ def run_assurance(
                     int(result["covered"]), len(result["missing"]), _iso(observed), _json(result["details"]),
                 ),
             )
+
+    supplemental_coverage_rows: list[dict[str, object]] = []
+    assurance_surfaces = registry.raw.get("assurance_surfaces") or {}
+    if isinstance(assurance_surfaces, dict):
+        for surface_id, policy in sorted(assurance_surfaces.items()):
+            if not isinstance(policy, dict) or policy.get("enabled") is not True:
+                continue
+            with connect(target) as coverage_conn:
+                result = _coverage_from_aggregator_surface(
+                    coverage_conn,
+                    source_id=str(surface_id),
+                    policy=policy,
+                    network=network,
+                    now=observed,
+                )
+            if str(result["status"]) not in COVERAGE_STATUSES:
+                result["status"] = "CHECK_FAILED"
+            supplemental_coverage_rows.append(result)
+            with connect(target) as conn, conn:
+                conn.execute(
+                    """
+                    INSERT INTO coverage_audit_results(
+                        coverage_audit_id,assurance_run_id,source_id,audit_method,status,official_candidate_count,
+                        canonical_covered_count,missing_count,checked_at,details_json
+                    ) VALUES (?,?,?,?,?,?,?,?,?,?)
+                    """,
+                    (
+                        str(uuid.uuid4()), run_id, str(surface_id), result["method"], result["status"], int(result["official"]),
+                        int(result["covered"]), len(result["missing"]), _iso(observed), _json(result["details"]),
+                    ),
+                )
+
     with connect(target) as conn, conn:
         samples = _sample_noise(conn, assurance_run_id=run_id, now=observed, sample_size=noise_sample_size)
 
@@ -867,14 +1043,53 @@ def run_assurance(
             )
             misses_created.append(miss)
 
+    for result in supplemental_coverage_rows:
+        details = result.get("details") or {}
+        confirmed_gaps = details.get("confirmed_gaps") if isinstance(details, dict) else []
+        if not isinstance(confirmed_gaps, list):
+            continue
+        for lead in confirmed_gaps:
+            if not isinstance(lead, dict):
+                continue
+            reviewed_gap = lead.get("reviewed_gap") or {}
+            if not isinstance(reviewed_gap, dict):
+                continue
+            miss = record_missed_signal(
+                source_id=str(reviewed_gap.get("source_id") or lead.get("target_source_hint") or result["source_id"]),
+                title=str(reviewed_gap.get("title") or lead.get("title") or "Aggregator-discovered coverage gap"),
+                reason="Reviewed National Portal lead proves a current official opportunity absent from issuer-oriented canonical coverage",
+                severity="RED",
+                detected_by="AGGREGATOR_COVERAGE_AUDIT",
+                url=str(lead.get("url") or reviewed_gap.get("url") or "") or None,
+                metadata={
+                    "assurance_run_id": run_id,
+                    "aggregator_source_id": str(result["source_id"]),
+                    "lead_id": lead.get("lead_id"),
+                    "deadline": reviewed_gap.get("deadline") or lead.get("closing_date_hint"),
+                    "portal_closing_date_hint": lead.get("closing_date_hint"),
+                    "reviewed_gap_id": reviewed_gap.get("gap_id"),
+                    "canonical_truth": False,
+                },
+                database=target,
+                now=observed,
+            )
+            misses_created.append(miss)
+
     with connect(target) as conn, conn:
+        auto_resolved_aggregator_misses = _resolve_expired_aggregator_misses(conn, now=observed)
         metric_review = _metric_review(conn, assurance_run_id=run_id, coverage_rows=coverage_rows, now=observed, registry=registry)
         open_misses = int(conn.execute("SELECT COUNT(*) FROM missed_signals WHERE status='OPEN'").fetchone()[0])
         red_misses = int(conn.execute("SELECT COUNT(*) FROM missed_signals WHERE status='OPEN' AND severity='RED'").fetchone()[0])
         summary = {
             "assurance_version": ASSURANCE_VERSION,
             "coverage": {"mandatory": len(MANDATORY_COVERAGE_SOURCES), "proven": sum(1 for row in coverage_rows if row["status"] == "PASS"), "gaps": sum(1 for row in coverage_rows if row["status"] == "GAP"), "unproven": sum(1 for row in coverage_rows if row["status"] in {"UNPROVEN", "PARTIAL", "CHECK_FAILED"})},
+            "supplemental_coverage": {
+                "surfaces": len(supplemental_coverage_rows),
+                "gaps": sum(1 for row in supplemental_coverage_rows if row["status"] == "GAP"),
+                "partial": sum(1 for row in supplemental_coverage_rows if row["status"] == "PARTIAL"),
+            },
             "noise_samples_created": len(samples),
+            "auto_resolved_aggregator_misses": auto_resolved_aggregator_misses,
             "open_misses": open_misses,
             "open_red_misses": red_misses,
             "metric_validity": metric_review["status"],
@@ -891,6 +1106,7 @@ def run_assurance(
         "as_of": _iso(observed),
         "network_checks": network,
         "coverage": coverage_rows,
+        "supplemental_coverage": supplemental_coverage_rows,
         "noise_samples_created": samples,
         "coverage_misses_recorded": len(misses_created),
         "metric_review": metric_review,

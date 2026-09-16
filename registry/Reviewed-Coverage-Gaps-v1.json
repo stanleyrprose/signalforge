@@ -28,6 +28,21 @@
       "reviewed_at": "2026-09-16",
       "business_summary": "Yangon–Mandalay Expressway 2026–2027 养护、维修及监管工程所需道路施工材料采购",
       "document_sha256": "161e6400cb19ef0b6bf116d73745f4b2efdb8a0c7b45e9468632e388481277c0"
+    },
+    {
+      "gap_id": "S13:aa3cebae-2f59-5c3c-e840-640c99f0cb92",
+      "source_id": "S13",
+      "issuer": "MPT / MDDC",
+      "title": "Pobbathiri Exchange Office earthquake damage repair tender",
+      "location": "Nay Pyi Taw",
+      "deadline": "2026-09-29",
+      "url": "https://myanmar.gov.mm/documents/20143/0/Newspaper+advertiement+10082026.pdf/aa3cebae-2f59-5c3c-e840-640c99f0cb92",
+      "reason": "S13_ISSUER_PAGE_COVERAGE_GAP_DISCOVERED_VIA_S01",
+      "evidence_basis": "REVIEWED_NATIONAL_PORTAL_HOSTED_OFFICIAL_MPT_TEXT_PDF",
+      "reviewed_at": "2026-09-16",
+      "business_summary": "Pobbathiri Exchange Office 地震修复：RC柱墙/地基及屋顶/天花板维修",
+      "next_action_summary": "9/24 16:30停售表格；9/25踏勘；9/29投标",
+      "document_sha256": "3dd5dd18a2395ba1bb18bdc31c9fa9850a98aced98fb05b7453c4380d24c9eea"
     }
   ]
 }

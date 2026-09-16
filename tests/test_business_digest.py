@@ -146,8 +146,8 @@ class BusinessDigestTests(unittest.TestCase):
         self.assertIn("相关分包 4", text)
         self.assertIn("后续跟进：1 条 MEDIUM", text)
         self.assertIn("业务概览</b>：当前 <b>3</b> 个机会 · HIGH 1 · MEDIUM 1 · REVIEW 1", text)
-        self.assertIn("2/2源 GREEN", text)
-        self.assertIn("Assurance", text)
+        self.assertNotIn("源 GREEN", text)
+        self.assertNotIn("Assurance ", text)
         self.assertNotIn("Source产出", text)
         self.assertNotIn("Signal质量：均分", text)
         self.assertNotIn("Q81/HIGH", text)
@@ -345,6 +345,42 @@ class BusinessDigestTests(unittest.TestCase):
         self.assertIn("Electrical 备件 23类", text)
         self.assertIn("Mechanical 备件 43类", text)
         self.assertIn("Coastal Cargo Vessel ×1艘", text)
+
+    def test_digest_renders_reviewed_mpt_portal_gap_without_diagnostic_footer(self) -> None:
+        digest = {
+            "digest_date": "2026-09-16",
+            "sources": {"green": 29, "monitored": 31, "non_green": 2},
+            "activity_24h": {},
+            "pipeline_totals": {},
+            "source_yield": {},
+            "auditor": {"finding_count": 1},
+            "business": {
+                "current_opportunities": 17,
+                "priority_counts": {"HIGH": 4, "MEDIUM": 7, "REVIEW": 6},
+                "qualification_counts": {},
+                "attention": [],
+                "watchlist_items": [],
+                "coverage_gaps": [{
+                    "source_id": "S13",
+                    "issuer": "MPT / MDDC",
+                    "business_summary": "Pobbathiri Exchange Office 地震修复：RC柱墙/地基及屋顶/天花板维修",
+                    "location": "Nay Pyi Taw",
+                    "deadline": "2026-09-29",
+                    "url": "https://myanmar.gov.mm/documents/20143/0/Newspaper+advertiement+10082026.pdf/aa3cebae-2f59-5c3c-e840-640c99f0cb92",
+                    "next_action_summary": "9/24 16:30停售表格；9/25踏勘；9/29投标",
+                }],
+                "manual_promotions": {},
+                "assurance": {"open_misses": 1, "open_red_misses": 1, "metric_validity": "FAIL"},
+            },
+        }
+        text = render_business_digest(digest, translator=lambda values: (values, False))
+        self.assertIn("MPT / MDDC", text)
+        self.assertIn("Pobbathiri Exchange Office", text)
+        self.assertIn("截止 <b>2026-09-29</b>", text)
+        self.assertIn("9/24 16:30停售表格；9/25踏勘；9/29投标", text)
+        self.assertIn('href="https://myanmar.gov.mm/tenders"', text)
+        self.assertNotIn("Assurance FAIL", text)
+        self.assertNotIn("源 GREEN", text)
 
     def test_render_keeps_distinct_opportunities_from_same_source(self) -> None:
         with tempfile.TemporaryDirectory() as tmp, patch("signalforge.business_digest.business_briefing", return_value=_briefing()), patch(
