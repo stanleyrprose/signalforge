@@ -4,44 +4,55 @@ import hashlib
 from dataclasses import dataclass
 from datetime import date
 from html.parser import HTMLParser
-from urllib.parse import urljoin, urlparse, urlunparse
+from urllib.parse import urlencode, urljoin, urlparse, urlunparse
 
 from .mpt import normalize_text, parse_date
 
 NATIONAL_PORTAL_TENDER_URL = "https://myanmar.gov.mm/tenders"
 NATIONAL_PORTAL_HOSTS = {"myanmar.gov.mm", "www.myanmar.gov.mm"}
-SELECTION_POLICY_VERSION = 1
+SELECTION_POLICY_VERSION = 2
 
-_TECH_TITLE_TERMS = (
-    "telecom",
-    "telecommunication",
-    "server",
-    "software",
-    "network",
-    "data center",
-    "data centre",
-    "database",
-    "ict",
-    "cyber",
-    "digital",
-    "gmdss",
-    "vmware",
-    "cisco",
-    "red hat",
-    "netapp",
-    "veritas",
-    " f5 ",
-    "မြန်မာ့ဆက်သွယ်ရေး",
+_MISSION_TITLE_TERMS: dict[str, tuple[str, ...]] = {
+    "TELECOM_ICT_INFRA": (
+        "telecom", "telecommunication", "server", "software", "network", "data center", "data centre",
+        "database", "ict", "cyber", "digital", "gmdss", "vmware", "cisco", "red hat", "netapp", "veritas",
+        " f5 ", "fiber", "fibre", "radio", "antenna", "tower", "မြန်မာ့ဆက်သွယ်ရေး", "ဆက်သွယ်ရေး",
+    ),
+    "CONSTRUCTION": (
+        "construction", "civil work", "building repair", "building construction", "renovation", "rehabilitation",
+        "earthquake repair", "bridge", "road", "highway", "တံတား", "လမ်း", "ဆောက်လုပ်", "ပြုပြင်",
+    ),
+    "ENERGY": (
+        "electricity", "energy", "power plant", "hydropower", "substation", "transmission", "transformer",
+        "conductor", "scada", "ems", "generator", "turbine", "pump house", "relay", "လျှပ်စစ်", "ဓာတ်အား",
+    ),
+    "ENGINEERING": (
+        "electrical spare", "mechanical spare", "electrical equipment", "mechanical equipment", "switchgear",
+        "pump house", "vessel", "ship", "ရေယာဉ်", "ပြည်တွင်းရေကြောင်း", "စက်အရန်",
+    ),
+}
+
+# These agencies are sufficiently mission-specific to justify a discovery lead
+# even when the National Portal card title is generic. The lead remains hint-only
+# until an issuer document is reviewed; this does not confer canonical truth.
+_OFF_MISSION_TITLE_TERMS = (
+    "medical", "hospital", "pharmaceutical", "medicine", "x-ray", "mammography", "laboratory apparatus",
+    "chemical reagent", "sample gas", "refractory", "castable mortar", "colored yarn", "colour yarn", "yarn",
+    "container truck", "transportation service", "diesel", "octane", "fuel", "ဆေးဝါး", "ဆေးရုံ", "ချည်",
+    "ကုန်သေတ္တာတင်ယာဉ်", "သယ်ယူပို့ဆောင်", "ဒီဇယ်", "စက်သုံးဆီ", "သံရည်ပျက်တုံး", "ဓာတ်ခွဲခန်း",
 )
-_UNCONDITIONAL_AGENCY_TERMS = (
-    "ministry of digital development and communications",
-    "central bank",
+
+_STRONG_MISSION_AGENCIES: tuple[tuple[str, str], ...] = (
+    ("ministry of construction", "CONSTRUCTION"),
+    ("ministry of electricity and energy", "ENERGY"),
+    ("ministry of electric power", "ENERGY"),
+    ("ministry of energy", "ENERGY"),
 )
-_CONDITIONAL_AGENCY_TERMS = (
-    "planning and finance",
-    "finance and revenue",
-    "insurance",
-)
+
+# Mixed agencies (city development, Industry, Finance, etc.) are deliberately
+# not unconditional. They need project-title evidence so ordinary fuel, yarn,
+# medical, chemical or consumer-goods tenders do not re-enter the mission feed.
+
 
 
 def _attr(attrs, name: str) -> str | None:  # type: ignore[no-untyped-def]
@@ -54,6 +65,24 @@ def _attr(attrs, name: str) -> str | None:  # type: ignore[no-untyped-def]
 def _classes(attrs) -> set[str]:  # type: ignore[no-untyped-def]
     value = _attr(attrs, "class") or ""
     return set(value.split())
+
+
+def national_portal_page_url(base_url: str, page: int) -> str:
+    if page < 1:
+        raise ValueError("National Portal page must be >= 1")
+    if page == 1:
+        return base_url
+    parsed = urlparse(base_url)
+    query = urlencode({
+        "p_p_id": "com_liferay_asset_publisher_web_portlet_AssetPublisherPortlet_INSTANCE_idasset459",
+        "p_p_lifecycle": "0",
+        "p_p_state": "normal",
+        "p_p_mode": "view",
+        "_com_liferay_asset_publisher_web_portlet_AssetPublisherPortlet_INSTANCE_idasset459_delta": "10",
+        "p_r_p_resetCur": "false",
+        "_com_liferay_asset_publisher_web_portlet_AssetPublisherPortlet_INSTANCE_idasset459_cur": str(page),
+    })
+    return urlunparse((parsed.scheme, parsed.netloc, parsed.path, "", query, ""))
 
 
 def _canonical_url(raw_url: str, base_url: str) -> str | None:
@@ -78,21 +107,44 @@ def _document_id(url: str, *, agency: str, title: str, deadline: str) -> str:
     return hashlib.sha256(material.encode("utf-8")).hexdigest()[:20]
 
 
-def _is_high_value(*, agency: str, title: str) -> bool:
+def _mission_selection(*, agency: str, title: str) -> tuple[str, str] | None:
     agency_lower = agency.lower()
     title_lower = f" {title.lower()} "
-    if any(term in agency_lower for term in _UNCONDITIONAL_AGENCY_TERMS):
-        return True
-    tech_match = any(term in title_lower for term in _TECH_TITLE_TERMS)
-    if tech_match:
-        return True
-    return any(term in agency_lower for term in _CONDITIONAL_AGENCY_TERMS) and tech_match
+    if any(term in title_lower for term in _OFF_MISSION_TITLE_TERMS):
+        return None
+    for agency_term, sector in _STRONG_MISSION_AGENCIES:
+        if agency_term in agency_lower:
+            return sector, f"TARGET_AGENCY:{agency_term}"
+    for sector, terms in _MISSION_TITLE_TERMS.items():
+        matched = next((term for term in terms if term in title_lower), None)
+        if matched:
+            return sector, f"TARGET_TITLE:{matched}"
+    return None
+
+
+def _is_high_value(*, agency: str, title: str) -> bool:
+    return _mission_selection(agency=agency, title=title) is not None
 
 
 def _source_hint(*, agency: str, title: str) -> str | None:
     agency_lower = agency.lower()
-    if "digital development and communications" in agency_lower and "မြန်မာ့ဆက်သွယ်ရေး" in title:
+    title_lower = title.lower()
+    if "digital development and communications" in agency_lower and (
+        "မြန်မာ့ဆက်သွယ်ရေး" in title or "telecommunication" in title_lower or "telecom" in title_lower
+    ):
         return "S13"
+    if "ministry of construction" in agency_lower:
+        return "S23"
+    if "ministry of electricity and energy" in agency_lower or "ministry of electric power" in agency_lower:
+        return "S20"
+    if "ministry of energy" in agency_lower:
+        return "S39"
+    if "ministry of industry" in agency_lower:
+        return "S38"
+    if "railway" in agency_lower or "မြန်မာ့မီးရထား" in title:
+        return "S21"
+    if "inland water transport" in agency_lower or "ပြည်တွင်းရေကြောင်း" in title:
+        return "S22"
     return None
 
 
@@ -105,6 +157,8 @@ class NationalPortalLead:
     url: str
     target_source_hint: str | None
     evidence_kind: str
+    mission_sector_hint: str
+    selection_reason: str
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -115,6 +169,8 @@ class NationalPortalLead:
             "url": self.url,
             "target_source_hint": self.target_source_hint,
             "evidence_kind": self.evidence_kind,
+            "mission_sector_hint": self.mission_sector_hint,
+            "selection_reason": self.selection_reason,
             "selection_policy_version": SELECTION_POLICY_VERSION,
             "canonical_truth": False,
             "aggregator_only": True,
@@ -243,8 +299,10 @@ def parse_current_high_value_tender_leads(
             continue
         title = normalize_text(row["title"])
         agency = normalize_text(row["agency"])
-        if not _is_high_value(agency=agency, title=title):
+        selection = _mission_selection(agency=agency, title=title)
+        if selection is None:
             continue
+        mission_sector_hint, selection_reason = selection
         url = _canonical_url(row["href"], base_url)
         if url is None:
             continue
@@ -267,6 +325,8 @@ def parse_current_high_value_tender_leads(
             url=url,
             target_source_hint=_source_hint(agency=agency, title=title),
             evidence_kind=evidence_kind,
+            mission_sector_hint=mission_sector_hint,
+            selection_reason=selection_reason,
         ))
     leads.sort(key=lambda item: (item.closing_date_hint, item.agency, item.title, item.lead_id))
     return [lead.as_dict() for lead in leads]
