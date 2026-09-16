@@ -766,7 +766,22 @@ def render_business_digest(
             source_name = html.escape(str(risk.get("source_name") or source_id))
             proven_through = str(risk.get("last_success_at") or "")
             proven_date = html.escape(proven_through.split("T", 1)[0]) if proven_through else "未知"
-            if proven_through:
+            open_count = risk.get("retained_open_tender_count")
+            latest_publication = html.escape(str(risk.get("latest_retained_tender_publication_date") or ""))
+            latest_deadline = html.escape(str(risk.get("latest_retained_tender_deadline") or ""))
+            if isinstance(open_count, int) and latest_publication:
+                retained = f"留存记录中当前开放 <b>{open_count}</b> 条；最新已知发布 <b>{latest_publication}</b>"
+                if latest_deadline:
+                    retained += f"，最晚已知截止 <b>{latest_deadline}</b>"
+                if proven_through:
+                    lines.append(
+                        f"• <b>{source_name}</b> · [{source_id}]：{retained}；官网采集可验证到 <b>{proven_date}</b>，之后新发布无法确认。"
+                    )
+                else:
+                    lines.append(
+                        f"• <b>{source_name}</b> · [{source_id}]：{retained}；当前采集覆盖无法验证，新发布无法确认。"
+                    )
+            elif proven_through:
                 lines.append(f"• <b>{source_name}</b> · [{source_id}]：采集覆盖最近可验证到 <b>{proven_date}</b>；之后新招标无法确认。")
             else:
                 lines.append(f"• <b>{source_name}</b> · [{source_id}]：最近可验证采集时间未知；当前无法证明没有新招标。")

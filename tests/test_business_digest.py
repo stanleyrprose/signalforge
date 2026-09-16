@@ -165,6 +165,11 @@ class BusinessDigestTests(unittest.TestCase):
                     "source_name": "Myanma Railways Tenders",
                     "coverage_status": "CHECK_FAILED",
                     "last_success_at": "2026-09-13T13:00:46Z",
+                    "retained_tender_count": 20,
+                    "retained_open_tender_count": 0,
+                    "latest_retained_tender_publication_date": "2026-09-01",
+                    "latest_retained_tender_deadline": "2026-09-14",
+                    "retained_tender_context_semantics": "RETAINED_STATE_ONLY_NOT_CURRENT_COVERAGE_PROOF",
                     "reason": "FetchError: issuer origin timed out",
                     "known_miss": False,
                 }
@@ -178,7 +183,10 @@ class BusinessDigestTests(unittest.TestCase):
         text = render_business_digest(digest)
         self.assertIn("⚠️ 覆盖风险", text)
         self.assertIn("Myanma Railways Tenders</b> · [S21]", text)
-        self.assertIn("采集覆盖最近可验证到 <b>2026-09-13</b>；之后新招标无法确认", text)
+        self.assertIn("留存记录中当前开放 <b>0</b> 条", text)
+        self.assertIn("最新已知发布 <b>2026-09-01</b>", text)
+        self.assertIn("最晚已知截止 <b>2026-09-14</b>", text)
+        self.assertIn("官网采集可验证到 <b>2026-09-13</b>，之后新发布无法确认", text)
         self.assertIn("覆盖未证明 ≠ 已确认漏报", text)
         self.assertIn("不要把“无新 Signal”理解为“无新招标”", text)
         self.assertNotIn("CHECK_FAILED", text)

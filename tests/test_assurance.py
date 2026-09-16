@@ -316,6 +316,20 @@ class AssuranceTests(unittest.TestCase):
                 )
                 conn.execute(
                     """
+                    INSERT INTO canonical_items(
+                        canonical_key,source_id,item_kind,title,reference_no,project_name,publication_date,
+                        deadline,location,url,content_hash,evidence_sha256,payload_json,created_at,updated_at
+                    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                    """,
+                    (
+                        "railways:test-latest", "S21", "TENDER", "Railway engineering tender", "R-1",
+                        "Railway engineering tender", "2026-09-01", "2026-09-14", None,
+                        "https://www.railways.gov.mm/test-latest", "h", "e", "{}",
+                        "2026-09-01T00:00:00Z", "2026-09-01T00:00:00Z",
+                    ),
+                )
+                conn.execute(
+                    """
                     INSERT INTO source_state(
                         source_id,baseline_complete,last_success_at,next_due_at,last_error,consecutive_failures,updated_at
                     ) VALUES (?,?,?,?,?,?,?)
@@ -339,6 +353,11 @@ class AssuranceTests(unittest.TestCase):
             self.assertEqual(risk["source_name"], "Myanma Railways Tenders")
             self.assertEqual(risk["coverage_status"], "CHECK_FAILED")
             self.assertEqual(risk["last_success_at"], "2026-09-13T13:00:46Z")
+            self.assertEqual(risk["retained_tender_count"], 1)
+            self.assertEqual(risk["retained_open_tender_count"], 0)
+            self.assertEqual(risk["latest_retained_tender_publication_date"], "2026-09-01")
+            self.assertEqual(risk["latest_retained_tender_deadline"], "2026-09-14")
+            self.assertEqual(risk["retained_tender_context_semantics"], "RETAINED_STATE_ONLY_NOT_CURRENT_COVERAGE_PROOF")
             self.assertFalse(risk["known_miss"])
             self.assertEqual(risk["semantics"], "COVERAGE_RISK_NOT_CONFIRMED_MISS")
 
