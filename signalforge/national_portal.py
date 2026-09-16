@@ -28,7 +28,8 @@ _MISSION_TITLE_TERMS: dict[str, tuple[str, ...]] = {
     ),
     "ENGINEERING": (
         "electrical spare", "mechanical spare", "electrical equipment", "mechanical equipment", "switchgear",
-        "pump house", "vessel", "ship", "ရေယာဉ်", "ပြည်တွင်းရေကြောင်း", "စက်အရန်",
+        "pump house", "vessel", "ship", "railway", "railways", "myanma railways",
+        "ရေယာဉ်", "ပြည်တွင်းရေကြောင်း", "စက်အရန်", "မြန်မာ့မီးရထား",
     ),
 }
 
@@ -141,7 +142,13 @@ def _source_hint(*, agency: str, title: str) -> str | None:
         return "S39"
     if "ministry of industry" in agency_lower:
         return "S38"
-    if "railway" in agency_lower or "မြန်မာ့မီးရထား" in title:
+    if (
+        "railway" in agency_lower
+        or "railway" in title_lower
+        or "railways" in title_lower
+        or "myanma railways" in title_lower
+        or "မြန်မာ့မီးရထား" in title
+    ):
         return "S21"
     if "inland water transport" in agency_lower or "ပြည်တွင်းရေကြောင်း" in title:
         return "S22"

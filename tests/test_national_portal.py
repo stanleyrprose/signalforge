@@ -153,6 +153,36 @@ class NationalPortalTests(unittest.TestCase):
                 [],
             )
 
+    def test_mission_radar_treats_myanma_railways_as_engineering_backup_but_keeps_off_mission_veto(self) -> None:
+        railway = _card(
+            title="Ministry of Transport Myanma Railways Open Tender Call",
+            agency="Ministry of Transport",
+            closing="October 02, 2026",
+            href="https://myanmar.gov.mm/documents/20143/0/railway-tender.pdf/11111111-1111-1111-1111-111111111111",
+        )
+        leads = parse_current_high_value_tender_leads(
+            railway, base_url="https://myanmar.gov.mm/tenders", today=date(2026, 9, 16)
+        )
+        self.assertEqual(len(leads), 1)
+        self.assertEqual(leads[0]["target_source_hint"], "S21")
+        self.assertEqual(leads[0]["mission_sector_hint"], "ENGINEERING")
+        self.assertFalse(leads[0]["canonical_truth"])
+        self.assertTrue(leads[0]["aggregator_only"])
+
+        hospital = _card(
+            title="Myanma Railways hospital medical equipment tender",
+            agency="Ministry of Transport",
+            closing="October 02, 2026",
+            href="https://myanmar.gov.mm/documents/20143/0/railway-hospital.pdf/22222222-2222-2222-2222-222222222222",
+        )
+        self.assertEqual(
+            parse_current_high_value_tender_leads(
+                hospital, base_url="https://myanmar.gov.mm/tenders", today=date(2026, 9, 16)
+            ),
+            [],
+        )
+
+
     def test_cross_surface_equivalence_uses_strict_identity_not_portal_date(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             database = Path(tmp) / "signalforge.db"
