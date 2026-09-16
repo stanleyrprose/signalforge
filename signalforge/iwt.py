@@ -138,8 +138,12 @@ class IwtTenderListingParser(HTMLParser):
             parsed = urlparse(url)
             if parsed.scheme != "https" or parsed.netloc.lower() not in {"iwt.gov.mm", "www.iwt.gov.mm"}:
                 return
-            if re.fullmatch(r"/my/node/\d+", parsed.path):
-                self._pending_url = f"https://iwt.gov.mm{parsed.path}"
+            match = re.fullmatch(r"(?:/index\.php)?/my/node/(\d+)", parsed.path)
+            if match:
+                # The issuer currently emits /index.php/my/node/<id>, while older
+                # pages used /my/node/<id>. Normalize both shapes to one stable URL
+                # so path-routing drift does not create new canonical identities.
+                self._pending_url = f"https://iwt.gov.mm/my/node/{match.group(1)}"
 
         if lowered == "time" and self._post_div_depth and self._pending_url:
             value = _iso_utc(_parse_iso_datetime(_attr(attrs, "datetime")))
