@@ -51,5 +51,5 @@ def test_business_digest_renders_coverage_gap_separately_from_opportunities() ->
     assert "Pobbathiri Exchange Office" in text
     assert "2026-09-29" in text
     assert "工程/采购内容" in text
-    assert "业务概览</b>：当前 <b>21</b> 个机会" in text
+    assert "业务概览</b>：目标内 <b>21</b> 个机会" in text
     assert "不计入正式机会数" in text

@@ -1,8 +1,21 @@
-# GOAL — SignalForge Myanmar Source Expansion
+# GOAL — SignalForge Myanmar High-Quality Tender Intelligence
 
-## Goal
+## Primary business goal
 
-Expand SignalForge across high-value Myanmar issuer-original sources while preserving the proven v1.5 local acquisition contract and the existing Worker / Control / Fleet boundaries.
+SignalForge exists to output **high-quality Myanmar government / state-owned-enterprise tender and procurement intelligence** in four target domains:
+
+1. engineering projects and engineering equipment/services;
+2. construction / civil / infrastructure works;
+3. telecommunications and ICT infrastructure;
+4. energy / power / oil-and-gas infrastructure.
+
+Source expansion, parser coverage, OCR, Assurance and delivery mechanics are means to this business-output goal, not goals by themselves. A source count, GREEN health state or high raw Signal volume is not success unless it improves the quality, completeness or actionability of this target tender output.
+
+The primary Telegram / briefing surface should therefore prefer **current, actionable, official government/SOE tenders with clear scope and dates**. Off-mission records (for example medical procurement, customs auctions, ordinary commodities, chemicals, yarn, consumer goods and general logistics) may remain in canonical storage for audit/research, but should not consume the main tender briefing unless a separately reviewed business reason promotes them.
+
+## Engineering goal
+
+Expand and operate SignalForge across high-value Myanmar official sources while preserving the proven v1.5 local acquisition contract and the existing Worker / Control / Fleet boundaries.
 
 ## Frozen production boundary
 

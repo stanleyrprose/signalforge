@@ -15,11 +15,12 @@ from .briefing import business_briefing
 from .config import Registry, db_path
 from .coverage_gaps import reviewed_coverage_gaps
 from .db import connect
+from .mission_focus import classify_mission_fit
 from .telegram_delivery import TelegramDeliveryError, _send_message
 from .translation import contains_myanmar, translate_myanmar_to_zh_hans
 from .source_scorecard import source_scorecard
 
-DIGEST_VERSION = 3
+DIGEST_VERSION = 4
 DIGEST_CHANNEL = "telegram-business-digest"
 DIGEST_TIMEZONE = ZoneInfo("Asia/Yangon")
 TELEGRAM_MESSAGE_LIMIT = 4096
@@ -289,6 +290,10 @@ def business_digest(
                 continue
             if not isinstance(payload, dict):
                 continue
+            mission_input = {**payload, "source_id": str(row["source_id"]), "item_kind": str(row["item_kind"])}
+            mission = classify_mission_fit(mission_input)
+            if not mission["mission_fit"]:
+                continue
             seen_business_keys.add(canonical_key)
             business_changes.append({
                 "canonical_key": canonical_key,
@@ -296,6 +301,8 @@ def business_digest(
                 "signal_type": str(row["signal_type"]),
                 "created_at": str(row["created_at"]),
                 "item_kind": str(row["item_kind"]),
+                "mission_sector": mission.get("mission_sector"),
+                "mission_reason": mission.get("mission_reason"),
                 "commercial_event_type": payload.get("commercial_event_type"),
                 "commercial_direction": payload.get("commercial_direction"),
                 "issuer": str(payload.get("issuer") or ""),
@@ -413,6 +420,10 @@ def business_digest(
         "business": {
             "current_opportunities": briefing.get("current_opportunities"),
             "current_counts": briefing.get("current_counts"),
+            "tracked_opportunities": briefing.get("tracked_opportunities", briefing.get("current_opportunities")),
+            "mission_excluded_count": briefing.get("mission_excluded_count", 0),
+            "mission_sector_counts": briefing.get("mission_sector_counts") or {},
+            "mission_policy_version": briefing.get("mission_policy_version"),
             "qualification_counts": qcounts,
             "priority_counts": priority_counts,
             "attention_count": briefing.get("attention_count"),
@@ -515,6 +526,13 @@ def render_business_digest(
         if industry_lots:
             return _compact("；".join(industry_lots), 240)
         industry_products = _industry_scope_product_fragments(scope) if source_id == "S38" else []
+        if industry_products and str(item.get("mission_sector") or "") == "ENGINEERING":
+            engineering_products = [
+                value for value in industry_products
+                if value.startswith(("Electrical ", "Mechanical "))
+            ]
+            if engineering_products:
+                industry_products = engineering_products
         if industry_products:
             return _compact("；".join(industry_products), 240)
         fragments = _scope_product_fragments(scope)
@@ -632,8 +650,8 @@ def render_business_digest(
         return f"截止 {value}"
 
     lines = [
-        "📊 <b>SignalForge Myanmar 商机日报</b>",
-        f"🗓 {html.escape(str(digest.get('digest_date') or ''))} · 当前有效机会 + 过去24小时变化",
+        "📊 <b>SignalForge Myanmar 重点招投标</b>",
+        f"🗓 {html.escape(str(digest.get('digest_date') or ''))} · 政府/国企 · 工程/建设/通讯/能源 · 当前+24h变化",
     ]
 
     all_attention_rows = [item for item in attention if isinstance(item, dict)]
@@ -791,9 +809,12 @@ def render_business_digest(
             link = f' · <a href="{html.escape(url, quote=True)}">官方详情</a>' if url.startswith("https://") else ""
             lines.append(f"• [{source_id}] {date} · <b>{title}</b> · {kind}{link}")
 
+    current = int(business.get("current_opportunities") or 0)
+    tracked = int(business.get("tracked_opportunities") or current)
+    tracked_suffix = f" · 后台跟踪 {tracked}" if tracked != current else ""
     lines.extend([
         "",
-        f"<b>📌 业务概览</b>：当前 <b>{business.get('current_opportunities', 0)}</b> 个机会 · HIGH {priorities.get('HIGH', 0)} · MEDIUM {priorities.get('MEDIUM', 0)} · REVIEW {priorities.get('REVIEW', 0)}",
+        f"<b>📌 业务概览</b>：目标内 <b>{current}</b> 个机会{tracked_suffix} · HIGH {priorities.get('HIGH', 0)} · MEDIUM {priorities.get('MEDIUM', 0)} · REVIEW {priorities.get('REVIEW', 0)}",
     ])
     if digest_was_translated:
         lines.append("🌐 缅文内容已机器翻译为中文（事实以官方原文为准）")

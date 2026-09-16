@@ -6,9 +6,10 @@ from pathlib import Path
 
 from .config import Registry, db_path
 from .db import connect, migrate
+from .mission_focus import MISSION_POLICY_VERSION, MISSION_STATEMENT, classify_mission_fit
 from .opportunities import current_opportunities
 
-BRIEFING_POLICY_VERSION = 1
+BRIEFING_POLICY_VERSION = 2
 
 
 def _collapse(value: object) -> str:
@@ -69,6 +70,9 @@ def _attention_item(item: dict[str, object]) -> dict[str, object]:
         "signal_quality_gaps": item.get("signal_quality_gaps"),
         "signal_quality_priority_independent": item.get("signal_quality_priority_independent"),
         "primary_relevance": item.get("primary_relevance"),
+        "mission_fit": item.get("mission_fit"),
+        "mission_sector": item.get("mission_sector"),
+        "mission_reason": item.get("mission_reason"),
         "relevance_categories": item.get("relevance_categories"),
         "urgency": item.get("urgency"),
         "issuer": item.get("issuer"),
@@ -120,19 +124,23 @@ def business_briefing(
     registry: Registry | None = None,
 ) -> dict[str, object]:
     opportunities = current_opportunities(database=database, now=now, registry=registry, limit=500)
-    rows = opportunities.get("opportunities") or []
-    assert isinstance(rows, list)
+    tracked_rows = opportunities.get("opportunities") or []
+    assert isinstance(tracked_rows, list)
 
-    attention_rows = [
-        item
-        for item in rows
-        if isinstance(item, dict) and item.get("priority_band") in {"HIGH", "REVIEW"}
-    ]
-    watch_rows = [
-        item
-        for item in rows
-        if isinstance(item, dict) and item.get("priority_band") == "MEDIUM"
-    ]
+    rows: list[dict[str, object]] = []
+    excluded_rows: list[dict[str, object]] = []
+    for raw in tracked_rows:
+        if not isinstance(raw, dict):
+            continue
+        classification = classify_mission_fit(raw)
+        item = {**raw, **classification}
+        if classification["mission_fit"]:
+            rows.append(item)
+        else:
+            excluded_rows.append(item)
+
+    attention_rows = [item for item in rows if item.get("priority_band") in {"HIGH", "REVIEW"}]
+    watch_rows = [item for item in rows if item.get("priority_band") == "MEDIUM"]
 
     attention = [_attention_item(item) for item in attention_rows]
     action_counts = {
@@ -143,6 +151,31 @@ def business_briefing(
     for item in watch_rows:
         category = str(item.get("primary_relevance") or "OTHER")
         watch_relevance[category] = watch_relevance.get(category, 0) + 1
+
+    mission_sector_counts: dict[str, int] = {}
+    mission_status_counts = {"OPEN": 0, "UNKNOWN": 0, "EXPIRED": 0}
+    mission_priority_counts = {"HIGH": 0, "MEDIUM": 0, "REVIEW": 0, "LOW": 0}
+    mission_trust_counts = {"A": 0, "B": 0, "C": 0}
+    mission_relevance_counts: dict[str, int] = {}
+    for item in rows:
+        sector = str(item.get("mission_sector") or "OTHER")
+        mission_sector_counts[sector] = mission_sector_counts.get(sector, 0) + 1
+        status = str(item.get("opportunity_status") or item.get("deadline_status") or "UNKNOWN")
+        if status in mission_status_counts:
+            mission_status_counts[status] += 1
+        priority = str(item.get("priority_band") or "LOW")
+        if priority in mission_priority_counts:
+            mission_priority_counts[priority] += 1
+        trust = str(item.get("trust_grade") or "C")
+        if trust in mission_trust_counts:
+            mission_trust_counts[trust] += 1
+        relevance = str(item.get("primary_relevance") or "OTHER")
+        mission_relevance_counts[relevance] = mission_relevance_counts.get(relevance, 0) + 1
+
+    excluded_reason_counts: dict[str, int] = {}
+    for item in excluded_rows:
+        reason = str(item.get("mission_reason") or "UNKNOWN")
+        excluded_reason_counts[reason] = excluded_reason_counts.get(reason, 0) + 1
 
     target = database or db_path()
     manual_promotions: list[dict[str, object]] = []
@@ -175,11 +208,23 @@ def business_briefing(
     return {
         "status": "PASS",
         "briefing_policy_version": BRIEFING_POLICY_VERSION,
+        "mission_policy_version": MISSION_POLICY_VERSION,
+        "mission_statement": MISSION_STATEMENT,
         "qualification_policy_version": opportunities.get("qualification_policy_version"),
         "as_of": opportunities.get("as_of"),
-        "current_opportunities": opportunities.get("count"),
-        "current_counts": opportunities.get("counts"),
-        "qualification_counts": opportunities.get("qualification_counts"),
+        "current_opportunities": len(rows),
+        "current_counts": mission_status_counts,
+        "qualification_counts": {
+            "trust_grade": mission_trust_counts,
+            "priority_band": mission_priority_counts,
+            "relevance": dict(sorted(mission_relevance_counts.items())),
+        },
+        "mission_sector_counts": dict(sorted(mission_sector_counts.items())),
+        "tracked_opportunities": opportunities.get("count"),
+        "tracked_counts": opportunities.get("counts"),
+        "tracked_qualification_counts": opportunities.get("qualification_counts"),
+        "mission_excluded_count": len(excluded_rows),
+        "mission_excluded_reason_counts": dict(sorted(excluded_reason_counts.items())),
         "attention_count": len(attention),
         "attention_action_counts": action_counts,
         "attention": attention,
