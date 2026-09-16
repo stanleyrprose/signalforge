@@ -40,6 +40,7 @@ _NOT_BROWSER_FAILURES = {
     "AUTH_REQUIRED": "authentication_or_authorization_required",
     "CONTENT_TYPE_MISMATCH": "content_contract_mismatch",
     "CONTENT_VALIDATION_FAILURE": "content_validation_or_parser_boundary",
+    "PROVIDER_NOT_READY": "provider_runtime_not_ready",
     "PROVIDER_TIMEOUT": "provider_transport_timeout",
     "PROVIDER_REQUEST_EXPIRED": "provider_request_lifecycle",
     "PROVIDER_POLICY_REJECTED": "provider_policy_rejection",
@@ -75,8 +76,16 @@ def _classify(failure_counts: Counter[str]) -> tuple[str, int, list[str], str]:
         for failure, reason in _REVIEW_FAILURES.items()
         if failure_counts.get(failure, 0) > 0
     ]
-    if reviews:
-        failure, reason = sorted(reviews)[0]
+    known_not_browser = [
+        (failure, reason)
+        for failure, reason in _NOT_BROWSER_FAILURES.items()
+        if failure_counts.get(failure, 0) > 0
+    ]
+    review_total = sum(failure_counts[failure] for failure, _reason in reviews)
+    not_browser_total = sum(failure_counts[failure] for failure, _reason in known_not_browser)
+
+    if reviews and review_total >= not_browser_total:
+        failure, reason = max(reviews, key=lambda item: failure_counts[item[0]])
         count = failure_counts[failure]
         return (
             "REVIEW_FIRST",
@@ -85,11 +94,6 @@ def _classify(failure_counts: Counter[str]) -> tuple[str, int, list[str], str]:
             "Classify the failure cause first. Generic HTTP 403/unknown transport must not auto-promote a browser engine.",
         )
 
-    known_not_browser = [
-        (failure, reason)
-        for failure, reason in _NOT_BROWSER_FAILURES.items()
-        if failure_counts.get(failure, 0) > 0
-    ]
     if known_not_browser:
         failure, reason = max(
             known_not_browser,
