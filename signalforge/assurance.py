@@ -1181,9 +1181,72 @@ def run_assurance(
     }
 
 
-def assurance_status(*, database: Path | None = None) -> dict[str, object]:
+def _coverage_risk_rows(
+    conn,  # type: ignore[no-untyped-def]
+    *,
+    assurance_run_id: str,
+    registry: Registry | None = None,
+) -> list[dict[str, object]]:
+    placeholders = ",".join("?" for _ in MANDATORY_COVERAGE_SOURCES)
+    rows = conn.execute(
+        f"""
+        SELECT c.source_id,c.status,c.checked_at,c.details_json,
+               s.last_success_at,s.last_error,s.consecutive_failures
+        FROM coverage_audit_results c
+        LEFT JOIN source_state s ON s.source_id=c.source_id
+        WHERE c.assurance_run_id=?
+          AND c.source_id IN ({placeholders})
+          AND c.status!='PASS'
+        ORDER BY c.source_id
+        """,
+        (assurance_run_id, *MANDATORY_COVERAGE_SOURCES),
+    ).fetchall()
+    sources = {}
+    if registry is not None:
+        raw_sources = registry.raw.get("sources") or {}
+        if isinstance(raw_sources, dict):
+            sources = raw_sources
+
+    risks: list[dict[str, object]] = []
+    for row in rows:
+        try:
+            details = json.loads(str(row["details_json"] or "{}"))
+        except json.JSONDecodeError:
+            details = {}
+        source_id = str(row["source_id"])
+        source_name = source_id
+        policy = sources.get(source_id) if isinstance(sources, dict) else None
+        if isinstance(policy, dict) and policy.get("name"):
+            source_name = str(policy["name"])
+        reason = str(details.get("reason") or details.get("error") or "COVERAGE_NOT_PROVEN")
+        last_success_at = row["last_success_at"]
+        risks.append(
+            {
+                "source_id": source_id,
+                "source_name": source_name,
+                "coverage_status": str(row["status"]),
+                "checked_at": row["checked_at"],
+                "last_success_at": last_success_at,
+                "risk_since": last_success_at or row["checked_at"],
+                "reason": reason,
+                "last_error": row["last_error"],
+                "consecutive_failures": int(row["consecutive_failures"] or 0),
+                "known_miss": False,
+                "semantics": "COVERAGE_RISK_NOT_CONFIRMED_MISS",
+                "interpretation": "NO_NEW_SIGNAL_DOES_NOT_PROVE_NO_NEW_OPPORTUNITY",
+            }
+        )
+    return risks
+
+
+def assurance_status(
+    *,
+    database: Path | None = None,
+    registry: Registry | None = None,
+) -> dict[str, object]:
     target = database or db_path()
     migrate(target)
+    registry = registry or Registry.load()
     with connect(target) as conn:
         run = conn.execute("SELECT * FROM assurance_runs ORDER BY started_at DESC LIMIT 1").fetchone()
         review = conn.execute("SELECT * FROM metric_reviews ORDER BY observed_at DESC LIMIT 1").fetchone()
@@ -1195,8 +1258,14 @@ def assurance_status(*, database: Path | None = None) -> dict[str, object]:
             "active_manual_promotions": int(conn.execute("SELECT COUNT(*) FROM manual_promotions WHERE status='ACTIVE'").fetchone()[0]),
         }
         coverage = []
+        coverage_risks: list[dict[str, object]] = []
         if run is not None:
             coverage = [dict(row) for row in conn.execute("SELECT source_id,audit_method,status,official_candidate_count,canonical_covered_count,missing_count,checked_at FROM coverage_audit_results WHERE assurance_run_id=? ORDER BY source_id", (run["assurance_run_id"],))]
+            coverage_risks = _coverage_risk_rows(
+                conn,
+                assurance_run_id=str(run["assurance_run_id"]),
+                registry=registry,
+            )
     return {
         "status": "NOT_RUN" if run is None else str(run["status"]),
         "assurance_version": ASSURANCE_VERSION,
@@ -1204,4 +1273,6 @@ def assurance_status(*, database: Path | None = None) -> dict[str, object]:
         "latest_metric_review": ({**dict(review), "metrics": json.loads(str(review["metrics_json"])), "conclusions": json.loads(str(review["conclusions_json"]))} if review is not None else None),
         "counts": counts,
         "coverage": coverage,
+        "coverage_risk_count": len(coverage_risks),
+        "coverage_risks": coverage_risks,
     }

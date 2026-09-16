@@ -153,6 +153,37 @@ class BusinessDigestTests(unittest.TestCase):
         self.assertNotIn("Q81/HIGH", text)
 
 
+    def test_render_surfaces_business_coverage_risk_without_technical_noise(self) -> None:
+        briefing = _briefing()
+        briefing["assurance"] = {
+            "open_misses": 0,
+            "open_red_misses": 0,
+            "coverage_risk_count": 1,
+            "coverage_risks": [
+                {
+                    "source_id": "S21",
+                    "source_name": "Myanma Railways Tenders",
+                    "coverage_status": "CHECK_FAILED",
+                    "last_success_at": "2026-09-13T13:00:46Z",
+                    "reason": "FetchError: issuer origin timed out",
+                    "known_miss": False,
+                }
+            ],
+            "metric_validity": "REVIEW",
+        }
+        with tempfile.TemporaryDirectory() as tmp, patch("signalforge.business_digest.business_briefing", return_value=briefing), patch(
+            "signalforge.business_digest.audit", return_value=_audit()
+        ), patch("signalforge.business_digest.source_scorecard", return_value=_scorecard()):
+            digest = business_digest(database=self._db(tmp), registry=_Registry(), now=datetime(2026,9,16,10,30,tzinfo=UTC))  # type: ignore[arg-type]
+        text = render_business_digest(digest)
+        self.assertIn("⚠️ 覆盖风险", text)
+        self.assertIn("Myanma Railways Tenders</b> · [S21]", text)
+        self.assertIn("采集覆盖最近可验证到 <b>2026-09-13</b>；之后新招标无法确认", text)
+        self.assertIn("覆盖未证明 ≠ 已确认漏报", text)
+        self.assertIn("不要把“无新 Signal”理解为“无新招标”", text)
+        self.assertNotIn("CHECK_FAILED", text)
+        self.assertNotIn("issuer origin timed out", text)
+
     def test_digest_surfaces_which_source_is_buying_what(self) -> None:
         with tempfile.TemporaryDirectory() as tmp, patch("signalforge.business_digest.business_briefing", return_value=_briefing()), patch(
             "signalforge.business_digest.audit", return_value=_audit()

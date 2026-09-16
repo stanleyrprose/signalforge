@@ -470,7 +470,7 @@ def business_digest(
             "watchlist_items": watchlist.get("items") or [],
             "watchlist_delivery_policy": "VALID_MEDIUM_NOT_IMMEDIATE_ALERT; escalates on strategic fit or <=72h urgency",
             "manual_promotions": briefing.get("manual_promotions") or {"count": 0, "items": []},
-            "assurance": briefing.get("assurance") or {"open_misses": 0, "open_red_misses": 0, "metric_validity": "NOT_RUN"},
+            "assurance": briefing.get("assurance") or {"open_misses": 0, "open_red_misses": 0, "coverage_risk_count": 0, "coverage_risks": [], "metric_validity": "NOT_RUN"},
             "coverage_gap_count": len(coverage_gaps),
             "coverage_gaps": coverage_gaps,
             "coverage_gap_policy": "REVIEWED_READ_ONLY_OUTSIDE_CANONICAL_SIGNAL_PIPELINE",
@@ -537,6 +537,9 @@ def render_business_digest(
     assurance = business.get("assurance") or {}
     if not isinstance(assurance, dict):
         assurance = {}
+    coverage_risks = assurance.get("coverage_risks") or []
+    if not isinstance(coverage_risks, list):
+        coverage_risks = []
     strategic_notices = activity.get("strategic_notices") or []
     if not isinstance(strategic_notices, list):
         strategic_notices = []
@@ -754,6 +757,20 @@ def render_business_digest(
             lines.append(f"• <b>{issuer}</b> · [{source_id}] · {signal_type}")
             lines.append(f"   {business_label(item)}：<b>{subject}</b>")
             lines.append("   " + html.escape(" · ".join(meta)) + link)
+
+    risk_rows = [item for item in coverage_risks[:3] if isinstance(item, dict)]
+    if risk_rows:
+        lines.extend(["", "<b>⚠️ 覆盖风险</b>"])
+        for risk in risk_rows:
+            source_id = html.escape(str(risk.get("source_id") or "?"))
+            source_name = html.escape(str(risk.get("source_name") or source_id))
+            proven_through = str(risk.get("last_success_at") or "")
+            proven_date = html.escape(proven_through.split("T", 1)[0]) if proven_through else "未知"
+            if proven_through:
+                lines.append(f"• <b>{source_name}</b> · [{source_id}]：采集覆盖最近可验证到 <b>{proven_date}</b>；之后新招标无法确认。")
+            else:
+                lines.append(f"• <b>{source_name}</b> · [{source_id}]：最近可验证采集时间未知；当前无法证明没有新招标。")
+        lines.append("<i>覆盖未证明 ≠ 已确认漏报；不要把“无新 Signal”理解为“无新招标”。</i>")
 
     if verified_external:
         verified_rows = [item for item in verified_external[:4] if isinstance(item, dict)]
