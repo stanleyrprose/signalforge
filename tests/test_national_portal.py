@@ -77,6 +77,46 @@ class NationalPortalTests(unittest.TestCase):
         self.assertFalse(lead["canonical_truth"])
         self.assertTrue(lead["aggregator_only"])
 
+    def test_closing_hint_lookback_is_opt_in_and_remains_noncanonical(self) -> None:
+        payload = _card(
+            title="Ministry of Energy transformer open tender",
+            agency="Ministry of Energy",
+            closing="September 04, 2026",
+            href="https://myanmar.gov.mm/documents/20143/0/energy.pdf/33333333-3333-3333-3333-333333333333",
+        )
+        self.assertEqual(
+            parse_current_high_value_tender_leads(
+                payload, base_url="https://myanmar.gov.mm/tenders", today=date(2026, 9, 16)
+            ),
+            [],
+        )
+        leads = parse_current_high_value_tender_leads(
+            payload,
+            base_url="https://myanmar.gov.mm/tenders",
+            today=date(2026, 9, 16),
+            closing_hint_lookback_days=14,
+        )
+        self.assertEqual(len(leads), 1)
+        self.assertEqual(leads[0]["closing_date_hint"], "2026-09-04")
+        self.assertEqual(leads[0]["mission_sector_hint"], "ENERGY")
+        self.assertFalse(leads[0]["canonical_truth"])
+        self.assertTrue(leads[0]["aggregator_only"])
+        with self.assertRaisesRegex(ValueError, "lookback"):
+            parse_current_high_value_tender_leads(
+                payload,
+                base_url="https://myanmar.gov.mm/tenders",
+                today=date(2026, 9, 16),
+                closing_hint_lookback_days=46,
+            )
+
+    def test_s01_registry_uses_bounded_fourteen_day_closing_hint_lookback(self) -> None:
+        registry = Registry.load(Path(__file__).resolve().parents[1])
+        surface = registry.raw["assurance_surfaces"]["S01"]
+        self.assertTrue(surface["closing_date_is_hint_only"])
+        self.assertEqual(surface["closing_date_hint_lookback_days"], 14)
+        self.assertEqual(surface["max_pages"], 6)
+        self.assertEqual(surface["stop_after_empty_mission_pages"], 3)
+
     def test_assurance_surface_accepts_verified_external_mpt_coverage_and_canonical_later_supersedes_it(self) -> None:
         registry = Registry.load(Path(__file__).resolve().parents[1])
         policy = registry.raw["assurance_surfaces"]["S01"]

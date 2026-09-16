@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from html.parser import HTMLParser
 from urllib.parse import urlencode, urljoin, urlparse, urlunparse
 
@@ -293,16 +293,20 @@ def parse_current_high_value_tender_leads(
     *,
     base_url: str = NATIONAL_PORTAL_TENDER_URL,
     today: date,
+    closing_hint_lookback_days: int = 0,
 ) -> list[dict[str, object]]:
     parser = _TenderCardParser()
     parser.feed(html_bytes.decode("utf-8", errors="replace"))
     if not parser.rows:
         raise ValueError("Myanmar National Portal tender cards not found")
+    if closing_hint_lookback_days < 0 or closing_hint_lookback_days > 45:
+        raise ValueError("National Portal closing hint lookback must be between 0 and 45 days")
+    hint_cutoff = today - timedelta(days=closing_hint_lookback_days)
     leads: list[NationalPortalLead] = []
     seen: set[str] = set()
     for row in parser.rows:
         deadline = parse_date(row["closing"])
-        if deadline is None or deadline < today.isoformat():
+        if deadline is None or deadline < hint_cutoff.isoformat():
             continue
         title = normalize_text(row["title"])
         agency = normalize_text(row["agency"])

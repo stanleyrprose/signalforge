@@ -648,6 +648,7 @@ def _coverage_from_aggregator_surface(
                 payload,
                 base_url=discovery_url,
                 today=now.astimezone(_LOCAL_TZ).date(),
+                closing_hint_lookback_days=int(policy.get("closing_date_hint_lookback_days") or 0),
             )
             for lead in page_leads:
                 leads_by_id.setdefault(str(lead["lead_id"]), lead)
@@ -741,6 +742,7 @@ def _coverage_from_aggregator_surface(
             "contract": "DISCOVERY_AGGREGATOR_ONLY",
             "canonical_truth": False,
             "closing_date_semantics": "HINT_ONLY_NOT_CANONICAL",
+            "closing_date_hint_lookback_days": int(policy.get("closing_date_hint_lookback_days") or 0),
             "current_page_only": bool(policy.get("current_page_only", False)),
             "bounded_page_scan": bool(policy.get("bounded_page_scan", False)),
             "max_pages": max_pages,
