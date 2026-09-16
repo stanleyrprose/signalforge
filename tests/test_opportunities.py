@@ -330,6 +330,53 @@ class OpportunityViewTests(unittest.TestCase):
             self.assertEqual(rows[1]["reference_count"], 3)
             self.assertEqual(rows[1]["reference_numbers_evidence"], "HTML_TITLE")
 
+    def test_reviewed_customs_event_enters_current_view_but_unreviewed_legacy_auction_stays_hidden(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            database = Path(tmp) / "signalforge.db"
+            migrate(database)
+            with connect(database) as conn, conn:
+                _insert_canonical(
+                    conn,
+                    key="customs-auction:2026-09-08:de1e5fca89686a1f",
+                    source_id="S08A",
+                    payload={
+                        "item_kind": "AUCTION_NOTICE",
+                        "title": "Customs auction",
+                        "reference_no": "CUSTOMS-AUCTION-20260908-de1e5fca",
+                        "publication_date": "2026-09-08",
+                        "attachment_url": "https://customs.gov.mm/admin/storage/files/Announcement-1.pdf",
+                        "url": "https://customs.gov.mm/Announcements",
+                    },
+                )
+                _insert_signal(conn, signal_id="sig-customs-current", source_id="S08A", key="customs-auction:2026-09-08:de1e5fca89686a1f", created_at="2026-09-09T09:05:09Z")
+                _insert_canonical(
+                    conn,
+                    key="customs-auction:2026-08-21:old",
+                    source_id="S08A",
+                    payload={
+                        "item_kind": "AUCTION_NOTICE",
+                        "title": "Old Customs auction",
+                        "reference_no": "CUSTOMS-AUCTION-OLD",
+                        "publication_date": "2026-08-21",
+                        "attachment_url": "https://customs.gov.mm/admin/storage/files/old.pdf",
+                        "url": "https://customs.gov.mm/Announcements",
+                    },
+                )
+                _insert_signal(conn, signal_id="sig-customs-old", source_id="S08A", key="customs-auction:2026-08-21:old", created_at="2026-08-21T09:00:00Z")
+
+            result = current_opportunities(database=database, now=datetime(2026, 9, 16, 4, 0, tzinfo=UTC), source_id="S08A")
+            self.assertEqual(result["count"], 1)
+            row = result["opportunities"][0]
+            self.assertEqual(row["canonical_key"], "customs-auction:2026-09-08:de1e5fca89686a1f")
+            self.assertEqual(row["deadline_status"], "UNKNOWN")
+            self.assertEqual(row["opportunity_status"], "OPEN")
+            self.assertEqual(row["action_date"], "2026-09-28")
+            self.assertEqual(row["action_time"], "10:00")
+            self.assertEqual(row["commercial_direction"], "BUY_FROM_ISSUER")
+            self.assertIn("钢铁/塑料原料", row["scope_summary"])
+            self.assertIn("9/16–18买表格", row["next_action_summary"])
+            self.assertEqual(row["reviewed_enrichment_status"], "REVIEWED_TEXT_PDF_CURRENT_EVENT")
+
     def test_moep_signal_backed_legacy_tender_enters_current_view_with_bounded_unknown_freshness(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             database = Path(tmp) / "signalforge.db"
