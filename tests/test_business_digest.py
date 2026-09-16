@@ -464,7 +464,7 @@ class BusinessDigestTests(unittest.TestCase):
         self.assertIn("中文采购项目", text)
         self.assertNotIn("စက်ပစ္စည်း", text)
 
-    def test_attention_selection_stops_at_six_after_strategic_fill(self) -> None:
+    def test_attention_renders_all_current_rows_without_hidden_cap(self) -> None:
         with tempfile.TemporaryDirectory() as tmp, patch("signalforge.business_digest.business_briefing", return_value=_briefing()), patch(
             "signalforge.business_digest.audit", return_value=_audit()
         ), patch("signalforge.business_digest.source_scorecard", return_value=_scorecard()):
@@ -484,9 +484,27 @@ class BusinessDigestTests(unittest.TestCase):
             })
         digest["business"]["attention"] = rows
         text = render_business_digest(digest)
-        self.assertIn("今天先看：8 条需处理（展示前 6 条）", text)
-        self.assertIn("Opportunity 5", text)
-        self.assertNotIn("Opportunity 6", text)
+        self.assertIn("今天先看：8 条需处理", text)
+        self.assertNotIn("展示前 6 条", text)
+        for index in range(8):
+            self.assertIn(f"Opportunity {index}", text)
+
+    def test_moep_attention_uses_concrete_procurement_summaries_and_short_issuer_labels(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp, patch("signalforge.business_digest.business_briefing", return_value=_briefing()), patch(
+            "signalforge.business_digest.audit", return_value=_audit()
+        ), patch("signalforge.business_digest.source_scorecard", return_value=_scorecard()):
+            digest = business_digest(database=self._db(tmp), registry=_Registry(), now=datetime(2026,9,16,2,0,tzinfo=UTC))  # type: ignore[arg-type]
+        digest["business"]["attention"] = [
+            {"canonical_key":"moep:7144","source_id":"S20","item_kind":"TENDER","attention_action":"REVIEW","issuer":"DPTSC","title":"Tender","scope_excerpt":"Database Creation and Modification for 500kV Phayagyi, Hlaingtharyar and Taungoo Substation in Existing SCADA- EMS System","deadline_status":"UNKNOWN"},
+            {"canonical_key":"moep:7151","source_id":"S20","item_kind":"TENDER","attention_action":"REVIEW","issuer":"EPGE","title":"Tender","scope_excerpt":"ရေအားလျှပ်စစ်ဓာတ်အားပေးစက်ရုံများတွင် အသုံးပြုရန် စက်မှုနှင့် လျှပ်စစ်ပိုင်းဆိုင်ရာစက်အရံပစ္စည်း(၁၂)မျိုးဝယ်ယူခြင်း","deadline_status":"UNKNOWN"},
+            {"canonical_key":"moep:7157","source_id":"S20","item_kind":"TENDER","attention_action":"REVIEW","issuer":"DPTSC","title":"Tender","scope_excerpt":"၂၃၀ကေဗွီ ကမာနတ်-လှော်ကားဓာတ်အား လိုင်း(၃၈.၄)မိုင်ရှိ ACSR Conductor ကြိုးအား ACCC Conductor ကြိုးဖြင့် အစားထိုးလဲလှယ်ရန် လိုအပ်သော ပစ္စည်းများ","deadline_status":"UNKNOWN"},
+        ]
+        text = render_business_digest(digest, translator=lambda values: (values, False))
+        self.assertIn("MOEP / DPTSC", text)
+        self.assertIn("MOEP / EPGE", text)
+        self.assertIn("500kV Phayagyi、Hlaingtharyar、Taungoo", text)
+        self.assertIn("水电站机械及电气备件 12类", text)
+        self.assertIn("ACSR→ACCC 导线更换所需材料", text)
 
     def test_watchlist_renders_all_current_medium_opportunities(self) -> None:
         with tempfile.TemporaryDirectory() as tmp, patch("signalforge.business_digest.business_briefing", return_value=_briefing()), patch(

@@ -330,6 +330,52 @@ class OpportunityViewTests(unittest.TestCase):
             self.assertEqual(rows[1]["reference_count"], 3)
             self.assertEqual(rows[1]["reference_numbers_evidence"], "HTML_TITLE")
 
+    def test_moep_signal_backed_legacy_tender_enters_current_view_with_bounded_unknown_freshness(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            database = Path(tmp) / "signalforge.db"
+            migrate(database)
+            with connect(database) as conn, conn:
+                _insert_canonical(
+                    conn,
+                    key="moep:current",
+                    source_id="S20",
+                    payload={
+                        "item_kind": "TENDER",
+                        "title": "MOEP current tender",
+                        "project_name": "Database Creation and Modification for 500kV Substation SCADA-EMS System",
+                        "reference_no": "MOEP-CONTENT-1",
+                        "publication_date": "2026-09-11",
+                        "deadline": None,
+                        "url": "https://moep.gov.mm/mm/ignite/contentView/1",
+                    },
+                )
+                _insert_signal(conn, signal_id="sig-moep-current", source_id="S20", key="moep:current", created_at="2026-09-11T10:00:00Z")
+                _insert_canonical(
+                    conn,
+                    key="moep:stale",
+                    source_id="S20",
+                    payload={
+                        "item_kind": "TENDER",
+                        "title": "MOEP stale tender",
+                        "project_name": "Old tender with unknown deadline",
+                        "reference_no": "MOEP-CONTENT-OLD",
+                        "publication_date": "2026-07-01",
+                        "deadline": None,
+                        "url": "https://moep.gov.mm/mm/ignite/contentView/2",
+                    },
+                )
+                _insert_signal(conn, signal_id="sig-moep-stale", source_id="S20", key="moep:stale", created_at="2026-07-01T10:00:00Z")
+
+            result = current_opportunities(database=database, now=datetime(2026, 9, 16, 4, 0, tzinfo=UTC), source_id="S20")
+            self.assertEqual(result["count"], 1)
+            row = result["opportunities"][0]
+            self.assertEqual(row["canonical_key"], "moep:current")
+            self.assertEqual(row["deadline_status"], "UNKNOWN")
+            self.assertEqual(row["opportunity_status"], "UNKNOWN")
+            self.assertEqual(row["scope_summary"], "Database Creation and Modification for 500kV Substation SCADA-EMS System")
+            self.assertEqual(row["primary_relevance"], "ICT")
+            self.assertIn("ENERGY", row["relevance_categories"])
+
     def test_ptd_deadline_kind_and_opening_semantics_flow_through_read_view(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             database = Path(tmp) / "signalforge.db"
