@@ -125,7 +125,7 @@ class BrowserEscalationCandidateTests(unittest.TestCase):
         migrate(database)
         with connect(database) as conn, conn:
             _add_attempt(conn, source_id="S16", suffix="empty", failure="CONTENT_EMPTY")
-            _add_attempt(conn, source_id="S21", suffix="timeout", failure="CONNECT_TIMEOUT")
+            _add_attempt(conn, source_id="S21", suffix="timeout", failure="CONNECT_TIMEOUT", target_kind="DISCOVERY")
             _add_attempt(conn, source_id="S41", suffix="bot", failure="BOT_BLOCKED")
             _add_attempt(conn, source_id="S99", suffix="403a", failure="HTTP_403")
             _add_attempt(conn, source_id="S99", suffix="403b", failure="HTTP_403", started_at="2026-09-16T05:05:00Z")
