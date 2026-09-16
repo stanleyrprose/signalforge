@@ -92,13 +92,16 @@
       "discovery_url": "https://myanmar.gov.mm/tenders",
       "network_zone": "myanmar-international",
       "engine": "direct_http",
-      "current_page_only": true,
+      "current_page_only": false,
+      "bounded_page_scan": true,
+      "max_pages": 6,
+      "stop_after_empty_mission_pages": 3,
       "canonical_truth": false,
       "closing_date_is_hint_only": true,
       "request_timeout_seconds": 30,
       "request_max_bytes": 500000,
-      "selection_policy_version": 1,
-      "source_policy_version": 1
+      "selection_policy_version": 2,
+      "source_policy_version": 2
     }
   },
   "sources": {
@@ -2918,7 +2921,7 @@
     }
   },
   "deferred_sources": {
-    "S01": "Myanmar National Portal Tenders — CANONICAL STILL DEFERRED; Assurance discovery-aggregator surface activated after 2026-09-16 MPT coverage-gap proof. Closing Date remains hint-only and S01 never overrides issuer truth.",
+    "S01": "Myanmar National Portal Tenders — CANONICAL STILL DEFERRED; Assurance-only Mission Radar v2 scans at most 6 current pagination pages and stops after 3 consecutive pages without mission leads. Selection is limited to government/SOE engineering, construction, telecom/ICT infrastructure and energy with off-mission vetoes. Closing Date remains hint-only; strict cross-surface equivalence may prove existing issuer coverage, and S01 never overrides issuer truth.",
     "S04": "Myanmar National Trade Portal Legal Documents — DEFER canonical onboarding; official multi-agency aggregator overlaps issuer-original S05A/S07/S12 and requires cross-source issuer-resolution/dedup contract",
     "S15A": "MPA Tender Category — DEFER automated production scheduling; Mac direct C0 + bounded Manual Provider Bridge LISTING/DETAIL/PDF path are GREEN while Bangkok strict-TLS remains RED (curl 60 / issuer chain incomplete); deterministic PDF classification and explicit operator-only manual canonical commit are authorized/implemented, but acquisition remains manual and mac-mm-01 remote invocation remains disabled; do not bypass TLS or add unattended Mac automation at the current low event rate",
     "S15B": "MPA legacy Tender URL — DEFER under the same Bangkok RED-TLS / Mac GREEN acquisition boundary and S15A onboarding decision",

@@ -17,6 +17,8 @@ The primary Telegram / briefing surface should therefore prefer **current, actio
 
 Issuer-original canonical acquisition remains the preferred truth path. When an issuer's normal tender surface omits an opportunity, SignalForge may still count it as business coverage only when a reviewed alternate official surface provides the issuer's own document and all of the following are proven: issuer identity, business scope, deadline/actionability, allowlisted official URL, and retained document SHA256. Such records are labeled `VERIFIED_EXTERNAL_OFFICIAL_OPPORTUNITY`, remain `canonical_truth=false`, and must never be represented as canonical Signals. If the canonical pipeline later acquires the same official URL, canonical coverage supersedes the verified-external record without double counting.
 
+S01 National Portal remains an Assurance-only mission radar. It may scan a bounded recent pagination window to find current target-sector leads, but must not ingest the historical portal corpus. Cross-surface coverage equivalence must use deterministic proof (for example identical official path modulo `www`, or source-specific exact issuer title plus exact attachment filename); fuzzy similarity and Portal `Closing Date` are not sufficient identity proofs.
+
 ## Engineering goal
 
 Expand and operate SignalForge across high-value Myanmar official sources while preserving the proven v1.5 local acquisition contract and the existing Worker / Control / Fleet boundaries.

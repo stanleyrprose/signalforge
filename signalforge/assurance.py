@@ -9,7 +9,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from html.parser import HTMLParser
 from pathlib import Path
-from urllib.parse import urljoin, urlparse
+from urllib.parse import unquote_plus, urljoin, urlparse
 from zoneinfo import ZoneInfo
 
 from .acquisition_runtime import acquire_provider_diagnostic_bytes
@@ -18,7 +18,8 @@ from .config import Registry, db_path, evidence_root
 from .coverage_gaps import reviewed_coverage_gaps, verified_external_opportunities
 from .db import connect, migrate
 from .http import fetch_bytes
-from .national_portal import parse_current_high_value_tender_leads
+from .mpt import normalize_text
+from .national_portal import national_portal_page_url, parse_current_high_value_tender_leads
 from .source_scorecard import PORTFOLIO_TIERS, _is_known_historical_noise, source_scorecard
 
 ASSURANCE_VERSION = 1
@@ -56,6 +57,81 @@ def _normalize_url(value: str) -> str:
 def _dedupe_key(*parts: object) -> str:
     material = "|".join(str(part or "") for part in parts)
     return hashlib.sha256(material.encode("utf-8")).hexdigest()
+
+
+def _www_alias_url(value: str) -> str:
+    parsed = urlparse(value.strip())
+    host = parsed.netloc.lower()
+    if host.startswith("www."):
+        host = host[4:]
+    path = parsed.path.rstrip("/") or "/"
+    return f"{parsed.scheme.lower()}://{host}{path}"
+
+
+def _portal_document_name(value: str) -> str | None:
+    parsed = urlparse(value)
+    for raw in parsed.path.split("/"):
+        part = unquote_plus(raw).strip()
+        if part.lower().endswith((".pdf", ".jpg", ".jpeg", ".png")):
+            return normalize_text(part)
+    return None
+
+
+def _aggregator_canonical_equivalent(conn, lead: dict[str, object]) -> dict[str, object] | None:  # type: ignore[no-untyped-def]
+    """Resolve only strict cross-surface equivalence; never fuzzy-match.
+
+    National Portal closing dates remain hint-only and are not required for an
+    equivalence decision. Accepted proofs are either the same official URL path
+    with only a www-host alias difference, or (currently for IWT/S22) exact
+    issuer-title identity plus exact official attachment filename identity.
+    """
+
+    target_source = str(lead.get("target_source_hint") or "")
+    lead_url = str(lead.get("url") or "")
+    if not target_source or not lead_url:
+        return None
+    lead_title = normalize_text(str(lead.get("title") or ""))
+    portal_document = _portal_document_name(lead_url)
+    rows = conn.execute(
+        "SELECT source_id,canonical_key,title,project_name,deadline,url,payload_json FROM canonical_items WHERE source_id=? AND item_kind='TENDER'",
+        (target_source,),
+    ).fetchall()
+    for row in rows:
+        canonical_url = str(row["url"] or "")
+        if canonical_url and _www_alias_url(canonical_url) == _www_alias_url(lead_url):
+            return {
+                "source_id": target_source,
+                "canonical_key": str(row["canonical_key"]),
+                "canonical_url": canonical_url,
+                "proof": "EXACT_OFFICIAL_PATH_WWW_HOST_ALIAS",
+                "portal_closing_date_hint": lead.get("closing_date_hint"),
+                "canonical_deadline": row["deadline"],
+            }
+        if target_source != "S22" or not portal_document or not lead_title:
+            continue
+        try:
+            payload = json.loads(str(row["payload_json"] or "{}"))
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(payload, dict):
+            continue
+        candidate_titles = {
+            normalize_text(str(value))
+            for value in (row["title"], row["project_name"], payload.get("title"), payload.get("project_name"))
+            if value
+        }
+        attachment_name = normalize_text(str(payload.get("attachment_name") or ""))
+        if lead_title in candidate_titles and attachment_name and attachment_name == portal_document:
+            return {
+                "source_id": target_source,
+                "canonical_key": str(row["canonical_key"]),
+                "canonical_url": canonical_url,
+                "proof": "EXACT_ISSUER_TITLE_AND_ATTACHMENT_NAME",
+                "portal_document_name": portal_document,
+                "portal_closing_date_hint": lead.get("closing_date_hint"),
+                "canonical_deadline": row["deadline"],
+            }
+    return None
 
 
 class _LinkParser(HTMLParser):
@@ -534,17 +610,52 @@ def _coverage_from_aggregator_surface(
             "missing": [],
             "details": {"reason": "NETWORK_DISABLED", "canonical_truth": False},
         }
+    max_pages = int(policy.get("max_pages") or 1)
+    empty_stop = int(policy.get("stop_after_empty_mission_pages") or 0)
+    if max_pages < 1 or max_pages > 10:
+        return {
+            "source_id": source_id,
+            "method": method,
+            "status": "CHECK_FAILED",
+            "official": 0,
+            "covered": 0,
+            "missing": [],
+            "details": {"reason": "INVALID_MAX_PAGES", "canonical_truth": False},
+        }
+    if empty_stop < 0 or empty_stop > max_pages:
+        return {
+            "source_id": source_id,
+            "method": method,
+            "status": "CHECK_FAILED",
+            "official": 0,
+            "covered": 0,
+            "missing": [],
+            "details": {"reason": "INVALID_EMPTY_PAGE_STOP", "canonical_truth": False},
+        }
+
+    leads_by_id: dict[str, dict[str, object]] = {}
+    page_results: list[dict[str, object]] = []
+    consecutive_empty = 0
     try:
-        payload = fetch_bytes(
-            discovery_url,
-            timeout=int(policy.get("request_timeout_seconds") or 30),
-            max_bytes=int(policy.get("request_max_bytes") or 500_000),
-        )
-        leads = parse_current_high_value_tender_leads(
-            payload,
-            base_url=discovery_url,
-            today=now.astimezone(_LOCAL_TZ).date(),
-        )
+        for page in range(1, max_pages + 1):
+            page_url = national_portal_page_url(discovery_url, page)
+            payload = fetch_bytes(
+                page_url,
+                timeout=int(policy.get("request_timeout_seconds") or 30),
+                max_bytes=int(policy.get("request_max_bytes") or 500_000),
+            )
+            page_leads = parse_current_high_value_tender_leads(
+                payload,
+                base_url=discovery_url,
+                today=now.astimezone(_LOCAL_TZ).date(),
+            )
+            for lead in page_leads:
+                leads_by_id.setdefault(str(lead["lead_id"]), lead)
+            page_results.append({"page": page, "url": page_url, "mission_leads": len(page_leads)})
+            consecutive_empty = consecutive_empty + 1 if not page_leads else 0
+            if empty_stop and consecutive_empty >= empty_stop:
+                break
+        leads = list(leads_by_id.values())
     except Exception as exc:
         return {
             "source_id": source_id,
@@ -553,7 +664,11 @@ def _coverage_from_aggregator_surface(
             "official": 0,
             "covered": 0,
             "missing": [],
-            "details": {"error": f"{type(exc).__name__}: {exc}", "canonical_truth": False},
+            "details": {
+                "error": f"{type(exc).__name__}: {exc}",
+                "canonical_truth": False,
+                "pages_completed": page_results,
+            },
         }
 
     canonical_urls = {
@@ -572,6 +687,7 @@ def _coverage_from_aggregator_surface(
         if str(item.get("coverage_origin") or "") == source_id
     }
     covered_leads: list[dict[str, object]] = []
+    canonical_equivalent_leads: list[dict[str, object]] = []
     verified_external_leads: list[dict[str, object]] = []
     confirmed_gaps: list[dict[str, object]] = []
     unresolved_leads: list[dict[str, object]] = []
@@ -579,6 +695,16 @@ def _coverage_from_aggregator_surface(
         normalized = _normalize_url(str(lead["url"]))
         if normalized in canonical_urls:
             covered_leads.append({**lead, "coverage_resolution": "CANONICAL"})
+            continue
+        equivalent = _aggregator_canonical_equivalent(conn, lead)
+        if equivalent is not None:
+            resolved = {
+                **lead,
+                "coverage_resolution": "CANONICAL_EQUIVALENT",
+                "canonical_equivalence": equivalent,
+            }
+            covered_leads.append(resolved)
+            canonical_equivalent_leads.append(resolved)
             continue
         verified = verified_external.get(normalized)
         if verified is not None:
@@ -615,9 +741,14 @@ def _coverage_from_aggregator_surface(
             "contract": "DISCOVERY_AGGREGATOR_ONLY",
             "canonical_truth": False,
             "closing_date_semantics": "HINT_ONLY_NOT_CANONICAL",
-            "current_page_only": bool(policy.get("current_page_only", True)),
+            "current_page_only": bool(policy.get("current_page_only", False)),
+            "bounded_page_scan": bool(policy.get("bounded_page_scan", False)),
+            "max_pages": max_pages,
+            "stop_after_empty_mission_pages": empty_stop,
+            "pages_scanned": page_results,
             "candidate_count": len(leads),
             "covered_leads": covered_leads[:50],
+            "canonical_equivalent_leads": canonical_equivalent_leads[:50],
             "verified_external_leads": verified_external_leads[:50],
             "confirmed_gaps": confirmed_gaps[:50],
             "unresolved_leads": unresolved_leads[:50],
