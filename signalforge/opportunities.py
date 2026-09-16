@@ -7,6 +7,7 @@ from pathlib import Path
 
 from .config import Registry, db_path
 from .db import connect
+from .doms_reviewed_enrichment import apply_reviewed_doms_overlay
 from .mte_reviewed_enrichment import apply_reviewed_mte_overlay
 from .qualification import QUALIFICATION_POLICY_VERSION, qualify_opportunity
 
@@ -235,12 +236,21 @@ def current_opportunities(
             if stage != "OPPORTUNITY" and not legacy_actionable_tender:
                 continue
 
+            canonical_key_value = str(row["canonical_key"])
+            reference_no_value = str(row["reference_no"] or payload.get("reference_no") or "")
             payload = apply_reviewed_mte_overlay(
                 payload,
-                canonical_key=str(row["canonical_key"]),
+                canonical_key=canonical_key_value,
                 source_id=source_id_value,
                 item_kind=str(row["item_kind"]),
-                reference_no=str(row["reference_no"] or payload.get("reference_no") or ""),
+                reference_no=reference_no_value,
+            )
+            payload = apply_reviewed_doms_overlay(
+                payload,
+                canonical_key=canonical_key_value,
+                source_id=source_id_value,
+                item_kind=str(row["item_kind"]),
+                reference_no=reference_no_value,
             )
 
             deadline = _deadline_at(payload)

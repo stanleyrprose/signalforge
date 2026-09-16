@@ -485,6 +485,9 @@ def render_business_digest(
         if title_fragments:
             return _compact("；".join(title_fragments), 240)
 
+        # DOMS scan-only attachment details may be supplied by a reviewed OCR read-model overlay.
+        if source_id == "S26" and item.get("reviewed_enrichment_status") and scope:
+            return _compact(scope, 300)
         # Some issuer pages expose only attachment/tender identifiers. Do not
         # pretend that a reference number is a useful procurement summary.
         if source_id == "S26" and scope and re.search(r"DMS/?\d*[-/()]", scope, re.IGNORECASE):
@@ -522,7 +525,7 @@ def render_business_digest(
         return [_compact(_presentation_cleanup(value), limit) for value in translated_values]
 
     def translated_subjects(rows: list[dict[str, object]]) -> list[str]:
-        return translate_values([business_subject(item) for item in rows], 210)
+        return translate_values([business_subject(item) for item in rows], 260)
 
     def translated_issuers(rows: list[dict[str, object]]) -> list[str]:
         return translate_values([str(item.get("issuer") or "") for item in rows], 46)
@@ -646,7 +649,7 @@ def render_business_digest(
         lines.extend(["", "<b>⚠️ 人工核验机会（尚未进入正式 Signal）</b>"])
         gap_rows = [gap for gap in coverage_gaps[:4] if isinstance(gap, dict)]
         gap_issuers = translate_values([str(gap.get("issuer") or "") for gap in gap_rows], 46)
-        gap_titles = translate_values([str(gap.get("title") or "") for gap in gap_rows], 110)
+        gap_titles = translate_values([str(gap.get("business_summary") or gap.get("title") or "") for gap in gap_rows], 150)
         gap_locations = translate_values([str(gap.get("location") or "") for gap in gap_rows], 34)
         for index, gap in enumerate(gap_rows):
             source_id = html.escape(str(gap.get("source_id") or ""))
@@ -657,7 +660,7 @@ def render_business_digest(
             url = str(gap.get("url") or "")
             link = official_link(url, "官方记录") if url.startswith("https://construction.gov.mm/") else ""
             lines.append(f"• <b>{issuer}</b> · [{source_id}]")
-            lines.append(f"   招标：<b>{title}</b> · {location} · 截止 <b>{deadline}</b>{link}")
+            lines.append(f"   工程/采购内容：<b>{title}</b> · {location} · 截止 <b>{deadline}</b>{link}")
         lines.append("<i>已人工核验，但因来源接入门槛未满足，暂不计入正式机会数。</i>")
 
     manual_rows = [item for item in manual_items[:3] if isinstance(item, dict)]

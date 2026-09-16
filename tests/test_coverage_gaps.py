@@ -44,5 +44,8 @@ def test_business_digest_renders_coverage_gap_separately_from_opportunities() ->
     assert "⚠️ 人工核验机会（尚未进入正式 Signal）" in text
     assert "2026-09-16" in text
     assert "2026-09-23" in text
+    assert "Ayeyarwady 桥梁工程" in text
+    assert "Yangon–Mandalay Expressway" in text
+    assert "工程/采购内容" in text
     assert "业务概览</b>：当前 <b>21</b> 个机会" in text
     assert "暂不计入正式机会数" in text

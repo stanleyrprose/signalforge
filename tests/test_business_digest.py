@@ -242,6 +242,30 @@ class BusinessDigestTests(unittest.TestCase):
         self.assertIn("采购明细尚未从官方附件抽取", text)
         self.assertNotIn("采购内容：<b>Open Tender 27/2026-2027", text)
 
+    def test_digest_uses_reviewed_doms_ocr_scope_when_present(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp, patch("signalforge.business_digest.business_briefing", return_value=_briefing()), patch(
+            "signalforge.business_digest.audit", return_value=_audit()
+        ), patch("signalforge.business_digest.source_scorecard", return_value=_scorecard()):
+            digest = business_digest(database=self._db(tmp), registry=_Registry(), now=datetime(2026,9,16,2,0,tzinfo=UTC))  # type: ignore[arg-type]
+        digest["business"]["attention"] = [{
+            "canonical_key": "doms:12735",
+            "source_id": "S26",
+            "item_kind": "TENDER",
+            "attention_action": "REVIEW",
+            "primary_relevance": "MEDICAL",
+            "issuer": "Department of Medical Services",
+            "title": "Tender Nos 8DMS/2026-2027(L), 9DMS/2026-2027(L), 10DMS/2026-2027(F)",
+            "scope_excerpt": "8DMS：Normalizer 135/165/220 KVA ×4/2/4；Orthopaedic Instrument Set ×5。9DMS：Pleuro Bronchoscope；OCT AngioPlex ×2。10DMS：300 mA Digital X-Ray；Mammography X-Ray。",
+            "reviewed_enrichment_status": "REVIEWED_OCR_SCOPE",
+            "deadline": None,
+            "deadline_status": "UNKNOWN",
+        }]
+        text = render_business_digest(digest, translator=lambda values: (values, False))
+        self.assertIn("Normalizer 135/165/220 KVA ×4/2/4", text)
+        self.assertIn("OCT AngioPlex ×2", text)
+        self.assertIn("300 mA Digital X-Ray", text)
+        self.assertNotIn("采购明细尚未从官方附件抽取", text)
+
     def test_digest_extracts_industry_lot_procurement_summary(self) -> None:
         with tempfile.TemporaryDirectory() as tmp, patch("signalforge.business_digest.business_briefing", return_value=_briefing()), patch(
             "signalforge.business_digest.audit", return_value=_audit()
