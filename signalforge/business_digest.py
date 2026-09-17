@@ -815,7 +815,11 @@ def render_business_digest(
             )
             next_action = html.escape(_compact(item.get("next_action_summary"), 70))
             url = str(item.get("url") or "")
-            link = official_link(url, "官方PDF") if url.startswith(("https://myanmar.gov.mm/", "https://www.myanmar.gov.mm/")) else ""
+            link = official_link(url, "官方PDF") if url.startswith((
+                "https://myanmar.gov.mm/",
+                "https://www.myanmar.gov.mm/",
+                "https://construction.gov.mm/",
+            )) else ""
             provenance = f"[{target_source} ← {origin}]" if origin else f"[{target_source}]"
             lines.append(f"• <b>{issuer}</b> · {provenance}")
             detail = f"   工程/采购内容：<b>{title}</b> · {location} · 截止 <b>{deadline}</b>{link}"
