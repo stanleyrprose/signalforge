@@ -1565,3 +1565,16 @@ Evidence: `docs/verification/PTD-POLICY-STRATEGIC-DIGEST-2026-09-13.md`.
 - Activation requires: Bangkok gate PASS with strict TLS + HTTP 200, live parser re-verification, a reviewed `gate=PASS + enabled=true` change, silent first baseline, then bounded actionable reconciliation. Until then S23 remains READY_TLS_BLOCKED.
 
 Evidence: `docs/verification/S23-MOC-READY-TLS-BLOCKED-PRODUCTION-CLOSURE-2026-09-14.md`.
+
+## S20 official recovery + S21/YESC output-quality closure — 2026-09-18
+
+- PR #207 merged/deployed as Bangkok release `9b96e6d31c781d18f3c6e8457edb59151fe57ea7`; no schema/canonical/Signal mutation.
+- S20 current view is now `2 OPEN + 1 UNKNOWN`: EPGE `2026-09-22 13:00 / A / MEDIUM / quality95`, DPTSC 45(T) `2026-10-01 14:00 / A / MEDIUM / quality83`, YESC 7150 remains `UNKNOWN / REVIEW`. DPTSC 44(T) correctly expired at `2026-09-17 14:00`.
+- S20 business-detail coverage risk is `1 unresolved + 3 reviewed official recoveries`; Business Digest Attention is reduced from 6 to 3.
+- Production DB `quick_check=ok`; run-due / Telegram deliver / Telegram digest / assurance timers are all enabled. 2026-09-18 digest dry-run is PASS with `pending_count=1` because it is the new daily digest, not replay.
+- S21 remains an issuer/origin network incident: DNS resolves `18.136.56.210`, but Bangkok HTTP/80 and HTTPS/443 both connect-timeout; prior Mac/browser A/B also timed out. Keep outage backoff + S01 radar + explicit coverage risk; do not fake GREEN.
+- Railways newspaper fallback is rejected: the known 2026-09-01 `326/မမ/CE` tender is absent from that day's Kyemon text PDF, so S20's newspaper pattern is not generalized to S21.
+- YESC direct-source onboarding is rejected for now: strict TLS fails because the origin omits the GlobalSign intermediate; more importantly, its official tender index's latest visible tender is 2024-06-06, so TLS repair would not recover the 2026 event. No `verify=False` production exception.
+- GitHub Actions for PR #207 did not start code execution because of account billing/spending-limit state; equivalent Python 3.13 full suite passed locally `398/398`.
+
+Evidence: `docs/verification/S20-S21-OUTPUT-QUALITY-CLOSURE-2026-09-18.md`.
