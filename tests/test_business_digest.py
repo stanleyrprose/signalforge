@@ -219,10 +219,40 @@ class BusinessDigestTests(unittest.TestCase):
         self.assertIn("最新已知发布 <b>2026-09-01</b>", text)
         self.assertIn("最晚已知截止 <b>2026-09-14</b>", text)
         self.assertIn("官网采集可验证到 <b>2026-09-13</b>，之后新发布无法确认", text)
-        self.assertIn("覆盖未证明 ≠ 已确认漏报", text)
-        self.assertIn("不要把“无新 Signal”理解为“无新招标”", text)
+        self.assertIn("覆盖风险可能是“新发布不可验证”", text)
+        self.assertIn("均不等于已确认漏报", text)
         self.assertNotIn("CHECK_FAILED", text)
         self.assertNotIn("issuer origin timed out", text)
+
+    def test_render_surfaces_s20_business_detail_coverage_risk(self) -> None:
+        briefing = _briefing()
+        briefing["assurance"] = {
+            "open_misses": 0,
+            "open_red_misses": 0,
+            "coverage_risk_count": 1,
+            "coverage_risks": [
+                {
+                    "source_id": "S20",
+                    "source_name": "MOEP Main Tender Hub",
+                    "coverage_status": "DETAIL_PARTIAL",
+                    "risk_kind": "BUSINESS_DETAIL_GAP",
+                    "affected_current_opportunities": 4,
+                    "attachment_health": "DEGRADED_HTTP_404",
+                    "known_miss": False,
+                }
+            ],
+            "metric_validity": "REVIEW",
+        }
+        with tempfile.TemporaryDirectory() as tmp, patch("signalforge.business_digest.business_briefing", return_value=briefing), patch(
+            "signalforge.business_digest.audit", return_value=_audit()
+        ), patch("signalforge.business_digest.source_scorecard", return_value=_scorecard()):
+            digest = business_digest(database=self._db(tmp), registry=_Registry(), now=datetime(2026,9,17,10,30,tzinfo=UTC))  # type: ignore[arg-type]
+        text = render_business_digest(digest)
+        self.assertIn("MOEP Main Tender Hub</b> · [S20]", text)
+        self.assertIn("<b>4</b> 条当前机会缺少截止/投标细节", text)
+        self.assertIn("官方附件通道当前为 HTTP 404 降级", text)
+        self.assertIn("不能视为商务信息已完整覆盖", text)
+        self.assertNotIn("之后新发布无法确认", text)
 
     def test_digest_surfaces_which_source_is_buying_what(self) -> None:
         with tempfile.TemporaryDirectory() as tmp, patch("signalforge.business_digest.business_briefing", return_value=_briefing()), patch(
