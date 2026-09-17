@@ -10,6 +10,7 @@ from .db import connect
 from .customs_reviewed_enrichment import apply_reviewed_customs_overlay
 from .doms_reviewed_enrichment import apply_reviewed_doms_overlay
 from .mte_reviewed_enrichment import apply_reviewed_mte_overlay
+from .moep_reviewed_enrichment import apply_reviewed_moep_overlay
 from .qualification import QUALIFICATION_POLICY_VERSION, qualify_opportunity
 
 MYANMAR_TZ = timezone(timedelta(hours=6, minutes=30))
@@ -244,6 +245,13 @@ def current_opportunities(
                 payload.setdefault("business_stage", "OPPORTUNITY")
                 if not payload.get("scope_summary"):
                     payload["scope_summary"] = payload.get("project_name") or row["project_name"]
+                payload = apply_reviewed_moep_overlay(
+                    payload,
+                    canonical_key=canonical_key_value,
+                    source_id=source_id_value,
+                    item_kind=str(row["item_kind"]),
+                    reference_no=reference_no_value,
+                )
             stage = str(payload.get("business_stage") or "").upper()
             legacy_actionable_tender = (
                 stage == ""
@@ -367,6 +375,10 @@ def current_opportunities(
                 "reviewed_image_url": payload.get("reviewed_image_url"),
                 "reviewed_image_sha256": payload.get("reviewed_image_sha256"),
                 "reviewed_rules_url": payload.get("reviewed_rules_url"),
+                "reviewed_document_url": payload.get("reviewed_document_url"),
+                "reviewed_document_sha256": payload.get("reviewed_document_sha256"),
+                "reviewed_document_page": payload.get("reviewed_document_page"),
+                "reviewed_document_date": payload.get("reviewed_document_date"),
                 "reviewed_enrichment_read_only": payload.get("reviewed_enrichment_read_only"),
                 "image_review_notes": payload.get("image_review_notes"),
                 "detail_completeness": payload.get("detail_completeness"),

@@ -454,6 +454,96 @@ class OpportunityViewTests(unittest.TestCase):
             self.assertEqual(row["primary_relevance"], "ICT")
             self.assertIn("ENERGY", row["relevance_categories"])
 
+    def test_moep_reviewed_newspaper_overlay_converts_unknown_rows_to_real_deadlines(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            database = Path(tmp) / "signalforge.db"
+            migrate(database)
+            records = (
+                (
+                    "moep:7144:2026-09-04",
+                    "MOEP-CONTENT-7144",
+                    "2026-09-04",
+                    "https://moep.gov.mm/mm/ignite/contentView/7144",
+                    "DPTSC-221.pdf",
+                    "Database Creation and Modification for 500kV Phayagyi, Hlaingtharyar and Taungoo Substation in Existing SCADA-EMS System",
+                ),
+                (
+                    "moep:7151:2026-09-08",
+                    "MOEP-CONTENT-7151",
+                    "2026-09-08",
+                    "https://moep.gov.mm/mm/ignite/contentView/7151",
+                    "EPGE-1955.pdf",
+                    "Hydropower mechanical and electrical spare parts 12 types",
+                ),
+                (
+                    "moep:7157:2026-09-11",
+                    "MOEP-CONTENT-7157",
+                    "2026-09-11",
+                    "https://moep.gov.mm/mm/ignite/contentView/7157",
+                    "ACCC_Conductor_Form.pdf",
+                    "230kV Kamanat-Hlawga ACSR to ACCC conductor replacement materials",
+                ),
+            )
+            with connect(database) as conn, conn:
+                for index, (key, ref, publication, url, attachment, project) in enumerate(records, start=1):
+                    _insert_canonical(
+                        conn,
+                        key=key,
+                        source_id="S20",
+                        payload={
+                            "item_kind": "TENDER",
+                            "title": project,
+                            "project_name": project,
+                            "reference_no": ref,
+                            "publication_date": publication,
+                            "deadline": None,
+                            "detail_completeness": "HTML_PARTIAL_ATTACHMENT_METADATA",
+                            "attachment_name": attachment,
+                            "attachment_url": f"https://moep.gov.mm/mm/userfile/{attachment}",
+                            "url": url,
+                        },
+                    )
+                    _insert_signal(
+                        conn,
+                        signal_id=f"sig-moep-reviewed-{index}",
+                        source_id="S20",
+                        key=key,
+                        created_at=f"2026-09-{10 + index:02d}T10:00:00Z",
+                    )
+
+            result = current_opportunities(
+                database=database,
+                now=datetime(2026, 9, 17, 17, 0, tzinfo=UTC),
+                source_id="S20",
+            )
+            self.assertEqual(result["count"], 2)
+            by_key = {row["canonical_key"]: row for row in result["opportunities"]}
+            self.assertNotIn("moep:7144:2026-09-04", by_key)
+            epge = by_key["moep:7151:2026-09-08"]
+            self.assertEqual(epge["deadline"], "2026-09-22")
+            self.assertEqual(epge["deadline_time"], "13:00")
+            self.assertEqual(epge["deadline_kind"], "BID_SUBMISSION_DEADLINE")
+            self.assertEqual(epge["reference_count"], 2)
+            self.assertEqual(epge["evidence_level"], "OFFICIAL_HTML_PLUS_TEXT_PDF")
+            self.assertEqual(epge["trust_grade"], "A")
+            self.assertEqual(epge["reviewed_document_page"], 30)
+            accc = by_key["moep:7157:2026-09-11"]
+            self.assertEqual(accc["deadline"], "2026-10-01")
+            self.assertEqual(accc["deadline_time"], "14:00")
+            self.assertIn("DPTSC", str(accc["location"]))
+            self.assertTrue(accc["reviewed_enrichment_read_only"])
+
+            with_expired = current_opportunities(
+                database=database,
+                now=datetime(2026, 9, 17, 17, 0, tzinfo=UTC),
+                source_id="S20",
+                include_expired=True,
+            )
+            expired = {row["canonical_key"]: row for row in with_expired["opportunities"]}["moep:7144:2026-09-04"]
+            self.assertEqual(expired["opportunity_status"], "EXPIRED")
+            self.assertEqual(expired["deadline"], "2026-09-17")
+            self.assertEqual(expired["deadline_time"], "14:00")
+
     def test_ptd_deadline_kind_and_opening_semantics_flow_through_read_view(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             database = Path(tmp) / "signalforge.db"

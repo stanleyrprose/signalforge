@@ -437,6 +437,66 @@ class AssuranceTests(unittest.TestCase):
             self.assertEqual(risk["examples"][0]["canonical_key"], "moep:7157:2026-09-11")
             self.assertFalse(risk["known_miss"])
 
+    def test_s20_business_detail_risk_shrinks_after_reviewed_official_recovery(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            database = self._db(tmp)
+            run_id = "00000000-0000-4000-8000-000000000230"
+            records = (
+                ("moep:7144:2026-09-04", "MOEP-CONTENT-7144", "2026-09-04", "https://moep.gov.mm/mm/ignite/contentView/7144", "DPTSC-221.pdf"),
+                ("moep:7150:2026-09-08", "MOEP-CONTENT-7150", "2026-09-08", "https://moep.gov.mm/mm/ignite/contentView/7150", "YESC-4778.pdf"),
+                ("moep:7151:2026-09-08", "MOEP-CONTENT-7151", "2026-09-08", "https://moep.gov.mm/mm/ignite/contentView/7151", "EPGE-1955.pdf"),
+                ("moep:7157:2026-09-11", "MOEP-CONTENT-7157", "2026-09-11", "https://moep.gov.mm/mm/ignite/contentView/7157", "ACCC_Conductor_Form.pdf"),
+            )
+            with connect(database) as conn, conn:
+                conn.execute(
+                    "INSERT INTO assurance_runs(assurance_run_id,started_at,status,network_checks,summary_json) VALUES (?,?,?,1,'{}')",
+                    (run_id, "2026-09-17T16:00:00Z", "REVIEW"),
+                )
+                conn.execute(
+                    """
+                    INSERT INTO coverage_audit_results(
+                        coverage_audit_id,assurance_run_id,source_id,audit_method,status,official_candidate_count,
+                        canonical_covered_count,missing_count,checked_at,details_json
+                    ) VALUES (?,?,?,?,?,?,?,?,?,?)
+                    """,
+                    ("coverage-pass-s20-reviewed", run_id, "S20", "independent-listing-links", "PASS", 4, 4, 0, "2026-09-17T16:00:00Z", "{}"),
+                )
+                for index, (key, ref, publication, url, attachment) in enumerate(records, start=1):
+                    payload = {
+                        "issuer": "MOEP unit",
+                        "reference_no": ref,
+                        "publication_date": publication,
+                        "url": url,
+                        "detail_completeness": "HTML_PARTIAL_ATTACHMENT_METADATA",
+                        "attachment_name": attachment,
+                        "attachment_url": f"https://moep.gov.mm/mm/userfile/{attachment}",
+                    }
+                    conn.execute(
+                        """
+                        INSERT INTO canonical_items(
+                            canonical_key,source_id,item_kind,title,reference_no,project_name,publication_date,
+                            deadline,location,url,content_hash,evidence_sha256,payload_json,created_at,updated_at
+                        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                        """,
+                        (
+                            key, "S20", "TENDER", key, ref, key, publication, None, None, url,
+                            f"h{index}", f"e{index}", json.dumps(payload), publication + "T00:00:00Z", publication + "T00:00:00Z",
+                        ),
+                    )
+                    conn.execute(
+                        "INSERT INTO signals(signal_id,source_id,canonical_key,signal_type,created_at,payload_json) VALUES (?,?,?,?,?,?)",
+                        (f"00000000-0000-4000-8000-00000000023{index}", "S20", key, "NEW", publication + "T10:00:00Z", "{}"),
+                    )
+
+            latest = assurance_status(database=database)
+            self.assertEqual(latest["coverage_risk_count"], 1)
+            risk = latest["coverage_risks"][0]
+            self.assertEqual(risk["source_id"], "S20")
+            self.assertEqual(risk["affected_current_opportunities"], 1)
+            self.assertEqual(risk["reviewed_official_recovery_count"], 3)
+            self.assertEqual(risk["examples"][0]["canonical_key"], "moep:7150:2026-09-08")
+            self.assertEqual(risk["missing_business_fields"], ["deadline", "participation_details"])
+
     def test_metric_validity_is_review_when_coverage_unproven_and_fail_with_red_miss(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             database = self._db(tmp)
