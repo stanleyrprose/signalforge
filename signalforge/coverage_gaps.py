@@ -96,6 +96,18 @@ def _active_reviewed_records(
     return active
 
 
+def _verified_resolution_active(item: dict[str, object], *, now: datetime | None = None) -> bool:
+    if str(item.get("resolution_mode") or "") != VERIFIED_EXTERNAL_RESOLUTION:
+        return False
+    reviewed_raw = str(item.get("resolution_reviewed_at") or item.get("reviewed_at") or "")
+    try:
+        reviewed_date = datetime.strptime(reviewed_raw, "%Y-%m-%d").date()
+    except ValueError as exc:
+        raise ValueError("invalid verified-external resolution review date") from exc
+    local_now = (now or datetime.now(_LOCAL_TZ)).astimezone(_LOCAL_TZ)
+    return reviewed_date <= local_now.date()
+
+
 def reviewed_coverage_gaps(
     *,
     now: datetime | None = None,
@@ -106,7 +118,7 @@ def reviewed_coverage_gaps(
     return [
         item
         for item in _active_reviewed_records(now=now, root=root)
-        if str(item.get("resolution_mode") or "") != VERIFIED_EXTERNAL_RESOLUTION
+        if not _verified_resolution_active(item, now=now)
     ]
 
 
@@ -125,7 +137,7 @@ def verified_external_opportunities(
 
     verified: list[dict[str, object]] = []
     for item in _active_reviewed_records(now=now, root=root):
-        if str(item.get("resolution_mode") or "") != VERIFIED_EXTERNAL_RESOLUTION:
+        if not _verified_resolution_active(item, now=now):
             continue
         required_true = (
             item.get("issuer_document_verified"),
