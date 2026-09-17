@@ -1351,6 +1351,99 @@ def _retained_tender_context(
     }
 
 
+def _business_detail_risk_rows(
+    conn,  # type: ignore[no-untyped-def]
+    *,
+    registry: Registry,
+    checked_at: str | None,
+) -> list[dict[str, object]]:
+    """Expose known business-detail blind spots without redefining source health.
+
+    S20 is intentionally HTML-first and its official PDF attachment channel is
+    currently classified as degraded/404. Event coverage can therefore be PASS
+    while current, signal-backed opportunities still lack the deadline and
+    participation details required for action.
+    """
+
+    try:
+        reference_at = datetime.fromisoformat(str(checked_at or "").replace("Z", "+00:00")).astimezone(_LOCAL_TZ)
+    except ValueError:
+        reference_at = datetime.now(_LOCAL_TZ)
+    cutoff = (reference_at.date() - timedelta(days=45)).isoformat()
+
+    raw_sources = registry.raw.get("sources") or {}
+    policy = raw_sources.get("S20") if isinstance(raw_sources, dict) else None
+    if not isinstance(policy, dict) or policy.get("enabled") is not True:
+        return []
+    attachment_policy = policy.get("attachment_policy")
+    if not isinstance(attachment_policy, dict):
+        return []
+    attachment_health = str(attachment_policy.get("current_health") or "")
+    if "404" not in attachment_health.upper():
+        return []
+
+    rows = conn.execute(
+        """
+        SELECT c.canonical_key,c.title,c.publication_date,c.url,c.payload_json
+        FROM canonical_items c
+        WHERE c.source_id='S20'
+          AND c.item_kind='TENDER'
+          AND c.publication_date>=?
+          AND c.deadline IS NULL
+          AND EXISTS (
+              SELECT 1 FROM signals s
+              WHERE s.source_id=c.source_id AND s.canonical_key=c.canonical_key
+          )
+        ORDER BY c.publication_date DESC,c.canonical_key DESC
+        """,
+        (cutoff,),
+    ).fetchall()
+
+    affected: list[dict[str, object]] = []
+    for row in rows:
+        try:
+            payload = json.loads(str(row["payload_json"] or "{}"))
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(payload, dict):
+            continue
+        if payload.get("detail_completeness") != "HTML_PARTIAL_ATTACHMENT_METADATA":
+            continue
+        attachment_url = str(payload.get("attachment_url") or "")
+        if not attachment_url:
+            continue
+        affected.append(
+            {
+                "canonical_key": str(row["canonical_key"]),
+                "title": str(row["title"] or payload.get("title") or ""),
+                "publication_date": str(row["publication_date"] or ""),
+                "url": str(row["url"] or ""),
+                "attachment_name": payload.get("attachment_name"),
+                "attachment_url": attachment_url,
+            }
+        )
+
+    if not affected:
+        return []
+    return [
+        {
+            "source_id": "S20",
+            "source_name": str(policy.get("name") or "S20"),
+            "coverage_status": "DETAIL_PARTIAL",
+            "risk_kind": "BUSINESS_DETAIL_GAP",
+            "checked_at": checked_at,
+            "reason": "OFFICIAL_ATTACHMENT_CHANNEL_DEGRADED_HTTP_404",
+            "attachment_health": attachment_health,
+            "affected_current_opportunities": len(affected),
+            "missing_business_fields": ["deadline", "participation_details"],
+            "known_miss": False,
+            "semantics": "BUSINESS_DETAIL_COVERAGE_RISK_NOT_CONFIRMED_EVENT_MISS",
+            "interpretation": "TENDER_EVENT_IS_COVERED_BUT_ACTION_DEADLINE_AND_PARTICIPATION_DETAILS_ARE_NOT_PROVEN",
+            "examples": affected[:4],
+        }
+    ]
+
+
 def _coverage_risk_rows(
     conn,  # type: ignore[no-untyped-def]
     *,
@@ -1439,6 +1532,13 @@ def assurance_status(
                 conn,
                 assurance_run_id=str(run["assurance_run_id"]),
                 registry=registry,
+            )
+            coverage_risks.extend(
+                _business_detail_risk_rows(
+                    conn,
+                    registry=registry,
+                    checked_at=str(run["started_at"] or "") or None,
+                )
             )
     return {
         "status": "NOT_RUN" if run is None else str(run["status"]),

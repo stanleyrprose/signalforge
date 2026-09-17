@@ -767,6 +767,12 @@ def render_business_digest(
         for risk in risk_rows:
             source_id = html.escape(str(risk.get("source_id") or "?"))
             source_name = html.escape(str(risk.get("source_name") or source_id))
+            if risk.get("risk_kind") == "BUSINESS_DETAIL_GAP":
+                affected = int(risk.get("affected_current_opportunities") or 0)
+                lines.append(
+                    f"• <b>{source_name}</b> · [{source_id}]：已发现招标事件，但 <b>{affected}</b> 条当前机会缺少截止/投标细节；官方附件通道当前为 HTTP 404 降级，不能视为商务信息已完整覆盖。"
+                )
+                continue
             proven_through = str(risk.get("last_success_at") or "")
             proven_date = html.escape(proven_through.split("T", 1)[0]) if proven_through else "未知"
             open_count = risk.get("retained_open_tender_count")
@@ -788,7 +794,7 @@ def render_business_digest(
                 lines.append(f"• <b>{source_name}</b> · [{source_id}]：采集覆盖最近可验证到 <b>{proven_date}</b>；之后新招标无法确认。")
             else:
                 lines.append(f"• <b>{source_name}</b> · [{source_id}]：最近可验证采集时间未知；当前无法证明没有新招标。")
-        lines.append("<i>覆盖未证明 ≠ 已确认漏报；不要把“无新 Signal”理解为“无新招标”。</i>")
+        lines.append("<i>覆盖风险可能是“新发布不可验证”，也可能是“事件已发现但关键商务字段未证明”；均不等于已确认漏报。</i>")
 
     if verified_external:
         verified_rows = [item for item in verified_external[:4] if isinstance(item, dict)]
