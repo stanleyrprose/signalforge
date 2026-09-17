@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "review_policy": "S20_SOURCE_SCOPED_MOI_KYEMON_OFFICIAL_TEXT_PDF_V1",
+  "records": {
+    "moep:7144:2026-09-04": {
+      "source_id": "S20",
+      "item_kind": "TENDER",
+      "reference_no": "MOEP-CONTENT-7144",
+      "publication_date": "2026-09-04",
+      "article_url": "https://moep.gov.mm/mm/ignite/contentView/7144",
+      "attachment_name": "DPTSC-221.pdf",
+      "newspaper_url": "https://www.moi.gov.mm/km/file-download/download/public/5277",
+      "newspaper_date": "2026-09-05",
+      "newspaper_page": 28,
+      "document_sha256_u32be": [1045859548, 2161648114, 4018373046, 4210045177, 2423901886, 4284662309, 1087643217, 749012260],
+      "reviewed_at": "2026-09-17",
+      "review_status": "REVIEWED_OFFICIAL_NEWSPAPER",
+      "fields": {
+        "deadline": "2026-09-17",
+        "deadline_time": "14:00",
+        "deadline_kind": "BID_SUBMISSION_DEADLINE",
+        "deadline_evidence": "MOI_KYEMON_TEXT_PDF",
+        "location": "DPTSC Material Management Department, Office No.27, Nay Pyi Taw",
+        "location_evidence": "MOI_KYEMON_TEXT_PDF",
+        "next_action_summary": "本人提交至DPTSC物资管理部（内比都27号办公楼）；招标表格自报纸公告日起办公时间内购买。",
+        "next_action_evidence": "MOI_KYEMON_TEXT_PDF",
+        "detail_completeness": "HTML_PLUS_REVIEWED_TEXT_PDF"
+      }
+    },
+    "moep:7151:2026-09-08": {
+      "source_id": "S20",
+      "item_kind": "TENDER",
+      "reference_no": "MOEP-CONTENT-7151",
+      "publication_date": "2026-09-08",
+      "article_url": "https://moep.gov.mm/mm/ignite/contentView/7151",
+      "attachment_name": "EPGE-1955.pdf",
+      "newspaper_url": "https://www.moi.gov.mm/km/sites/default/files/newspaper-pdf/2026-09/8%20September%2026.pdf",
+      "newspaper_date": "2026-09-08",
+      "newspaper_page": 30,
+      "document_sha256_u32be": [1265146967, 2418333935, 873603377, 833103239, 3033492684, 870256399, 1561485776, 2299567115],
+      "reviewed_at": "2026-09-17",
+      "review_status": "REVIEWED_OFFICIAL_NEWSPAPER",
+      "fields": {
+        "deadline": "2026-09-22",
+        "deadline_time": "13:00",
+        "deadline_kind": "BID_SUBMISSION_DEADLINE",
+        "deadline_evidence": "MOI_KYEMON_TEXT_PDF",
+        "location": "EPGE, Office No.27, Nay Pyi Taw",
+        "location_evidence": "MOI_KYEMON_TEXT_PDF",
+        "next_action_summary": "9/21前购买招标文件；Technical/Financial Proposal分袋密封；9/22 13:00前本人提交至内比都27号办公楼。",
+        "next_action_evidence": "MOI_KYEMON_TEXT_PDF",
+        "reference_numbers": ["69(Re-T)/EPGE(REHP)/2026-2027", "70(Re-T)/EPGE(REHP)/2026-2027"],
+        "reference_count": 2,
+        "reference_numbers_evidence": "MOI_KYEMON_TEXT_PDF",
+        "detail_completeness": "HTML_PLUS_REVIEWED_TEXT_PDF"
+      }
+    },
+    "moep:7157:2026-09-11": {
+      "source_id": "S20",
+      "item_kind": "TENDER",
+      "reference_no": "MOEP-CONTENT-7157",
+      "publication_date": "2026-09-11",
+      "article_url": "https://moep.gov.mm/mm/ignite/contentView/7157",
+      "attachment_name": "ACCC_Conductor_Form.pdf",
+      "newspaper_url": "https://www.moi.gov.mm/km/sites/default/files/newspaper-pdf/2026-09/12%20September%2026_0.pdf",
+      "newspaper_date": "2026-09-12",
+      "newspaper_page": 28,
+      "document_sha256_u32be": [410708498, 791977597, 2865040962, 1167543581, 4268293786, 3149246747, 1100668414, 2730821899],
+      "reviewed_at": "2026-09-17",
+      "review_status": "REVIEWED_OFFICIAL_NEWSPAPER",
+      "fields": {
+        "deadline": "2026-10-01",
+        "deadline_time": "14:00",
+        "deadline_kind": "BID_SUBMISSION_DEADLINE",
+        "deadline_evidence": "MOI_KYEMON_TEXT_PDF",
+        "location": "DPTSC Material Management Department, Office No.27, Nay Pyi Taw",
+        "location_evidence": "MOI_KYEMON_TEXT_PDF",
+        "next_action_summary": "本人提交至DPTSC物资管理部（内比都27号办公楼）；招标表格自报纸公告日起办公时间内购买。",
+        "next_action_evidence": "MOI_KYEMON_TEXT_PDF",
+        "detail_completeness": "HTML_PLUS_REVIEWED_TEXT_PDF"
+      }
+    }
+  }
+}

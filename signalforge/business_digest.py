@@ -769,8 +769,10 @@ def render_business_digest(
             source_name = html.escape(str(risk.get("source_name") or source_id))
             if risk.get("risk_kind") == "BUSINESS_DETAIL_GAP":
                 affected = int(risk.get("affected_current_opportunities") or 0)
+                recovered = int(risk.get("reviewed_official_recovery_count") or 0)
+                recovery_text = f"；另有 <b>{recovered}</b> 条已通过 MOI/Kyemon 官方报纸补足关键商务字段" if recovered else ""
                 lines.append(
-                    f"• <b>{source_name}</b> · [{source_id}]：已发现招标事件，但 <b>{affected}</b> 条当前机会缺少截止/投标细节；官方附件通道当前为 HTTP 404 降级，不能视为商务信息已完整覆盖。"
+                    f"• <b>{source_name}</b> · [{source_id}]：已发现招标事件，但 <b>{affected}</b> 条当前机会仍缺少截止/投标细节{recovery_text}；官方附件通道当前为 HTTP 404 降级。"
                 )
                 continue
             proven_through = str(risk.get("last_success_at") or "")

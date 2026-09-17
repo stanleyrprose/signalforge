@@ -19,6 +19,7 @@ from .coverage_gaps import reviewed_coverage_gaps, verified_external_opportuniti
 from .db import connect, migrate
 from .http import fetch_bytes
 from .mpt import normalize_text
+from .moep_reviewed_enrichment import apply_reviewed_moep_overlay
 from .national_portal import national_portal_page_url, parse_current_high_value_tender_leads
 from .source_scorecard import PORTFOLIO_TIERS, _is_known_historical_noise, source_scorecard
 
@@ -1400,6 +1401,8 @@ def _business_detail_risk_rows(
     ).fetchall()
 
     affected: list[dict[str, object]] = []
+    reviewed_recovery_count = 0
+    missing_union: set[str] = set()
     for row in rows:
         try:
             payload = json.loads(str(row["payload_json"] or "{}"))
@@ -1412,6 +1415,23 @@ def _business_detail_risk_rows(
         attachment_url = str(payload.get("attachment_url") or "")
         if not attachment_url:
             continue
+        enriched = apply_reviewed_moep_overlay(
+            payload,
+            canonical_key=str(row["canonical_key"]),
+            source_id="S20",
+            item_kind="TENDER",
+            reference_no=str(payload.get("reference_no") or ""),
+        )
+        missing_fields: list[str] = []
+        if not enriched.get("deadline"):
+            missing_fields.append("deadline")
+        if not enriched.get("next_action_summary"):
+            missing_fields.append("participation_details")
+        if not missing_fields:
+            if enriched.get("reviewed_enrichment_status"):
+                reviewed_recovery_count += 1
+            continue
+        missing_union.update(missing_fields)
         affected.append(
             {
                 "canonical_key": str(row["canonical_key"]),
@@ -1420,6 +1440,7 @@ def _business_detail_risk_rows(
                 "url": str(row["url"] or ""),
                 "attachment_name": payload.get("attachment_name"),
                 "attachment_url": attachment_url,
+                "missing_business_fields": missing_fields,
             }
         )
 
@@ -1435,7 +1456,8 @@ def _business_detail_risk_rows(
             "reason": "OFFICIAL_ATTACHMENT_CHANNEL_DEGRADED_HTTP_404",
             "attachment_health": attachment_health,
             "affected_current_opportunities": len(affected),
-            "missing_business_fields": ["deadline", "participation_details"],
+            "reviewed_official_recovery_count": reviewed_recovery_count,
+            "missing_business_fields": sorted(missing_union),
             "known_miss": False,
             "semantics": "BUSINESS_DETAIL_COVERAGE_RISK_NOT_CONFIRMED_EVENT_MISS",
             "interpretation": "TENDER_EVENT_IS_COVERED_BUT_ACTION_DEADLINE_AND_PARTICIPATION_DETAILS_ARE_NOT_PROVEN",

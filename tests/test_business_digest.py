@@ -236,7 +236,8 @@ class BusinessDigestTests(unittest.TestCase):
                     "source_name": "MOEP Main Tender Hub",
                     "coverage_status": "DETAIL_PARTIAL",
                     "risk_kind": "BUSINESS_DETAIL_GAP",
-                    "affected_current_opportunities": 4,
+                    "affected_current_opportunities": 1,
+                    "reviewed_official_recovery_count": 3,
                     "attachment_health": "DEGRADED_HTTP_404",
                     "known_miss": False,
                 }
@@ -249,9 +250,9 @@ class BusinessDigestTests(unittest.TestCase):
             digest = business_digest(database=self._db(tmp), registry=_Registry(), now=datetime(2026,9,17,10,30,tzinfo=UTC))  # type: ignore[arg-type]
         text = render_business_digest(digest)
         self.assertIn("MOEP Main Tender Hub</b> · [S20]", text)
-        self.assertIn("<b>4</b> 条当前机会缺少截止/投标细节", text)
+        self.assertIn("<b>1</b> 条当前机会仍缺少截止/投标细节", text)
+        self.assertIn("<b>3</b> 条已通过 MOI/Kyemon 官方报纸补足关键商务字段", text)
         self.assertIn("官方附件通道当前为 HTTP 404 降级", text)
-        self.assertIn("不能视为商务信息已完整覆盖", text)
         self.assertNotIn("之后新发布无法确认", text)
 
     def test_digest_surfaces_which_source_is_buying_what(self) -> None:
