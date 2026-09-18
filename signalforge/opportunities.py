@@ -9,6 +9,7 @@ from .config import Registry, db_path
 from .db import connect
 from .customs_reviewed_enrichment import apply_reviewed_customs_overlay
 from .doms_reviewed_enrichment import apply_reviewed_doms_overlay
+from .energy_reviewed_enrichment import apply_reviewed_energy_overlay
 from .mte_reviewed_enrichment import apply_reviewed_mte_overlay
 from .moep_reviewed_enrichment import apply_reviewed_moep_overlay
 from .qualification import QUALIFICATION_POLICY_VERSION, qualify_opportunity
@@ -187,7 +188,7 @@ def current_opportunities(
 
     query = """
         SELECT
-            c.source_id,c.canonical_key,c.item_kind,c.title,c.reference_no,c.publication_date,c.location,c.url,c.payload_json,
+            c.source_id,c.canonical_key,c.item_kind,c.title,c.reference_no,c.publication_date,c.location,c.url,c.evidence_sha256,c.payload_json,
             ss.signal_count,ss.latest_signal_at,
             (
                 SELECT s.signal_id FROM signals s
@@ -252,6 +253,14 @@ def current_opportunities(
                     item_kind=str(row["item_kind"]),
                     reference_no=reference_no_value,
                 )
+            payload = apply_reviewed_energy_overlay(
+                payload,
+                canonical_key=canonical_key_value,
+                source_id=source_id_value,
+                item_kind=str(row["item_kind"]),
+                reference_no=reference_no_value,
+                evidence_sha256=row["evidence_sha256"],
+            )
             stage = str(payload.get("business_stage") or "").upper()
             legacy_actionable_tender = (
                 stage == ""
