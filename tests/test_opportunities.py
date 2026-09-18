@@ -238,6 +238,69 @@ class OpportunityViewTests(unittest.TestCase):
             self.assertNotIn("PARTICIPATION_INSTRUCTION_MISSING", row["signal_quality_gaps"])
             self.assertEqual(row["signal_quality_score"], 100)
 
+    def test_mofa_reviewed_participation_overlay_flows_through_read_view(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            database = Path(tmp) / "signalforge.db"
+            migrate(database)
+            payload = {
+                "item_kind": "TENDER",
+                "business_stage": "OPPORTUNITY",
+                "issuer": "Ministry of Foreign Affairs, Myanmar",
+                "title": "MOFA tender",
+                "project_name": "MOFA tender",
+                "reference_no": "MOFA-POST-59800",
+                "publication_date": "2026-09-04",
+                "deadline": "2026-09-18",
+                "deadline_time": "16:30",
+                "deadline_evidence": "OFFICIAL_TEXT_NATIVE_PDF_CLOSE_DATE_TIME",
+                "scope_summary": (
+                    "Data Server (1) Set | Windows Server 2025 Standard 24 Core with Microsoft License | "
+                    "Microsoft SQL Server 2022 Standard"
+                ),
+                "attachment_name": "Tender-Announcement.pdf",
+                "attachment_url": "https://www.mofa.gov.mm/wp-content/uploads/2026/09/Tender-Announcement.pdf",
+                "detail_completeness": "HTML_EVENT_PLUS_TEXT_PDF_SCOPE_DEADLINE",
+                "url": "https://www.mofa.gov.mm/%E1%80%94%E1%80%AD%E1%80%AF%E1%80%84%E1%80%BA%E1%80%84%E1%80%B6%E1%80%81%E1%80%BC%E1%80%AC%E1%80%B8%E1%80%9B%E1%80%B1%E1%80%B8%E1%80%9D%E1%80%94%E1%80%BA%E1%80%80%E1%80%BC%E1%80%AE%E1%80%B8-386/",
+            }
+            with connect(database) as conn, conn:
+                _insert_canonical(
+                    conn,
+                    key="mofa:59800",
+                    source_id="S30",
+                    payload=payload,
+                    evidence_sha256="aad5b2c3e51ffc289edb5018254f364896b01d14bee8fa3be7e362e756e130c7",
+                )
+                _insert_signal(
+                    conn,
+                    signal_id="sig-mofa-reviewed",
+                    source_id="S30",
+                    key="mofa:59800",
+                    created_at="2026-09-08T17:50:03Z",
+                    signal_type="UPDATED",
+                )
+
+            result = current_opportunities(
+                database=database,
+                now=datetime(2026, 9, 18, 0, 0, tzinfo=UTC),
+                source_id="S30",
+            )
+            self.assertEqual(result["count"], 1)
+            row = result["opportunities"][0]
+            self.assertEqual(
+                row["location"],
+                "Ministry of Foreign Affairs, Office No.9, Nay Pyi Taw",
+            )
+            self.assertEqual(row["location_evidence"], "MOFA_SOURCE_NATIVE_TEXT_PDF")
+            self.assertIn("9/18 16:30", str(row["next_action_summary"]))
+            self.assertEqual(row["next_action_evidence"], "MOFA_SOURCE_NATIVE_TEXT_PDF")
+            self.assertEqual(row["reviewed_enrichment_status"], "REVIEWED_SOURCE_NATIVE_OFFICIAL_PDF")
+            self.assertEqual(
+                row["reviewed_document_sha256"],
+                "aad5b2c3e51ffc289edb5018254f364896b01d14bee8fa3be7e362e756e130c7",
+            )
+            self.assertNotIn("LOCATION_MISSING", row["signal_quality_gaps"])
+            self.assertEqual(row["signal_quality_score"], 100)
+
     def test_parser_provided_focus_scope_flows_through_read_view(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             database = Path(tmp) / "signalforge.db"
