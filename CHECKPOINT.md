@@ -1619,3 +1619,19 @@ Evidence: `docs/verification/S39-PARTICIPATION-DETAIL-PRODUCTION-CLOSURE-2026-09
 - Production DB `quick_check=ok`; all four production timers remain enabled.
 
 Evidence: `docs/verification/S30-MOFA-PARTICIPATION-DETAIL-PRODUCTION-CLOSURE-2026-09-18.md`.
+
+## S22 IWT reviewed OCR location — 2026-09-18
+
+- PR #217 merged/deployed as `ac7130c68b4fd218fa0bec18b3b3755d0ef5953b`; rollback `cf95214e33d0162396957e3ba9c35c68df1f535a`.
+- S22 `iwt:1038:2026-08-25` is a Coastal Cargo Vessel ×1 engineering procurement with canonical deadline `2026-11-03 10:00 +06:30`; its only quality gap was `LOCATION_MISSING`.
+- Official IWT attachment is a one-page image-only PDF, SHA256 `41d2614635fa440c0e226d682b5817f81e2f3c4ca31d9e4e0355332004436386`, with no text layer. High-resolution rendered evidence image SHA256 is `4f547056c203400c392eeee332ec3bac046e5ee5e444f5643f1647c4328b947a`.
+- Existing Mac Browser Plane `artifact_ocr` (Tesseract 5.5.3 / tessdata_best / mya+eng) was used locally at PSM 4/6/11. Mean confidence `78.73 / 75.09 / 75.74`; all layouts agree on IWT Administration Department / Supply Division, No. 50 Pansodan Road, Yangon Region. PSM 4/6 agree on `01-8250251 / 01-8384252`.
+- OCR time digits were rejected; canonical structured deadline remains authoritative.
+- IWT article HTML is intentionally not hash-gated: two live requests two seconds apart had different SHA values solely because Cloudflare `__CF$cv$params` request ID/timestamp changed. Overlay identity instead requires exact canonical key/source/item/reference/publication/article URL/attachment URL and preserves reviewed PDF SHA as evidence fingerprint.
+- Read-layer quality is now `88`, gaps `[]`, with reviewed location/contact action. Canonical payload remains `location=None / next_action_summary=None`; S22 Signal count remains `1`.
+- Telegram digest dry-run `PASS / pending_count=0`; no duplicate daily digest. All four production timers enabled; DB `quick_check=ok`.
+- Tests: focused `20/20`; full suite `418/418`; Python 3.13 same; compileall / registry parse / shell syntax / diff check PASS. GitHub Actions run `35345575436` was rejected before code execution by account payment/spending-limit state.
+- Global DB growth observed during validation came from unrelated S38 `industry:1044`, created before deployment.
+- Next priority: S21 Myanma Railways coverage proof, not further low-value field polishing.
+
+Evidence: `docs/verification/S22-IWT-REVIEWED-OCR-LOCATION-PRODUCTION-CLOSURE-2026-09-18.md`.
