@@ -1578,3 +1578,17 @@ Evidence: `docs/verification/S23-MOC-READY-TLS-BLOCKED-PRODUCTION-CLOSURE-2026-0
 - GitHub Actions for PR #207 did not start code execution because of account billing/spending-limit state; equivalent Python 3.13 full suite passed locally `398/398`.
 
 Evidence: `docs/verification/S20-S21-OUTPUT-QUALITY-CLOSURE-2026-09-18.md`.
+
+## S23 verified-external promotion + scorecard consistency — 2026-09-18
+
+- PR #209 promoted the reviewed Ministry of Construction Yangon–Mandalay Expressway tender to `VERIFIED_EXTERNAL_OFFICIAL_OPPORTUNITY` after live revalidation of the official `construction.gov.mm` PDF: HTTP 200, exact SHA256 `161e6400cb19ef0b6bf116d73745f4b2efdb8a0c7b45e9468632e388481277c0`, issuer/scope proven, tender-form sale from `2026-09-10 10:00`, bid deadline `2026-09-23 16:00`.
+- Promotion is read-layer only: `canonical_truth=false`, no S23 canonical item or Signal, no TLS bypass, S23 remains `enabled=false / DEFERRED_READY / STRICT_TLS_HTTPS BLOCKED_ISSUER_CERT_EXPIRED`. Historical queries before `resolution_reviewed_at=2026-09-18` remain coverage gaps.
+- Coverage-gap tests were converted from pytest-style top-level functions to `unittest.TestCase` because the primary CI sensor is `unittest discover`; discovered suite increased `398 -> 405`.
+- PR #209 merge/deploy SHA `f5fccd2037b78f558358bea62017755d2ba81460` moved business output `9 -> 10` target opportunities, `external 1 -> 2`, `gap 1 -> 0`, MEDIUM `6 -> 7`, Attention unchanged at `3`.
+- Live validation found one follow-up inconsistency: Business Digest correctly showed `10 / canonical8 / external2`, but source-scorecard summary showed `9 / canonical8 / external1` because summary only summed enabled source rows and therefore dropped the verified external S23 opportunity.
+- PR #210 fixed summary semantics without inventing an active S23 row. `sources[]` still describes active sources only; summary now counts all mission-qualified verified external opportunities and exposes `verified_external_non_active_source_opportunities`.
+- PR #210 merge/deploy SHA `3f66cf073c7e297f18e3b412eff06010286d872c`; rollback `f5fccd2037b78f558358bea62017755d2ba81460`. Production now agrees: Business Digest `10/8/2/gap0/Attention3`; source-scorecard `10/8/2/non-active-external1`.
+- Final live DB remains `canonical=243 / signals=64 / S23 canonical=0 / S23 signals=0 / quick_check=ok`; run-due, Telegram deliver, Telegram digest and assurance timers all enabled.
+- Tests: PR #209 full suite `405/405`; PR #210 full suite `406/406`; Python 3.13 same results; compileall / registry parse / shell syntax / diff check PASS. GitHub Actions for both PRs did not start repository code because of account payment/spending-limit state, so equivalent Python 3.13 workflow checks were used.
+
+Evidence: `docs/verification/S23-VERIFIED-EXTERNAL-SCORECARD-PRODUCTION-CLOSURE-2026-09-18.md`.
