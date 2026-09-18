@@ -822,7 +822,7 @@ class OpportunityViewTests(unittest.TestCase):
                         "business_stage": "OPPORTUNITY",
                         "title": "CLI tender",
                         "reference_no": "CLI-1",
-                        "deadline": "2026-09-18",
+                        "deadline": "2099-09-18",
                         "deadline_time": "13:00",
                         "url": "https://example.test/cli/1",
                     },
