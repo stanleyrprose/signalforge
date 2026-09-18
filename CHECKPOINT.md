@@ -1606,3 +1606,16 @@ Evidence: `docs/verification/S23-VERIFIED-EXTERNAL-SCORECARD-PRODUCTION-CLOSURE-
 - Production DB `quick_check=ok`; four production timers remain enabled.
 
 Evidence: `docs/verification/S39-PARTICIPATION-DETAIL-PRODUCTION-CLOSURE-2026-09-18.md`.
+
+## S30 MOFA participation-detail enrichment — 2026-09-18
+
+- PR #214 merged/deployed as `cf95214e33d0162396957e3ba9c35c68df1f535a`; rollback `5a703fc56142dde38f4156cc93a9da9d5bda35ec`.
+- Current `mofa:59800 / MOFA-POST-59800` already had source-native official PDF scope/deadline evidence but read-layer quality was `90` with `LOCATION_MISSING`.
+- Live MOFA PDF SHA256 `aad5b2c3e51ffc289edb5018254f364896b01d14bee8fa3be7e362e756e130c7` exactly matches canonical `evidence_sha256`. It proves form sale 9/7–9/18, submission by `2026-09-18 16:30`, purchase/submission at MOFA Office No.9 Nay Pyi Taw and phone `067-412317`.
+- Exact-hash reviewed MOFA overlay requires canonical key/source/item/reference/publication/article/attachment/evidence SHA match; wrong identity or SHA fails closed.
+- Read-layer quality is now `100`, gaps `[]`, with Office No.9 location and actionable submission text. Canonical payload remains `location=None / next_action_summary=None`; S30 Signal count remains `1`.
+- Telegram digest dry-run `PASS / pending_count=1` now renders MOFA location + next action; pending item is the normal daily digest.
+- Tests: focused `19/19`; full suite `414/414`; Python 3.13 same; compileall / registry parse / shell syntax / diff check PASS. GitHub Actions run `35295438246` was rejected before code execution by account payment/spending-limit state.
+- Production DB `quick_check=ok`; all four production timers remain enabled.
+
+Evidence: `docs/verification/S30-MOFA-PARTICIPATION-DETAIL-PRODUCTION-CLOSURE-2026-09-18.md`.
