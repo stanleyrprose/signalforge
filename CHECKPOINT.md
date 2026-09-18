@@ -1592,3 +1592,17 @@ Evidence: `docs/verification/S20-S21-OUTPUT-QUALITY-CLOSURE-2026-09-18.md`.
 - Tests: PR #209 full suite `405/405`; PR #210 full suite `406/406`; Python 3.13 same results; compileall / registry parse / shell syntax / diff check PASS. GitHub Actions for both PRs did not start repository code because of account payment/spending-limit state, so equivalent Python 3.13 workflow checks were used.
 
 Evidence: `docs/verification/S23-VERIFIED-EXTERNAL-SCORECARD-PRODUCTION-CLOSURE-2026-09-18.md`.
+
+## S39 Energy participation-detail enrichment — 2026-09-18
+
+- PR #212 merged/deployed as `5a703fc56142dde38f4156cc93a9da9d5bda35ec`; rollback `3f66cf073c7e297f18e3b412eff06010286d872c`.
+- The current S39 tender `energy:235 / ENERGY-27-2026-2027` already had strong source-native official PDF evidence for scope and deadline, but the read model still exposed `LOCATION_MISSING + PARTICIPATION_INSTRUCTION_MISSING` and quality `85`.
+- Live audit of the existing Energy attachment `https://energy.gov.mm/storage/tenders/ZN0mM90uR0Ik1KJNCSY8GbcyK1YAgs8BMmbMxUvG.pdf` returned SHA256 `4d2ef1694aa6a7221b1a2d46799eadba7f8edb9ef46a2045c573e07c1760c94b`, exactly matching canonical `evidence_sha256`.
+- The official PDF proves: form purchase at MOGE Office No.44 Finance Department, Nay Pyi Taw; bid submission by `2026-09-18 13:00`; in-person submission to Ministry of Energy Office No.6, Yadana Hall, Nay Pyi Taw; phone `067-3411206`.
+- A source-scoped reviewed Energy overlay now requires exact canonical key / source / item kind / reference / publication date / article URL / attachment URL / evidence SHA before applying. Wrong SHA or identity fails closed.
+- Read-layer S39 now exposes location + next action, quality `100`, gaps `[]`. Canonical payload remains `location=None / next_action_summary=None`; S39 Signal count remains `1`; no parser/scheduler/canonical mutation.
+- Telegram digest dry-run is `PASS / pending_count=1` and now shows S39 deadline, submission location, next action and official link. Pending item is the normal 2026-09-18 daily digest, not an immediate Signal replay.
+- Tests: focused `18/18`; full suite `410/410`; Python 3.13 same; compileall / registry parse / shell syntax / diff check PASS. GitHub Actions run `35294974340` was rejected before code execution by account payment/spending-limit state.
+- Production DB `quick_check=ok`; four production timers remain enabled.
+
+Evidence: `docs/verification/S39-PARTICIPATION-DETAIL-PRODUCTION-CLOSURE-2026-09-18.md`.
