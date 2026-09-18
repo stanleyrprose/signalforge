@@ -16,7 +16,14 @@ from signalforge.opportunities import _deadline_kind, _reference_bundle, _refere
 from signalforge.mpt import parse_tender_detail
 
 
-def _insert_canonical(conn, *, key: str, source_id: str, payload: dict[str, object]) -> None:  # type: ignore[no-untyped-def]
+def _insert_canonical(
+    conn,
+    *,
+    key: str,
+    source_id: str,
+    payload: dict[str, object],
+    evidence_sha256: str | None = None,
+) -> None:  # type: ignore[no-untyped-def]
     conn.execute(
         """
         INSERT INTO canonical_items(
@@ -36,7 +43,7 @@ def _insert_canonical(conn, *, key: str, source_id: str, payload: dict[str, obje
             payload.get("location"),
             str(payload.get("url") or f"https://example.test/{key}"),
             f"hash-{key}",
-            f"evidence-{key}",
+            evidence_sha256 or f"evidence-{key}",
             json.dumps(payload, ensure_ascii=False, sort_keys=True),
             "2026-09-01T00:00:00Z",
             "2026-09-09T00:00:00Z",
@@ -164,6 +171,72 @@ class OpportunityViewTests(unittest.TestCase):
             self.assertEqual(row["reference_no"], "ENERGY-27-2026-2027")
             self.assertEqual(row["deadline_kind"], "BID_SUBMISSION_DEADLINE")
 
+
+    def test_energy_reviewed_participation_overlay_flows_through_read_view(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            database = Path(tmp) / "signalforge.db"
+            migrate(database)
+            payload = {
+                "item_kind": "TENDER",
+                "business_stage": "OPPORTUNITY",
+                "issuer": "Ministry of Energy, Myanmar",
+                "title": "Energy tender 27/2026-2027",
+                "project_name": "Energy tender 27/2026-2027",
+                "reference_no": "ENERGY-27-2026-2027",
+                "publication_date": "2026-09-04",
+                "deadline": "2026-09-18",
+                "deadline_time": "13:00",
+                "deadline_evidence": "OFFICIAL_TEXT_NATIVE_PDF_CLOSE_DATE_TIME",
+                "scope_summary": (
+                    "DMP/L-026(26-27) Accessories for Communication and Information Technology (2) Groups | "
+                    "DMP/L-067(26-27) IOT Module (Siemens) (6) Nos | "
+                    "DMP/L-073(26-27) ICDD PDF-2 Software (1) Lot | "
+                    "DMP/L-089(26-27) Book Scanner, Motorized Screen, Desktop Computer and UPS (2) Groups"
+                ),
+                "attachment_urls": [
+                    "https://energy.gov.mm/storage/tenders/ZN0mM90uR0Ik1KJNCSY8GbcyK1YAgs8BMmbMxUvG.pdf"
+                ],
+                "detail_completeness": "HTML_ID_PUBLICATION_PLUS_TEXT_PDF_SCOPE_DEADLINE",
+                "url": "https://energy.gov.mm/tenders/235",
+            }
+            with connect(database) as conn, conn:
+                _insert_canonical(
+                    conn,
+                    key="energy:235",
+                    source_id="S39",
+                    payload=payload,
+                    evidence_sha256="4d2ef1694aa6a7221b1a2d46799eadba7f8edb9ef46a2045c573e07c1760c94b",
+                )
+                _insert_signal(
+                    conn,
+                    signal_id="sig-energy-reviewed",
+                    source_id="S39",
+                    key="energy:235",
+                    created_at="2026-09-09T02:27:20Z",
+                )
+
+            result = current_opportunities(
+                database=database,
+                now=datetime(2026, 9, 18, 0, 0, tzinfo=UTC),
+                source_id="S39",
+            )
+            self.assertEqual(result["count"], 1)
+            row = result["opportunities"][0]
+            self.assertEqual(
+                row["location"],
+                "Ministry of Energy, Office No.6, Yadana Hall, Nay Pyi Taw",
+            )
+            self.assertEqual(row["location_evidence"], "ENERGY_SOURCE_NATIVE_TEXT_PDF")
+            self.assertIn("9/18 13:00", str(row["next_action_summary"]))
+            self.assertEqual(row["next_action_evidence"], "ENERGY_SOURCE_NATIVE_TEXT_PDF")
+            self.assertEqual(row["reviewed_enrichment_status"], "REVIEWED_SOURCE_NATIVE_OFFICIAL_PDF")
+            self.assertEqual(
+                row["reviewed_document_sha256"],
+                "4d2ef1694aa6a7221b1a2d46799eadba7f8edb9ef46a2045c573e07c1760c94b",
+            )
+            self.assertNotIn("LOCATION_MISSING", row["signal_quality_gaps"])
+            self.assertNotIn("PARTICIPATION_INSTRUCTION_MISSING", row["signal_quality_gaps"])
+            self.assertEqual(row["signal_quality_score"], 100)
 
     def test_parser_provided_focus_scope_flows_through_read_view(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
