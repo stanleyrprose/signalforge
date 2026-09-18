@@ -26,6 +26,7 @@ from .business_digest import business_digest, telegram_digest
 from .config import Registry, SOURCE_ID_PATTERN, db_path
 from .db import connect, migrate
 from .engine import run_due, run_source
+from .harness import default_checkpoint_path, evaluate_harness, persist_checkpoint
 from .mpa import build_manual_bundle_preview, parse_listing_records, parse_pdf_business_fields, preview_summary
 from .mpa_manual import commit_manual_provider_bundle
 from .opportunities import current_opportunities
@@ -58,6 +59,7 @@ def verb_manifest() -> dict[str, object]:
             "signalforge-source-scorecard": {"helper_command": "source-scorecard", "argument": None},
             "signalforge-assurance-run": {"helper_command": "assurance-run", "argument": None},
             "signalforge-assurance-status": {"helper_command": "assurance-status", "argument": None},
+            "signalforge-harness-verify": {"helper_command": "harness-verify", "argument": None},
             "signalforge-misses": {"helper_command": "misses", "argument": None},
             "signalforge-manual-promotions": {"helper_command": "manual-promotions", "argument": None},
             "signalforge-run-due": {"helper_command": "run-due", "argument": None},
@@ -309,6 +311,10 @@ def main(argv: list[str] | None = None) -> int:
     assurance_run_parser.add_argument("--no-network", action="store_true")
     assurance_run_parser.add_argument("--noise-sample-size", type=int, default=5)
     sub.add_parser("assurance-status")
+    harness_parser = sub.add_parser("harness-verify")
+    harness_parser.add_argument("--checkpoint")
+    harness_parser.add_argument("--max-retries", type=int, default=3)
+    harness_parser.add_argument("--no-advance-retry", action="store_true")
     misses_parser = sub.add_parser("misses")
     misses_parser.add_argument("--status", choices=("OPEN", "RESOLVED", "FALSE_POSITIVE", "ALL"), default="OPEN")
     misses_parser.add_argument("--limit", type=int, default=100)
@@ -474,6 +480,26 @@ def main(argv: list[str] | None = None) -> int:
             result = run_assurance(network=not bool(args.no_network), noise_sample_size=int(args.noise_sample_size))
         elif args.cmd == "assurance-status":
             result = assurance_status()
+        elif args.cmd == "harness-verify":
+            database = db_path()
+            registry = Registry.load()
+            migrate(database)
+            with connect(database) as conn:
+                db_quick_check = str(conn.execute("PRAGMA quick_check").fetchone()[0])
+            report = evaluate_harness(
+                status_snapshot=status(registry=registry),
+                assurance=assurance_status(database=database, registry=registry),
+                briefing=business_briefing(database=database, registry=registry),
+                telegram_dry_run=telegram_deliver(database=database, dry_run=True),
+                db_quick_check=db_quick_check,
+            )
+            checkpoint = Path(args.checkpoint).expanduser() if args.checkpoint else default_checkpoint_path(database)
+            result = persist_checkpoint(
+                report,
+                path=checkpoint,
+                max_retries=int(args.max_retries),
+                advance_retry=not bool(args.no_advance_retry),
+            )
         elif args.cmd == "misses":
             result = list_missed_signals(status=None if args.status == "ALL" else args.status, limit=int(args.limit))
         elif args.cmd == "record-miss":
@@ -521,6 +547,8 @@ def main(argv: list[str] | None = None) -> int:
         else:
             result = status()
         print(json.dumps(result, ensure_ascii=False, sort_keys=True))
+        if args.cmd == "harness-verify" and isinstance(result, dict) and result.get("phase") != "DONE":
+            return 2
         return 0
     except Exception as exc:
         print(json.dumps({"status": "FAILED", "error": f"{type(exc).__name__}: {exc}"}, ensure_ascii=False), file=sys.stderr)
