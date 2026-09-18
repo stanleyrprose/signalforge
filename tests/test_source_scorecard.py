@@ -175,6 +175,35 @@ class SourceScorecardTests(unittest.TestCase):
         self.assertEqual(result["summary"]["canonical_current_opportunities"], 0)
         self.assertEqual(result["summary"]["verified_external_opportunities"], 1)
 
+    def test_verified_external_for_disabled_source_counts_in_summary_without_fake_source_row(self) -> None:
+        external = {
+            "source_id": "S23",
+            "target_source_id": "S23",
+            "coverage_origin": "S23_REVIEW",
+            "item_kind": "TENDER",
+            "issuer": "Ministry of Construction, Myanmar",
+            "business_summary": "Yangon-Mandalay Expressway road construction materials",
+            "mission_sector": "CONSTRUCTION",
+            "relevance_categories": ["CONSTRUCTION"],
+            "priority_band": "MEDIUM",
+            "url": "https://construction.gov.mm/letter-download/example",
+        }
+        with tempfile.TemporaryDirectory() as tmp, patch("signalforge.source_scorecard.audit", return_value=_audit()), patch(
+            "signalforge.source_scorecard.current_opportunities", return_value={"opportunities": []}
+        ), patch(
+            "signalforge.source_scorecard.verified_external_opportunities", return_value=[external]
+        ):
+            result = source_scorecard(
+                database=self._db(tmp),
+                registry=_Registry(),  # type: ignore[arg-type]
+                now=datetime(2026, 9, 18, 0, 0, tzinfo=UTC),
+            )
+        self.assertNotIn("S23", {row["source_id"] for row in result["sources"]})
+        self.assertEqual(result["summary"]["canonical_current_opportunities"], 0)
+        self.assertEqual(result["summary"]["verified_external_opportunities"], 1)
+        self.assertEqual(result["summary"]["verified_external_non_active_source_opportunities"], 1)
+        self.assertEqual(result["summary"]["current_opportunities"], 1)
+
     def test_canonical_url_supersedes_verified_external_without_double_counting(self) -> None:
         from signalforge.coverage_gaps import verified_external_opportunities
 
