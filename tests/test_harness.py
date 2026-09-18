@@ -1,10 +1,16 @@
 from __future__ import annotations
 
+import io
+import json
+import os
 import tempfile
 import unittest
 from datetime import UTC, datetime
+from contextlib import redirect_stdout
 from pathlib import Path
+from unittest.mock import patch
 
+from signalforge.cli import main
 from signalforge.harness import evaluate_harness, persist_checkpoint
 
 
@@ -110,6 +116,22 @@ class HarnessTests(unittest.TestCase):
         self.assertEqual(third["phase"], "ESCALATE")
         self.assertEqual(third["retry"]["attempt"], 3)
         self.assertEqual(third["next_action"], "reinspect_assumptions_or_operator_review")
+
+    def test_cli_harness_verify_writes_checkpoint_and_returns_verify_exit_code(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            database = Path(tmp) / "signalforge.db"
+            checkpoint = Path(tmp) / "harness-checkpoint.json"
+            output = io.StringIO()
+            with patch.dict(os.environ, {"SIGNALFORGE_DB": str(database)}), redirect_stdout(output):
+                code = main(["harness-verify", "--checkpoint", str(checkpoint)])
+            result = json.loads(output.getvalue())
+            self.assertEqual(code, 2)
+            self.assertEqual(result["phase"], "VERIFY")
+            self.assertEqual(result["sensors"]["S0"]["status"], "PASS")
+            self.assertEqual(result["sensors"]["S1"]["status"], "FAIL")
+            self.assertEqual(result["retry"]["attempt"], 1)
+            self.assertTrue(checkpoint.exists())
+            self.assertEqual(json.loads(checkpoint.read_text(encoding="utf-8"))["phase"], "VERIFY")
 
     def test_success_resets_retry_state(self) -> None:
         status, assurance, briefing, telegram = _snapshots()
