@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "review_policy": "S22_SOURCE_NATIVE_SCANNED_PDF_OCR_CROSSCHECK_V1",
+  "records": {
+    "iwt:1038:2026-08-25": {
+      "source_id": "S22",
+      "item_kind": "TENDER",
+      "reference_no": "IWT-NODE-1038",
+      "publication_date": "2026-08-25",
+      "article_url": "https://iwt.gov.mm/my/node/1038",
+      "attachment_url": "https://iwt.gov.mm/my/file-download/download/public/1708",
+      "article_html_identity_policy": "NOT_HASH_GATED_CLOUDFLARE_DYNAMIC_PARAMS",
+      "document_sha256": "41d2614635fa440c0e226d682b5817f81e2f3c4ca31d9e4e0355332004436386",
+      "rendered_image_sha256": "4f547056c203400c392eeee332ec3bac046e5ee5e444f5643f1647c4328b947a",
+      "reviewed_at": "2026-09-18",
+      "review_status": "REVIEWED_SOURCE_NATIVE_SCANNED_PDF_OCR_CROSSCHECK",
+      "ocr": {
+        "engine": "Browser Plane artifact_ocr / Tesseract 5.5.3 / tessdata_best / mya+eng",
+        "psm_mean_confidence": {
+          "4": 78.73,
+          "6": 75.09,
+          "11": 75.74
+        },
+        "critical_field_policy": "ADDRESS_REQUIRES_MULTI_PSM_AND_VISUAL_CROSSCHECK"
+      },
+      "fields": {
+        "location": "Inland Water Transport, Administration Department / Supply Division, No. 50 Pansodan Road, Yangon Region",
+        "location_evidence": "IWT_SOURCE_NATIVE_SCANNED_PDF_REVIEWED_OCR",
+        "next_action_summary": "11/3 10:00前按官方招标要求办理；联系/投标办理地址：IWT 管理处/供应处，No. 50 Pansodan Road, Yangon；官方公告联系电话 01-8250251 / 01-8384252。",
+        "next_action_evidence": "IWT_SOURCE_NATIVE_SCANNED_PDF_REVIEWED_OCR",
+        "detail_completeness": "HTML_SCOPE_DEADLINE_PLUS_SCANNED_PDF_REVIEWED_OCR_LOCATION"
+      }
+    }
+  }
+}

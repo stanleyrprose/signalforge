@@ -301,6 +301,67 @@ class OpportunityViewTests(unittest.TestCase):
             self.assertNotIn("LOCATION_MISSING", row["signal_quality_gaps"])
             self.assertEqual(row["signal_quality_score"], 100)
 
+    def test_iwt_reviewed_ocr_location_flows_through_read_view(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            database = Path(tmp) / "signalforge.db"
+            migrate(database)
+            payload = {
+                "item_kind": "TENDER",
+                "business_stage": "OPPORTUNITY",
+                "issuer": "Inland Water Transport (Myanmar)",
+                "title": "ပြည်တွင်းရေကြောင်းပို့ဆောင်ရေးဌာနမှ အိတ်ဖွင့်တင်ဒါအပြိုင်ဈေးနှုန်းလွှာခေါ်ယူခြင်း",
+                "project_name": "ကမ်းရိုးတန်းသွားကုန်တင်ရေယာဉ် ၁ စီး (Coastal Cargo Vessel)",
+                "reference_no": "IWT-NODE-1038",
+                "publication_date": "2026-08-25",
+                "deadline": "2026-11-03",
+                "deadline_datetime_local": "2026-11-03T10:00:00+06:30",
+                "deadline_datetime_utc": "2026-11-03T03:30:00Z",
+                "scope_summary": "ကမ်းရိုးတန်းသွားကုန်တင်ရေယာဉ် ၁ စီး (Coastal Cargo Vessel)",
+                "attachment_name": "IWT_1 Costal Vessel Tender 25-8-2026.pdf",
+                "attachment_url": "https://iwt.gov.mm/my/file-download/download/public/1708",
+                "url": "https://iwt.gov.mm/my/node/1038",
+            }
+            with connect(database) as conn, conn:
+                _insert_canonical(
+                    conn,
+                    key="iwt:1038:2026-08-25",
+                    source_id="S22",
+                    payload=payload,
+                    evidence_sha256="17dbadc38a7212fba25e213f5254f7d41dac9316266bda35d0c0ea9206ed7b73",
+                )
+                _insert_signal(
+                    conn,
+                    signal_id="sig-iwt-reviewed",
+                    source_id="S22",
+                    key="iwt:1038:2026-08-25",
+                    created_at="2026-08-25T08:51:07Z",
+                )
+
+            result = current_opportunities(
+                database=database,
+                now=datetime(2026, 9, 18, 0, 0, tzinfo=UTC),
+                source_id="S22",
+            )
+            self.assertEqual(result["count"], 1)
+            row = result["opportunities"][0]
+            self.assertEqual(
+                row["location"],
+                "Inland Water Transport, Administration Department / Supply Division, No. 50 Pansodan Road, Yangon Region",
+            )
+            self.assertEqual(row["location_evidence"], "IWT_SOURCE_NATIVE_SCANNED_PDF_REVIEWED_OCR")
+            self.assertIn("No. 50 Pansodan Road", str(row["next_action_summary"]))
+            self.assertEqual(row["next_action_evidence"], "IWT_SOURCE_NATIVE_SCANNED_PDF_REVIEWED_OCR")
+            self.assertEqual(
+                row["reviewed_enrichment_status"],
+                "REVIEWED_SOURCE_NATIVE_SCANNED_PDF_OCR_CROSSCHECK",
+            )
+            self.assertEqual(
+                row["reviewed_document_sha256"],
+                "41d2614635fa440c0e226d682b5817f81e2f3c4ca31d9e4e0355332004436386",
+            )
+            self.assertEqual(row["signal_quality_score"], 88)
+            self.assertEqual(row["signal_quality_gaps"], [])
+
     def test_parser_provided_focus_scope_flows_through_read_view(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             database = Path(tmp) / "signalforge.db"
@@ -822,7 +883,7 @@ class OpportunityViewTests(unittest.TestCase):
                         "business_stage": "OPPORTUNITY",
                         "title": "CLI tender",
                         "reference_no": "CLI-1",
-                        "deadline": "2026-09-18",
+                        "deadline": "2099-09-18",
                         "deadline_time": "13:00",
                         "url": "https://example.test/cli/1",
                     },
