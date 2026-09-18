@@ -302,6 +302,14 @@ def source_scorecard(
 
     active_canonical = sum(int(row["canonical_count"]) for row in rows)
     active_raw_signals = sum(int(row["raw_signals_total"]) for row in rows)
+    active_source_ids = {str(row["source_id"]) for row in rows}
+    canonical_current_total = sum(int(row["canonical_current_opportunities"]) for row in rows)
+    verified_external_total = sum(len(items) for items in verified_external_by_source.values())
+    verified_external_non_active = sum(
+        len(items)
+        for source_id, items in verified_external_by_source.items()
+        if source_id not in active_source_ids
+    )
     summary = {
         "active_sources": len(rows),
         "health_green": sum(1 for row in rows if row["health"] == "GREEN"),
@@ -313,9 +321,10 @@ def source_scorecard(
         "non_active_signals": database_totals["signals"] - active_raw_signals,
         "known_noise_signals": sum(int(row["known_noise_signals"]) for row in rows),
         "effective_signals": sum(int(row["effective_signals_total"]) for row in rows),
-        "current_opportunities": sum(int(row["current_opportunities"]) for row in rows),
-        "canonical_current_opportunities": sum(int(row["canonical_current_opportunities"]) for row in rows),
-        "verified_external_opportunities": sum(int(row["verified_external_opportunities"]) for row in rows),
+        "current_opportunities": canonical_current_total + verified_external_total,
+        "canonical_current_opportunities": canonical_current_total,
+        "verified_external_opportunities": verified_external_total,
+        "verified_external_non_active_source_opportunities": verified_external_non_active,
         "tracked_current_opportunities": sum(int(row["tracked_current_opportunities"]) for row in rows),
         "mission_excluded_current_opportunities": sum(int(row["mission_excluded_current_opportunities"]) for row in rows),
         "current_ict_telecom_opportunities": sum(int(row["current_ict_telecom_opportunities"]) for row in rows),
