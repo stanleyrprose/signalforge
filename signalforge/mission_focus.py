@@ -65,6 +65,9 @@ _ENGINEERING_TERMS = (
     "building construction",
     "civil work",
     "earthquake repair",
+    "environmental control system",
+    "enviromental control system",
+    "တည်ဆောက်ခြင်း",
 )
 _OFF_MISSION_TERMS = (
     "medical",
