@@ -14,6 +14,7 @@ from urllib.parse import urlparse
 from xml.etree import ElementTree
 
 from .config import Registry, db_path
+from .coverage_gaps import verified_external_opportunities
 from .http import fetch_bytes, fetch_bytes_cloudrity_d1n
 from .mte_reviewed_enrichment import reviewed_mte_records
 
@@ -360,14 +361,44 @@ def _coverage_findings(
                     "likely_layer": likely,
                 }
             )
+        external_recoveries = [
+            item
+            for item in verified_external_opportunities(now=now)
+            if str(item.get("target_source_id") or item.get("source_id") or "") == "S13"
+        ]
+        recovery_count = len(external_recoveries)
+        if missing_count:
+            coverage_status = "GAP"
+        elif page_errors:
+            coverage_status = "PARTIAL"
+        elif recovery_count:
+            coverage_status = "PARTIAL"
+        elif tender_like == 0:
+            coverage_status = "UNPROVEN"
+        else:
+            coverage_status = "PASS"
         summary["S13"] = {
-            "status": "PASS" if missing_count == 0 and page_errors == 0 else ("GAP" if missing_count else "PARTIAL"),
+            "status": coverage_status,
             "recent_sitemap_pages_checked": len(recent_urls),
             "tender_like_pages": tender_like,
             "missing": missing_count,
             "page_fetch_errors": page_errors,
             "lookback_days": mpt_lookback_days,
+            "verified_external_recovery_count": recovery_count,
+            "issuer_page_coverage_debt_retained": bool(recovery_count),
+            "risk_kind": "ISSUER_DISCOVERY_PARTIAL" if recovery_count else None,
+            "reason": "VERIFIED_EXTERNAL_OPPORTUNITY_NOT_DISCOVERED_BY_ISSUER_SITEMAP" if recovery_count else None,
         }
+        if recovery_count:
+            findings.append(
+                {
+                    "type": "HEALTH_ALERT",
+                    "severity": "YELLOW",
+                    "source_id": "S13",
+                    "code": "MPT_ISSUER_DISCOVERY_PARTIAL_RECOVERED_EXTERNALLY",
+                    "summary": f"{recovery_count} current MPT opportunity/opportunities were recovered from reviewed external official evidence rather than the issuer sitemap",
+                }
+            )
         if page_errors:
             findings.append(
                 {

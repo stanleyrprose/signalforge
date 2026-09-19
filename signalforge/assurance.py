@@ -471,7 +471,7 @@ def _coverage_from_existing_audit(audit_result: dict[str, object], source_id: st
             for item in (audit_result.get("findings") or [])
             if isinstance(item, dict) and item.get("source_id") == source_id and item.get("type") == "COVERAGE_GAP"
         ]
-    status = "PASS" if raw_status == "PASS" else "GAP" if raw_status == "GAP" else "CHECK_FAILED"
+    status = raw_status if raw_status in COVERAGE_STATUSES else "CHECK_FAILED"
     return {"source_id": source_id, "method": "existing-independent-auditor", "status": status, "official": official, "covered": covered, "missing": missing, "details": summary}
 
 
@@ -1508,6 +1508,7 @@ def _coverage_risk_rows(
         retained_context = _retained_tender_context(
             conn, source_id=source_id, checked_at=str(row["checked_at"] or "") or None
         )
+        risk_kind = str(details.get("risk_kind") or "")
         risks.append(
             {
                 "source_id": source_id,
@@ -1522,6 +1523,9 @@ def _coverage_risk_rows(
                 "known_miss": False,
                 "semantics": "COVERAGE_RISK_NOT_CONFIRMED_MISS",
                 "interpretation": "NO_NEW_SIGNAL_DOES_NOT_PROVE_NO_NEW_OPPORTUNITY",
+                "risk_kind": risk_kind or None,
+                "verified_external_recovery_count": int(details.get("verified_external_recovery_count") or 0),
+                "issuer_page_coverage_debt_retained": bool(details.get("issuer_page_coverage_debt_retained", False)),
                 **retained_context,
             }
         )

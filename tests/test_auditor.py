@@ -131,6 +131,70 @@ class AuditorTests(unittest.TestCase):
             self.assertEqual(result["contract"]["coverage_semantic_independence"], "PARTIAL")
             self.assertFalse(result["contract"]["external_completeness_proven"])
 
+    def test_mpt_zero_tender_candidates_is_unproven_not_pass(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            database = self._db(tmp)
+            neutral_url = "https://mpt.com.mm/en/general-news/"
+            self._canonical(database, key="mytel:17-2026", source_id="S41", url="https://viettelglobal.com.vn/en/test")
+
+            def fetch(url: str, **_kwargs) -> bytes:
+                if "atom.com.mm" in url:
+                    return _sitemap("https://www.atom.com.mm/en/about")
+                if "sitemap" in url:
+                    return _sitemap(neutral_url)
+                if url == neutral_url:
+                    return b"<html><body>General company update</body></html>"
+                raise AssertionError(url)
+
+            with patch("signalforge.auditor.verified_external_opportunities", return_value=[]):
+                result = audit(
+                    database=database,
+                    registry=_registry(),
+                    now=datetime(2026, 9, 10, 10, 30, tzinfo=UTC),
+                    fetcher=fetch,
+                    mytel_fetcher=lambda *_a, **_k: _mytel_feed(),
+                )
+            s13 = result["checks"]["strategic_coverage"]["S13"]
+            self.assertEqual(s13["status"], "UNPROVEN")
+            self.assertEqual(s13["tender_like_pages"], 0)
+            self.assertEqual(s13["verified_external_recovery_count"], 0)
+
+    def test_mpt_verified_external_recovery_marks_issuer_discovery_partial(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            database = self._db(tmp)
+            neutral_url = "https://mpt.com.mm/en/general-news/"
+            self._canonical(database, key="mytel:17-2026", source_id="S41", url="https://viettelglobal.com.vn/en/test")
+
+            def fetch(url: str, **_kwargs) -> bytes:
+                if "atom.com.mm" in url:
+                    return _sitemap("https://www.atom.com.mm/en/about")
+                if "sitemap" in url:
+                    return _sitemap(neutral_url)
+                if url == neutral_url:
+                    return b"<html><body>General company update</body></html>"
+                raise AssertionError(url)
+
+            recovered = [{"source_id": "S13", "target_source_id": "S13", "coverage_origin": "S01"}]
+            with patch("signalforge.auditor.verified_external_opportunities", return_value=recovered):
+                result = audit(
+                    database=database,
+                    registry=_registry(),
+                    now=datetime(2026, 9, 10, 10, 30, tzinfo=UTC),
+                    fetcher=fetch,
+                    mytel_fetcher=lambda *_a, **_k: _mytel_feed(),
+                )
+            s13 = result["checks"]["strategic_coverage"]["S13"]
+            self.assertEqual(s13["status"], "PARTIAL")
+            self.assertEqual(s13["verified_external_recovery_count"], 1)
+            self.assertTrue(s13["issuer_page_coverage_debt_retained"])
+            self.assertEqual(s13["risk_kind"], "ISSUER_DISCOVERY_PARTIAL")
+            self.assertTrue(
+                any(
+                    item.get("code") == "MPT_ISSUER_DISCOVERY_PARTIAL_RECOVERED_EXTERNALLY"
+                    for item in result["findings"]
+                )
+            )
+
     def test_detects_independent_mpt_and_mytel_coverage_gaps(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             database = self._db(tmp)
