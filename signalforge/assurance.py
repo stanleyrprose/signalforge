@@ -33,6 +33,10 @@ MISS_SEVERITIES = {"RED", "YELLOW"}
 NOISE_REVIEW_STATUSES = {"PENDING", "CONFIRMED_NOISE", "FALSE_NEGATIVE", "INCONCLUSIVE"}
 PROMOTION_STATUSES = {"ACTIVE", "RESOLVED"}
 PROMOTION_PRIORITIES = {"HIGH", "REVIEW"}
+# Exact Bangkok production activation of the release that moved evidence writes
+# ahead of parsing (68f1989). Older zero-item rows can legitimately lack replay
+# artifacts; they are legacy audit debt, not evidence of a current retention bug.
+ZERO_ITEM_EVIDENCE_RETENTION_LIVE_AT = "2026-09-16T01:17:15.604719Z"
 _LOCAL_TZ = ZoneInfo("Asia/Yangon")
 
 
@@ -828,24 +832,36 @@ def _retained_evidence_path(source_id: str, artifact_sha256: str, media_type: st
 def _zero_item_replayability(conn, *, cutoff: str) -> dict[str, int]:  # type: ignore[no-untyped-def]
     rows = conn.execute(
         """
-        SELECT p.source_id,e.artifact_sha256,e.artifact_media_type
+        SELECT p.source_id,p.finished_at,e.artifact_sha256,e.artifact_media_type
         FROM processing_records p
         JOIN evidence_envelopes e ON e.evidence_id=p.evidence_id
         WHERE p.status='SUCCESS' AND p.items_found=0 AND p.finished_at>=?
         """,
         (cutoff,),
     ).fetchall()
-    replayable = sum(
-        1
-        for row in rows
-        if _retained_evidence_path(
+    replayable = 0
+    legacy_unreplayable = 0
+    retention_era_unreplayable = 0
+    for row in rows:
+        retained = _retained_evidence_path(
             str(row["source_id"]),
             str(row["artifact_sha256"] or ""),
             str(row["artifact_media_type"] or ""),
         )
-        is not None
-    )
-    return {"total": len(rows), "replayable": replayable, "unreplayable": len(rows) - replayable}
+        if retained is not None:
+            replayable += 1
+            continue
+        if str(row["finished_at"] or "") < ZERO_ITEM_EVIDENCE_RETENTION_LIVE_AT:
+            legacy_unreplayable += 1
+        else:
+            retention_era_unreplayable += 1
+    return {
+        "total": len(rows),
+        "replayable": replayable,
+        "unreplayable": legacy_unreplayable + retention_era_unreplayable,
+        "legacy_unreplayable": legacy_unreplayable,
+        "retention_era_unreplayable": retention_era_unreplayable,
+    }
 
 
 def _noise_candidates(conn) -> list[dict[str, object]]:  # type: ignore[no-untyped-def]
@@ -1065,6 +1081,9 @@ def _metric_review(
         "filtered_zero_item_records_window": replayability["total"],
         "filtered_zero_item_replayable_window": replayability["replayable"],
         "filtered_zero_item_unreplayable_window": replayability["unreplayable"],
+        "filtered_zero_item_legacy_unreplayable_window": replayability["legacy_unreplayable"],
+        "filtered_zero_item_retention_era_unreplayable_window": replayability["retention_era_unreplayable"],
+        "filtered_zero_item_retention_live_at": ZERO_ITEM_EVIDENCE_RETENTION_LIVE_AT,
         "current_opportunities": int(summary.get("current_opportunities") or 0),
         "canonical_current_opportunities": int(summary.get("canonical_current_opportunities") or 0),
         "verified_external_opportunities": int(summary.get("verified_external_opportunities") or 0),
@@ -1088,8 +1107,8 @@ def _metric_review(
         review_reasons.append("MANDATORY_COVERAGE_NOT_FULLY_PROVEN")
     if not conclusive:
         review_reasons.append("NO_CONCLUSIVE_NOISE_SAMPLE_IN_WINDOW")
-    if int(metrics["filtered_zero_item_unreplayable_window"]) > 0:
-        review_reasons.append("FILTERED_EVIDENCE_NOT_REPLAYABLE")
+    if int(metrics["filtered_zero_item_retention_era_unreplayable_window"]) > 0:
+        review_reasons.append("FILTERED_EVIDENCE_NOT_REPLAYABLE_AFTER_RETENTION")
     if false_negatives > 0:
         review_reasons.append("RECENT_NOISE_FALSE_NEGATIVE_EXISTS")
     if int(metrics["green_sources"]) > 0 and int(metrics["current_opportunities"]) == 0 and int(metrics["effective_signals"]) == 0:
@@ -1103,7 +1122,7 @@ def _metric_review(
     conclusions = {
         "fail_reasons": fail_reasons,
         "review_reasons": review_reasons,
-        "useful_metrics": ["mandatory_coverage_proof_rate", "open_misses", "noise_samples_conclusive_window", "noise_false_negative_rate", "filtered_zero_item_replayable_window", "current_opportunities", "canonical_current_opportunities", "verified_external_opportunities", "effective_signals", "high_value_sources_with_recent_business_yield"],
+        "useful_metrics": ["mandatory_coverage_proof_rate", "open_misses", "noise_samples_conclusive_window", "noise_false_negative_rate", "filtered_zero_item_replayable_window", "filtered_zero_item_retention_era_unreplayable_window", "current_opportunities", "canonical_current_opportunities", "verified_external_opportunities", "effective_signals", "high_value_sources_with_recent_business_yield"],
         "diagnostic_only_not_business_value_proof": ["active_sources", "green_sources", "raw_signals"],
         "principle": "Source count, GREEN health and raw Signal volume are diagnostics; none is sufficient evidence of commercial value without coverage and outcome evidence.",
     }
