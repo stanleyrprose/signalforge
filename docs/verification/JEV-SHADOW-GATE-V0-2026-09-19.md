@@ -106,6 +106,18 @@ The report retained status SHADOW_ONLY, authority DETERMINISTIC_ONLY, and produc
 
 No SignalForge database was used or mutated by this smoke.
 
+## Integration validation
+
+The repository's exact verify.yml command sequence was replayed locally in a fresh Python 3.13 virtual environment after converting the new tests to unittest discovery semantics:
+
+- editable runtime install: PASS
+- Source Registry JSON contract: PASS
+- compileall over signalforge and tests: PASS
+- unittest discovery: 437 tests / OK
+- bin/signalforge shell syntax: PASS
+- deploy/deploy-signalforge-release.sh shell syntax: PASS
+- git diff --check: PASS
+
 ## Scope limit
 
 v0 compares Jev only against rows already exposed by current_opportunities().
