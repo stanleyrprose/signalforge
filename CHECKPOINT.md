@@ -1646,3 +1646,18 @@ Evidence: `docs/verification/S22-IWT-REVIEWED-OCR-LOCATION-PRODUCTION-CLOSURE-20
 - Recovery gate remains: issuer origin recovers, a reliable official synchronization surface is found, or an independently verified official Railways tender is promoted through reviewed-external coverage.
 
 Evidence: `docs/verification/S21-COVERAGE-AUDIT-2026-09-18.md`.
+
+## Engineering relevance taxonomy — 2026-09-19
+
+- PR #220 merged/deployed as `f23956f78edd54eed1ea57ced7de599a79559d0a`; previous release `6a19a69266d0fff87484debef46176eee2226147`.
+- SignalForge previously had no `ENGINEERING` relevance category even though engineering is a core mission domain. S22 vessel procurement therefore fell through to `OTHER`.
+- Added `ENGINEERING=7/10`, equal to ENERGY and below ICT/TELECOM 10/10. The existing strategic interrupt rule remains unchanged: only ICT/TELECOM automatically satisfy `strategic=True`, so engineering alone does not promote an opportunity to HIGH.
+- High-precision English/Burmese engineering terms were added for vessel/ship/railway/bridge/dredging/marine. English `ship` is token-bounded to avoid `partnership/scholarship` false positives.
+- `port / ဆိပ်ကမ်း` was deliberately removed after live production A/B showed it misclassified S38 `industry:1038`, a container-truck logistics tender from Yangon ports to factories, as engineering. A regression locks this out.
+- Production S22 uses Burmese `ရေယာဉ်` rather than the later presentation-layer English label. Live result: `OTHER -> ENGINEERING`, quality `88 -> 93`, `VERY_HIGH`, priority remains `MEDIUM`, gaps remain `[]`.
+- Undeployed Bangkok A/B across 15 current opportunities showed exactly one final change: S22. The other 14 were unchanged.
+- Validation: focused `31/31`, full suite `427/427`, default Python and Python 3.13; compileall/diff check PASS. GitHub Actions run `35426014137` was blocked before code execution by the account billing/spending-limit state.
+- Production acceptance: DB `quick_check=ok`; canonical=244; signals=65; S22 Signal count=1; four timers enabled; Telegram digest dry-run `PASS / pending_count=0`.
+- No canonical rewrite, source adapter, Signal creation, scheduler or delivery-policy change.
+
+Evidence: `docs/verification/ENGINEERING-RELEVANCE-TAXONOMY-PRODUCTION-CLOSURE-2026-09-19.md`.
