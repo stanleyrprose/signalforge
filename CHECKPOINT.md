@@ -1635,3 +1635,14 @@ Evidence: `docs/verification/S30-MOFA-PARTICIPATION-DETAIL-PRODUCTION-CLOSURE-20
 - Next priority: S21 Myanma Railways coverage proof, not further low-value field polishing.
 
 Evidence: `docs/verification/S22-IWT-REVIEWED-OCR-LOCATION-PRODUCTION-CLOSURE-2026-09-18.md`.
+
+## S21 Myanma Railways coverage audit — 2026-09-18
+
+- Retained production state remains: last successful issuer acquisition `2026-09-13`; latest known tender publication `2026-09-01`; latest known deadline `2026-09-14`; retained open tender count `0`.
+- `railways.gov.mm` and `www.railways.gov.mm` both resolve to `18.136.56.210`. Bangkok, Mac, Beijing diagnostic egress and direct external web fetch all fail at connect/timeout; browser escalation does not solve the incident.
+- Search-index evidence on 2026-09-18 still shows the 2026-09-01 official tender as newest, but crawl age is ~5–6 days, so it cannot prove there were no publications after 2026-09-13.
+- No reliable current 2026-09 official mirror was found on MOTC; the known 9/1 Railways tender is absent from the same-day Kyemon text PDF, so newspaper fallback remains rejected. S01 radar currently has no S21 lead.
+- Decision: no code/source change. Keep `COVERAGE_RISK_NOT_CONFIRMED_MISS`; do not fake GREEN or infer that zero retained open tenders means zero new opportunities.
+- Recovery gate remains: issuer origin recovers, a reliable official synchronization surface is found, or an independently verified official Railways tender is promoted through reviewed-external coverage.
+
+Evidence: `docs/verification/S21-COVERAGE-AUDIT-2026-09-18.md`.
