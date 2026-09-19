@@ -7,6 +7,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from .assurance import MANDATORY_COVERAGE_SOURCES
+
 HARNESS_VERSION = 1
 DEFAULT_MAX_RETRIES = 3
 DONE_SENSOR_IDS = ("S0", "S1", "S2", "S3")
@@ -80,6 +82,24 @@ def evaluate_harness(
     assurance_counts = assurance.get("counts") or {}
     if not isinstance(assurance_counts, dict):
         assurance_counts = {}
+    coverage_rows = assurance.get("coverage") or []
+    if not isinstance(coverage_rows, list):
+        coverage_rows = []
+    coverage_by_source = {
+        str(row.get("source_id")): str(row.get("status") or "NOT_RUN")
+        for row in coverage_rows
+        if isinstance(row, dict) and row.get("source_id")
+    }
+    mandatory_coverage_gaps = [
+        {"source_id": source_id, "status": coverage_by_source.get(source_id, "NOT_RUN")}
+        for source_id in MANDATORY_COVERAGE_SOURCES
+        if coverage_by_source.get(source_id, "NOT_RUN") in {"GAP", "PARTIAL", "UNPROVEN"}
+    ]
+    mandatory_coverage_unknown = [
+        {"source_id": source_id, "status": coverage_by_source.get(source_id, "NOT_RUN")}
+        for source_id in MANDATORY_COVERAGE_SOURCES
+        if coverage_by_source.get(source_id, "NOT_RUN") in {"CHECK_FAILED", "NOT_RUN"}
+    ]
     briefing_assurance = briefing.get("assurance") or {}
     if not isinstance(briefing_assurance, dict):
         briefing_assurance = {}
@@ -96,15 +116,32 @@ def evaluate_harness(
     ]
     open_red_misses = int(assurance_counts.get("open_red_misses", 0) or 0)
     metric_validity = str(briefing_assurance.get("metric_validity") or "NOT_RUN")
-    extraction_ok = open_red_misses == 0 and not missing_scope and not low_quality and metric_validity != "RED"
+    output_quality_gap = (
+        open_red_misses > 0
+        or bool(missing_scope)
+        or bool(low_quality)
+        or metric_validity == "RED"
+        or bool(mandatory_coverage_gaps)
+    )
+    if output_quality_gap:
+        s2_status = "FAIL"
+        s2_reason = "BUSINESS_OUTPUT_QUALITY_GAP"
+    elif mandatory_coverage_unknown:
+        s2_status = "UNKNOWN"
+        s2_reason = "BUSINESS_COVERAGE_UNVERIFIED"
+    else:
+        s2_status = "PASS"
+        s2_reason = "BUSINESS_OUTPUT_QUALITY_OK"
     sensors["S2"] = _sensor(
-        "PASS" if extraction_ok else "FAIL",
-        "BUSINESS_OUTPUT_QUALITY_OK" if extraction_ok else "BUSINESS_OUTPUT_QUALITY_GAP",
+        s2_status,
+        s2_reason,
         current_business_items=len(items),
         missing_scope_keys=missing_scope,
         low_quality_keys=low_quality,
         open_red_misses=open_red_misses,
         metric_validity=metric_validity,
+        mandatory_coverage_gaps=mandatory_coverage_gaps,
+        mandatory_coverage_unknown=mandatory_coverage_unknown,
     )
 
     pending = telegram_dry_run.get("pending") or []

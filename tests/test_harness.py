@@ -10,6 +10,7 @@ from contextlib import redirect_stdout
 from pathlib import Path
 from unittest.mock import patch
 
+from signalforge.assurance import MANDATORY_COVERAGE_SOURCES
 from signalforge.cli import main
 from signalforge.harness import evaluate_harness, persist_checkpoint
 
@@ -30,7 +31,11 @@ def _snapshots() -> tuple[dict[str, object], dict[str, object], dict[str, object
         "counts": {
             "open_misses": 0,
             "open_red_misses": 0,
-        }
+        },
+        "coverage": [
+            {"source_id": source_id, "status": "PASS"}
+            for source_id in MANDATORY_COVERAGE_SOURCES
+        ],
     }
     briefing = {
         "attention": [
@@ -79,6 +84,60 @@ class HarnessTests(unittest.TestCase):
         self.assertFalse(report["definition_of_done"]["passed"])
         self.assertEqual(report["sensors"]["S2"]["status"], "FAIL")
         self.assertEqual(report["sensors"]["S2"]["missing_scope_keys"], ["SAMPLE:1"])
+
+    def test_mandatory_partial_coverage_blocks_done(self) -> None:
+        status, assurance, briefing, telegram = _snapshots()
+        assurance["coverage"] = [
+            {"source_id": source_id, "status": "PARTIAL" if source_id == "S13" else "PASS"}
+            for source_id in MANDATORY_COVERAGE_SOURCES
+        ]
+        report = evaluate_harness(
+            status_snapshot=status,
+            assurance=assurance,
+            briefing=briefing,
+            telegram_dry_run=telegram,
+            db_quick_check="ok",
+        )
+        self.assertFalse(report["definition_of_done"]["passed"])
+        self.assertEqual(report["sensors"]["S2"]["status"], "FAIL")
+        self.assertEqual(
+            report["sensors"]["S2"]["mandatory_coverage_gaps"],
+            [{"source_id": "S13", "status": "PARTIAL"}],
+        )
+
+    def test_mandatory_check_failure_makes_business_coverage_unknown(self) -> None:
+        status, assurance, briefing, telegram = _snapshots()
+        assurance["coverage"] = [
+            {"source_id": source_id, "status": "CHECK_FAILED" if source_id == "S21" else "PASS"}
+            for source_id in MANDATORY_COVERAGE_SOURCES
+        ]
+        report = evaluate_harness(
+            status_snapshot=status,
+            assurance=assurance,
+            briefing=briefing,
+            telegram_dry_run=telegram,
+            db_quick_check="ok",
+        )
+        self.assertFalse(report["definition_of_done"]["passed"])
+        self.assertEqual(report["sensors"]["S2"]["status"], "UNKNOWN")
+        self.assertEqual(report["sensors"]["S2"]["reason_code"], "BUSINESS_COVERAGE_UNVERIFIED")
+        self.assertEqual(
+            report["sensors"]["S2"]["mandatory_coverage_unknown"],
+            [{"source_id": "S21", "status": "CHECK_FAILED"}],
+        )
+
+    def test_supplemental_coverage_does_not_block_mandatory_done_gate(self) -> None:
+        status, assurance, briefing, telegram = _snapshots()
+        assurance["coverage"].append({"source_id": "S01", "status": "PARTIAL"})
+        report = evaluate_harness(
+            status_snapshot=status,
+            assurance=assurance,
+            briefing=briefing,
+            telegram_dry_run=telegram,
+            db_quick_check="ok",
+        )
+        self.assertTrue(report["definition_of_done"]["passed"])
+        self.assertEqual(report["sensors"]["S2"]["status"], "PASS")
 
     def test_pending_telegram_delivery_blocks_done(self) -> None:
         status, assurance, briefing, telegram = _snapshots()
