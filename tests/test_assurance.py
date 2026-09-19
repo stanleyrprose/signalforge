@@ -13,6 +13,7 @@ from signalforge.assurance import (
     _coverage_from_existing_audit,
     _coverage_from_listing,
     _noise_candidates,
+    _zero_item_replayability,
     _nonstandard_candidates,
     _source_candidates,
     assurance_status,
@@ -253,6 +254,89 @@ class AssuranceTests(unittest.TestCase):
                 self.assertEqual(conn.execute("SELECT COUNT(*) FROM delivery_receipts").fetchone()[0], 0)
             resolved = resolve_manual_promotion(str(promoted["promotion"]["promotion_id"]), note="closed", database=database)
             self.assertEqual(resolved["promotion"]["status"], "RESOLVED")
+
+    def test_zero_item_replayability_separates_legacy_from_retention_era_debt(self) -> None:
+        class FakeConn:
+            def execute(self, _sql, _params):  # type: ignore[no-untyped-def]
+                rows = [
+                    {
+                        "source_id": "S22",
+                        "finished_at": "2026-09-16T01:16:07Z",
+                        "artifact_sha256": "legacy",
+                        "artifact_media_type": "text/html",
+                    },
+                    {
+                        "source_id": "S22",
+                        "finished_at": "2026-09-16T01:17:50Z",
+                        "artifact_sha256": "retained",
+                        "artifact_media_type": "text/html",
+                    },
+                    {
+                        "source_id": "S40",
+                        "finished_at": "2026-09-16T01:18:00Z",
+                        "artifact_sha256": "missing-current",
+                        "artifact_media_type": "text/html",
+                    },
+                ]
+                return SimpleNamespace(fetchall=lambda: rows)
+
+        def retained(_source_id: str, digest: str, _media_type: str):  # type: ignore[no-untyped-def]
+            return Path("/tmp/retained.html") if digest == "retained" else None
+
+        with patch("signalforge.assurance._retained_evidence_path", side_effect=retained):
+            result = _zero_item_replayability(FakeConn(), cutoff="2026-09-01T00:00:00Z")
+        self.assertEqual(result["total"], 3)
+        self.assertEqual(result["replayable"], 1)
+        self.assertEqual(result["legacy_unreplayable"], 1)
+        self.assertEqual(result["retention_era_unreplayable"], 1)
+        self.assertEqual(result["unreplayable"], 2)
+
+    def test_legacy_unreplayable_evidence_does_not_claim_current_retention_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            database = self._db(tmp)
+            with patch(
+                "signalforge.assurance._zero_item_replayability",
+                return_value={
+                    "total": 10,
+                    "replayable": 2,
+                    "unreplayable": 8,
+                    "legacy_unreplayable": 8,
+                    "retention_era_unreplayable": 0,
+                },
+            ):
+                result = run_assurance(
+                    database=database,
+                    network=False,
+                    noise_sample_size=0,
+                    now=datetime(2026, 9, 19, 8, 0, tzinfo=UTC),
+                )
+            metrics = result["metric_review"]["metrics"]
+            reasons = result["metric_review"]["conclusions"]["review_reasons"]
+            self.assertEqual(metrics["filtered_zero_item_legacy_unreplayable_window"], 8)
+            self.assertEqual(metrics["filtered_zero_item_retention_era_unreplayable_window"], 0)
+            self.assertNotIn("FILTERED_EVIDENCE_NOT_REPLAYABLE_AFTER_RETENTION", reasons)
+
+    def test_retention_era_unreplayable_evidence_remains_a_review_reason(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            database = self._db(tmp)
+            with patch(
+                "signalforge.assurance._zero_item_replayability",
+                return_value={
+                    "total": 3,
+                    "replayable": 2,
+                    "unreplayable": 1,
+                    "legacy_unreplayable": 0,
+                    "retention_era_unreplayable": 1,
+                },
+            ):
+                result = run_assurance(
+                    database=database,
+                    network=False,
+                    noise_sample_size=0,
+                    now=datetime(2026, 9, 19, 8, 0, tzinfo=UTC),
+                )
+            reasons = result["metric_review"]["conclusions"]["review_reasons"]
+            self.assertIn("FILTERED_EVIDENCE_NOT_REPLAYABLE_AFTER_RETENTION", reasons)
 
     def test_inconclusive_noise_review_does_not_dilute_false_negative_rate(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
