@@ -10,6 +10,7 @@ from unittest.mock import patch
 
 from signalforge.assurance import (
     MANDATORY_COVERAGE_SOURCES,
+    _coverage_from_existing_audit,
     _coverage_from_listing,
     _noise_candidates,
     _nonstandard_candidates,
@@ -285,6 +286,41 @@ class AssuranceTests(unittest.TestCase):
             self.assertIsNone(metrics["noise_false_negative_rate"])
             self.assertIn("NO_CONCLUSIVE_NOISE_SAMPLE_IN_WINDOW", reasons)
 
+    def test_existing_audit_preserves_partial_and_unproven_coverage_semantics(self) -> None:
+        partial = _coverage_from_existing_audit(
+            {
+                "checks": {
+                    "strategic_coverage": {
+                        "S13": {
+                            "status": "PARTIAL",
+                            "tender_like_pages": 0,
+                            "missing": 0,
+                            "verified_external_recovery_count": 1,
+                            "risk_kind": "ISSUER_DISCOVERY_PARTIAL",
+                        }
+                    }
+                },
+                "findings": [],
+            },
+            "S13",
+        )
+        self.assertEqual(partial["status"], "PARTIAL")
+        self.assertEqual(partial["official"], 0)
+        self.assertEqual(partial["covered"], 0)
+
+        unproven = _coverage_from_existing_audit(
+            {
+                "checks": {
+                    "strategic_coverage": {
+                        "S13": {"status": "UNPROVEN", "tender_like_pages": 0, "missing": 0}
+                    }
+                },
+                "findings": [],
+            },
+            "S13",
+        )
+        self.assertEqual(unproven["status"], "UNPROVEN")
+
     def test_assurance_status_separates_coverage_risk_from_confirmed_miss(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             database = self._db(tmp)
@@ -373,6 +409,50 @@ class AssuranceTests(unittest.TestCase):
             self.assertEqual(briefing["assurance"]["open_misses"], 0)
             self.assertEqual(briefing["assurance"]["coverage_risk_count"], 1)
             self.assertEqual(briefing["assurance"]["coverage_risks"][0]["source_id"], "S21")
+
+    def test_assurance_status_preserves_mpt_issuer_discovery_partial_risk(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            database = self._db(tmp)
+            run_id = "00000000-0000-4000-8000-000000000213"
+            details = {
+                "reason": "VERIFIED_EXTERNAL_OPPORTUNITY_NOT_DISCOVERED_BY_ISSUER_SITEMAP",
+                "risk_kind": "ISSUER_DISCOVERY_PARTIAL",
+                "verified_external_recovery_count": 1,
+                "issuer_page_coverage_debt_retained": True,
+            }
+            with connect(database) as conn, conn:
+                conn.execute(
+                    "INSERT INTO assurance_runs(assurance_run_id,started_at,status,network_checks,summary_json) VALUES (?,?,?,1,'{}')",
+                    (run_id, "2026-09-19T06:00:00Z", "REVIEW"),
+                )
+                conn.execute(
+                    """
+                    INSERT INTO coverage_audit_results(
+                        coverage_audit_id,assurance_run_id,source_id,audit_method,status,official_candidate_count,
+                        canonical_covered_count,missing_count,checked_at,details_json
+                    ) VALUES (?,?,?,?,?,?,?,?,?,?)
+                    """,
+                    (
+                        "coverage-risk-s13",
+                        run_id,
+                        "S13",
+                        "existing-independent-auditor",
+                        "PARTIAL",
+                        0,
+                        0,
+                        0,
+                        "2026-09-19T06:00:00Z",
+                        json.dumps(details),
+                    ),
+                )
+            latest = assurance_status(database=database)
+            self.assertEqual(latest["coverage_risk_count"], 1)
+            risk = latest["coverage_risks"][0]
+            self.assertEqual(risk["source_id"], "S13")
+            self.assertEqual(risk["coverage_status"], "PARTIAL")
+            self.assertEqual(risk["risk_kind"], "ISSUER_DISCOVERY_PARTIAL")
+            self.assertEqual(risk["verified_external_recovery_count"], 1)
+            self.assertTrue(risk["issuer_page_coverage_debt_retained"])
 
     def test_assurance_status_surfaces_s20_business_detail_risk_even_when_event_is_covered(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

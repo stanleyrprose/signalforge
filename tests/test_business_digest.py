@@ -224,6 +224,36 @@ class BusinessDigestTests(unittest.TestCase):
         self.assertNotIn("CHECK_FAILED", text)
         self.assertNotIn("issuer origin timed out", text)
 
+    def test_render_surfaces_mpt_issuer_discovery_partial_risk(self) -> None:
+        briefing = _briefing()
+        briefing["assurance"] = {
+            "open_misses": 0,
+            "open_red_misses": 0,
+            "coverage_risk_count": 1,
+            "coverage_risks": [
+                {
+                    "source_id": "S13",
+                    "source_name": "MPT Tender Information",
+                    "coverage_status": "PARTIAL",
+                    "risk_kind": "ISSUER_DISCOVERY_PARTIAL",
+                    "verified_external_recovery_count": 1,
+                    "issuer_page_coverage_debt_retained": True,
+                    "known_miss": False,
+                }
+            ],
+            "metric_validity": "REVIEW",
+        }
+        with tempfile.TemporaryDirectory() as tmp, patch("signalforge.business_digest.business_briefing", return_value=briefing), patch(
+            "signalforge.business_digest.audit", return_value=_audit()
+        ), patch("signalforge.business_digest.source_scorecard", return_value=_scorecard()):
+            digest = business_digest(database=self._db(tmp), registry=_Registry(), now=datetime(2026,9,19,6,30,tzinfo=UTC))  # type: ignore[arg-type]
+        text = render_business_digest(digest)
+        self.assertIn("MPT Tender Information</b> · [S13]", text)
+        self.assertIn("外部官方文件补获 <b>1</b> 条当前机会", text)
+        self.assertIn("issuer sitemap 未覆盖该机会", text)
+        self.assertIn("官网采购发现覆盖仍为 <b>PARTIAL</b>", text)
+        self.assertNotIn("官网采集可验证到", text)
+
     def test_render_surfaces_s20_business_detail_coverage_risk(self) -> None:
         briefing = _briefing()
         briefing["assurance"] = {

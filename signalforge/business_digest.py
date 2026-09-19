@@ -775,6 +775,12 @@ def render_business_digest(
                     f"• <b>{source_name}</b> · [{source_id}]：已发现招标事件，但 <b>{affected}</b> 条当前机会仍缺少截止/投标细节{recovery_text}；官方附件通道当前为 HTTP 404 降级。"
                 )
                 continue
+            if risk.get("risk_kind") == "ISSUER_DISCOVERY_PARTIAL":
+                recovered = int(risk.get("verified_external_recovery_count") or 0)
+                lines.append(
+                    f"• <b>{source_name}</b> · [{source_id}]：已通过外部官方文件补获 <b>{recovered}</b> 条当前机会；issuer sitemap 未覆盖该机会，官网采购发现覆盖仍为 <b>PARTIAL</b>。"
+                )
+                continue
             proven_through = str(risk.get("last_success_at") or "")
             proven_date = html.escape(proven_through.split("T", 1)[0]) if proven_through else "未知"
             open_count = risk.get("retained_open_tender_count")
