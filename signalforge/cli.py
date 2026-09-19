@@ -27,6 +27,13 @@ from .config import Registry, SOURCE_ID_PATTERN, db_path
 from .db import connect, migrate
 from .engine import run_due, run_source
 from .harness import default_checkpoint_path, evaluate_harness, persist_checkpoint
+from .jev_noise_shadow import (
+    DEFAULT_MODEL as JEV_NOISE_DEFAULT_MODEL,
+    DEFAULT_OPEN_THRESHOLD as JEV_NOISE_DEFAULT_OPEN_THRESHOLD,
+    DEFAULT_SECTOR_THRESHOLD as JEV_NOISE_DEFAULT_SECTOR_THRESHOLD,
+    jev_noise_shadow_report,
+)
+from .jev_shadow import DEFAULT_MODEL as JEV_DEFAULT_MODEL, DEFAULT_THRESHOLD as JEV_DEFAULT_THRESHOLD, jev_shadow_report
 from .mpa import build_manual_bundle_preview, parse_listing_records, parse_pdf_business_fields, preview_summary
 from .mpa_manual import commit_manual_provider_bundle
 from .opportunities import current_opportunities
@@ -304,6 +311,19 @@ def main(argv: list[str] | None = None) -> int:
     digest_parser.add_argument("--no-network", action="store_true")
     scorecard_parser = sub.add_parser("source-scorecard")
     scorecard_parser.add_argument("--window-days", type=int, default=30)
+    jev_shadow_parser = sub.add_parser("jev-shadow")
+    jev_shadow_parser.add_argument("--threshold", type=float, default=JEV_DEFAULT_THRESHOLD)
+    jev_shadow_parser.add_argument("--model", default=JEV_DEFAULT_MODEL)
+    jev_shadow_parser.add_argument("--limit", type=int, default=50)
+    jev_shadow_parser.add_argument("--include-expired", action="store_true")
+    jev_noise_shadow_parser = sub.add_parser("jev-noise-shadow")
+    jev_noise_shadow_parser.add_argument("--status", choices=("PENDING", "CONFIRMED_NOISE", "FALSE_NEGATIVE", "INCONCLUSIVE", "ALL"), default="PENDING")
+    jev_noise_shadow_parser.add_argument("--limit", type=int, default=50)
+    jev_noise_shadow_parser.add_argument("--open-threshold", type=float, default=JEV_NOISE_DEFAULT_OPEN_THRESHOLD)
+    jev_noise_shadow_parser.add_argument("--sector-threshold", type=float, default=JEV_NOISE_DEFAULT_SECTOR_THRESHOLD)
+    jev_noise_shadow_parser.add_argument("--model", default=JEV_NOISE_DEFAULT_MODEL)
+    jev_noise_shadow_parser.add_argument("--database")
+    jev_noise_shadow_parser.add_argument("--evidence-root")
     browser_escalation_parser = sub.add_parser("browser-escalation-candidates")
     browser_escalation_parser.add_argument("--window-days", type=int, default=7)
     browser_escalation_parser.add_argument("--limit", type=int, default=20)
@@ -474,6 +494,23 @@ def main(argv: list[str] | None = None) -> int:
             result = business_digest(audit_network=not bool(args.no_network))
         elif args.cmd == "source-scorecard":
             result = source_scorecard(window_days=int(args.window_days))
+        elif args.cmd == "jev-shadow":
+            result = jev_shadow_report(
+                threshold=float(args.threshold),
+                model=str(args.model),
+                limit=int(args.limit),
+                include_expired=bool(args.include_expired),
+            )
+        elif args.cmd == "jev-noise-shadow":
+            result = jev_noise_shadow_report(
+                database=Path(args.database).expanduser() if args.database else None,
+                evidence_directory=Path(args.evidence_root).expanduser() if args.evidence_root else None,
+                status=None if args.status == "ALL" else args.status,
+                limit=int(args.limit),
+                open_threshold=float(args.open_threshold),
+                sector_threshold=float(args.sector_threshold),
+                model=str(args.model),
+            )
         elif args.cmd == "browser-escalation-candidates":
             result = browser_escalation_candidates(window_days=int(args.window_days), limit=int(args.limit))
         elif args.cmd == "assurance-run":

@@ -26,6 +26,8 @@ def test_mission_policy_targets_government_soe_engineering_construction_telecom_
         (_item(primary_relevance="OTHER", relevance_categories=["OTHER"], scope_summary="ရေယာဉ် ၁ စီး purchase"), True, "ENGINEERING"),
         (_item(primary_relevance="CONSTRUCTION", relevance_categories=["CONSTRUCTION"], scope_summary="Bridge construction works"), True, "CONSTRUCTION"),
         (_item(source_id="S13", primary_relevance="CONSTRUCTION", relevance_categories=["CONSTRUCTION"], scope_summary="Exchange Office earthquake repair civil works"), True, "CONSTRUCTION"),
+        (_item(primary_relevance="INDUSTRIAL", relevance_categories=["INDUSTRIAL"], scope_summary="Laboratory Appratus for Enviromental Control System"), True, "ENGINEERING"),
+        (_item(primary_relevance="INDUSTRIAL", relevance_categories=["INDUSTRIAL"], scope_summary="ကွန်ကရစ်ရေစင် တည်ဆောက်ခြင်းလုပ်ငန်း"), True, "ENGINEERING"),
     ]
     for item, expected, sector in cases:
         result = classify_mission_fit(item)
