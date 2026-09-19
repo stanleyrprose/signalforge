@@ -33,6 +33,7 @@ _RELEVANCE_SCORES = {
     "TELECOM": 10,
     "ICT": 10,
     "ENERGY": 7,
+    "ENGINEERING": 7,
     "INDUSTRIAL": 6,
     "MEDICAL": 5,
     "CONSTRUCTION": 4,

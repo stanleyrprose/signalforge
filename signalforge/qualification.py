@@ -46,6 +46,18 @@ _KEYWORDS: dict[str, tuple[str, ...]] = {
         "line pipe",
         "transmission",
     ),
+    "ENGINEERING": (
+        "vessel",
+        " ship ",
+        "railway",
+        "bridge",
+        "dredging",
+        "marine",
+        "ရေယာဉ်",
+        "သင်္ဘော",
+        "မီးရထား",
+        "တံတား",
+    ),
     "INDUSTRIAL": (
         "industrial",
         "industry",
@@ -84,7 +96,7 @@ _SOURCE_CATEGORY_FALLBACK = {
     "S39": "ENERGY",
 }
 
-_PRIMARY_RELEVANCE_ORDER = ("TELECOM", "ICT", "ENERGY", "INDUSTRIAL", "MEDICAL", "CONSTRUCTION")
+_PRIMARY_RELEVANCE_ORDER = ("TELECOM", "ICT", "ENERGY", "ENGINEERING", "INDUSTRIAL", "MEDICAL", "CONSTRUCTION")
 _SOURCE_PRIMARY_RELEVANCE = {"S26": "MEDICAL"}
 
 

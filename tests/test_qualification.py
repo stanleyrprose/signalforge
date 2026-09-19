@@ -114,6 +114,70 @@ class QualificationTests(unittest.TestCase):
         self.assertIn("ICT", result["relevance_categories"])
         self.assertEqual(result["relevance_provenance"]["MEDICAL"], "ITEM_TEXT_KEYWORD:medical")
 
+    def test_coastal_cargo_vessel_is_engineering_without_becoming_strategic_high(self) -> None:
+        item = {
+            "source_id": "S22",
+            "title": "အိတ်ဖွင့်တင်ဒါအပြိုင်ဈေးနှုန်းလွှာခေါ်ယူခြင်း",
+            "scope_summary": "ပြည်တွင်းရေကြောင်းပို့ဆောင်ရေးဌာနမှ ရေယာဉ် ၁ စီးကို ဝယ်ယူရန် ဖိတ်ခေါ်အပ်ပါသည်။",
+            "issuer": "Inland Water Transport (Myanmar)",
+            "deadline_status": "OPEN",
+            "remaining_seconds": 30 * 24 * 3600,
+            "detail_completeness": "HTML_SCOPE_DEADLINE_PLUS_SCANNED_PDF_REVIEWED_OCR_LOCATION",
+            "deadline_evidence": "OFFICIAL_HTML_DEADLINE_DATE_TIME",
+            "reference_no": "IWT-NODE-1038",
+            "location": "No. 50 Pansodan Road, Yangon Region",
+            "next_action_summary": "Contact IWT Administration / Supply Division",
+            "next_action_evidence": "IWT_SOURCE_NATIVE_SCANNED_PDF_REVIEWED_OCR",
+        }
+        result = qualify_opportunity(
+            item,
+            {"engine": "direct_http", "name": "Inland Water Transport Tenders"},
+        )
+        self.assertEqual(result["primary_relevance"], "ENGINEERING")
+        self.assertEqual(result["relevance_categories"][0], "ENGINEERING")
+        self.assertEqual(
+            result["relevance_provenance"]["ENGINEERING"],
+            "ITEM_TEXT_KEYWORD:ရေယာဉ်",
+        )
+        self.assertEqual(
+            result["signal_quality_dimensions"]["strategic_relevance"]["score"],
+            7,
+        )
+        self.assertEqual(result["priority_band"], "MEDIUM")
+
+    def test_transport_or_partnership_substrings_do_not_create_engineering_false_positive(self) -> None:
+        item = {
+            "source_id": "SX",
+            "title": "Transport partnership support services",
+            "scope_summary": "Software support for a transport partnership with enough business detail.",
+            "deadline_status": "OPEN",
+            "remaining_seconds": 10 * 24 * 3600,
+            "detail_completeness": "HTML_SCOPE_DEADLINE",
+            "deadline_evidence": "EXPLICIT_HTML_TENDER_CLOSE_DATE_TIME",
+            "reference_no": "REF-TRANSPORT-1",
+        }
+        result = qualify_opportunity(item, {"engine": "direct_http", "name": "General Procurement"})
+        self.assertNotIn("ENGINEERING", result["relevance_categories"])
+        self.assertIn("ICT", result["relevance_categories"])
+
+    def test_port_as_logistics_origin_does_not_create_engineering_false_positive(self) -> None:
+        item = {
+            "source_id": "S38",
+            "title": "Container truck rental tender",
+            "scope_summary": "ဆေးဝါးကုန်ကြမ်းများအား ရန်ကုန်ဆိပ်ကမ်းများမှ စက်ရုံများသို့ ပို့ဆောင်ရန် ကုန်သေတ္တာတင်ယာဉ် ငှားရမ်းခြင်း",
+            "deadline_status": "OPEN",
+            "remaining_seconds": 10 * 24 * 3600,
+            "detail_completeness": "HTML_SCOPE_DEADLINE",
+            "deadline_evidence": "EXPLICIT_HTML_TENDER_CLOSE_DATE_TIME",
+            "reference_no": "INDUSTRY-ANN-1038",
+        }
+        result = qualify_opportunity(
+            item,
+            {"engine": "provider", "name": "Ministry of Industry Procurement Announcements"},
+        )
+        self.assertNotIn("ENGINEERING", result["relevance_categories"])
+        self.assertIn("INDUSTRIAL", result["relevance_categories"])
+
     def test_unknown_deadline_stays_review_grade(self) -> None:
         item = {
             "source_id": "S26",
