@@ -12,11 +12,13 @@ from signalforge.assurance import (
     MANDATORY_COVERAGE_SOURCES,
     _coverage_from_existing_audit,
     _coverage_from_listing,
+    _metric_review,
     _noise_candidates,
     _zero_item_replayability,
     _nonstandard_candidates,
     _source_candidates,
     assurance_status,
+    coverage_has_reviewed_external_recovery,
     list_missed_signals,
     list_noise_samples,
     record_manual_promotion,
@@ -660,6 +662,72 @@ class AssuranceTests(unittest.TestCase):
             self.assertEqual(risk["reviewed_official_recovery_count"], 3)
             self.assertEqual(risk["examples"][0]["canonical_key"], "moep:7150:2026-09-08")
             self.assertEqual(risk["missing_business_fields"], ["deadline", "participation_details"])
+
+    def test_reviewed_external_recovery_is_not_direct_coverage_pass(self) -> None:
+        recovered = {
+            "source_id": "S13",
+            "status": "PARTIAL",
+            "missing": [],
+            "details": {
+                "issuer_page_coverage_debt_retained": True,
+                "verified_external_recovery_count": 1,
+                "risk_kind": "ISSUER_DISCOVERY_PARTIAL",
+            },
+        }
+        self.assertTrue(coverage_has_reviewed_external_recovery(recovered))
+        self.assertFalse(coverage_has_reviewed_external_recovery({**recovered, "status": "PASS"}))
+        self.assertFalse(coverage_has_reviewed_external_recovery({**recovered, "missing": ["x"]}))
+
+    def test_metric_review_separates_recovered_partial_from_check_failed(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            database = self._db(tmp)
+            run_id = "metric-coverage-semantics"
+            now = datetime(2026, 9, 20, 0, 0, tzinfo=UTC)
+            coverage_rows = [
+                (
+                    {
+                        "source_id": source_id,
+                        "status": "PARTIAL",
+                        "missing": [],
+                        "details": {
+                            "issuer_page_coverage_debt_retained": True,
+                            "verified_external_recovery_count": 1,
+                            "risk_kind": "ISSUER_DISCOVERY_PARTIAL",
+                        },
+                    }
+                    if source_id == "S13"
+                    else {"source_id": source_id, "status": "CHECK_FAILED", "missing": [], "details": {}}
+                    if source_id == "S21"
+                    else {"source_id": source_id, "status": "PASS", "missing": [], "details": {}}
+                )
+                for source_id in MANDATORY_COVERAGE_SOURCES
+            ]
+            with connect(database) as conn, conn:
+                conn.execute(
+                    "INSERT INTO assurance_runs(assurance_run_id,started_at,status,network_checks,summary_json) VALUES (?,?,?,?,?)",
+                    (run_id, "2026-09-20T00:00:00Z", "RUNNING", 0, "{}"),
+                )
+                with patch(
+                    "signalforge.assurance.source_scorecard",
+                    return_value={"summary": {}, "sources": []},
+                ):
+                    review = _metric_review(
+                        conn,
+                        assurance_run_id=run_id,
+                        coverage_rows=coverage_rows,
+                        now=now,
+                        registry=Registry(raw={}),
+                    )
+            metrics = review["metrics"]
+            reasons = review["conclusions"]["review_reasons"]
+            self.assertEqual(metrics["mandatory_coverage_proven"], 5)
+            self.assertEqual(metrics["mandatory_reviewed_external_recovery_sources"], ["S13"])
+            self.assertEqual(metrics["mandatory_check_failed_sources"], ["S21"])
+            self.assertEqual(metrics["mandatory_business_coverage_accounted"], 6)
+            self.assertEqual(metrics["mandatory_business_coverage_accounted_rate"], 0.8571)
+            self.assertIn("MANDATORY_COVERAGE_PARTIAL_RECOVERED_EXTERNALLY", reasons)
+            self.assertIn("MANDATORY_COVERAGE_CHECK_FAILED", reasons)
+            self.assertNotIn("MANDATORY_COVERAGE_NOT_FULLY_PROVEN", reasons)
 
     def test_metric_validity_is_review_when_coverage_unproven_and_fail_with_red_miss(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
