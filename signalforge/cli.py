@@ -33,6 +33,7 @@ from .jev_noise_shadow import (
     DEFAULT_SECTOR_THRESHOLD as JEV_NOISE_DEFAULT_SECTOR_THRESHOLD,
     jev_noise_shadow_report,
 )
+from .jev_noise_triage import jev_noise_triage_report
 from .jev_shadow import DEFAULT_MODEL as JEV_DEFAULT_MODEL, DEFAULT_THRESHOLD as JEV_DEFAULT_THRESHOLD, jev_shadow_report
 from .mpa import build_manual_bundle_preview, parse_listing_records, parse_pdf_business_fields, preview_summary
 from .mpa_manual import commit_manual_provider_bundle
@@ -324,6 +325,15 @@ def main(argv: list[str] | None = None) -> int:
     jev_noise_shadow_parser.add_argument("--model", default=JEV_NOISE_DEFAULT_MODEL)
     jev_noise_shadow_parser.add_argument("--database")
     jev_noise_shadow_parser.add_argument("--evidence-root")
+    jev_noise_triage_parser = sub.add_parser("jev-noise-triage")
+    jev_noise_triage_parser.add_argument("--candidate-limit", type=int, default=30)
+    jev_noise_triage_parser.add_argument("--per-source-cap", type=int, default=5)
+    jev_noise_triage_parser.add_argument("--top", type=int, default=10)
+    jev_noise_triage_parser.add_argument("--open-threshold", type=float, default=JEV_NOISE_DEFAULT_OPEN_THRESHOLD)
+    jev_noise_triage_parser.add_argument("--sector-threshold", type=float, default=JEV_NOISE_DEFAULT_SECTOR_THRESHOLD)
+    jev_noise_triage_parser.add_argument("--model", default=JEV_NOISE_DEFAULT_MODEL)
+    jev_noise_triage_parser.add_argument("--database")
+    jev_noise_triage_parser.add_argument("--evidence-root")
     browser_escalation_parser = sub.add_parser("browser-escalation-candidates")
     browser_escalation_parser.add_argument("--window-days", type=int, default=7)
     browser_escalation_parser.add_argument("--limit", type=int, default=20)
@@ -507,6 +517,17 @@ def main(argv: list[str] | None = None) -> int:
                 evidence_directory=Path(args.evidence_root).expanduser() if args.evidence_root else None,
                 status=None if args.status == "ALL" else args.status,
                 limit=int(args.limit),
+                open_threshold=float(args.open_threshold),
+                sector_threshold=float(args.sector_threshold),
+                model=str(args.model),
+            )
+        elif args.cmd == "jev-noise-triage":
+            result = jev_noise_triage_report(
+                database=Path(args.database).expanduser() if args.database else None,
+                evidence_directory=Path(args.evidence_root).expanduser() if args.evidence_root else None,
+                candidate_limit=int(args.candidate_limit),
+                per_source_cap=int(args.per_source_cap),
+                top=int(args.top),
                 open_threshold=float(args.open_threshold),
                 sector_threshold=float(args.sector_threshold),
                 model=str(args.model),
