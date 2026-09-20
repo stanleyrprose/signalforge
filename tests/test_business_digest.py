@@ -163,35 +163,109 @@ class BusinessDigestTests(unittest.TestCase):
                 ]
             },
         }
+        def packet_for(candidate):  # type: ignore[no-untyped-def]
+            if candidate.get("target_source_hint") == "S13":
+                return {
+                    "status": "TEXT_NATIVE_REVIEW_READY",
+                    "document_sha256": "a" * 64,
+                    "proposed_fields": {
+                        "scope_excerpt": "exchange office RC wall and roof repair",
+                        "project_location_hint": "Pobbathiri Township, Nay Pyi Taw",
+                        "next_action_summary": "Bid submission 2026-09-29 09:30-14:00",
+                    },
+                }
+            return {
+                "status": "PARTIAL_REVIEW_PACKET",
+                "proposed_fields": {"scope_excerpt": "bridge repair works"},
+            }
+
         with tempfile.TemporaryDirectory() as tmp, patch("signalforge.business_digest.business_briefing", return_value=_briefing()), patch(
             "signalforge.business_digest.audit", return_value=_audit()
         ), patch("signalforge.business_digest.source_scorecard", return_value=_scorecard()), patch(
             "signalforge.business_digest.reviewed_coverage_gaps", return_value=[]
         ), patch("signalforge.business_digest.verified_external_opportunities", return_value=[]), patch(
             "signalforge.business_digest.aggregator_surface_snapshot", return_value=radar
-        ) as radar_call:
+        ) as radar_call, patch(
+            "signalforge.business_digest.build_external_official_review_packet", side_effect=packet_for
+        ) as packet_call:
             digest = business_digest(
                 database=self._db(tmp),
                 registry=_Registry(),  # type: ignore[arg-type]
                 now=datetime(2026, 9, 20, 2, 0, tzinfo=UTC),
             )
         radar_call.assert_called_once()
+        self.assertEqual(packet_call.call_count, 2)
         self.assertEqual(digest["business"]["current_opportunities"], 3)
         self.assertEqual(digest["business"]["official_review_candidate_count"], 3)
+        self.assertEqual(digest["business"]["official_review_packet_ready_count"], 1)
         self.assertEqual(digest["business"]["official_review_radar_status"], "PARTIAL")
         text = render_business_digest(digest, translator=lambda values: (values, False))
-        self.assertIn("待核验官方线索：3 条（展示前 2 条）", text)
+        self.assertIn("待核验官方线索：3 条（预审就绪 1 · 展示前 2 条）", text)
         self.assertIn("[S13 ← S01]", text)
         self.assertIn("MPT exchange office earthquake repair tender", text)
         self.assertIn("Railways bridge repair tender", text)
         self.assertNotIn("Energy substation tender should be structured but not displayed", text)
         self.assertIn("截止提示 <b>2026-09-29</b>", text)
         self.assertIn('href="https://myanmar.gov.mm/documents/20143/0/mpt.pdf/valid">候选文件</a>', text)
+        self.assertIn("文本PDF预审", text)
+        self.assertIn("Pobbathiri Township, Nay Pyi Taw", text)
+        self.assertIn("exchange office RC wall and roof repair", text)
+        self.assertIn("Bid submission 2026-09-29 09:30-14:00", text)
+        self.assertIn("模板语义尚未核验", text)
+        self.assertIn("范围证据：bridge repair works", text)
+        self.assertIn("proposed evidence", text)
         self.assertIn("不计入机会数", text)
         self.assertIn("不作为 canonical Signal", text)
         self.assertNotIn("External target should not render", text)
         self.assertNotIn("Missing target should not render", text)
         self.assertLessEqual(len(text), 4096)
+
+    def test_digest_review_packet_builder_failure_is_non_blocking(self) -> None:
+        radar = {
+            "source_id": "S01",
+            "status": "PARTIAL",
+            "official": 1,
+            "covered": 0,
+            "missing": [],
+            "details": {
+                "unresolved_leads": [
+                    {
+                        "lead_id": "national-portal:packet-fail",
+                        "title": "MPT official tender",
+                        "agency": "Ministry of Digital Development and Communications",
+                        "closing_date_hint": "2026-09-29",
+                        "url": "https://myanmar.gov.mm/documents/20143/0/mpt.pdf/packet-fail",
+                        "target_source_hint": "S13",
+                        "evidence_kind": "NATIONAL_PORTAL_HOSTED_DOCUMENT",
+                        "mission_sector_hint": "CONSTRUCTION",
+                        "aggregator_only": True,
+                        "canonical_truth": False,
+                    }
+                ]
+            },
+        }
+        with tempfile.TemporaryDirectory() as tmp, patch("signalforge.business_digest.business_briefing", return_value=_briefing()), patch(
+            "signalforge.business_digest.audit", return_value=_audit()
+        ), patch("signalforge.business_digest.source_scorecard", return_value=_scorecard()), patch(
+            "signalforge.business_digest.reviewed_coverage_gaps", return_value=[]
+        ), patch("signalforge.business_digest.verified_external_opportunities", return_value=[]), patch(
+            "signalforge.business_digest.aggregator_surface_snapshot", return_value=radar
+        ), patch(
+            "signalforge.business_digest.build_external_official_review_packet",
+            side_effect=RuntimeError("unexpected packet failure"),
+        ):
+            digest = business_digest(
+                database=self._db(tmp),
+                registry=_Registry(),  # type: ignore[arg-type]
+                now=datetime(2026, 9, 20, 2, 0, tzinfo=UTC),
+            )
+        self.assertEqual(digest["status"], "PASS")
+        self.assertEqual(digest["business"]["current_opportunities"], 3)
+        self.assertEqual(digest["business"]["official_review_candidate_count"], 1)
+        self.assertEqual(digest["business"]["official_review_packet_ready_count"], 0)
+        text = render_business_digest(digest, translator=lambda values: (values, False))
+        self.assertIn("PACKET_BUILD_FAILED", text)
+        self.assertIn("请人工打开候选文件", text)
 
     def test_digest_radar_failure_is_non_blocking(self) -> None:
         with tempfile.TemporaryDirectory() as tmp, patch("signalforge.business_digest.business_briefing", return_value=_briefing()), patch(
