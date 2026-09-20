@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from .assurance import _normalize_url
+from .assurance import ZERO_ITEM_EVIDENCE_RETENTION_LIVE_AT, _normalize_url
 from .config import db_path, evidence_root
 from .jev_noise_shadow import (
     DEFAULT_MODEL,
@@ -95,6 +95,9 @@ def _candidate_pool(
         "zero_item_recovered_later": 0,
         "zero_item_duplicate_artifact": 0,
         "zero_item_missing_evidence": 0,
+        "zero_item_legacy_missing_evidence": 0,
+        "zero_item_retention_era_missing_evidence": 0,
+        "zero_item_empty_evidence_text": 0,
         "zero_item_unsupported_evidence": 0,
         "nonstandard_rows_scanned": 0,
         "nonstandard_existing_review": 0,
@@ -158,6 +161,10 @@ def _candidate_pool(
             )
             if artifact is None:
                 counters["zero_item_missing_evidence"] += 1
+                if str(row["finished_at"] or "") < ZERO_ITEM_EVIDENCE_RETENTION_LIVE_AT:
+                    counters["zero_item_legacy_missing_evidence"] += 1
+                else:
+                    counters["zero_item_retention_era_missing_evidence"] += 1
                 continue
             if artifact.suffix.lower() not in {".html", ".htm"}:
                 counters["zero_item_unsupported_evidence"] += 1
@@ -165,7 +172,7 @@ def _candidate_pool(
 
             evidence_text = _html_text(artifact)
             if not evidence_text:
-                counters["zero_item_missing_evidence"] += 1
+                counters["zero_item_empty_evidence_text"] += 1
                 continue
 
             processed_at = str(row["finished_at"] or "")
@@ -389,6 +396,8 @@ def jev_noise_triage_report(
             "top": top,
             "zero_item_dedupe": "SOURCE_PLUS_ARTIFACT_SHA256_KEEP_LATEST",
             "recovered_zero_item_suppression": "LATER_SUCCESS_NONZERO_ON_SAME_SOURCE_AND_URL",
+            "evidence_retention_live_at": ZERO_ITEM_EVIDENCE_RETENTION_LIVE_AT,
+            "missing_evidence_semantics": "PRE_RETENTION_LEGACY_VS_RETENTION_ERA_UNEXPECTED",
             "source_diversity": "RECENCY_ORDER_THEN_PER_SOURCE_CAP",
             "automatic_noise_sample_write": False,
             "automatic_false_negative_write": False,
@@ -398,6 +407,12 @@ def jev_noise_triage_report(
         "pool": {
             **pool_counters,
             "bounded_candidates": len(candidates),
+            "evidence_retention_status": (
+                "PASS"
+                if int(pool_counters["zero_item_retention_era_missing_evidence"]) == 0
+                else "REVIEW"
+            ),
+            "legacy_missing_evidence_is_diagnostic_only": True,
         },
         "counts": {
             "evaluated": len(ranked),
