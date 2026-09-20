@@ -92,6 +92,29 @@ def _scorecard() -> dict[str, object]:
     }
 
 
+def _yangon_verified_external() -> dict[str, object]:
+    return {
+        "gap_id": "S23:bed02200-b01f-11f1-b666-953fc0cbe05c",
+        "source_id": "S23",
+        "target_source_id": "S23",
+        "coverage_origin": "S23_REVIEW",
+        "issuer": "Ministry of Construction, Myanmar",
+        "title": "Department of Urban and Housing Development open tender",
+        "business_summary": "Urban and Housing Development Phase (2)/(3) construction tender",
+        "location": "Yangon",
+        "deadline": "2026-10-01",
+        "deadline_time": "11:00",
+        "tender_form_sale_start": "2026-09-16",
+        "tender_form_sale_end": "2026-09-22",
+        "next_action_summary": "9/22 前购标；10/1 11:00 前提交投标。",
+        "url": "https://construction.gov.mm/letter-download/bed02200-b01f-11f1-b666-953fc0cbe05c",
+        "item_kind": "TENDER",
+        "relevance_categories": ["CONSTRUCTION"],
+        "priority_band": "MEDIUM",
+        "canonical_truth": False,
+    }
+
+
 class BusinessDigestTests(unittest.TestCase):
     def test_digest_surfaces_only_unresolved_portal_hosted_review_candidates_without_counting_them(self) -> None:
         radar = {
@@ -391,6 +414,63 @@ class BusinessDigestTests(unittest.TestCase):
                 ("d-1", "telegram", "mpt:1", "sig-1", "PRIORITIZE", "HIGH", "sha", "101", "2026-09-10T10:03:00Z"),
             )
         return database
+
+    def test_verified_external_sale_end_within_72h_enters_top_attention_without_becoming_signal(self) -> None:
+        radar = {"source_id": "S01", "status": "PASS", "details": {"unresolved_leads": []}}
+        with tempfile.TemporaryDirectory() as tmp, patch("signalforge.business_digest.business_briefing", return_value=_briefing()), patch(
+            "signalforge.business_digest.audit", return_value=_audit()
+        ), patch("signalforge.business_digest.source_scorecard", return_value=_scorecard()), patch(
+            "signalforge.business_digest.reviewed_coverage_gaps", return_value=[]
+        ), patch(
+            "signalforge.business_digest.verified_external_opportunities", return_value=[_yangon_verified_external()]
+        ), patch(
+            "signalforge.business_digest.aggregator_surface_snapshot", return_value=radar
+        ):
+            digest = business_digest(
+                database=self._db(tmp),
+                registry=_Registry(),  # type: ignore[arg-type]
+                now=datetime(2026, 9, 20, 12, 0, tzinfo=UTC),
+                audit_network=False,
+            )
+        self.assertEqual(digest["business"]["current_opportunities"], 4)
+        self.assertEqual(digest["business"]["verified_external_opportunity_count"], 1)
+        self.assertEqual(digest["business"]["attention_count"], 3)
+        self.assertEqual(digest["business"]["attention_action_counts"]["ACT_NOW"], 1)
+        urgent = digest["business"]["attention"][0]
+        self.assertEqual(urgent["gap_id"], "S23:bed02200-b01f-11f1-b666-953fc0cbe05c")
+        self.assertEqual(urgent["attention_action"], "ACT_NOW")
+        self.assertEqual(urgent["attention_timing_kind"], "TENDER_FORM_SALE_END")
+        self.assertEqual(urgent["deadline"], "2026-09-22")
+        self.assertEqual(urgent["final_bid_deadline"], "2026-10-01")
+        self.assertEqual(digest["pipeline_totals"]["signals"], 1)
+        text = render_business_digest(digest, translator=lambda values: (values, False))
+        self.assertIn("🔥 今天先看：3 条需处理", text)
+        self.assertIn("售标截止 2026-09-22 · 投标截止 2026-10-01 11:00", text)
+        self.assertIn("9/22 前购标；10/1 11:00 前提交投标。", text)
+        self.assertIn("✅ 外部官方文件核验：1 条", text)
+
+    def test_verified_external_sale_end_outside_window_or_past_does_not_enter_attention(self) -> None:
+        radar = {"source_id": "S01", "status": "PASS", "details": {"unresolved_leads": []}}
+        for now in (
+            datetime(2026, 9, 18, 12, 0, tzinfo=UTC),
+            datetime(2026, 9, 23, 0, 0, tzinfo=UTC),
+        ):
+            with self.subTest(now=now.isoformat()), tempfile.TemporaryDirectory() as tmp, patch(
+                "signalforge.business_digest.business_briefing", return_value=_briefing()
+            ), patch("signalforge.business_digest.audit", return_value=_audit()), patch(
+                "signalforge.business_digest.source_scorecard", return_value=_scorecard()
+            ), patch("signalforge.business_digest.reviewed_coverage_gaps", return_value=[]), patch(
+                "signalforge.business_digest.verified_external_opportunities", return_value=[_yangon_verified_external()]
+            ), patch("signalforge.business_digest.aggregator_surface_snapshot", return_value=radar):
+                digest = business_digest(
+                    database=self._db(tmp),
+                    registry=_Registry(),  # type: ignore[arg-type]
+                    now=now,
+                    audit_network=False,
+                )
+            self.assertEqual(digest["business"]["attention_count"], 2)
+            self.assertEqual(digest["business"]["attention_action_counts"]["ACT_NOW"], 0)
+            self.assertFalse(any(item.get("gap_id") == "S23:bed02200-b01f-11f1-b666-953fc0cbe05c" for item in digest["business"]["attention"]))
 
     def test_digest_reports_24h_pipeline_and_current_business_funnel(self) -> None:
         with tempfile.TemporaryDirectory() as tmp, patch("signalforge.business_digest.business_briefing", return_value=_briefing()), patch(
