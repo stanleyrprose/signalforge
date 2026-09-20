@@ -538,7 +538,8 @@ class BusinessDigestTests(unittest.TestCase):
         self.assertIn("🔥 今天先看：3 条需处理", text)
         self.assertIn("售标截止 2026-09-22 · 投标截止 2026-10-01 11:00", text)
         self.assertIn("9/22 前购标；10/1 11:00 前提交投标。", text)
-        self.assertIn("✅ 外部官方文件核验：1 条", text)
+        self.assertIn("✅ 外部官方文件核验：1 条（已在上方‘今天先看’展示）", text)
+        self.assertEqual(text.count("bed02200-b01f-11f1-b666-953fc0cbe05c"), 1)
 
     def test_verified_external_sale_end_outside_window_or_past_does_not_enter_attention(self) -> None:
         radar = {"source_id": "S01", "status": "PASS", "details": {"unresolved_leads": []}}
