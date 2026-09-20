@@ -15,13 +15,14 @@ from .auditor import audit
 from .briefing import business_briefing
 from .config import Registry, db_path
 from .coverage_gaps import reviewed_coverage_gaps, verified_external_opportunities
+from .external_official_review import build_external_official_review_packet
 from .db import connect
 from .mission_focus import classify_mission_fit
 from .telegram_delivery import TelegramDeliveryError, _send_message
 from .translation import contains_myanmar, translate_myanmar_to_zh_hans
 from .source_scorecard import source_scorecard
 
-DIGEST_VERSION = 6
+DIGEST_VERSION = 7
 DIGEST_CHANNEL = "telegram-business-digest"
 DIGEST_TIMEZONE = ZoneInfo("Asia/Yangon")
 TELEGRAM_MESSAGE_LIMIT = 4096
@@ -304,6 +305,22 @@ def business_digest(
             },
         }
     official_review_candidates = _official_review_candidates(official_review_radar)
+    review_packet_ready_count = 0
+    for index, candidate in enumerate(official_review_candidates[:2]):
+        try:
+            packet = build_external_official_review_packet(candidate)
+        except Exception as exc:
+            packet = {
+                "status": "PACKET_BUILD_FAILED",
+                "reason": f"{type(exc).__name__}: {exc}",
+                "authority": "HUMAN_REVIEW_REQUIRED",
+                "production_effect": "NONE",
+                "writes": "NONE",
+                "review_state": "PENDING_HUMAN_CONFIRMATION",
+            }
+        official_review_candidates[index] = {**candidate, "review_packet": packet}
+        if packet.get("status") == "TEXT_NATIVE_REVIEW_READY":
+            review_packet_ready_count += 1
 
     with connect(target) as conn:
         run_row = conn.execute(
@@ -540,6 +557,7 @@ def business_digest(
             "coverage_gap_policy": "REVIEWED_READ_ONLY_OUTSIDE_CANONICAL_SIGNAL_PIPELINE",
             "official_review_candidate_count": len(official_review_candidates),
             "official_review_candidates": official_review_candidates,
+            "official_review_packet_ready_count": review_packet_ready_count,
             "official_review_radar_status": str(official_review_radar.get("status") or "UNPROVEN"),
             "official_review_radar_policy": "FRESH_S01_AGGREGATOR_ONLY_NONCANONICAL_REVIEW_REQUIRED",
         },
@@ -887,7 +905,8 @@ def render_business_digest(
         review_rows = [item for item in official_review_candidates[:2] if isinstance(item, dict)]
         review_agencies = translate_values([str(item.get("agency") or "") for item in review_rows], 34)
         review_titles = translate_values([str(item.get("title") or "") for item in review_rows], 110)
-        lines.extend(["", f"<b>🕵️ 待核验官方线索：{len(official_review_candidates)} 条（展示前 {len(review_rows)} 条）</b>"])
+        ready_count = int(business.get("official_review_packet_ready_count") or 0)
+        lines.extend(["", f"<b>🕵️ 待核验官方线索：{len(official_review_candidates)} 条（预审就绪 {ready_count} · 展示前 {len(review_rows)} 条）</b>"])
         for index, item in enumerate(review_rows):
             target_source = html.escape(str(item.get("target_source_hint") or "?"))
             agency = html.escape(review_agencies[index])
@@ -904,7 +923,42 @@ def render_business_digest(
             )
             lines.append(f"• <b>{agency}</b> · [{target_source} ← S01] · 人工核验")
             lines.append(f"   线索：<b>{title}</b> · 截止提示 <b>{closing_hint}</b>{document_link}")
-        lines.append("<i>National Portal 官方聚合线索；截止日期仅为提示。尚未核验，不计入机会数，也不作为 canonical Signal。</i>")
+            packet = item.get("review_packet") or {}
+            if isinstance(packet, dict):
+                packet_status = str(packet.get("status") or "")
+                if packet_status == "TEXT_NATIVE_REVIEW_READY":
+                    fields = packet.get("proposed_fields") or {}
+                    if not isinstance(fields, dict):
+                        fields = {}
+                    scope_raw = str(fields.get("scope_excerpt") or "")
+                    scope_text = translate_values([scope_raw], 100)[0] if scope_raw else ""
+                    location = _compact(fields.get("project_location_hint"), 36)
+                    next_action = _compact(fields.get("next_action_summary"), 120)
+                    sha = str(packet.get("document_sha256") or "")[:12]
+                    meta = ["文本PDF预审"]
+                    if sha:
+                        meta.append(f"SHA {sha}…")
+                    if location:
+                        meta.append(f"地点 {location}")
+                    lines.append("   预审：" + html.escape(" · ".join(meta)))
+                    if scope_text:
+                        lines.append(f"   范围：{html.escape(scope_text)}")
+                    if next_action:
+                        lines.append(f"   建议动作：{html.escape(next_action)}")
+                elif packet_status == "PARTIAL_REVIEW_PACKET":
+                    fields = packet.get("proposed_fields") or {}
+                    if not isinstance(fields, dict):
+                        fields = {}
+                    scope_raw = str(fields.get("scope_excerpt") or "")
+                    scope_text = translate_values([scope_raw], 100)[0] if scope_raw else ""
+                    lines.append("   预审：PDF文本已提取，但该机构模板语义尚未核验；不自动解释编号日期")
+                    if scope_text:
+                        lines.append(f"   范围证据：{html.escape(scope_text)}")
+                elif packet_status == "NEEDS_OCR_OR_MANUAL_REVIEW":
+                    lines.append("   预审：PDF文本层不足，需 OCR/人工读取")
+                elif packet_status in {"FETCH_FAILED", "PDF_PARSE_FAILED", "NOT_PDF", "PACKET_BUILD_FAILED"}:
+                    lines.append(f"   预审：{html.escape(packet_status)}，请人工打开候选文件")
+        lines.append("<i>预审字段均为 proposed evidence。必须人工确认后才可升级；当前不计入机会数，也不作为 canonical Signal。</i>")
 
     if verified_external:
         verified_rows = [item for item in verified_external[:4] if isinstance(item, dict)]
