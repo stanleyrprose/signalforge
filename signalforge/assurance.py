@@ -40,6 +40,22 @@ ZERO_ITEM_EVIDENCE_RETENTION_LIVE_AT = "2026-09-16T01:17:15.604719Z"
 _LOCAL_TZ = ZoneInfo("Asia/Yangon")
 
 
+def coverage_has_reviewed_external_recovery(row: dict[str, object]) -> bool:
+    if str(row.get("status") or "") != "PARTIAL":
+        return False
+    details = row.get("details") or {}
+    if not isinstance(details, dict):
+        return False
+    missing = row.get("missing") or []
+    if isinstance(missing, list) and missing:
+        return False
+    return (
+        bool(details.get("issuer_page_coverage_debt_retained"))
+        and int(details.get("verified_external_recovery_count") or 0) > 0
+        and str(details.get("risk_kind") or "") == "ISSUER_DISCOVERY_PARTIAL"
+    )
+
+
 def _iso(value: datetime) -> str:
     return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
@@ -1042,10 +1058,37 @@ def _metric_review(
     scorecard = source_scorecard(database=Path(conn.execute("PRAGMA database_list").fetchone()[2]), now=now, registry=registry, window_days=window_days)
     summary = scorecard.get("summary") or {}
     source_rows = scorecard.get("sources") or []
-    coverage_status = {str(row["source_id"]): str(row["status"]) for row in coverage_rows}
+    coverage_by_source = {
+        str(row["source_id"]): row
+        for row in coverage_rows
+        if isinstance(row, dict) and row.get("source_id")
+    }
+    coverage_status = {
+        source_id: str(row.get("status") or "NOT_RUN")
+        for source_id, row in coverage_by_source.items()
+    }
     mandatory_total = len(MANDATORY_COVERAGE_SOURCES)
     mandatory_proven = sum(1 for sid in MANDATORY_COVERAGE_SOURCES if coverage_status.get(sid) == "PASS")
-    coverage_distribution = {status: sum(1 for sid in MANDATORY_COVERAGE_SOURCES if coverage_status.get(sid) == status) for status in sorted(COVERAGE_STATUSES)}
+    recovered_partial_sources = [
+        sid
+        for sid in MANDATORY_COVERAGE_SOURCES
+        if coverage_has_reviewed_external_recovery(coverage_by_source.get(sid) or {})
+    ]
+    unresolved_partial_sources = [
+        sid
+        for sid in MANDATORY_COVERAGE_SOURCES
+        if coverage_status.get(sid) in {"PARTIAL", "UNPROVEN"}
+        and sid not in recovered_partial_sources
+    ]
+    check_failed_sources = [
+        sid
+        for sid in MANDATORY_COVERAGE_SOURCES
+        if coverage_status.get(sid) in {"CHECK_FAILED", "NOT_RUN", None}
+    ]
+    coverage_distribution = {
+        status: sum(1 for sid in MANDATORY_COVERAGE_SOURCES if coverage_status.get(sid) == status)
+        for status in sorted(COVERAGE_STATUSES)
+    }
     open_miss_rows = conn.execute("SELECT severity,detected_at FROM missed_signals WHERE status='OPEN'").fetchall()
     cutoff = _iso(now - timedelta(days=window_days))
     reviewed = conn.execute("SELECT review_status FROM noise_review_samples WHERE reviewed_at>=?", (cutoff,)).fetchall()
@@ -1071,6 +1114,18 @@ def _metric_review(
         "mandatory_coverage_total": mandatory_total,
         "mandatory_coverage_proof_rate": round(mandatory_proven / mandatory_total, 4) if mandatory_total else 0.0,
         "mandatory_coverage_statuses": coverage_distribution,
+        "mandatory_reviewed_external_recovery_sources": recovered_partial_sources,
+        "mandatory_reviewed_external_recovery_count": len(recovered_partial_sources),
+        "mandatory_unresolved_partial_sources": unresolved_partial_sources,
+        "mandatory_unresolved_partial_count": len(unresolved_partial_sources),
+        "mandatory_check_failed_sources": check_failed_sources,
+        "mandatory_check_failed_count": len(check_failed_sources),
+        "mandatory_business_coverage_accounted": mandatory_proven + len(recovered_partial_sources),
+        "mandatory_business_coverage_accounted_rate": (
+            round((mandatory_proven + len(recovered_partial_sources)) / mandatory_total, 4)
+            if mandatory_total
+            else 0.0
+        ),
         "open_misses": len(open_miss_rows),
         "open_red_misses": sum(1 for row in open_miss_rows if str(row["severity"]) == "RED"),
         "noise_samples_reviewed_window": len(reviewed),
@@ -1102,9 +1157,12 @@ def _metric_review(
         fail_reasons.append("OPEN_RED_MISS_EXISTS")
     if coverage_distribution.get("GAP", 0):
         fail_reasons.append("MANDATORY_COVERAGE_GAP")
-    unproven = sum(coverage_distribution.get(state, 0) for state in ("UNPROVEN", "CHECK_FAILED", "PARTIAL"))
-    if unproven:
+    if unresolved_partial_sources:
         review_reasons.append("MANDATORY_COVERAGE_NOT_FULLY_PROVEN")
+    if recovered_partial_sources:
+        review_reasons.append("MANDATORY_COVERAGE_PARTIAL_RECOVERED_EXTERNALLY")
+    if check_failed_sources:
+        review_reasons.append("MANDATORY_COVERAGE_CHECK_FAILED")
     if not conclusive:
         review_reasons.append("NO_CONCLUSIVE_NOISE_SAMPLE_IN_WINDOW")
     if int(metrics["filtered_zero_item_retention_era_unreplayable_window"]) > 0:
@@ -1122,8 +1180,9 @@ def _metric_review(
     conclusions = {
         "fail_reasons": fail_reasons,
         "review_reasons": review_reasons,
-        "useful_metrics": ["mandatory_coverage_proof_rate", "open_misses", "noise_samples_conclusive_window", "noise_false_negative_rate", "filtered_zero_item_replayable_window", "filtered_zero_item_retention_era_unreplayable_window", "current_opportunities", "canonical_current_opportunities", "verified_external_opportunities", "effective_signals", "high_value_sources_with_recent_business_yield"],
+        "useful_metrics": ["mandatory_coverage_proof_rate", "mandatory_business_coverage_accounted_rate", "mandatory_reviewed_external_recovery_count", "mandatory_check_failed_count", "open_misses", "noise_samples_conclusive_window", "noise_false_negative_rate", "filtered_zero_item_replayable_window", "filtered_zero_item_retention_era_unreplayable_window", "current_opportunities", "canonical_current_opportunities", "verified_external_opportunities", "effective_signals", "high_value_sources_with_recent_business_yield"],
         "diagnostic_only_not_business_value_proof": ["active_sources", "green_sources", "raw_signals"],
+        "coverage_semantics": "PASS proves direct mandatory coverage; reviewed external recovery accounts for a known business opportunity but does not convert issuer discovery PARTIAL into PASS; CHECK_FAILED remains unverified.",
         "principle": "Source count, GREEN health and raw Signal volume are diagnostics; none is sufficient evidence of commercial value without coverage and outcome evidence.",
     }
     review_id = str(uuid.uuid4())
@@ -1299,7 +1358,16 @@ def run_assurance(
         red_misses = int(conn.execute("SELECT COUNT(*) FROM missed_signals WHERE status='OPEN' AND severity='RED'").fetchone()[0])
         summary = {
             "assurance_version": ASSURANCE_VERSION,
-            "coverage": {"mandatory": len(MANDATORY_COVERAGE_SOURCES), "proven": sum(1 for row in coverage_rows if row["status"] == "PASS"), "gaps": sum(1 for row in coverage_rows if row["status"] == "GAP"), "unproven": sum(1 for row in coverage_rows if row["status"] in {"UNPROVEN", "PARTIAL", "CHECK_FAILED"})},
+            "coverage": {
+                "mandatory": len(MANDATORY_COVERAGE_SOURCES),
+                "proven": sum(1 for row in coverage_rows if row["status"] == "PASS"),
+                "gaps": sum(1 for row in coverage_rows if row["status"] == "GAP"),
+                "unproven": sum(1 for row in coverage_rows if row["status"] in {"UNPROVEN", "PARTIAL", "CHECK_FAILED"}),
+                "reviewed_external_recovery": int(metric_review["metrics"]["mandatory_reviewed_external_recovery_count"]),
+                "unresolved_partial": int(metric_review["metrics"]["mandatory_unresolved_partial_count"]),
+                "check_failed": int(metric_review["metrics"]["mandatory_check_failed_count"]),
+                "business_accounted": int(metric_review["metrics"]["mandatory_business_coverage_accounted"]),
+            },
             "supplemental_coverage": {
                 "surfaces": len(supplemental_coverage_rows),
                 "gaps": sum(1 for row in supplemental_coverage_rows if row["status"] == "GAP"),

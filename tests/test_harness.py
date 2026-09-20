@@ -105,6 +105,44 @@ class HarnessTests(unittest.TestCase):
             [{"source_id": "S13", "status": "PARTIAL"}],
         )
 
+    def test_reviewed_external_recovery_keeps_direct_partial_as_unknown_not_fail(self) -> None:
+        status, assurance, briefing, telegram = _snapshots()
+        assurance["coverage"] = [
+            (
+                {
+                    "source_id": source_id,
+                    "status": "PARTIAL",
+                    "missing": [],
+                    "details": {
+                        "issuer_page_coverage_debt_retained": True,
+                        "verified_external_recovery_count": 1,
+                        "risk_kind": "ISSUER_DISCOVERY_PARTIAL",
+                    },
+                }
+                if source_id == "S13"
+                else {"source_id": source_id, "status": "PASS"}
+            )
+            for source_id in MANDATORY_COVERAGE_SOURCES
+        ]
+        report = evaluate_harness(
+            status_snapshot=status,
+            assurance=assurance,
+            briefing=briefing,
+            telegram_dry_run=telegram,
+            db_quick_check="ok",
+        )
+        self.assertFalse(report["definition_of_done"]["passed"])
+        self.assertEqual(report["sensors"]["S2"]["status"], "UNKNOWN")
+        self.assertEqual(
+            report["sensors"]["S2"]["reason_code"],
+            "BUSINESS_COVERAGE_RECOVERED_BUT_DIRECT_DISCOVERY_PARTIAL",
+        )
+        self.assertEqual(report["sensors"]["S2"]["mandatory_coverage_gaps"], [])
+        self.assertEqual(
+            report["sensors"]["S2"]["mandatory_coverage_recovered"],
+            [{"source_id": "S13", "status": "PARTIAL"}],
+        )
+
     def test_mandatory_check_failure_makes_business_coverage_unknown(self) -> None:
         status, assurance, briefing, telegram = _snapshots()
         assurance["coverage"] = [

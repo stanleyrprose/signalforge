@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from .assurance import MANDATORY_COVERAGE_SOURCES
+from .assurance import MANDATORY_COVERAGE_SOURCES, coverage_has_reviewed_external_recovery
 
 HARNESS_VERSION = 1
 DEFAULT_MAX_RETRIES = 3
@@ -85,15 +85,26 @@ def evaluate_harness(
     coverage_rows = assurance.get("coverage") or []
     if not isinstance(coverage_rows, list):
         coverage_rows = []
-    coverage_by_source = {
-        str(row.get("source_id")): str(row.get("status") or "NOT_RUN")
+    coverage_rows_by_source = {
+        str(row.get("source_id")): row
         for row in coverage_rows
         if isinstance(row, dict) and row.get("source_id")
     }
+    coverage_by_source = {
+        source_id: str(row.get("status") or "NOT_RUN")
+        for source_id, row in coverage_rows_by_source.items()
+    }
+    mandatory_coverage_recovered = [
+        {"source_id": source_id, "status": coverage_by_source.get(source_id, "NOT_RUN")}
+        for source_id in MANDATORY_COVERAGE_SOURCES
+        if coverage_has_reviewed_external_recovery(coverage_rows_by_source.get(source_id) or {})
+    ]
+    recovered_source_ids = {str(row["source_id"]) for row in mandatory_coverage_recovered}
     mandatory_coverage_gaps = [
         {"source_id": source_id, "status": coverage_by_source.get(source_id, "NOT_RUN")}
         for source_id in MANDATORY_COVERAGE_SOURCES
         if coverage_by_source.get(source_id, "NOT_RUN") in {"GAP", "PARTIAL", "UNPROVEN"}
+        and source_id not in recovered_source_ids
     ]
     mandatory_coverage_unknown = [
         {"source_id": source_id, "status": coverage_by_source.get(source_id, "NOT_RUN")}
@@ -129,6 +140,9 @@ def evaluate_harness(
     elif mandatory_coverage_unknown:
         s2_status = "UNKNOWN"
         s2_reason = "BUSINESS_COVERAGE_UNVERIFIED"
+    elif mandatory_coverage_recovered:
+        s2_status = "UNKNOWN"
+        s2_reason = "BUSINESS_COVERAGE_RECOVERED_BUT_DIRECT_DISCOVERY_PARTIAL"
     else:
         s2_status = "PASS"
         s2_reason = "BUSINESS_OUTPUT_QUALITY_OK"
@@ -142,6 +156,7 @@ def evaluate_harness(
         metric_validity=metric_validity,
         mandatory_coverage_gaps=mandatory_coverage_gaps,
         mandatory_coverage_unknown=mandatory_coverage_unknown,
+        mandatory_coverage_recovered=mandatory_coverage_recovered,
     )
 
     pending = telegram_dry_run.get("pending") or []

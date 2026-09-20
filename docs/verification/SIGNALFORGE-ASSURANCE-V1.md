@@ -20,6 +20,8 @@ Coverage is persisted in `coverage_audit_results` with explicit statuses:
 - `UNPROVEN`: the system lacks enough independent evidence. This is never promoted to PASS by assumption.
 - `CHECK_FAILED`: the independent check itself failed.
 
+A `PARTIAL` source is not automatically the same thing as a confirmed business gap. If a known issuer-discovery miss has been recovered through reviewed external official evidence, Assurance keeps the source itself `PARTIAL`, records the recovery separately, and does not convert it to `PASS`. This preserves the direct-discovery debt while distinguishing it from an unresolved missing opportunity.
+
 S13/MPT and S41/MYTEL reuse the already independent auditor reconciliations. S20/S21/S30/S39 use assurance-only official listing link extraction and do not call the production source parser. S38 is provider-backed in production; Assurance does not add a hidden direct-HTTP bypass. It performs a bounded `DIAGNOSTIC` C0 raw fetch through the same approved Mac Provider, then applies an assurance-only link extractor rather than the production parser. S38 announcements that are official but do not satisfy the standard tender markers are kept as `INDEPENDENT_LISTING_NONSTANDARD` noise-review candidates rather than being misreported as tender coverage gaps. Provider acquisition failure is reported as `CHECK_FAILED`, never as PASS.
 
 ### 2. Random review of filtered/noise records
@@ -60,7 +62,8 @@ Active promotions appear in Business Briefing and the daily Business Digest unde
 Each Assurance run persists a `metric_reviews` record. There is no opaque composite score. The review retains separate observables including:
 
 - active and GREEN sources;
-- mandatory coverage proof rate and status distribution;
+- mandatory direct-coverage proof rate and status distribution;
+- reviewed external recovery count, unresolved partial sources, failed coverage checks, and business-coverage-accounted rate;
 - open misses and open RED misses;
 - reviewed, conclusive, and inconclusive noise samples; false negatives; false-negative rate over conclusive reviews only;
 - replayable vs unreplayable zero-item filtered evidence;
@@ -73,7 +76,8 @@ Each Assurance run persists a `metric_reviews` record. There is no opaque compos
 Transparent rules:
 
 - `FAIL` if any open RED miss exists or a mandatory coverage source has a confirmed `GAP`.
-- `REVIEW` if mandatory coverage is `UNPROVEN`, `PARTIAL`, or `CHECK_FAILED`; if there is no conclusive noise sample in the current review window; if recent filtered zero-item evidence is not replayable; if a recent noise review found a false negative; or if technical health is healthy while no business outcome is being observed.
+- `REVIEW` distinguishes unresolved `PARTIAL/UNPROVEN`, `PARTIAL` with reviewed external recovery, and `CHECK_FAILED` as separate reasons instead of collapsing them into one generic state. Reviewed external recovery accounts for the known business opportunity but does not prove direct issuer discovery completeness.
+- Other `REVIEW` conditions include no conclusive noise sample in the current review window, post-retention filtered evidence that is not replayable, a recent false negative, or healthy technical state with no business outcome.
 - `PASS` only when neither FAIL nor REVIEW conditions apply.
 
 `active_sources`, `green_sources`, and `raw_signals` are diagnostic metrics only. They are never sufficient proof of commercial value.
