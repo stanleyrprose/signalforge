@@ -65,7 +65,7 @@ Each Assurance run persists a `metric_reviews` record. There is no opaque compos
 - mandatory direct-coverage proof rate and status distribution;
 - reviewed external recovery count, unresolved partial sources, failed coverage checks, and business-coverage-accounted rate;
 - open misses and open RED misses;
-- reviewed, conclusive, and inconclusive noise samples; false negatives; false-negative rate over conclusive reviews only;
+- reviewed, conclusive, and inconclusive noise samples; historical false negatives; false-negative rate over conclusive reviews only; and open/closed/untracked false-negative lifecycle counts;
 - replayable vs unreplayable zero-item filtered evidence;
 - current opportunities;
 - effective vs raw Signals and known historical noise;
@@ -77,7 +77,7 @@ Transparent rules:
 
 - `FAIL` if any open RED miss exists or a mandatory coverage source has a confirmed `GAP`.
 - `REVIEW` distinguishes unresolved `PARTIAL/UNPROVEN`, `PARTIAL` with reviewed external recovery, and `CHECK_FAILED` as separate reasons instead of collapsing them into one generic state. Reviewed external recovery accounts for the known business opportunity but does not prove direct issuer discovery completeness.
-- Other `REVIEW` conditions include no conclusive noise sample in the current review window, post-retention filtered evidence that is not replayable, a recent false negative, or healthy technical state with no business outcome.
+- Other `REVIEW` conditions include no conclusive noise sample in the current review window, post-retention filtered evidence that is not replayable, an unresolved or untracked recent false negative, or healthy technical state with no business outcome. A recent false negative whose linked Miss Ledger record is closed remains in historical quality metrics but does not by itself block the current Metric Validity state.
 - `PASS` only when neither FAIL nor REVIEW conditions apply.
 
 `active_sources`, `green_sources`, and `raw_signals` are diagnostic metrics only. They are never sufficient proof of commercial value.

@@ -226,6 +226,101 @@ class AssuranceTests(unittest.TestCase):
             self.assertEqual(len(misses), 1)
             self.assertEqual(misses[0]["detected_by"], "NOISE_REVIEW")
 
+    def test_resolved_noise_false_negative_stays_historical_without_current_review_block(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            database = self._db(tmp)
+            self._insert_known_noise(database)
+            run_assurance(
+                database=database,
+                network=False,
+                noise_sample_size=1,
+                now=datetime(2026, 9, 15, 2, 0, tzinfo=UTC),
+            )
+            sample = list_noise_samples(database=database, status="PENDING")["samples"][0]
+            reviewed = review_noise_sample(
+                str(sample["noise_sample_id"]),
+                outcome="FALSE_NEGATIVE",
+                note="Actually contained a live tender",
+                database=database,
+                now=datetime(2026, 9, 15, 3, 0, tzinfo=UTC),
+            )
+            self.assertIsNotNone(reviewed["miss"])
+
+            open_review = run_assurance(
+                database=database,
+                network=False,
+                noise_sample_size=0,
+                now=datetime(2026, 9, 15, 4, 0, tzinfo=UTC),
+            )["metric_review"]
+            self.assertEqual(open_review["metrics"]["noise_false_negatives_window"], 1)
+            self.assertEqual(open_review["metrics"]["noise_false_negatives_open_window"], 1)
+            self.assertEqual(open_review["metrics"]["noise_false_negatives_closed_window"], 0)
+            self.assertEqual(open_review["metrics"]["noise_false_negatives_untracked_window"], 0)
+            self.assertIn(
+                "RECENT_UNRESOLVED_NOISE_FALSE_NEGATIVE_EXISTS",
+                open_review["conclusions"]["review_reasons"],
+            )
+
+            miss_id = str(reviewed["miss"]["miss_id"])
+            resolve_missed_signal(
+                miss_id,
+                note="parser fixed and replay verified",
+                database=database,
+                now=datetime(2026, 9, 15, 4, 30, tzinfo=UTC),
+            )
+            closed_review = run_assurance(
+                database=database,
+                network=False,
+                noise_sample_size=0,
+                now=datetime(2026, 9, 15, 5, 0, tzinfo=UTC),
+            )["metric_review"]
+            self.assertEqual(closed_review["metrics"]["noise_false_negatives_window"], 1)
+            self.assertEqual(closed_review["metrics"]["noise_false_negatives_open_window"], 0)
+            self.assertEqual(closed_review["metrics"]["noise_false_negatives_closed_window"], 1)
+            self.assertEqual(closed_review["metrics"]["noise_false_negatives_untracked_window"], 0)
+            self.assertGreater(closed_review["metrics"]["noise_false_negative_rate"], 0)
+            self.assertNotIn(
+                "RECENT_UNRESOLVED_NOISE_FALSE_NEGATIVE_EXISTS",
+                closed_review["conclusions"]["review_reasons"],
+            )
+            self.assertNotIn(
+                "RECENT_UNTRACKED_NOISE_FALSE_NEGATIVE_EXISTS",
+                closed_review["conclusions"]["review_reasons"],
+            )
+
+            with connect(database) as conn, conn:
+                conn.execute("DELETE FROM missed_signals WHERE miss_id=?", (miss_id,))
+                conn.execute(
+                    """
+                    INSERT INTO missed_signals(
+                        miss_id,dedupe_key,source_id,detected_at,detected_by,title,reason,severity,status,metadata_json
+                    ) VALUES (?,?,?,?,?,?,?,?,?,?)
+                    """,
+                    (
+                        "00000000-0000-4000-8000-000000000999",
+                        "broken-noise-review-metadata",
+                        "S22",
+                        "2026-09-15T05:30:00Z",
+                        "NOISE_REVIEW",
+                        "Malformed metadata fixture",
+                        "test malformed metadata handling",
+                        "RED",
+                        "RESOLVED",
+                        "[]",
+                    ),
+                )
+            untracked_review = run_assurance(
+                database=database,
+                network=False,
+                noise_sample_size=0,
+                now=datetime(2026, 9, 15, 6, 0, tzinfo=UTC),
+            )["metric_review"]
+            self.assertEqual(untracked_review["metrics"]["noise_false_negatives_untracked_window"], 1)
+            self.assertIn(
+                "RECENT_UNTRACKED_NOISE_FALSE_NEGATIVE_EXISTS",
+                untracked_review["conclusions"]["review_reasons"],
+            )
+
     def test_manual_promotion_is_visible_and_uses_separate_delivery_receipt(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             database = self._db(tmp)
