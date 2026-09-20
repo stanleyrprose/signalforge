@@ -38,10 +38,11 @@ class CoverageGapTests(unittest.TestCase):
         after_first = reviewed_coverage_gaps(now=datetime(2026, 9, 17, tzinfo=UTC))
         assert [item["deadline"] for item in after_first] == ["2026-09-23"]
         after_moc = reviewed_coverage_gaps(now=datetime(2026, 9, 24, tzinfo=UTC))
-        assert [item["deadline"] for item in after_moc] == ["2026-09-25", "2026-10-09"]
-        assert all(item["evidence_basis"] == "REVIEWED_OFFICIAL_TENDER_BOARD_LISTING" for item in after_moc)
-        assert [item["deadline"] for item in verified_external_opportunities(now=datetime(2026, 9, 24, tzinfo=UTC))] == ["2026-09-29"]
-        assert verified_external_opportunities(now=datetime(2026, 9, 30, tzinfo=UTC)) == []
+        assert [item["deadline"] for item in after_moc] == ["2026-10-13"]
+        assert after_moc[0]["evidence_basis"] == "REVIEWED_OFFICIAL_PDF_SCAN_OCR_CONFLICT"
+        assert after_moc[0]["identity_conflict"] == "BOARD_BRIDGE_SPECIAL_GROUP_5_VS_PDF_OCR_GROUP_1"
+        assert [item["deadline"] for item in verified_external_opportunities(now=datetime(2026, 9, 24, tzinfo=UTC))] == ["2026-09-29", "2026-10-01"]
+        assert [item["deadline"] for item in verified_external_opportunities(now=datetime(2026, 9, 30, tzinfo=UTC))] == ["2026-10-01"]
 
     def test_reviewed_records_expire_at_exact_local_deadline_time(self) -> None:
         # Myanmar is UTC+06:30. At 09:29 UTC it is 15:59 local, so the 16:00 bridge tender is still active.
@@ -56,14 +57,23 @@ class CoverageGapTests(unittest.TestCase):
         ]
         after_highway_close = reviewed_coverage_gaps(now=datetime(2026, 9, 23, 9, 30, tzinfo=UTC))
         assert [item["gap_id"] for item in after_highway_close] == [
-            "S23:board:yangon-2026-09-25",
-            "S23:board:mandalay-bridge5-2026-10-09",
+            "S23:277e8a90-b009-11f1-b7d8-9993fdcb51ee",
         ]
 
         before_mpt_close = verified_external_opportunities(now=datetime(2026, 9, 29, 7, 29, tzinfo=UTC))
-        assert len(before_mpt_close) == 1
+        assert [item["deadline"] for item in before_mpt_close] == ["2026-09-29", "2026-10-01"]
         after_mpt_close = verified_external_opportunities(now=datetime(2026, 9, 29, 7, 30, tzinfo=UTC))
-        assert after_mpt_close == []
+        assert [item["deadline"] for item in after_mpt_close] == ["2026-10-01"]
+
+        before_yangon_close = verified_external_opportunities(now=datetime(2026, 10, 1, 4, 29, tzinfo=UTC))
+        assert [item["gap_id"] for item in before_yangon_close] == ["S23:bed02200-b01f-11f1-b666-953fc0cbe05c"]
+        after_yangon_close = verified_external_opportunities(now=datetime(2026, 10, 1, 4, 30, tzinfo=UTC))
+        assert after_yangon_close == []
+
+        before_mandalay_close = reviewed_coverage_gaps(now=datetime(2026, 10, 13, 2, 59, tzinfo=UTC))
+        assert [item["gap_id"] for item in before_mandalay_close] == ["S23:277e8a90-b009-11f1-b7d8-9993fdcb51ee"]
+        after_mandalay_close = reviewed_coverage_gaps(now=datetime(2026, 10, 13, 3, 0, tzinfo=UTC))
+        assert after_mandalay_close == []
 
     def test_s23_highway_gap_becomes_verified_external_only_after_resolution_review(self) -> None:
         before = datetime(2026, 9, 17, 12, 0, tzinfo=UTC)
@@ -90,19 +100,31 @@ class CoverageGapTests(unittest.TestCase):
         assert highway["deadline_verified"] is True
         assert "9/23 16:00" in highway["next_action_summary"]
 
-    def test_s23_board_only_current_gaps_are_tracked_but_not_verified(self) -> None:
+    def test_s23_current_pdf_review_separates_verified_and_identity_conflict(self) -> None:
         now = datetime(2026, 9, 20, 13, 30, tzinfo=UTC)
         gaps = reviewed_coverage_gaps(now=now)
         assert [item["gap_id"] for item in gaps] == [
-            "S23:board:yangon-2026-09-25",
-            "S23:board:mandalay-bridge5-2026-10-09",
+            "S23:277e8a90-b009-11f1-b7d8-9993fdcb51ee",
         ]
-        assert all(item["source_id"] == "S23" for item in gaps)
-        assert all(item["evidence_basis"] == "REVIEWED_OFFICIAL_TENDER_BOARD_LISTING" for item in gaps)
-        assert all(item["canonical_signal_status"] == "OUTSIDE_CANONICAL_SIGNAL_PIPELINE" for item in gaps)
+        mandalay = gaps[0]
+        assert mandalay["source_id"] == "S23"
+        assert mandalay["deadline"] == "2026-10-13"
+        assert mandalay["deadline_time"] == "09:30"
+        assert mandalay["evidence_basis"] == "REVIEWED_OFFICIAL_PDF_SCAN_OCR_CONFLICT"
+        assert mandalay["canonical_signal_status"] == "OUTSIDE_CANONICAL_SIGNAL_PIPELINE"
 
         verified = verified_external_opportunities(now=now)
-        assert [item["source_id"] for item in verified] == ["S23", "S13"]
+        assert [item["source_id"] for item in verified] == ["S23", "S13", "S23"]
+        yangon = next(item for item in verified if item["gap_id"] == "S23:bed02200-b01f-11f1-b666-953fc0cbe05c")
+        assert yangon["deadline"] == "2026-10-01"
+        assert yangon["deadline_time"] == "11:00"
+        assert yangon["tender_form_sale_start"] == "2026-09-16"
+        assert yangon["tender_form_sale_end"] == "2026-09-22"
+        assert yangon["verified_external"] is True
+        assert yangon["issuer_document_verified"] is True
+        assert yangon["issuer_identity_verified"] is True
+        assert yangon["scope_verified"] is True
+        assert yangon["deadline_verified"] is True
         assert not {item["gap_id"] for item in gaps} & {item["gap_id"] for item in verified}
 
     def test_s23_board_only_gap_cannot_be_promoted_to_verified_external(self) -> None:
