@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import patch
 
-from signalforge.business_digest import business_digest, render_business_digest, telegram_digest
+from signalforge.business_digest import _industry_actionability_overlay, business_digest, render_business_digest, telegram_digest
 from signalforge.db import connect, migrate
 
 
@@ -113,6 +113,41 @@ def _yangon_verified_external() -> dict[str, object]:
         "priority_band": "MEDIUM",
         "canonical_truth": False,
     }
+
+
+class IndustryActionabilityOverlayTests(unittest.TestCase):
+    def test_s38_scope_adds_submission_location_phone_and_next_action_without_mutating_input(self) -> None:
+        item = {
+            "source_id": "S38",
+            "canonical_key": "industry:1037",
+            "deadline": "2026-09-22",
+            "deadline_time": "16:00",
+            "scope_excerpt": (
+                "တင်ဒါပိတ်ရက်နှင့်အချိန် - (၂၂.၉.၂၀၂၆) ရက်နေ့၊ (၁၆:၀၀)နာရီ။ "
+                "တင်ဒါသွင်းရမည့်နေရာ - စီမံရေးဌာန၊ အမှတ်(၁)အကြီးစားစက်မှုလုပ်ငန်း၊ "
+                "ရုံးအမှတ်(၃၀)၊ နေပြည်တော်။ ဆက်သွယ်ရမည့် ဖုန်းနံပါတ် - ၀၆၇-၄၀၅၁၅၈"
+            ),
+            "location": None,
+            "next_action_summary": None,
+        }
+        enriched = _industry_actionability_overlay(item)
+        self.assertIsNone(item["location"])
+        self.assertIsNone(item["next_action_summary"])
+        self.assertEqual(enriched["location"], "Office No.30, Nay Pyi Taw")
+        self.assertEqual(enriched["location_evidence"], "S38_OFFICIAL_HTML_SUBMISSION_LOCATION")
+        self.assertEqual(enriched["next_action_summary"], "9/22 16:00前提交至内比都30号办公楼；咨询 067-405158")
+        self.assertEqual(enriched["next_action_evidence"], "S38_OFFICIAL_HTML_SCOPE_DERIVED")
+
+    def test_s38_overlay_never_overwrites_existing_reviewed_actionability(self) -> None:
+        item = {
+            "source_id": "S38",
+            "deadline": "2026-09-22",
+            "deadline_time": "16:00",
+            "scope_excerpt": "တင်ဒါတင်သွင်းရမည့်နေရာ - ရုံးအမှတ်(၃၀)၊ နေပြည်တော်။ ဖုန်း - ၀၆၇-၄၀၅၁၅၈",
+            "location": "Reviewed Location",
+            "next_action_summary": "Reviewed action",
+        }
+        self.assertEqual(_industry_actionability_overlay(item), item)
 
 
 class BusinessDigestTests(unittest.TestCase):
@@ -414,6 +449,62 @@ class BusinessDigestTests(unittest.TestCase):
                 ("d-1", "telegram", "mpt:1", "sig-1", "PRIORITIZE", "HIGH", "sha", "101", "2026-09-10T10:03:00Z"),
             )
         return database
+
+    def test_s38_actionability_overlay_is_applied_to_digest_attention_and_render(self) -> None:
+        briefing = _briefing()
+        briefing["current_opportunities"] = 1
+        briefing["current_counts"] = {"OPEN": 1, "UNKNOWN": 0, "EXPIRED": 0}
+        briefing["qualification_counts"] = {
+            "priority_band": {"HIGH": 1, "MEDIUM": 0, "REVIEW": 0},
+            "signal_quality_band": {"VERY_HIGH": 1, "HIGH": 0, "MEDIUM": 0, "REVIEW": 0, "LOW": 0},
+        }
+        briefing["attention_count"] = 1
+        briefing["attention_action_counts"] = {"ACT_NOW": 1, "PRIORITIZE": 0, "REVIEW": 0}
+        briefing["attention"] = [{
+            "canonical_key": "industry:1037",
+            "source_id": "S38",
+            "item_kind": "TENDER",
+            "attention_action": "ACT_NOW",
+            "priority_band": "HIGH",
+            "issuer": "Ministry of Industry, Myanmar",
+            "title": "Laboratory Appratus for Enviromental Control System",
+            "mission_sector": "ENGINEERING",
+            "scope_excerpt": (
+                "Laboratory Appratus for Enviromental Control System ပစ္စည်း (၅)မျိုး ဝယ်ယူခြင်း။ "
+                "တင်ဒါပိတ်ရက်နှင့်အချိန် - (၂၂.၉.၂၀၂၆) ရက်နေ့၊ (၁၆:၀၀)နာရီ။ "
+                "တင်ဒါသွင်းရမည့်နေရာ - စီမံရေးဌာန၊ အမှတ်(၁)အကြီးစားစက်မှုလုပ်ငန်း၊ "
+                "ရုံးအမှတ်(၃၀)၊ နေပြည်တော်။ ဆက်သွယ်ရမည့် ဖုန်းနံပါတ် - ၀၆၇-၄၀၅၁၅၈"
+            ),
+            "deadline": "2026-09-22",
+            "deadline_time": "16:00",
+            "deadline_status": "OPEN",
+            "location": None,
+            "next_action_summary": None,
+            "reference_no": "INDUSTRY-ANN-1037",
+            "url": "https://www.industrymsme.gov.mm/announcements/1037",
+        }]
+        briefing["watchlist"] = {"count": 0, "primary_relevance_counts": {}, "canonical_keys": [], "items": []}
+        radar = {"source_id": "S01", "status": "PASS", "details": {"unresolved_leads": []}}
+        with tempfile.TemporaryDirectory() as tmp, patch(
+            "signalforge.business_digest.business_briefing", return_value=briefing
+        ), patch("signalforge.business_digest.audit", return_value=_audit()), patch(
+            "signalforge.business_digest.source_scorecard", return_value=_scorecard()
+        ), patch("signalforge.business_digest.reviewed_coverage_gaps", return_value=[]), patch(
+            "signalforge.business_digest.verified_external_opportunities", return_value=[]
+        ), patch("signalforge.business_digest.aggregator_surface_snapshot", return_value=radar):
+            digest = business_digest(
+                database=self._db(tmp),
+                registry=_Registry(),  # type: ignore[arg-type]
+                now=datetime(2026, 9, 21, 0, 0, tzinfo=UTC),
+                audit_network=False,
+            )
+
+        item = digest["business"]["attention"][0]
+        self.assertEqual(item["location"], "Office No.30, Nay Pyi Taw")
+        self.assertEqual(item["next_action_summary"], "9/22 16:00前提交至内比都30号办公楼；咨询 067-405158")
+        text = render_business_digest(digest, translator=lambda values: (values, False))
+        self.assertIn("地点 Office No.30, Nay Pyi Taw", text)
+        self.assertIn("下一步 9/22 16:00前提交至内比都30号办公楼；咨询 067-405158", text)
 
     def test_verified_external_sale_end_within_72h_enters_top_attention_without_becoming_signal(self) -> None:
         radar = {"source_id": "S01", "status": "PASS", "details": {"unresolved_leads": []}}

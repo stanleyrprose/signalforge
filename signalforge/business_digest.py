@@ -23,7 +23,7 @@ from .telegram_delivery import TelegramDeliveryError, _send_message
 from .translation import contains_myanmar, translate_myanmar_to_zh_hans
 from .source_scorecard import source_scorecard
 
-DIGEST_VERSION = 9
+DIGEST_VERSION = 10
 DIGEST_CHANNEL = "telegram-business-digest"
 DIGEST_TIMEZONE = ZoneInfo("Asia/Yangon")
 TELEGRAM_MESSAGE_LIMIT = 4096
@@ -224,6 +224,79 @@ def _industry_scope_product_fragments(scope: object) -> list[str]:
     if "ကုန်သေတ္တာတင်ယာဉ်" in raw and "ငှားရမ်း" in raw:
         fragments.append("医药原料、包装材料及机器备件集装箱卡车运输服务")
     return fragments
+
+
+def _industry_actionability_overlay(item: dict[str, object]) -> dict[str, object]:
+    """Add read-model-only actionability for S38 from already-retained official HTML text.
+
+    This never mutates canonical state or Signal payloads. It only fills missing
+    digest-facing location / next-action fields from explicit issuer text.
+    """
+
+    if str(item.get("source_id") or "") != "S38":
+        return dict(item)
+    if item.get("location") and item.get("next_action_summary"):
+        return dict(item)
+
+    raw = _presentation_cleanup(item.get("scope_excerpt") or item.get("scope_summary") or "")
+    if not raw:
+        return dict(item)
+    raw = re.sub(r"(?<=\d)ဝ(?=\d)", "0", raw)
+
+    result = dict(item)
+    submission_tail = ""
+    for marker in (
+        "တင်ဒါတင်သွင်းရမည့်နေရာ",
+        "တင်ဒါတင်သွင်းရမည့်နေရာ",
+        "တင်ဒါသွင်းရမည့်နေရာ",
+        "တင်ဒါသွင်းရမည့်နေရာ",
+    ):
+        pos = raw.find(marker)
+        if pos >= 0:
+            submission_tail = raw[pos + len(marker) : pos + len(marker) + 650]
+            break
+
+    office_no: str | None = None
+    if submission_tail:
+        office = re.search(r"ရုံး(?:အမှတ်\s*\(?\s*(\d+)\s*\)?|第(\d+)号)", submission_tail)
+        if office and "နေပြည်တော်" in submission_tail:
+            office_no = office.group(1) or office.group(2)
+            if not result.get("location"):
+                result["location"] = f"Office No.{office_no}, Nay Pyi Taw"
+                result["location_evidence"] = "S38_OFFICIAL_HTML_SUBMISSION_LOCATION"
+
+    phones: list[str] = []
+    phone_pos = raw.find("ဖုန်း")
+    if phone_pos >= 0:
+        phone_segment = raw[phone_pos : phone_pos + 140]
+        for phone in re.findall(r"(?:0\d{1,2}|09)-\d{5,10}", phone_segment):
+            if phone not in phones:
+                phones.append(phone)
+            if len(phones) >= 2:
+                break
+
+    if not result.get("next_action_summary"):
+        deadline = str(result.get("deadline") or "")
+        deadline_time = str(result.get("deadline_time") or "")
+        date_text = deadline
+        try:
+            parsed = datetime.fromisoformat(deadline).date()
+            date_text = f"{parsed.month}/{parsed.day}"
+        except ValueError:
+            pass
+        action = ""
+        if deadline:
+            action = f"{date_text}{(' ' + deadline_time) if deadline_time else ''}前提交"
+            if office_no:
+                action += f"至内比都{office_no}号办公楼"
+        if phones:
+            phone_text = "/".join(phones)
+            action += ("；" if action else "") + f"咨询 {phone_text}"
+        if action:
+            result["next_action_summary"] = action
+            result["next_action_evidence"] = "S38_OFFICIAL_HTML_SCOPE_DERIVED"
+
+    return result
 
 
 def _industry_lot_fragments(scope: object) -> list[str]:
@@ -515,9 +588,25 @@ def business_digest(
     attention = briefing.get("attention") or []
     if not isinstance(attention, list):
         attention = []
+    attention = [
+        _industry_actionability_overlay(item) if isinstance(item, dict) else item
+        for item in attention
+    ]
+    business_changes = [
+        _industry_actionability_overlay(item) if isinstance(item, dict) else item
+        for item in business_changes
+    ]
     watchlist = briefing.get("watchlist") or {}
     if not isinstance(watchlist, dict):
         watchlist = {}
+    else:
+        watchlist = dict(watchlist)
+        watch_items = watchlist.get("items") or []
+        if isinstance(watch_items, list):
+            watchlist["items"] = [
+                _industry_actionability_overlay(item) if isinstance(item, dict) else item
+                for item in watch_items
+            ]
 
     checks = audit_result.get("checks") or {}
     if not isinstance(checks, dict):
