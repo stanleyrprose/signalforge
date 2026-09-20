@@ -50,6 +50,32 @@
       "next_action_summary": "9/10 10:00起购标；9/23 16:00前提交至高速公路维护/修复/监督组办公室（Nay Pyi Taw）。"
     },
     {
+      "gap_id": "S23:board:yangon-2026-09-25",
+      "source_id": "S23",
+      "issuer": "Ministry of Construction, Myanmar",
+      "title": "Department of Urban and Housing Development open tender",
+      "location": "Yangon",
+      "deadline": "2026-09-25",
+      "url": "https://construction.gov.mm/tindar-show/f878a520-d396-11ec-957c-cb8c3b494625?state_name=all",
+      "reason": "S23_READY_TLS_BLOCKED_CURRENT_ISSUER_BOARD_GAP",
+      "evidence_basis": "REVIEWED_OFFICIAL_TENDER_BOARD_LISTING",
+      "reviewed_at": "2026-09-20",
+      "business_summary": "Yangon 城市与住房发展局当前公开招标；官方 MOC tender board 显示 End Date 2026-09-25。尚未取得可独立核验的官方 PDF，因此保持 unresolved coverage gap。"
+    },
+    {
+      "gap_id": "S23:board:mandalay-bridge5-2026-10-09",
+      "source_id": "S23",
+      "issuer": "Ministry of Construction, Myanmar",
+      "title": "Bridge Department Construction Group (2) / Bridge Special Group (5) second open tender",
+      "location": "Mandalay",
+      "deadline": "2026-10-09",
+      "url": "https://construction.gov.mm/tindar-show/f878a520-d396-11ec-957c-cb8c3b494625?state_name=all",
+      "reason": "S23_READY_TLS_BLOCKED_CURRENT_ISSUER_BOARD_GAP",
+      "evidence_basis": "REVIEWED_OFFICIAL_TENDER_BOARD_LISTING",
+      "reviewed_at": "2026-09-20",
+      "business_summary": "Mandalay Bridge Department Construction Group (2) / Bridge Special Group (5) 第二次公开招标；官方 MOC tender board 显示 End Date 2026-10-09。尚未取得可独立核验的官方 PDF，因此保持 unresolved coverage gap。"
+    },
+    {
       "gap_id": "S13:aa3cebae-2f59-5c3c-e840-640c99f0cb92",
       "source_id": "S13",
       "issuer": "MPT / MDDC",
