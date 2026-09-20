@@ -17,6 +17,7 @@ from signalforge.assurance import (
     _zero_item_replayability,
     _nonstandard_candidates,
     _source_candidates,
+    aggregator_surface_snapshot,
     assurance_status,
     coverage_has_reviewed_external_recovery,
     list_missed_signals,
@@ -39,6 +40,30 @@ KNOWN_NOISE_SIGNAL_ID = "67f9c7a2-b930-439c-84cc-d05cdecbe695"
 
 
 class AssuranceTests(unittest.TestCase):
+    def test_aggregator_surface_snapshot_respects_network_disabled_without_fetching(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp, patch(
+            "signalforge.assurance.fetch_bytes",
+            side_effect=AssertionError("network fetch must stay disabled"),
+        ):
+            database = self._db(tmp)
+            registry = Registry(raw={
+                "assurance_surfaces": {
+                    "S01": {
+                        "enabled": True,
+                        "discovery_url": "https://myanmar.gov.mm/tenders",
+                    }
+                }
+            })
+            snapshot = aggregator_surface_snapshot(
+                source_id="S01",
+                database=database,
+                registry=registry,
+                now=datetime(2026, 9, 20, tzinfo=UTC),
+                network=False,
+            )
+        self.assertEqual(snapshot["status"], "UNPROVEN")
+        self.assertEqual(snapshot["details"]["reason"], "NETWORK_DISABLED")
+
     def _db(self, root: str) -> Path:
         database = Path(root) / "signalforge.db"
         migrate(database)
