@@ -25,9 +25,18 @@ class ProviderCapability(str, Enum):
     C1_RENDER = "C1_RENDER"
     C2_INSPECT = "C2_INSPECT"
     C3_BROWSER_USE = "C3_BROWSER_USE"
+    DOCUMENT_OCR = "DOCUMENT_OCR"
 
 
 CAPABILITY_TOOL_MAP = {
+    ProviderCapability.C0_FETCH.value: "browser_fetch",
+    ProviderCapability.C1_RENDER.value: "browser_render",
+    ProviderCapability.C2_INSPECT.value: "browser_inspect",
+    ProviderCapability.C3_BROWSER_USE.value: "browser_use",
+    ProviderCapability.DOCUMENT_OCR.value: "document_ocr",
+}
+
+LEGACY_R3_EVIDENCE_ONLY_TOOL_MAP = {
     ProviderCapability.C0_FETCH.value: "browser_fetch",
     ProviderCapability.C1_RENDER.value: "browser_render",
     ProviderCapability.C2_INSPECT.value: "browser_inspect",
@@ -38,6 +47,7 @@ READ_ONLY_CAPABILITIES = {
     ProviderCapability.C0_FETCH.value,
     ProviderCapability.C1_RENDER.value,
     ProviderCapability.C2_INSPECT.value,
+    ProviderCapability.DOCUMENT_OCR.value,
 }
 
 C3_SIDE_EFFECT_CLASS = "READ_ONLY_NAVIGATION"
@@ -105,12 +115,14 @@ def validate_contract_projection(contract: dict[str, Any]) -> dict[str, Any]:
     if contract.get("transport") != PIC_TRANSPORT:
         raise ProviderInvocationError("provider invocation transport mismatch")
 
+    historical_r3 = contract.get("enabled") is False and contract.get("verification_mode") == "EVIDENCE_ONLY"
+    projection = LEGACY_R3_EVIDENCE_ONLY_TOOL_MAP if historical_r3 else CAPABILITY_TOOL_MAP
     capabilities = contract.get("allowed_capabilities")
-    if not isinstance(capabilities, list) or set(capabilities) != set(CAPABILITY_TOOL_MAP):
-        raise ProviderInvocationError("PIC v1 must project C0+C1+C2+C3 exactly")
+    if not isinstance(capabilities, list) or set(capabilities) != set(projection):
+        raise ProviderInvocationError("PIC v1 capability projection mismatch")
 
     tool_map = contract.get("tool_map")
-    if tool_map != CAPABILITY_TOOL_MAP:
+    if tool_map != projection:
         raise ProviderInvocationError("provider MCP tool map mismatch")
 
     limits = contract.get("limits")

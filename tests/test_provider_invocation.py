@@ -27,7 +27,7 @@ def contract() -> dict:
         "provider_id": "mac-mm-01",
         "transport": "pull_ssh_v1",
         "enabled": False,
-        "allowed_capabilities": ["C0_FETCH", "C1_RENDER", "C2_INSPECT", "C3_BROWSER_USE"],
+        "allowed_capabilities": ["C0_FETCH", "C1_RENDER", "C2_INSPECT", "C3_BROWSER_USE", "DOCUMENT_OCR"],
         "tool_map": dict(CAPABILITY_TOOL_MAP),
         "limits": {
             "max_run_seconds": 180,
@@ -64,7 +64,28 @@ def contract() -> dict:
                         "max_run_seconds": 60,
                     },
                 },
-            }
+            },
+            "S01": {
+                "enabled": True,
+                "source_policy_version": 2,
+                "allowed_capabilities": ["DOCUMENT_OCR"],
+                "targets": {
+                    "OFFICIAL_DOCUMENT": {
+                        "capabilities": ["DOCUMENT_OCR"],
+                        "https_host": "myanmar.gov.mm",
+                        "path_prefix": "/documents/",
+                        "allow_query": False,
+                        "allow_fragment": False,
+                        "max_bytes": 8_000_000,
+                        "max_run_seconds": 150,
+                        "final_url_policy": {
+                            "mode": "APPROVED_HOST_PATH",
+                            "https_host": "myanmar.gov.mm",
+                            "path_prefix": "/documents/",
+                        },
+                    },
+                },
+            },
         },
     }
 
@@ -96,13 +117,14 @@ def build(capability: str = "C0_FETCH", **kwargs):
 
 
 class ProviderInvocationContractTests(unittest.TestCase):
-    def test_contract_projects_c0_c1_c2_c3_exactly(self) -> None:
+    def test_contract_projects_browser_capabilities_and_document_ocr_exactly(self) -> None:
         value = validate_contract_projection(contract())
         self.assertEqual(set(value["allowed_capabilities"]), set(CAPABILITY_TOOL_MAP))
         self.assertEqual(value["tool_map"]["C0_FETCH"], "browser_fetch")
         self.assertEqual(value["tool_map"]["C1_RENDER"], "browser_render")
         self.assertEqual(value["tool_map"]["C2_INSPECT"], "browser_inspect")
         self.assertEqual(value["tool_map"]["C3_BROWSER_USE"], "browser_use")
+        self.assertEqual(value["tool_map"]["DOCUMENT_OCR"], "document_ocr")
 
     def test_builds_valid_readonly_requests_for_c0_c1_c2(self) -> None:
         for capability in (
@@ -155,6 +177,46 @@ class ProviderInvocationContractTests(unittest.TestCase):
                     "retry_safe": False,
                     "steps": [{"action": "scroll"}],
                 },
+            )
+
+    def test_document_ocr_is_s01_only_and_portal_documents_only(self) -> None:
+        args = ids()
+        request = build_provider_request(
+            contract=contract(),
+            source_id="S01",
+            source_policy_version=2,
+            capability="DOCUMENT_OCR",
+            target_role="OFFICIAL_DOCUMENT",
+            requested_url="https://myanmar.gov.mm/documents/20143/0/tender.pdf/abc",
+            max_bytes=8_000_000,
+            max_run_seconds=150,
+            now=NOW,
+            ttl_seconds=180,
+            **args,
+        )
+        self.assertEqual(request["mcp_tool"], "document_ocr")
+        self.assertIsNone(request["interaction_plan"])
+        self.assertEqual(request["final_url_policy"]["https_host"], "myanmar.gov.mm")
+        validate_provider_request(request, contract=contract(), now=NOW)
+
+        invalid_urls = (
+            "https://www.myanmar.gov.mm/documents/20143/0/tender.pdf/abc",
+            "https://myanmar.gov.mm/tenders/example",
+            "https://myanmar.gov.mm/documents/20143/0/tender.pdf/abc?x=1",
+            "https://example.com/documents/tender.pdf",
+        )
+        for url in invalid_urls:
+            with self.assertRaises(ProviderInvocationError, msg=url):
+                build_provider_request(
+                    contract=contract(), source_id="S01", source_policy_version=2, capability="DOCUMENT_OCR",
+                    target_role="OFFICIAL_DOCUMENT", requested_url=url, max_bytes=8_000_000, max_run_seconds=150,
+                    now=NOW, ttl_seconds=180, **ids(),
+                )
+        with self.assertRaisesRegex(ProviderInvocationError, "not source-authorized"):
+            build_provider_request(
+                contract=contract(), source_id="S38", source_policy_version=1, capability="DOCUMENT_OCR",
+                target_role="LISTING", requested_url="https://www.industrymsme.gov.mm/announcements",
+                max_bytes=1_000_000, max_run_seconds=45, now=NOW, ttl_seconds=90, **ids(),
             )
 
     def test_final_url_policy_can_allow_bounded_same_issuer_navigation(self) -> None:
@@ -252,10 +314,10 @@ class ProviderInvocationContractTests(unittest.TestCase):
             build(max_run_seconds=46)
 
     def test_contract_rejects_capability_or_security_drift(self) -> None:
-        missing_c3 = contract()
-        missing_c3["allowed_capabilities"].remove("C3_BROWSER_USE")
-        with self.assertRaisesRegex(ProviderInvocationError, r"C0\+C1\+C2\+C3"):
-            validate_contract_projection(missing_c3)
+        missing_ocr = contract()
+        missing_ocr["allowed_capabilities"].remove("DOCUMENT_OCR")
+        with self.assertRaisesRegex(ProviderInvocationError, "capability projection mismatch"):
+            validate_contract_projection(missing_ocr)
         unsafe = copy.deepcopy(contract())
         unsafe["security"]["arbitrary_url_allowed"] = True
         with self.assertRaisesRegex(ProviderInvocationError, "security boundary"):

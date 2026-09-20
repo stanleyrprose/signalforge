@@ -10,6 +10,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+from .acquisition_runtime import acquire_provider_document_ocr
 from .assurance import aggregator_surface_snapshot
 from .auditor import audit
 from .briefing import business_briefing
@@ -22,7 +23,7 @@ from .telegram_delivery import TelegramDeliveryError, _send_message
 from .translation import contains_myanmar, translate_myanmar_to_zh_hans
 from .source_scorecard import source_scorecard
 
-DIGEST_VERSION = 7
+DIGEST_VERSION = 8
 DIGEST_CHANNEL = "telegram-business-digest"
 DIGEST_TIMEZONE = ZoneInfo("Asia/Yangon")
 TELEGRAM_MESSAGE_LIMIT = 4096
@@ -62,10 +63,7 @@ def _official_review_candidates(snapshot: dict[str, object]) -> list[dict[str, o
         mission_sector = str(value.get("mission_sector_hint") or "")
         if mission_sector not in {"TELECOM_ICT_INFRA", "CONSTRUCTION", "ENERGY", "ENGINEERING"}:
             continue
-        if not target_source or not lead_id or not url.startswith((
-            "https://myanmar.gov.mm/documents/",
-            "https://www.myanmar.gov.mm/documents/",
-        )):
+        if not target_source or not lead_id or not url.startswith("https://myanmar.gov.mm/documents/"):
             continue
         if lead_id in seen:
             continue
@@ -306,9 +304,24 @@ def business_digest(
         }
     official_review_candidates = _official_review_candidates(official_review_radar)
     review_packet_ready_count = 0
-    for index, candidate in enumerate(official_review_candidates[:2]):
+
+    def ocr_provider(url: str) -> dict[str, object]:
+        if not audit_network:
+            raise RuntimeError("MANDATORY_DOCUMENT_OCR_DISABLED_WITH_AUDIT_NETWORK_FALSE")
+        return acquire_provider_document_ocr(
+            database=target,
+            url=url,
+            timeout_seconds=60,
+            max_bytes=8_000_000,
+            request_now=now,
+        ).result
+
+    for index, candidate in enumerate(official_review_candidates):
         try:
-            packet = build_external_official_review_packet(candidate)
+            packet = build_external_official_review_packet(
+                candidate,
+                ocr_provider=ocr_provider if audit_network else None,
+            )
         except Exception as exc:
             packet = {
                 "status": "PACKET_BUILD_FAILED",
@@ -317,9 +330,10 @@ def business_digest(
                 "production_effect": "NONE",
                 "writes": "NONE",
                 "review_state": "PENDING_HUMAN_CONFIRMATION",
+                "ocr_required": True,
             }
         official_review_candidates[index] = {**candidate, "review_packet": packet}
-        if packet.get("status") == "TEXT_NATIVE_REVIEW_READY":
+        if packet.get("status") == "DUAL_EVIDENCE_REVIEW_READY":
             review_packet_ready_count += 1
 
     with connect(target) as conn:
@@ -915,10 +929,7 @@ def render_business_digest(
             document_url = str(item.get("url") or "")
             document_link = (
                 f' · <a href="{html.escape(document_url, quote=True)}">候选文件</a>'
-                if len(document_url) <= 320 and document_url.startswith((
-                    "https://myanmar.gov.mm/documents/",
-                    "https://www.myanmar.gov.mm/documents/",
-                ))
+                if len(document_url) <= 320 and document_url.startswith("https://myanmar.gov.mm/documents/")
                 else official_link("https://myanmar.gov.mm/tenders", "官方Portal")
             )
             lines.append(f"• <b>{agency}</b> · [{target_source} ← S01] · 人工核验")
@@ -926,16 +937,22 @@ def render_business_digest(
             packet = item.get("review_packet") or {}
             if isinstance(packet, dict):
                 packet_status = str(packet.get("status") or "")
-                if packet_status == "TEXT_NATIVE_REVIEW_READY":
-                    fields = packet.get("proposed_fields") or {}
-                    if not isinstance(fields, dict):
-                        fields = {}
-                    scope_raw = str(fields.get("scope_excerpt") or "")
-                    scope_text = translate_values([scope_raw], 100)[0] if scope_raw else ""
+                fields = packet.get("proposed_fields") or {}
+                if not isinstance(fields, dict):
+                    fields = {}
+                reconciliation = packet.get("reconciliation") or {}
+                if not isinstance(reconciliation, dict):
+                    reconciliation = {}
+                scope_raw = str(fields.get("scope_excerpt") or "")
+                scope_text = translate_values([scope_raw], 100)[0] if scope_raw else ""
+                if packet_status == "DUAL_EVIDENCE_REVIEW_READY":
                     location = _compact(fields.get("project_location_hint"), 36)
                     next_action = _compact(fields.get("next_action_summary"), 120)
                     sha = str(packet.get("document_sha256") or "")[:12]
-                    meta = ["文本PDF预审"]
+                    confidence = packet.get("ocr_mean_confidence")
+                    meta = ["Native+OCR 双证据", "SHA A=B=C"]
+                    if isinstance(confidence, (int, float)):
+                        meta.append(f"OCR {float(confidence):.1f}%")
                     if sha:
                         meta.append(f"SHA {sha}…")
                     if location:
@@ -945,20 +962,42 @@ def render_business_digest(
                         lines.append(f"   范围：{html.escape(scope_text)}")
                     if next_action:
                         lines.append(f"   建议动作：{html.escape(next_action)}")
+                elif packet_status == "DUAL_EVIDENCE_CONFLICT":
+                    conflicts = reconciliation.get("conflict_fields") or []
+                    conflict_text = ", ".join(str(value) for value in conflicts[:3]) if isinstance(conflicts, list) else "关键字段"
+                    lines.append(f"   预审：⚠️ Native/OCR 冲突（{html.escape(conflict_text or '关键字段')}），必须人工核验")
+                    field_evidence = reconciliation.get("field_evidence") or {}
+                    if isinstance(field_evidence, dict):
+                        for key in (conflicts[:2] if isinstance(conflicts, list) else []):
+                            evidence = field_evidence.get(key) or {}
+                            if isinstance(evidence, dict):
+                                native = _compact(evidence.get("native"), 32) or "—"
+                                ocr = _compact(evidence.get("ocr"), 32) or "—"
+                                lines.append(f"   冲突 {html.escape(str(key))}：Native {html.escape(native)} / OCR {html.escape(ocr)}")
+                elif packet_status == "DUAL_EVIDENCE_REVIEW_REQUIRED":
+                    single = []
+                    for key in ("native_only_fields", "ocr_only_fields"):
+                        values = reconciliation.get(key) or []
+                        if isinstance(values, list):
+                            single.extend(str(value) for value in values)
+                    lines.append("   预审：OCR 已完成，但关键字段尚未全部获得双证据确认；需人工核验" + (f"（{html.escape(', '.join(single[:3]))}）" if single else ""))
+                elif packet_status == "OCR_ONLY_REVIEW_PACKET":
+                    deadline = _compact(fields.get("proposed_deadline"), 24)
+                    suffix = f"；OCR 提示截止 {html.escape(deadline)}" if deadline else ""
+                    lines.append(f"   预审：扫描件/文本层不足，仅有 OCR 证据，必须人工确认{suffix}")
+                elif packet_status == "OCR_PAGE_LIMIT_REVIEW_REQUIRED":
+                    lines.append(f"   预审：OCR 未覆盖全部 PDF 页（{html.escape(str(packet.get('ocr_processed_pages') or '?'))}/{html.escape(str(packet.get('ocr_page_count') or '?'))}），不得标记就绪")
+                elif packet_status == "EVIDENCE_SHA_CONFLICT":
+                    lines.append("   预审：⚠️ Native / Provider fetch / OCR 的 PDF SHA 不一致，证据链冲突，必须人工核验")
                 elif packet_status == "PARTIAL_REVIEW_PACKET":
-                    fields = packet.get("proposed_fields") or {}
-                    if not isinstance(fields, dict):
-                        fields = {}
-                    scope_raw = str(fields.get("scope_excerpt") or "")
-                    scope_text = translate_values([scope_raw], 100)[0] if scope_raw else ""
-                    lines.append("   预审：PDF文本已提取，但该机构模板语义尚未核验；不自动解释编号日期")
+                    lines.append("   预审：Native+OCR 已完成，但该机构模板语义尚未核验；不自动解释编号日期")
                     if scope_text:
                         lines.append(f"   范围证据：{html.escape(scope_text)}")
-                elif packet_status == "NEEDS_OCR_OR_MANUAL_REVIEW":
-                    lines.append("   预审：PDF文本层不足，需 OCR/人工读取")
-                elif packet_status in {"FETCH_FAILED", "PDF_PARSE_FAILED", "NOT_PDF", "PACKET_BUILD_FAILED"}:
+                elif packet_status in {"OCR_REQUIRED_FAILED", "OCR_REQUIRED_NOT_AVAILABLE"}:
+                    lines.append("   预审：⚠️ 强制 OCR 未完成；Native text 不得单独作为 review-ready 证据")
+                elif packet_status in {"PACKET_BUILD_FAILED", "REJECTED_INPUT"}:
                     lines.append(f"   预审：{html.escape(packet_status)}，请人工打开候选文件")
-        lines.append("<i>预审字段均为 proposed evidence。必须人工确认后才可升级；当前不计入机会数，也不作为 canonical Signal。</i>")
+        lines.append("<i>所有进入审核面的 mission PDF 必须完成视觉 OCR；预审字段均为 proposed evidence。必须人工确认后才可升级，当前不计入机会数，也不作为 canonical Signal。</i>")
 
     if verified_external:
         verified_rows = [item for item in verified_external[:4] if isinstance(item, dict)]
