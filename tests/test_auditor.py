@@ -77,6 +77,27 @@ def _mytel_feed(num: int = 17) -> bytes:
     ).encode()
 
 
+def _mpt_search(*urls: str) -> bytes:
+    return ("<ul>" + "".join(f'<li><a href="{url}">Tender</a></li>' for url in urls) + "</ul>").encode()
+
+
+def _mpt_tender_page(
+    reference_no: str,
+    *,
+    project: str = "New MPT project",
+    publication_date: str = "September 10, 2026",
+    deadline: str = "September 30, 2026",
+) -> bytes:
+    return f"""
+    <table>
+      <tr><td>Date</td><td>{publication_date}</td></tr>
+      <tr><td>Reference No</td><td>{reference_no}</td></tr>
+      <tr><td>Project Name</td><td>{project}</td></tr>
+    </table>
+    <div>Deadline {deadline}</div>
+    """.encode()
+
+
 class AuditorTests(unittest.TestCase):
     def _db(self, root: str) -> Path:
         path = Path(root) / "signalforge.db"
@@ -194,6 +215,77 @@ class AuditorTests(unittest.TestCase):
                     for item in result["findings"]
                 )
             )
+
+    def test_mpt_official_burmese_search_detects_current_missing_reference(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            database = self._db(tmp)
+            neutral_url = "https://mpt.com.mm/en/general-news/"
+            mm_url = "https://mpt.com.mm/mm/new-mm-tender/"
+            self._canonical(database, key="mytel:17-2026", source_id="S41", url="https://viettelglobal.com.vn/en/test")
+
+            def fetch(url: str, **_kwargs) -> bytes:
+                if "atom.com.mm" in url:
+                    return _sitemap("https://www.atom.com.mm/en/about")
+                if "sitemap" in url:
+                    return _sitemap(neutral_url)
+                if url == neutral_url:
+                    return b"<html><body>General company update</body></html>"
+                if url == mm_url:
+                    return _mpt_tender_page("NEW-MM-1")
+                raise AssertionError(url)
+
+            with patch("signalforge.auditor.verified_external_opportunities", return_value=[]):
+                result = audit(
+                    database=database,
+                    registry=_registry(),
+                    now=datetime(2026, 9, 10, 10, 30, tzinfo=UTC),
+                    fetcher=fetch,
+                    mytel_fetcher=lambda *_a, **_k: _mytel_feed(),
+                    mpt_search_fetcher=lambda *_a, **_k: _mpt_search(mm_url),
+                )
+
+            s13 = result["checks"]["strategic_coverage"]["S13"]
+            self.assertEqual(s13["status"], "GAP")
+            self.assertEqual(s13["official_search_relevant"], 1)
+            self.assertEqual(s13["official_search_missing"], 1)
+            gap = next(item for item in result["findings"] if item.get("code") == "MPT_OFFICIAL_MM_TENDER_NOT_CANONICAL")
+            self.assertEqual(gap["canonical_key"], "mpt:NEW-MM-1")
+            self.assertEqual(gap["likely_layer"], "DISCOVERY_LANGUAGE_SURFACE")
+
+    def test_mpt_official_burmese_search_dedupes_existing_reference(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            database = self._db(tmp)
+            neutral_url = "https://mpt.com.mm/en/general-news/"
+            mm_url = "https://mpt.com.mm/mm/new-mm-tender/"
+            self._canonical(database, key="mpt:NEW-MM-1", source_id="S13", url="https://mpt.com.mm/en/new-mm-tender-2/")
+            self._canonical(database, key="mytel:17-2026", source_id="S41", url="https://viettelglobal.com.vn/en/test")
+
+            def fetch(url: str, **_kwargs) -> bytes:
+                if "atom.com.mm" in url:
+                    return _sitemap("https://www.atom.com.mm/en/about")
+                if "sitemap" in url:
+                    return _sitemap(neutral_url)
+                if url == neutral_url:
+                    return b"<html><body>General company update</body></html>"
+                if url == mm_url:
+                    return _mpt_tender_page("NEW-MM-1")
+                raise AssertionError(url)
+
+            with patch("signalforge.auditor.verified_external_opportunities", return_value=[]):
+                result = audit(
+                    database=database,
+                    registry=_registry(),
+                    now=datetime(2026, 9, 10, 10, 30, tzinfo=UTC),
+                    fetcher=fetch,
+                    mytel_fetcher=lambda *_a, **_k: _mytel_feed(),
+                    mpt_search_fetcher=lambda *_a, **_k: _mpt_search(mm_url),
+                )
+
+            s13 = result["checks"]["strategic_coverage"]["S13"]
+            self.assertEqual(s13["status"], "PASS")
+            self.assertEqual(s13["official_search_relevant"], 1)
+            self.assertEqual(s13["official_search_missing"], 0)
+            self.assertFalse(any(item.get("code") == "MPT_OFFICIAL_MM_TENDER_NOT_CANONICAL" for item in result["findings"]))
 
     def test_detects_independent_mpt_and_mytel_coverage_gaps(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
