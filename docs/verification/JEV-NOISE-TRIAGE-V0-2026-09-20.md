@@ -105,7 +105,7 @@ Final Jev result:
 
 No current unresolved false-negative candidate was identified in this bounded review.
 
-The 361 missing-evidence records remain an Assurance auditability limitation; Jev does not guess over missing evidence.
+The 361 missing-evidence records were subsequently confirmed to be entirely pre-retention legacy audit debt, with zero retention-era missing evidence. See `EVIDENCE-RETENTION-AUDIT-DEBT-CLOSURE-2026-09-20.md`. Jev still does not guess over unavailable evidence.
 
 ## CLI
 

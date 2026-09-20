@@ -22,10 +22,12 @@ def _insert_zero_item(
     html: str,
     items_found: int = 0,
     url: str | None = None,
+    retain_artifact: bool = True,
 ) -> None:
     artifact = evidence_root / source_id / f"{artifact_sha}.html"
-    artifact.parent.mkdir(parents=True, exist_ok=True)
-    artifact.write_text(html, encoding="utf-8")
+    if retain_artifact:
+        artifact.parent.mkdir(parents=True, exist_ok=True)
+        artifact.write_text(html, encoding="utf-8")
     with connect(database) as conn, conn:
         scheduler_id = f"s-{processing_id}"
         request_id = f"r-{processing_id}"
@@ -93,6 +95,39 @@ def _insert_zero_item(
 
 
 class JevNoiseTriageTests(unittest.TestCase):
+    def test_candidate_pool_distinguishes_legacy_and_retention_era_missing_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            database=root/"signalforge.db"
+            evidence=root/"evidence"
+            migrate(database)
+            _insert_zero_item(
+                database,evidence,processing_id="legacy-missing",source_id="S22",artifact_sha="legacy-missing",
+                finished_at="2026-09-16T01:16:00Z",html="legacy",retain_artifact=False,
+            )
+            _insert_zero_item(
+                database,evidence,processing_id="retention-missing",source_id="S40",artifact_sha="retention-missing",
+                finished_at="2026-09-16T01:18:00Z",html="unexpected",retain_artifact=False,
+            )
+            _insert_zero_item(
+                database,evidence,processing_id="empty",source_id="S47",artifact_sha="empty",
+                finished_at="2026-09-16T01:19:00Z",html="",
+            )
+            pool,counters=_candidate_pool(
+                database=database,evidence_directory=evidence,candidate_limit=10,per_source_cap=5
+            )
+            self.assertEqual(pool,[])
+            self.assertEqual(counters["zero_item_missing_evidence"],2)
+            self.assertEqual(counters["zero_item_legacy_missing_evidence"],1)
+            self.assertEqual(counters["zero_item_retention_era_missing_evidence"],1)
+            self.assertEqual(counters["zero_item_empty_evidence_text"],1)
+            report=jev_noise_triage_report(
+                database=database,evidence_directory=evidence,candidate_limit=10,per_source_cap=5,top=5,
+                evaluator=lambda state: self.fail("missing/empty evidence must not reach Jev"),
+            )
+            self.assertEqual(report["pool"]["evidence_retention_status"],"REVIEW")
+            self.assertTrue(report["pool"]["legacy_missing_evidence_is_diagnostic_only"])
+
     def test_candidate_pool_excludes_reviewed_and_deduplicates_same_artifact(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -225,6 +260,7 @@ class JevNoiseTriageTests(unittest.TestCase):
             self.assertEqual(report["status"],"SHADOW_ONLY")
             self.assertEqual(report["authority"],"HUMAN_REVIEW_REQUIRED")
             self.assertEqual(report["writes"],"NONE")
+            self.assertEqual(report["pool"]["evidence_retention_status"],"PASS")
             self.assertEqual(report["counts"]["review_recommended"],1)
             self.assertEqual(report["rows"][0]["source_id"],"S22")
             self.assertTrue(report["rows"][0]["review_recommended"])
