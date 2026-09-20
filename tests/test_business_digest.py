@@ -93,6 +93,124 @@ def _scorecard() -> dict[str, object]:
 
 
 class BusinessDigestTests(unittest.TestCase):
+    def test_digest_surfaces_only_unresolved_portal_hosted_review_candidates_without_counting_them(self) -> None:
+        radar = {
+            "source_id": "S01",
+            "status": "PARTIAL",
+            "official": 3,
+            "covered": 0,
+            "missing": [],
+            "details": {
+                "unresolved_leads": [
+                    {
+                        "lead_id": "national-portal:valid",
+                        "title": "MPT exchange office earthquake repair tender",
+                        "agency": "Ministry of Digital Development and Communications",
+                        "closing_date_hint": "2026-09-29",
+                        "url": "https://myanmar.gov.mm/documents/20143/0/mpt.pdf/valid",
+                        "target_source_hint": "S13",
+                        "evidence_kind": "NATIONAL_PORTAL_HOSTED_DOCUMENT",
+                        "mission_sector_hint": "CONSTRUCTION",
+                        "aggregator_only": True,
+                        "canonical_truth": False,
+                    },
+                    {
+                        "lead_id": "national-portal:valid-2",
+                        "title": "Railways bridge repair tender",
+                        "agency": "Ministry of Transport and Communications",
+                        "closing_date_hint": "2026-09-30",
+                        "url": "https://myanmar.gov.mm/documents/20143/0/rail.pdf/valid-2",
+                        "target_source_hint": "S21",
+                        "evidence_kind": "NATIONAL_PORTAL_HOSTED_DOCUMENT",
+                        "mission_sector_hint": "ENGINEERING",
+                        "aggregator_only": True,
+                        "canonical_truth": False,
+                    },
+                    {
+                        "lead_id": "national-portal:valid-3",
+                        "title": "Energy substation tender should be structured but not displayed",
+                        "agency": "Ministry of Electric Power",
+                        "closing_date_hint": "2026-10-01",
+                        "url": "https://myanmar.gov.mm/documents/20143/0/power.pdf/valid-3",
+                        "target_source_hint": "S20",
+                        "evidence_kind": "NATIONAL_PORTAL_HOSTED_DOCUMENT",
+                        "mission_sector_hint": "ENERGY",
+                        "aggregator_only": True,
+                        "canonical_truth": False,
+                    },
+                    {
+                        "lead_id": "national-portal:external",
+                        "title": "External target should not render",
+                        "agency": "Agency",
+                        "closing_date_hint": "2026-09-30",
+                        "url": "https://example.com/tender",
+                        "target_source_hint": "S13",
+                        "evidence_kind": "NATIONAL_PORTAL_EXTERNAL_TARGET",
+                        "aggregator_only": True,
+                        "canonical_truth": False,
+                    },
+                    {
+                        "lead_id": "national-portal:no-target",
+                        "title": "Missing target should not render",
+                        "agency": "Agency",
+                        "closing_date_hint": "2026-10-01",
+                        "url": "https://myanmar.gov.mm/documents/20143/0/unknown.pdf/no-target",
+                        "target_source_hint": None,
+                        "evidence_kind": "NATIONAL_PORTAL_HOSTED_DOCUMENT",
+                        "aggregator_only": True,
+                        "canonical_truth": False,
+                    },
+                ]
+            },
+        }
+        with tempfile.TemporaryDirectory() as tmp, patch("signalforge.business_digest.business_briefing", return_value=_briefing()), patch(
+            "signalforge.business_digest.audit", return_value=_audit()
+        ), patch("signalforge.business_digest.source_scorecard", return_value=_scorecard()), patch(
+            "signalforge.business_digest.reviewed_coverage_gaps", return_value=[]
+        ), patch("signalforge.business_digest.verified_external_opportunities", return_value=[]), patch(
+            "signalforge.business_digest.aggregator_surface_snapshot", return_value=radar
+        ) as radar_call:
+            digest = business_digest(
+                database=self._db(tmp),
+                registry=_Registry(),  # type: ignore[arg-type]
+                now=datetime(2026, 9, 20, 2, 0, tzinfo=UTC),
+            )
+        radar_call.assert_called_once()
+        self.assertEqual(digest["business"]["current_opportunities"], 3)
+        self.assertEqual(digest["business"]["official_review_candidate_count"], 3)
+        self.assertEqual(digest["business"]["official_review_radar_status"], "PARTIAL")
+        text = render_business_digest(digest, translator=lambda values: (values, False))
+        self.assertIn("待核验官方线索：3 条（展示前 2 条）", text)
+        self.assertIn("[S13 ← S01]", text)
+        self.assertIn("MPT exchange office earthquake repair tender", text)
+        self.assertIn("Railways bridge repair tender", text)
+        self.assertNotIn("Energy substation tender should be structured but not displayed", text)
+        self.assertIn("截止提示 <b>2026-09-29</b>", text)
+        self.assertIn('href="https://myanmar.gov.mm/documents/20143/0/mpt.pdf/valid">候选文件</a>', text)
+        self.assertIn("不计入机会数", text)
+        self.assertIn("不作为 canonical Signal", text)
+        self.assertNotIn("External target should not render", text)
+        self.assertNotIn("Missing target should not render", text)
+        self.assertLessEqual(len(text), 4096)
+
+    def test_digest_radar_failure_is_non_blocking(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp, patch("signalforge.business_digest.business_briefing", return_value=_briefing()), patch(
+            "signalforge.business_digest.audit", return_value=_audit()
+        ), patch("signalforge.business_digest.source_scorecard", return_value=_scorecard()), patch(
+            "signalforge.business_digest.aggregator_surface_snapshot", side_effect=TimeoutError("portal timeout")
+        ):
+            digest = business_digest(
+                database=self._db(tmp),
+                registry=_Registry(),  # type: ignore[arg-type]
+                now=datetime(2026, 9, 20, 2, 0, tzinfo=UTC),
+            )
+        self.assertEqual(digest["status"], "PASS")
+        self.assertEqual(digest["business"]["official_review_candidate_count"], 0)
+        self.assertEqual(digest["business"]["official_review_radar_status"], "CHECK_FAILED")
+        text = render_business_digest(digest, translator=lambda values: (values, False))
+        self.assertIn("S01 官方线索雷达检查失败", text)
+        self.assertIn("不据此判断“没有新机会”", text)
+
     def _db(self, root: str) -> Path:
         database = Path(root) / "signalforge.db"
         migrate(database)

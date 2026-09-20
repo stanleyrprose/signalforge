@@ -10,6 +10,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+from .assurance import aggregator_surface_snapshot
 from .auditor import audit
 from .briefing import business_briefing
 from .config import Registry, db_path
@@ -20,7 +21,7 @@ from .telegram_delivery import TelegramDeliveryError, _send_message
 from .translation import contains_myanmar, translate_myanmar_to_zh_hans
 from .source_scorecard import source_scorecard
 
-DIGEST_VERSION = 5
+DIGEST_VERSION = 6
 DIGEST_CHANNEL = "telegram-business-digest"
 DIGEST_TIMEZONE = ZoneInfo("Asia/Yangon")
 TELEGRAM_MESSAGE_LIMIT = 4096
@@ -36,6 +37,47 @@ def _compact(value: object, limit: int = 96) -> str:
     if len(text) <= limit:
         return text
     return text[: max(0, limit - 1)].rstrip() + "…"
+
+
+def _official_review_candidates(snapshot: dict[str, object]) -> list[dict[str, object]]:
+    details = snapshot.get("details") or {}
+    if not isinstance(details, dict):
+        return []
+    unresolved = details.get("unresolved_leads") or []
+    if not isinstance(unresolved, list):
+        return []
+    candidates: list[dict[str, object]] = []
+    seen: set[str] = set()
+    for value in unresolved:
+        if not isinstance(value, dict):
+            continue
+        if value.get("evidence_kind") != "NATIONAL_PORTAL_HOSTED_DOCUMENT":
+            continue
+        if value.get("aggregator_only") is not True or value.get("canonical_truth") is not False:
+            continue
+        target_source = str(value.get("target_source_hint") or "")
+        lead_id = str(value.get("lead_id") or "")
+        url = str(value.get("url") or "")
+        mission_sector = str(value.get("mission_sector_hint") or "")
+        if mission_sector not in {"TELECOM_ICT_INFRA", "CONSTRUCTION", "ENERGY", "ENGINEERING"}:
+            continue
+        if not target_source or not lead_id or not url.startswith((
+            "https://myanmar.gov.mm/documents/",
+            "https://www.myanmar.gov.mm/documents/",
+        )):
+            continue
+        if lead_id in seen:
+            continue
+        seen.add(lead_id)
+        candidates.append(dict(value))
+    candidates.sort(
+        key=lambda item: (
+            str(item.get("closing_date_hint") or "9999-12-31"),
+            str(item.get("target_source_hint") or ""),
+            str(item.get("lead_id") or ""),
+        )
+    )
+    return candidates
 
 
 _MYANMAR_DIGITS = str.maketrans("၀၁၂၃၄၅၆၇၈၉", "0123456789")
@@ -240,6 +282,28 @@ def business_digest(
     briefing = business_briefing(database=target, now=now, registry=registry)
     audit_result = audit(database=target, registry=registry, now=now, network=audit_network)
     scorecard_result = source_scorecard(database=target, now=now, registry=registry, window_days=30)
+    try:
+        official_review_radar = aggregator_surface_snapshot(
+            source_id="S01",
+            database=target,
+            registry=registry,
+            now=now,
+            network=audit_network,
+        )
+    except Exception as exc:
+        official_review_radar = {
+            "source_id": "S01",
+            "status": "CHECK_FAILED",
+            "official": 0,
+            "covered": 0,
+            "missing": [],
+            "details": {
+                "reason": "DIGEST_RADAR_CHECK_FAILED",
+                "error": f"{type(exc).__name__}: {exc}",
+                "canonical_truth": False,
+            },
+        }
+    official_review_candidates = _official_review_candidates(official_review_radar)
 
     with connect(target) as conn:
         run_row = conn.execute(
@@ -474,6 +538,10 @@ def business_digest(
             "coverage_gap_count": len(coverage_gaps),
             "coverage_gaps": coverage_gaps,
             "coverage_gap_policy": "REVIEWED_READ_ONLY_OUTSIDE_CANONICAL_SIGNAL_PIPELINE",
+            "official_review_candidate_count": len(official_review_candidates),
+            "official_review_candidates": official_review_candidates,
+            "official_review_radar_status": str(official_review_radar.get("status") or "UNPROVEN"),
+            "official_review_radar_policy": "FRESH_S01_AGGREGATOR_ONLY_NONCANONICAL_REVIEW_REQUIRED",
         },
         "auditor": {
             "status": audit_result.get("status"),
@@ -522,6 +590,10 @@ def render_business_digest(
     coverage_gaps = business.get("coverage_gaps") or []
     if not isinstance(coverage_gaps, list):
         coverage_gaps = []
+    official_review_candidates = business.get("official_review_candidates") or []
+    if not isinstance(official_review_candidates, list):
+        official_review_candidates = []
+    official_review_radar_status = str(business.get("official_review_radar_status") or "UNPROVEN")
     verified_external = business.get("verified_external_opportunities") or []
     if not isinstance(verified_external, list):
         verified_external = []
@@ -803,6 +875,36 @@ def render_business_digest(
             else:
                 lines.append(f"• <b>{source_name}</b> · [{source_id}]：最近可验证采集时间未知；当前无法证明没有新招标。")
         lines.append("<i>覆盖风险可能是“新发布不可验证”，也可能是“事件已发现但关键商务字段未证明”；均不等于已确认漏报。</i>")
+
+    if official_review_radar_status == "CHECK_FAILED":
+        lines.extend([
+            "",
+            "<b>⚠️ S01 官方线索雷达检查失败</b>",
+            "<i>今日 National Portal 外部官方线索完整性不可确认；不据此判断“没有新机会”。</i>",
+        ])
+
+    if official_review_candidates:
+        review_rows = [item for item in official_review_candidates[:2] if isinstance(item, dict)]
+        review_agencies = translate_values([str(item.get("agency") or "") for item in review_rows], 34)
+        review_titles = translate_values([str(item.get("title") or "") for item in review_rows], 110)
+        lines.extend(["", f"<b>🕵️ 待核验官方线索：{len(official_review_candidates)} 条（展示前 {len(review_rows)} 条）</b>"])
+        for index, item in enumerate(review_rows):
+            target_source = html.escape(str(item.get("target_source_hint") or "?"))
+            agency = html.escape(review_agencies[index])
+            title = html.escape(review_titles[index])
+            closing_hint = html.escape(str(item.get("closing_date_hint") or "未知"))
+            document_url = str(item.get("url") or "")
+            document_link = (
+                f' · <a href="{html.escape(document_url, quote=True)}">候选文件</a>'
+                if len(document_url) <= 320 and document_url.startswith((
+                    "https://myanmar.gov.mm/documents/",
+                    "https://www.myanmar.gov.mm/documents/",
+                ))
+                else official_link("https://myanmar.gov.mm/tenders", "官方Portal")
+            )
+            lines.append(f"• <b>{agency}</b> · [{target_source} ← S01] · 人工核验")
+            lines.append(f"   线索：<b>{title}</b> · 截止提示 <b>{closing_hint}</b>{document_link}")
+        lines.append("<i>National Portal 官方聚合线索；截止日期仅为提示。尚未核验，不计入机会数，也不作为 canonical Signal。</i>")
 
     if verified_external:
         verified_rows = [item for item in verified_external[:4] if isinstance(item, dict)]

@@ -591,6 +591,42 @@ def _coverage_from_listing(
     return {"source_id": source_id, "method": method, "status": status, "official": len(official_urls), "covered": covered, "missing": missing_urls, "details": details}
 
 
+def aggregator_surface_snapshot(
+    *,
+    source_id: str,
+    database: Path | None = None,
+    registry: Registry | None = None,
+    now: datetime | None = None,
+    network: bool = True,
+) -> dict[str, object]:
+    """Evaluate one official aggregator surface without persisting Assurance state."""
+
+    target = database or db_path()
+    registry = registry or Registry.load()
+    raw = getattr(registry, "raw", {})
+    surfaces = raw.get("assurance_surfaces") if isinstance(raw, dict) else None
+    policy = surfaces.get(source_id) if isinstance(surfaces, dict) else None
+    if not isinstance(policy, dict):
+        return {
+            "source_id": source_id,
+            "method": "official-aggregator-discovery-lead-resolution",
+            "status": "UNPROVEN",
+            "official": 0,
+            "covered": 0,
+            "missing": [],
+            "details": {"reason": "ASSURANCE_SURFACE_MISSING", "canonical_truth": False},
+        }
+    observed = (now or datetime.now(UTC)).astimezone(UTC)
+    with connect(target) as conn:
+        return _coverage_from_aggregator_surface(
+            conn,
+            source_id=source_id,
+            policy=policy,
+            network=network,
+            now=observed,
+        )
+
+
 def _coverage_from_aggregator_surface(
     conn,  # type: ignore[no-untyped-def]
     *,
