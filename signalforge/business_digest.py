@@ -23,7 +23,7 @@ from .telegram_delivery import TelegramDeliveryError, _send_message
 from .translation import contains_myanmar, translate_myanmar_to_zh_hans
 from .source_scorecard import source_scorecard
 
-DIGEST_VERSION = 8
+DIGEST_VERSION = 9
 DIGEST_CHANNEL = "telegram-business-digest"
 DIGEST_TIMEZONE = ZoneInfo("Asia/Yangon")
 TELEGRAM_MESSAGE_LIMIT = 4096
@@ -257,6 +257,54 @@ def _deadline_text(item: dict[str, object]) -> str:
         return "UNKNOWN"
     value = f"{item.get('deadline') or ''} {item.get('deadline_time') or ''}".strip()
     return value or "UNKNOWN"
+
+
+def _verified_external_attention(
+    items: list[dict[str, object]],
+    *,
+    now: datetime,
+) -> list[dict[str, object]]:
+    """Promote date-only tender-form sale ends into digest-only urgency.
+
+    The verified-external record remains non-canonical. Because reviewed S23
+    documents currently expose only a sale-end date ("during office hours"),
+    the 72h gate is intentionally date-level: it starts 72h before the local
+    sale-end date begins and stays active through that calendar date.
+    """
+
+    local_now = now.astimezone(DIGEST_TIMEZONE)
+    rows: list[dict[str, object]] = []
+    for item in items:
+        sale_end_raw = str(item.get("tender_form_sale_end") or "").strip()
+        if len(sale_end_raw) < 10:
+            continue
+        try:
+            sale_end_date = datetime.strptime(sale_end_raw[:10], "%Y-%m-%d").date()
+        except ValueError:
+            continue
+        if sale_end_date < local_now.date():
+            continue
+        sale_end_start = datetime.combine(sale_end_date, datetime.min.time(), tzinfo=DIGEST_TIMEZONE)
+        if sale_end_start - local_now > timedelta(hours=72):
+            continue
+        final_deadline = str(item.get("deadline") or "").strip()
+        final_deadline_time = str(item.get("deadline_time") or "").strip()
+        rows.append(
+            {
+                **item,
+                "source_id": str(item.get("target_source_id") or item.get("source_id") or ""),
+                "scope_excerpt": item.get("business_summary") or item.get("scope_excerpt"),
+                "attention_action": "ACT_NOW",
+                "attention_reason": "VERIFIED_EXTERNAL_TENDER_FORM_SALE_END_WITHIN_72H_DATE_WINDOW",
+                "attention_timing_kind": "TENDER_FORM_SALE_END",
+                "deadline": sale_end_date.isoformat(),
+                "deadline_time": None,
+                "deadline_status": "OPEN",
+                "final_bid_deadline": final_deadline,
+                "final_bid_deadline_time": final_deadline_time,
+            }
+        )
+    return rows
 
 
 def _digest_key(digest_date: str) -> str:
@@ -496,6 +544,14 @@ def business_digest(
             continue
         verified_external.append({**raw, **mission})
 
+    external_attention = _verified_external_attention(verified_external, now=now)
+    if external_attention:
+        attention = external_attention + attention
+    attention_action_counts = dict(briefing.get("attention_action_counts") or {})
+    for item in external_attention:
+        action = str(item.get("attention_action") or "REVIEW")
+        attention_action_counts[action] = int(attention_action_counts.get(action) or 0) + 1
+
     canonical_current = int(briefing.get("current_opportunities") or 0)
     business_current = canonical_current + len(verified_external)
     business_current_counts = dict(briefing.get("current_counts") or {})
@@ -557,8 +613,8 @@ def business_digest(
             "mission_policy_version": briefing.get("mission_policy_version"),
             "qualification_counts": qcounts,
             "priority_counts": priority_counts,
-            "attention_count": briefing.get("attention_count"),
-            "attention_action_counts": briefing.get("attention_action_counts"),
+            "attention_count": len(attention),
+            "attention_action_counts": attention_action_counts,
             "attention": attention,
             "watchlist_count": int(watchlist.get("count") or 0),
             "watchlist_relevance": watchlist.get("primary_relevance_counts") or {},
@@ -792,6 +848,11 @@ def render_business_digest(
         return "业务内容"
 
     def timing_text(item: dict[str, object]) -> str:
+        if item.get("attention_timing_kind") == "TENDER_FORM_SALE_END":
+            sale_end = _deadline_text(item)
+            final_deadline = f"{item.get('final_bid_deadline') or ''} {item.get('final_bid_deadline_time') or ''}".strip()
+            suffix = f" · 投标截止 {final_deadline}" if final_deadline else ""
+            return f"售标截止 {sale_end}{suffix}"
         value = _deadline_text(item)
         if value.startswith("活动日"):
             return value
