@@ -87,6 +87,7 @@ signalforge assurance-run
 signalforge assurance-run --no-network --noise-sample-size 5
 signalforge assurance-status
 
+TYPESAFE_API_KEY=... signalforge jev-noise-triage
 signalforge noise-samples --status PENDING
 TYPESAFE_API_KEY=... signalforge jev-noise-shadow --status PENDING
 signalforge noise-review <sample_id> --outcome CONFIRMED_NOISE --note "checked official evidence"
@@ -107,7 +108,9 @@ signalforge manual-resolve <promotion_id> --note "opportunity closed"
 
 The service executes `signalforge assurance-run`. It persists evidence and findings but never sends Telegram by itself. Telegram delivery of manual promotions remains the responsibility of the existing `signalforge-telegram-deliver` path.
 
-`jev-noise-shadow` is an optional manual read-only review aid. It may recommend a PENDING sample for human review, but it never changes `noise_review_samples`, creates `missed_signals`, or alters Assurance scheduling.
+`jev-noise-triage` is an optional manual read-only pre-sampling aid. It ranks a bounded, source-balanced pool of unsampled replayable zero-item and nonstandard candidates, suppresses later-recovered zero-item history, and never creates review rows or changes Assurance scheduling.
+
+`jev-noise-shadow` is an optional manual read-only review aid for samples already in `noise_review_samples`. It may recommend a PENDING sample for human review, but it never changes `noise_review_samples`, creates `missed_signals`, or alters Assurance scheduling.
 
 ## Boundaries
 
