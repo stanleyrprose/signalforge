@@ -915,7 +915,7 @@ class BusinessDigestTests(unittest.TestCase):
                 "canonical_key": "iwt:1038:2026-08-25", "source_id": "S22", "item_kind": "TENDER",
                 "issuer": "Inland Water Transport (Myanmar)",
                 "title": "အောက်ဖော်ပြပါရေယာဉ် ၁ စီးကို ဝယ်ယူရန် အပြိုင်ဈေးနှုန်းလွှာများ တင်သွင်းရန် ဖိတ်ခေါ်အပ်ပါသည်။",
-                "deadline": "2026-11-03", "deadline_status": "OPEN",
+                "deadline": "2026-11-03", "deadline_time": "10:00", "deadline_status": "OPEN",
             },
         ]
         text = render_business_digest(digest, translator=lambda values: (values, False))
@@ -926,6 +926,7 @@ class BusinessDigestTests(unittest.TestCase):
         self.assertIn("Electrical 备件 23类", text)
         self.assertIn("Mechanical 备件 43类", text)
         self.assertIn("Coastal Cargo Vessel ×1艘", text)
+        self.assertIn("截止 2026-11-03 10:00", text)
 
     def test_digest_renders_reviewed_mpt_portal_gap_without_diagnostic_footer(self) -> None:
         digest = {

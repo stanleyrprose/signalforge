@@ -359,6 +359,8 @@ class OpportunityViewTests(unittest.TestCase):
                 row["reviewed_document_sha256"],
                 "41d2614635fa440c0e226d682b5817f81e2f3c4ca31d9e4e0355332004436386",
             )
+            self.assertEqual(row["deadline_time"], "10:00")
+            self.assertEqual(row["deadline_kind"], "BID_SUBMISSION_DEADLINE")
             self.assertEqual(row["signal_quality_score"], 93)
             self.assertEqual(row["signal_quality_gaps"], [])
             self.assertEqual(row["primary_relevance"], "ENGINEERING")
