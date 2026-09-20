@@ -15,13 +15,16 @@ from xml.etree import ElementTree
 
 from .config import Registry, db_path
 from .coverage_gaps import verified_external_opportunities
-from .http import fetch_bytes, fetch_bytes_cloudrity_d1n
+from .http import fetch_bytes, fetch_bytes_cloudrity_d1n, fetch_form_bytes
+from .mpt import parse_tender_detail as parse_mpt_tender_detail
 from .mte_reviewed_enrichment import reviewed_mte_records
 
 AUDITOR_VERSION = 1
 DEFAULT_SIGNAL_LOOKBACK_HOURS = 24
 DEFAULT_MPT_LOOKBACK_DAYS = 7
 DEFAULT_MPT_PAGE_LIMIT = 30
+DEFAULT_MPT_SEARCH_LIMIT = 20
+MPT_SEARCH_URL = "https://mpt.com.mm/wp-admin/admin-ajax.php"
 ATOM_SITEMAP_URL = "https://www.atom.com.mm/sitemap.xml"
 
 Fetcher = Callable[..., bytes]
@@ -263,6 +266,36 @@ def _mpt_tender_like(payload: bytes) -> bool:
     return "reference no" in normalized and "project name" in normalized
 
 
+def fetch_mpt_tender_search(url: str, *, timeout: int = 30, max_bytes: int = 2_000_000) -> bytes:
+    return fetch_form_bytes(
+        url,
+        fields={"action": "data_fetch", "keyword": "tender"},
+        timeout=timeout,
+        max_bytes=max_bytes,
+    )
+
+
+def _mpt_search_urls(payload: bytes, *, limit: int) -> list[str]:
+    text = payload.decode("utf-8", errors="replace")
+    seen: set[str] = set()
+    urls: list[str] = []
+    for match in re.finditer(r'href=["\']([^"\']+)["\']', text, re.I):
+        url = html.unescape(match.group(1)).strip()
+        parsed = urlparse(url)
+        if parsed.scheme != "https" or (parsed.hostname or "").lower() not in {"mpt.com.mm", "www.mpt.com.mm"}:
+            continue
+        if not parsed.path.startswith("/mm/"):
+            continue
+        normalized = _normalize_url(url)
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        urls.append(url)
+        if len(urls) >= limit:
+            break
+    return urls
+
+
 def _coverage_findings(
     conn,  # type: ignore[no-untyped-def]
     registry: Registry,
@@ -270,8 +303,10 @@ def _coverage_findings(
     *,
     fetcher: Fetcher,
     mytel_fetcher: Fetcher,
+    mpt_search_fetcher: Fetcher | None,
     mpt_lookback_days: int,
     mpt_page_limit: int,
+    mpt_search_limit: int,
 ) -> tuple[list[dict[str, object]], dict[str, object]]:
     findings: list[dict[str, object]] = []
     summary: dict[str, object] = {}
@@ -328,6 +363,11 @@ def _coverage_findings(
             for row in conn.execute("SELECT url FROM canonical_items WHERE source_id='S13'")
             if row[0]
         }
+        canonical_keys = {
+            str(row[0])
+            for row in conn.execute("SELECT canonical_key FROM canonical_items WHERE source_id='S13'")
+            if row[0]
+        }
         discovery_urls = {
             _normalize_url(str(row[0]))
             for row in conn.execute("SELECT url FROM discovery_items WHERE source_id='S13'")
@@ -361,19 +401,79 @@ def _coverage_findings(
                     "likely_layer": likely,
                 }
             )
+
+        search_urls: list[str] = []
+        search_tenders = 0
+        search_relevant = 0
+        search_missing = 0
+        search_page_errors = 0
+        search_error: str | None = None
+        if mpt_search_fetcher is not None:
+            try:
+                search_payload = mpt_search_fetcher(
+                    MPT_SEARCH_URL,
+                    timeout=int(mpt["request_timeout_seconds"]),
+                    max_bytes=int(mpt["request_max_bytes"]),
+                )
+                search_urls = _mpt_search_urls(search_payload, limit=mpt_search_limit)
+                today = now.date().isoformat()
+                recent_cutoff = (now - timedelta(days=mpt_lookback_days)).date().isoformat()
+                for url in search_urls:
+                    try:
+                        page = fetcher(
+                            url,
+                            timeout=int(mpt["request_timeout_seconds"]),
+                            max_bytes=int(mpt["request_max_bytes"]),
+                        )
+                    except Exception:
+                        search_page_errors += 1
+                        continue
+                    tender = parse_mpt_tender_detail(page, url)
+                    if tender is None:
+                        continue
+                    search_tenders += 1
+                    relevant = bool(
+                        (tender.deadline and tender.deadline >= today)
+                        or (tender.publication_date and tender.publication_date >= recent_cutoff)
+                    )
+                    if not relevant:
+                        continue
+                    search_relevant += 1
+                    if tender.canonical_key in canonical_keys:
+                        continue
+                    search_missing += 1
+                    findings.append(
+                        {
+                            "type": "COVERAGE_GAP",
+                            "severity": "RED",
+                            "source_id": "S13",
+                            "code": "MPT_OFFICIAL_MM_TENDER_NOT_CANONICAL",
+                            "summary": "Current or recent official MPT Burmese tender is missing from canonical state",
+                            "canonical_key": tender.canonical_key,
+                            "reference_no": tender.reference_no,
+                            "project_name": tender.project_name,
+                            "deadline": tender.deadline,
+                            "url": url,
+                            "likely_layer": "DISCOVERY_LANGUAGE_SURFACE",
+                        }
+                    )
+            except Exception as exc:
+                search_error = f"{type(exc).__name__}: {exc}"
+
         external_recoveries = [
             item
             for item in verified_external_opportunities(now=now)
             if str(item.get("target_source_id") or item.get("source_id") or "") == "S13"
         ]
         recovery_count = len(external_recoveries)
-        if missing_count:
+        total_missing = missing_count + search_missing
+        if total_missing:
             coverage_status = "GAP"
-        elif page_errors:
+        elif page_errors or search_page_errors or search_error:
             coverage_status = "PARTIAL"
         elif recovery_count:
             coverage_status = "PARTIAL"
-        elif tender_like == 0:
+        elif tender_like == 0 and search_relevant == 0:
             coverage_status = "UNPROVEN"
         else:
             coverage_status = "PASS"
@@ -381,8 +481,15 @@ def _coverage_findings(
             "status": coverage_status,
             "recent_sitemap_pages_checked": len(recent_urls),
             "tender_like_pages": tender_like,
-            "missing": missing_count,
+            "missing": total_missing,
+            "sitemap_missing": missing_count,
             "page_fetch_errors": page_errors,
+            "official_search_urls_checked": len(search_urls),
+            "official_search_tenders_parsed": search_tenders,
+            "official_search_relevant": search_relevant,
+            "official_search_missing": search_missing,
+            "official_search_page_fetch_errors": search_page_errors,
+            "official_search_error": search_error,
             "lookback_days": mpt_lookback_days,
             "verified_external_recovery_count": recovery_count,
             "issuer_page_coverage_debt_retained": bool(recovery_count),
@@ -407,6 +514,18 @@ def _coverage_findings(
                     "source_id": "S13",
                     "code": "AUDITOR_MPT_PAGE_CHECK_PARTIAL",
                     "summary": f"Auditor could not inspect {page_errors} recent MPT sitemap pages",
+                }
+            )
+        if search_error or search_page_errors:
+            findings.append(
+                {
+                    "type": "HEALTH_ALERT",
+                    "severity": "YELLOW",
+                    "source_id": "S13",
+                    "code": "AUDITOR_MPT_OFFICIAL_SEARCH_PARTIAL",
+                    "summary": "Auditor could not fully inspect the official MPT Burmese tender search surface",
+                    "page_fetch_errors": search_page_errors,
+                    "error": search_error,
                 }
             )
     except Exception as exc:
@@ -672,15 +791,18 @@ def audit(
     network: bool = True,
     fetcher: Fetcher = fetch_bytes,
     mytel_fetcher: Fetcher = fetch_bytes_cloudrity_d1n,
+    mpt_search_fetcher: Fetcher | None = None,
     signal_lookback_hours: int = DEFAULT_SIGNAL_LOOKBACK_HOURS,
     mpt_lookback_days: int = DEFAULT_MPT_LOOKBACK_DAYS,
     mpt_page_limit: int = DEFAULT_MPT_PAGE_LIMIT,
+    mpt_search_limit: int = DEFAULT_MPT_SEARCH_LIMIT,
 ) -> dict[str, object]:
     target = database or db_path()
     registry = registry or Registry.load()
     now = (now or datetime.now(UTC)).astimezone(UTC)
     findings: list[dict[str, object]] = []
     checks: dict[str, object] = {}
+    resolved_mpt_search_fetcher = mpt_search_fetcher or (fetch_mpt_tender_search if fetcher is fetch_bytes else None)
 
     with _read_connection(target) as conn:
         health_findings, health_summary = _health_findings(conn, registry, now)
@@ -694,8 +816,10 @@ def audit(
                 now,
                 fetcher=fetcher,
                 mytel_fetcher=mytel_fetcher,
+                mpt_search_fetcher=resolved_mpt_search_fetcher,
                 mpt_lookback_days=mpt_lookback_days,
                 mpt_page_limit=mpt_page_limit,
+                mpt_search_limit=mpt_search_limit,
             )
             findings.extend(coverage_findings)
             checks["strategic_coverage"] = coverage_summary
