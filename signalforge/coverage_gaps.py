@@ -14,6 +14,8 @@ COVERAGE_GAP_SCHEMA_VERSION = 1
 VERIFIED_EXTERNAL_RESOLUTION = "VERIFIED_EXTERNAL_OFFICIAL_OPPORTUNITY"
 _DATA_FILE = "Reviewed-Coverage-Gaps-v1.json"
 _LOCAL_TZ = ZoneInfo("Asia/Yangon")
+_S23_TENDER_BOARD_URL = "https://construction.gov.mm/tindar-show/f878a520-d396-11ec-957c-cb8c3b494625?state_name=all"
+_S23_BOARD_EVIDENCE = "REVIEWED_OFFICIAL_TENDER_BOARD_LISTING"
 _REQUIRED = {
     "gap_id",
     "source_id",
@@ -65,7 +67,9 @@ def _active_reviewed_records(
         parsed = urlparse(url)
         source_id = str(value["source_id"])
         if source_id == "S23":
-            valid_url = url.startswith("https://construction.gov.mm/letter-download/")
+            valid_url = url.startswith("https://construction.gov.mm/letter-download/") or (
+                str(value["evidence_basis"]) == _S23_BOARD_EVIDENCE and url == _S23_TENDER_BOARD_URL
+            )
         elif source_id == "S13" and str(value["evidence_basis"]).startswith("REVIEWED_NATIONAL_PORTAL_HOSTED_"):
             valid_url = (
                 parsed.scheme == "https"
@@ -139,6 +143,8 @@ def verified_external_opportunities(
     for item in _active_reviewed_records(now=now, root=root):
         if not _verified_resolution_active(item, now=now):
             continue
+        if str(item.get("evidence_basis") or "") == _S23_BOARD_EVIDENCE:
+            raise ValueError("S23 tender-board-only coverage gap cannot become verified external")
         required_true = (
             item.get("issuer_document_verified"),
             item.get("issuer_identity_verified"),
