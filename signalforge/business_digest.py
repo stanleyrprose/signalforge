@@ -23,7 +23,7 @@ from .telegram_delivery import TelegramDeliveryError, _send_message
 from .translation import contains_myanmar, translate_myanmar_to_zh_hans
 from .source_scorecard import source_scorecard
 
-DIGEST_VERSION = 10
+DIGEST_VERSION = 11
 DIGEST_CHANNEL = "telegram-business-digest"
 DIGEST_TIMEZONE = ZoneInfo("Asia/Yangon")
 TELEGRAM_MESSAGE_LIMIT = 4096
@@ -955,6 +955,9 @@ def render_business_digest(
     all_attention_rows = [item for item in attention if isinstance(item, dict)]
     attention_rows = all_attention_rows
     attention_keys = {str(item.get("canonical_key") or "") for item in attention_rows if item.get("canonical_key")}
+    attention_external_gap_ids = {
+        str(item.get("gap_id")) for item in attention_rows if item.get("gap_id")
+    }
     if attention_rows:
         attention_issuers = translated_issuers(attention_rows)
         attention_subjects = translated_subjects(attention_rows)
@@ -1150,11 +1153,26 @@ def render_business_digest(
         lines.append("<i>所有进入审核面的 mission PDF 必须完成视觉 OCR；预审字段均为 proposed evidence。必须人工确认后才可升级，当前不计入机会数，也不作为 canonical Signal。</i>")
 
     if verified_external:
-        verified_rows = [item for item in verified_external[:4] if isinstance(item, dict)]
+        verified_candidates = [item for item in verified_external if isinstance(item, dict)]
+        promoted_external_count = sum(
+            1 for item in verified_candidates
+            if item.get("gap_id") and str(item.get("gap_id")) in attention_external_gap_ids
+        )
+        verified_rows = [
+            item for item in verified_candidates
+            if not item.get("gap_id") or str(item.get("gap_id")) not in attention_external_gap_ids
+        ][:4]
         verified_issuers = translate_values([str(item.get("issuer") or "") for item in verified_rows], 34)
         verified_titles = translate_values([str(item.get("business_summary") or item.get("title") or "") for item in verified_rows], 120)
         verified_locations = translate_values([str(item.get("location") or "") for item in verified_rows], 24)
-        lines.extend(["", f"<b>✅ 外部官方文件核验：{len(verified_rows)} 条</b>"])
+        total_verified = len(verified_candidates)
+        if promoted_external_count and verified_rows:
+            heading = f"<b>✅ 外部官方文件核验：{total_verified} 条（{promoted_external_count}条已在上方，以下{len(verified_rows)}条）</b>"
+        elif promoted_external_count:
+            heading = f"<b>✅ 外部官方文件核验：{total_verified} 条（已在上方‘今天先看’展示）</b>"
+        else:
+            heading = f"<b>✅ 外部官方文件核验：{total_verified} 条</b>"
+        lines.extend(["", heading])
         for index, item in enumerate(verified_rows):
             target_source = html.escape(str(item.get("target_source_id") or item.get("source_id") or ""))
             origin = html.escape(str(item.get("coverage_origin") or ""))
