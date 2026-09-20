@@ -29,7 +29,25 @@ def _deadline_kind(payload: dict[str, object], source_id: str) -> str | None:
         return "BID_SUBMISSION_DEADLINE"
     if source_id == "S38" and evidence == "EXPLICIT_HTML_TENDER_CLOSE_DATE_TIME":
         return "BID_SUBMISSION_DEADLINE"
+    if source_id == "S22" and payload.get("deadline_datetime_local"):
+        return "BID_SUBMISSION_DEADLINE"
     return None
+
+
+def _deadline_time(payload: dict[str, object], source_id: str) -> str | None:
+    explicit = payload.get("deadline_time")
+    if isinstance(explicit, str) and explicit:
+        return explicit
+    if source_id != "S22":
+        return None
+    local = payload.get("deadline_datetime_local")
+    if not isinstance(local, str) or not local:
+        return None
+    try:
+        parsed = datetime.fromisoformat(local.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return f"{parsed.hour:02d}:{parsed.minute:02d}"
 
 
 _ENERGY_DMP_REFERENCE_RE = re.compile(r"\bDMP/L-\s*(?P<number>\d{3})\s*\((?P<year>\d{2}-\d{2})\)", re.I)
@@ -368,7 +386,7 @@ def current_opportunities(
                 "focus_scope_summary": focus_scope_summary,
                 "publication_date": payload.get("publication_date") or row["publication_date"],
                 "deadline": payload.get("deadline"),
-                "deadline_time": payload.get("deadline_time"),
+                "deadline_time": _deadline_time(payload, source_id_value),
                 "deadline_kind": _deadline_kind(payload, source_id_value),
                 "tender_opening_date": payload.get("tender_opening_date"),
                 "tender_opening_time": payload.get("tender_opening_time"),
