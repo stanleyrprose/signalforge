@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import unittest
 from datetime import UTC, datetime
+from unittest.mock import patch
 
 from signalforge.business_digest import render_business_digest
 from signalforge.coverage_gaps import reviewed_coverage_gaps, verified_external_opportunities
@@ -37,7 +38,8 @@ class CoverageGapTests(unittest.TestCase):
         after_first = reviewed_coverage_gaps(now=datetime(2026, 9, 17, tzinfo=UTC))
         assert [item["deadline"] for item in after_first] == ["2026-09-23"]
         after_moc = reviewed_coverage_gaps(now=datetime(2026, 9, 24, tzinfo=UTC))
-        assert after_moc == []
+        assert [item["deadline"] for item in after_moc] == ["2026-09-25", "2026-10-09"]
+        assert all(item["evidence_basis"] == "REVIEWED_OFFICIAL_TENDER_BOARD_LISTING" for item in after_moc)
         assert [item["deadline"] for item in verified_external_opportunities(now=datetime(2026, 9, 24, tzinfo=UTC))] == ["2026-09-29"]
         assert verified_external_opportunities(now=datetime(2026, 9, 30, tzinfo=UTC)) == []
 
@@ -53,7 +55,10 @@ class CoverageGapTests(unittest.TestCase):
             "S23:18be5b60-accb-11f1-b41f-3517e3a380a0"
         ]
         after_highway_close = reviewed_coverage_gaps(now=datetime(2026, 9, 23, 9, 30, tzinfo=UTC))
-        assert after_highway_close == []
+        assert [item["gap_id"] for item in after_highway_close] == [
+            "S23:board:yangon-2026-09-25",
+            "S23:board:mandalay-bridge5-2026-10-09",
+        ]
 
         before_mpt_close = verified_external_opportunities(now=datetime(2026, 9, 29, 7, 29, tzinfo=UTC))
         assert len(before_mpt_close) == 1
@@ -84,6 +89,42 @@ class CoverageGapTests(unittest.TestCase):
         assert highway["scope_verified"] is True
         assert highway["deadline_verified"] is True
         assert "9/23 16:00" in highway["next_action_summary"]
+
+    def test_s23_board_only_current_gaps_are_tracked_but_not_verified(self) -> None:
+        now = datetime(2026, 9, 20, 13, 30, tzinfo=UTC)
+        gaps = reviewed_coverage_gaps(now=now)
+        assert [item["gap_id"] for item in gaps] == [
+            "S23:board:yangon-2026-09-25",
+            "S23:board:mandalay-bridge5-2026-10-09",
+        ]
+        assert all(item["source_id"] == "S23" for item in gaps)
+        assert all(item["evidence_basis"] == "REVIEWED_OFFICIAL_TENDER_BOARD_LISTING" for item in gaps)
+        assert all(item["canonical_signal_status"] == "OUTSIDE_CANONICAL_SIGNAL_PIPELINE" for item in gaps)
+
+        verified = verified_external_opportunities(now=now)
+        assert [item["source_id"] for item in verified] == ["S23", "S13"]
+        assert not {item["gap_id"] for item in gaps} & {item["gap_id"] for item in verified}
+
+    def test_s23_board_only_gap_cannot_be_promoted_to_verified_external(self) -> None:
+        board_only = {
+            "gap_id": "S23:board:test",
+            "source_id": "S23",
+            "evidence_basis": "REVIEWED_OFFICIAL_TENDER_BOARD_LISTING",
+            "resolution_mode": "VERIFIED_EXTERNAL_OFFICIAL_OPPORTUNITY",
+            "resolution_reviewed_at": "2026-09-20",
+            "issuer_document_verified": True,
+            "issuer_identity_verified": True,
+            "scope_verified": True,
+            "deadline_verified": True,
+            "canonical_truth": False,
+            "document_sha256": "0" * 64,
+            "coverage_origin": "S23_REVIEW",
+            "target_source_id": "S23",
+            "verification_basis": "SHOULD_NOT_BE_ACCEPTED",
+        }
+        with patch("signalforge.coverage_gaps._active_reviewed_records", return_value=[board_only]):
+            with self.assertRaisesRegex(ValueError, "tender-board-only"):
+                verified_external_opportunities(now=datetime(2026, 9, 20, 13, 30, tzinfo=UTC))
 
     def test_business_digest_renders_verified_external_separately_from_unresolved_gaps(self) -> None:
         now = datetime(2026, 9, 16, tzinfo=UTC)
