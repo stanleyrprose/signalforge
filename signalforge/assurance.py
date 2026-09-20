@@ -1091,14 +1091,46 @@ def _metric_review(
     }
     open_miss_rows = conn.execute("SELECT severity,detected_at FROM missed_signals WHERE status='OPEN'").fetchall()
     cutoff = _iso(now - timedelta(days=window_days))
-    reviewed = conn.execute("SELECT review_status FROM noise_review_samples WHERE reviewed_at>=?", (cutoff,)).fetchall()
+    reviewed = conn.execute(
+        "SELECT noise_sample_id,review_status FROM noise_review_samples WHERE reviewed_at>=?",
+        (cutoff,),
+    ).fetchall()
     conclusive = [
         row
         for row in reviewed
         if str(row["review_status"]) in {"CONFIRMED_NOISE", "FALSE_NEGATIVE"}
     ]
     inconclusive = sum(1 for row in reviewed if str(row["review_status"]) == "INCONCLUSIVE")
-    false_negatives = sum(1 for row in conclusive if str(row["review_status"]) == "FALSE_NEGATIVE")
+    false_negative_sample_ids = {
+        str(row["noise_sample_id"])
+        for row in conclusive
+        if str(row["review_status"]) == "FALSE_NEGATIVE"
+    }
+    false_negatives = len(false_negative_sample_ids)
+    noise_miss_statuses: dict[str, set[str]] = {}
+    for row in conn.execute(
+        "SELECT status,metadata_json FROM missed_signals WHERE detected_by='NOISE_REVIEW'"
+    ).fetchall():
+        try:
+            metadata = json.loads(str(row["metadata_json"] or "{}"))
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(metadata, dict):
+            continue
+        sample_id = str(metadata.get("noise_sample_id") or "")
+        if not sample_id:
+            continue
+        noise_miss_statuses.setdefault(sample_id, set()).add(str(row["status"] or ""))
+    false_negative_open = sum(
+        1 for sample_id in false_negative_sample_ids if "OPEN" in noise_miss_statuses.get(sample_id, set())
+    )
+    false_negative_closed = sum(
+        1
+        for sample_id in false_negative_sample_ids
+        if noise_miss_statuses.get(sample_id)
+        and "OPEN" not in noise_miss_statuses[sample_id]
+    )
+    false_negative_untracked = false_negatives - false_negative_open - false_negative_closed
     replayability = _zero_item_replayability(conn, cutoff=cutoff)
     active_manual = int(conn.execute("SELECT COUNT(*) FROM manual_promotions WHERE status='ACTIVE'").fetchone()[0])
     high_value_recent_yield = 0
@@ -1133,6 +1165,9 @@ def _metric_review(
         "noise_samples_inconclusive_window": inconclusive,
         "noise_false_negatives_window": false_negatives,
         "noise_false_negative_rate": round(false_negatives / len(conclusive), 4) if conclusive else None,
+        "noise_false_negatives_open_window": false_negative_open,
+        "noise_false_negatives_closed_window": false_negative_closed,
+        "noise_false_negatives_untracked_window": false_negative_untracked,
         "filtered_zero_item_records_window": replayability["total"],
         "filtered_zero_item_replayable_window": replayability["replayable"],
         "filtered_zero_item_unreplayable_window": replayability["unreplayable"],
@@ -1167,8 +1202,10 @@ def _metric_review(
         review_reasons.append("NO_CONCLUSIVE_NOISE_SAMPLE_IN_WINDOW")
     if int(metrics["filtered_zero_item_retention_era_unreplayable_window"]) > 0:
         review_reasons.append("FILTERED_EVIDENCE_NOT_REPLAYABLE_AFTER_RETENTION")
-    if false_negatives > 0:
-        review_reasons.append("RECENT_NOISE_FALSE_NEGATIVE_EXISTS")
+    if false_negative_open > 0:
+        review_reasons.append("RECENT_UNRESOLVED_NOISE_FALSE_NEGATIVE_EXISTS")
+    if false_negative_untracked > 0:
+        review_reasons.append("RECENT_UNTRACKED_NOISE_FALSE_NEGATIVE_EXISTS")
     if int(metrics["green_sources"]) > 0 and int(metrics["current_opportunities"]) == 0 and int(metrics["effective_signals"]) == 0:
         review_reasons.append("TECHNICAL_HEALTH_WITHOUT_BUSINESS_OUTCOME")
     if fail_reasons:
@@ -1180,7 +1217,7 @@ def _metric_review(
     conclusions = {
         "fail_reasons": fail_reasons,
         "review_reasons": review_reasons,
-        "useful_metrics": ["mandatory_coverage_proof_rate", "mandatory_business_coverage_accounted_rate", "mandatory_reviewed_external_recovery_count", "mandatory_check_failed_count", "open_misses", "noise_samples_conclusive_window", "noise_false_negative_rate", "filtered_zero_item_replayable_window", "filtered_zero_item_retention_era_unreplayable_window", "current_opportunities", "canonical_current_opportunities", "verified_external_opportunities", "effective_signals", "high_value_sources_with_recent_business_yield"],
+        "useful_metrics": ["mandatory_coverage_proof_rate", "mandatory_business_coverage_accounted_rate", "mandatory_reviewed_external_recovery_count", "mandatory_check_failed_count", "open_misses", "noise_samples_conclusive_window", "noise_false_negative_rate", "noise_false_negatives_open_window", "noise_false_negatives_closed_window", "noise_false_negatives_untracked_window", "filtered_zero_item_replayable_window", "filtered_zero_item_retention_era_unreplayable_window", "current_opportunities", "canonical_current_opportunities", "verified_external_opportunities", "effective_signals", "high_value_sources_with_recent_business_yield"],
         "diagnostic_only_not_business_value_proof": ["active_sources", "green_sources", "raw_signals"],
         "coverage_semantics": "PASS proves direct mandatory coverage; reviewed external recovery accounts for a known business opportunity but does not convert issuer discovery PARTIAL into PASS; CHECK_FAILED remains unverified.",
         "principle": "Source count, GREEN health and raw Signal volume are diagnostics; none is sufficient evidence of commercial value without coverage and outcome evidence.",
