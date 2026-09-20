@@ -7,7 +7,8 @@ import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable
+from urllib.parse import unquote, urlparse
 
 from .acquisition_contract import (
     ACQUISITION_SCHEMA_VERSION,
@@ -44,6 +45,14 @@ class ProviderDiagnosticCapture:
     media_type: str
     final_url: str | None
     http_status: int | None
+    artifact_path: str
+
+
+@dataclass(frozen=True)
+class ProviderDocumentOCRCapture:
+    provider_request_id: str
+    input_sha256: str
+    result: dict[str, Any]
     artifact_path: str
 
 
@@ -298,6 +307,127 @@ def acquire_provider_diagnostic_bytes(
         final_url=str(row["result_final_url"]) if row["result_final_url"] else None,
         http_status=int(row["result_http_status"]) if row["result_http_status"] is not None else None,
         artifact_path=str(artifact_path),
+    )
+
+
+def acquire_provider_document_ocr(
+    *,
+    database: Path,
+    url: str,
+    timeout_seconds: int = 60,
+    max_bytes: int = 8_000_000,
+    poll_interval_seconds: float = 0.5,
+    sleeper: Callable[[float], None] = time.sleep,
+    request_now: datetime | None = None,
+) -> ProviderDocumentOCRCapture:
+    """Acquire bounded OCR evidence for an S01 Portal-hosted official PDF.
+
+    The provider queue is the audit trail. This helper does not create a
+    scheduler/acquisition/evidence-envelope record and does not promote the OCR
+    result into canonical business truth.
+    """
+
+    parsed = urlparse(url)
+    host = (parsed.hostname or "").lower()
+    decoded_path = unquote(parsed.path)
+    if (
+        parsed.scheme != "https"
+        or not parsed.path.startswith("/documents/")
+        or ".." in decoded_path.split("/")
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.port not in (None, 443)
+        or parsed.query
+        or parsed.fragment
+    ):
+        raise ValueError("document OCR requires an exact HTTPS Myanmar National Portal /documents/ URL")
+    if host != "myanmar.gov.mm":
+        raise ValueError("document OCR host is not authorized")
+    target_role = "OFFICIAL_DOCUMENT"
+
+    capture = acquire_provider_diagnostic_bytes(
+        database=database,
+        assurance_run_id=str(uuid.uuid4()),
+        source_id="S01",
+        source_policy_version=2,
+        target_role=target_role,
+        url=url,
+        timeout_seconds=timeout_seconds,
+        max_bytes=max_bytes,
+        expected_content_types=["application/json"],
+        capability=ProviderCapability.DOCUMENT_OCR.value,
+        poll_interval_seconds=poll_interval_seconds,
+        sleeper=sleeper,
+        request_now=request_now,
+    )
+    try:
+        payload = json.loads(capture.payload.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise RuntimeError("provider document OCR result is not valid UTF-8 JSON") from exc
+    if not isinstance(payload, dict):
+        raise RuntimeError("provider document OCR result must be a JSON object")
+    fetch = payload.get("fetch")
+    ocr = payload.get("document_ocr")
+    if not isinstance(fetch, dict) or not isinstance(ocr, dict):
+        raise RuntimeError("provider document OCR result is missing fetch/OCR evidence")
+
+    input_sha256 = str(ocr.get("input_sha256") or "")
+    if len(input_sha256) != 64:
+        raise RuntimeError("provider document OCR input SHA-256 missing")
+    try:
+        int(input_sha256, 16)
+    except ValueError as exc:
+        raise RuntimeError("provider document OCR input SHA-256 invalid") from exc
+    fetch_sha256 = str(fetch.get("sha256") or "")
+    if fetch_sha256 != input_sha256:
+        raise RuntimeError("provider document OCR fetch/OCR SHA mismatch")
+    fetch_bytes = fetch.get("body_bytes")
+    ocr_bytes = ocr.get("input_bytes")
+    if not isinstance(fetch_bytes, int) or fetch_bytes < 1 or not isinstance(ocr_bytes, int) or ocr_bytes != fetch_bytes:
+        raise RuntimeError("provider document OCR fetch/OCR byte length mismatch")
+    fetch_status = fetch.get("status")
+    if not isinstance(fetch_status, int) or not 200 <= fetch_status < 300:
+        raise RuntimeError("provider document OCR fetch HTTP status invalid")
+    if ocr.get("network_access") is not False:
+        raise RuntimeError("provider document OCR must report network_access=false")
+    if ocr.get("intermediate_images_retained") is not False:
+        raise RuntimeError("provider document OCR must not retain intermediate images")
+    if not isinstance(ocr.get("text"), str):
+        raise RuntimeError("provider document OCR text missing")
+    for field in ("engine", "rasterizer", "model_profile"):
+        if not isinstance(ocr.get(field), str) or not str(ocr.get(field)).strip():
+            raise RuntimeError(f"provider document OCR {field} missing")
+    languages = ocr.get("languages")
+    if not isinstance(languages, list) or not {"mya", "eng"}.issubset({str(value) for value in languages}):
+        raise RuntimeError("provider document OCR language profile invalid")
+    if ocr.get("psm") not in {4, 6, 11}:
+        raise RuntimeError("provider document OCR PSM invalid")
+    if not isinstance(ocr.get("page_count"), int) or not isinstance(ocr.get("processed_pages"), int):
+        raise RuntimeError("provider document OCR page metadata missing")
+    page_count = int(ocr["page_count"])
+    processed_pages = int(ocr["processed_pages"])
+    if processed_pages < 1 or processed_pages > page_count:
+        raise RuntimeError("provider document OCR processed-page metadata invalid")
+    pages = ocr.get("pages")
+    if not isinstance(pages, list) or len(pages) != processed_pages or not all(isinstance(value, dict) for value in pages):
+        raise RuntimeError("provider document OCR page evidence incomplete")
+    truncated = ocr.get("page_limit_truncated")
+    if not isinstance(truncated, bool) or truncated != (processed_pages < page_count):
+        raise RuntimeError("provider document OCR page completeness metadata invalid")
+
+    normalized = dict(ocr)
+    normalized.update(
+        {
+            "provider_contract_version": 1,
+            "provider_request_id": capture.provider_request_id,
+            "provider_fetch_sha256": fetch_sha256,
+        }
+    )
+    return ProviderDocumentOCRCapture(
+        provider_request_id=capture.provider_request_id,
+        input_sha256=input_sha256,
+        result=normalized,
+        artifact_path=capture.artifact_path,
     )
 
 

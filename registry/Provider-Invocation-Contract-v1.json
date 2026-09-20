@@ -8,13 +8,15 @@
     "C0_FETCH",
     "C1_RENDER",
     "C2_INSPECT",
-    "C3_BROWSER_USE"
+    "C3_BROWSER_USE",
+    "DOCUMENT_OCR"
   ],
   "tool_map": {
     "C0_FETCH": "browser_fetch",
     "C1_RENDER": "browser_render",
     "C2_INSPECT": "browser_inspect",
-    "C3_BROWSER_USE": "browser_use"
+    "C3_BROWSER_USE": "browser_use",
+    "DOCUMENT_OCR": "document_ocr"
   },
   "limits": {
     "max_run_seconds": 180,
@@ -96,6 +98,31 @@
             "mode": "APPROVED_HOST_PATH",
             "https_host": "moba.gov.mm",
             "path_prefix": "/my/tender/"
+          }
+        }
+      }
+    },
+    "S01": {
+      "enabled": true,
+      "source_policy_version": 2,
+      "allowed_capabilities": [
+        "DOCUMENT_OCR"
+      ],
+      "targets": {
+        "OFFICIAL_DOCUMENT": {
+          "https_host": "myanmar.gov.mm",
+          "path_prefix": "/documents/",
+          "capabilities": [
+            "DOCUMENT_OCR"
+          ],
+          "max_bytes": 8000000,
+          "max_run_seconds": 150,
+          "allow_query": false,
+          "allow_fragment": false,
+          "final_url_policy": {
+            "mode": "APPROVED_HOST_PATH",
+            "https_host": "myanmar.gov.mm",
+            "path_prefix": "/documents/"
           }
         }
       }

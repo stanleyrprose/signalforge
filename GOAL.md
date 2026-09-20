@@ -19,6 +19,10 @@ Issuer-original canonical acquisition remains the preferred truth path. When an 
 
 S01 National Portal remains an Assurance-only mission radar. It may scan a bounded recent pagination window to find target-sector leads, but must not ingest the historical portal corpus. Because National Portal `Closing Date` is hint-only and can represent issuer publication/listing time rather than the true bid deadline, S01 may retain mission leads whose closing-date hint is within a bounded 14-day lookback for coverage resolution; this lookback never makes the hint canonical, never creates a Signal by itself, and never bypasses issuer/official-document verification. Cross-surface coverage equivalence must use deterministic proof (for example identical official path modulo `www`, or source-specific exact issuer title plus exact attachment filename); fuzzy similarity and Portal `Closing Date` are not sufficient identity proofs.
 
+### Mandatory official-PDF OCR review rule
+
+Every **mission-relevant official PDF admitted to the opportunity-review surface** must complete visual OCR before its Review Packet may be marked review-ready. Native PDF text alone is never sufficient for review-ready status. OCR is an evidence channel, not canonical truth: critical business fields are reconciled against native extraction and remain human-review-required. The current remote OCR authority is narrowly scoped to S01 National Portal documents through Provider capability `DOCUMENT_OCR` and the exact HTTPS surface `myanmar.gov.mm/documents/*`; SignalForge does not receive arbitrary Mac file access and raw image-path OCR remains outside this contract.
+
 ## Engineering goal
 
 Expand and operate SignalForge across high-value Myanmar official sources while preserving the proven v1.5 local acquisition contract and the existing Worker / Control / Fleet boundaries.
@@ -33,7 +37,7 @@ Expand and operate SignalForge across high-value Myanmar official sources while 
 - Worker DB has no SignalForge source/canonical/acquisition business semantics.
 - Source adapters follow real issuer shape; there is no universal tender parser requirement.
 - TLS/HTTP failures stay fail-closed and do not silently become certificate bypass or Browser escalation.
-- Browser execution belongs only to the Mac Browser Plane; VPS Browser/Crawlee R3 is superseded. SignalForge→Mac unattended production invocation is permitted only through the live-reviewed PIC pull-SSH contract and explicit source/URL/capability allowlists; there is no generic HTTP/TLS failure fallback. Browserless/PDF/distributed coordination remain evidence-triggered future capabilities.
+- Browser and visual document execution belong only to the Mac Browser Plane; VPS Browser/Crawlee R3 is superseded. SignalForge→Mac unattended production invocation is permitted only through the live-reviewed PIC pull-SSH contract and explicit source/URL/capability allowlists; there is no generic HTTP/TLS failure fallback. `DOCUMENT_OCR` is permitted only for the reviewed S01 National Portal official-document surface and remains evidence enrichment with human confirmation required.
 
 ## Current production sources
 
