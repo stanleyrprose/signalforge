@@ -115,6 +115,50 @@ def _yangon_verified_external() -> dict[str, object]:
     }
 
 
+def _highway_verified_external() -> dict[str, object]:
+    return {
+        "gap_id": "S23:18be5b60-accb-11f1-b41f-3517e3a380a0",
+        "source_id": "S23",
+        "target_source_id": "S23",
+        "coverage_origin": "S23_REVIEW",
+        "issuer": "Ministry of Construction, Myanmar",
+        "title": "Highway maintenance / repair / supervision group tender",
+        "business_summary": "Yangon–Mandalay Expressway road-material procurement",
+        "location": "Nay Pyi Taw",
+        "deadline": "2026-09-23",
+        "deadline_time": "16:00",
+        "next_action_summary": "9/23 16:00前提交至高速公路维护/修复/监督组办公室。",
+        "url": "https://construction.gov.mm/letter-download/18be5b60-accb-11f1-b41f-3517e3a380a0",
+        "item_kind": "TENDER",
+        "relevance_categories": ["CONSTRUCTION"],
+        "priority_band": "MEDIUM",
+        "canonical_truth": False,
+    }
+
+
+def _mpt_verified_external() -> dict[str, object]:
+    return {
+        "gap_id": "S13:aa3cebae-2f59-5c3c-e840-640c99f0cb92",
+        "source_id": "S13",
+        "target_source_id": "S13",
+        "coverage_origin": "S01",
+        "issuer": "MPT / MDDC",
+        "title": "Pobbathiri Exchange Office earthquake damage repair tender",
+        "business_summary": "Pobbathiri Exchange Office earthquake repair",
+        "location": "Nay Pyi Taw",
+        "deadline": "2026-09-29",
+        "deadline_time": "14:00",
+        "tender_form_sale_close": "2026-09-24 16:30",
+        "site_survey_date": "2026-09-25",
+        "next_action_summary": "9/24 16:30停售表格；9/25踏勘；9/29投标",
+        "url": "https://myanmar.gov.mm/documents/20143/0/mpt.pdf/example",
+        "item_kind": "TENDER",
+        "relevance_categories": ["CONSTRUCTION"],
+        "priority_band": "MEDIUM",
+        "canonical_truth": False,
+    }
+
+
 class IndustryActionabilityOverlayTests(unittest.TestCase):
     def test_s38_scope_adds_submission_location_phone_and_next_action_without_mutating_input(self) -> None:
         item = {
@@ -563,6 +607,62 @@ class BusinessDigestTests(unittest.TestCase):
             self.assertEqual(digest["business"]["attention_count"], 2)
             self.assertEqual(digest["business"]["attention_action_counts"]["ACT_NOW"], 0)
             self.assertFalse(any(item.get("gap_id") == "S23:bed02200-b01f-11f1-b666-953fc0cbe05c" for item in digest["business"]["attention"]))
+
+    def test_verified_external_final_bid_deadline_within_72h_enters_attention(self) -> None:
+        radar = {"source_id": "S01", "status": "PASS", "details": {"unresolved_leads": []}}
+        with tempfile.TemporaryDirectory() as tmp, patch("signalforge.business_digest.business_briefing", return_value=_briefing()), patch(
+            "signalforge.business_digest.audit", return_value=_audit()
+        ), patch("signalforge.business_digest.source_scorecard", return_value=_scorecard()), patch(
+            "signalforge.business_digest.reviewed_coverage_gaps", return_value=[]
+        ), patch(
+            "signalforge.business_digest.verified_external_opportunities", return_value=[_highway_verified_external()]
+        ), patch("signalforge.business_digest.aggregator_surface_snapshot", return_value=radar):
+            digest = business_digest(
+                database=self._db(tmp),
+                registry=_Registry(),  # type: ignore[arg-type]
+                now=datetime(2026, 9, 21, 0, 0, tzinfo=UTC),
+                audit_network=False,
+            )
+        urgent = digest["business"]["attention"][0]
+        self.assertEqual(urgent["gap_id"], "S23:18be5b60-accb-11f1-b41f-3517e3a380a0")
+        self.assertEqual(urgent["attention_action"], "ACT_NOW")
+        self.assertEqual(urgent["attention_timing_kind"], "BID_SUBMISSION_DEADLINE")
+        self.assertEqual(urgent["attention_milestone_field"], "deadline")
+        self.assertEqual(urgent["deadline"], "2026-09-23")
+        self.assertEqual(urgent["deadline_time"], "16:00")
+        text = render_business_digest(digest, translator=lambda values: (values, False))
+        self.assertIn("投标截止 2026-09-23 16:00", text)
+
+    def test_verified_external_sale_close_alias_enters_window_only_when_due(self) -> None:
+        radar = {"source_id": "S01", "status": "PASS", "details": {"unresolved_leads": []}}
+        expected = (
+            (datetime(2026, 9, 21, 0, 0, tzinfo=UTC), False),
+            (datetime(2026, 9, 21, 12, 0, tzinfo=UTC), True),
+        )
+        for now, should_promote in expected:
+            with self.subTest(now=now.isoformat()), tempfile.TemporaryDirectory() as tmp, patch(
+                "signalforge.business_digest.business_briefing", return_value=_briefing()
+            ), patch("signalforge.business_digest.audit", return_value=_audit()), patch(
+                "signalforge.business_digest.source_scorecard", return_value=_scorecard()
+            ), patch("signalforge.business_digest.reviewed_coverage_gaps", return_value=[]), patch(
+                "signalforge.business_digest.verified_external_opportunities", return_value=[_mpt_verified_external()]
+            ), patch("signalforge.business_digest.aggregator_surface_snapshot", return_value=radar):
+                digest = business_digest(
+                    database=self._db(tmp),
+                    registry=_Registry(),  # type: ignore[arg-type]
+                    now=now,
+                    audit_network=False,
+                )
+            promoted = [item for item in digest["business"]["attention"] if item.get("gap_id") == "S13:aa3cebae-2f59-5c3c-e840-640c99f0cb92"]
+            self.assertEqual(bool(promoted), should_promote)
+            if should_promote:
+                item = promoted[0]
+                self.assertEqual(item["attention_timing_kind"], "TENDER_FORM_SALE_END")
+                self.assertEqual(item["attention_milestone_field"], "tender_form_sale_close")
+                self.assertEqual(item["deadline"], "2026-09-24")
+                self.assertEqual(item["deadline_time"], "16:30")
+                text = render_business_digest(digest, translator=lambda values: (values, False))
+                self.assertIn("售标截止 2026-09-24 16:30 · 投标截止 2026-09-29 14:00", text)
 
     def test_digest_reports_24h_pipeline_and_current_business_funnel(self) -> None:
         with tempfile.TemporaryDirectory() as tmp, patch("signalforge.business_digest.business_briefing", return_value=_briefing()), patch(

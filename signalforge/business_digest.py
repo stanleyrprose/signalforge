@@ -23,7 +23,7 @@ from .telegram_delivery import TelegramDeliveryError, _send_message
 from .translation import contains_myanmar, translate_myanmar_to_zh_hans
 from .source_scorecard import source_scorecard
 
-DIGEST_VERSION = 11
+DIGEST_VERSION = 12
 DIGEST_CHANNEL = "telegram-business-digest"
 DIGEST_TIMEZONE = ZoneInfo("Asia/Yangon")
 TELEGRAM_MESSAGE_LIMIT = 4096
@@ -337,41 +337,79 @@ def _verified_external_attention(
     *,
     now: datetime,
 ) -> list[dict[str, object]]:
-    """Promote date-only tender-form sale ends into digest-only urgency.
+    """Promote the earliest upcoming verified-external business milestone.
 
-    The verified-external record remains non-canonical. Because reviewed S23
-    documents currently expose only a sale-end date ("during office hours"),
-    the 72h gate is intentionally date-level: it starts 72h before the local
-    sale-end date begins and stays active through that calendar date.
+    This remains a digest-only read model. It never creates canonical items or
+    Signals. Reviewed records currently expose both date-only and date+time
+    milestone fields, so date-only sale ends keep the existing calendar-day
+    semantics while explicit date+time milestones use an exact <=72h window.
     """
 
     local_now = now.astimezone(DIGEST_TIMEZONE)
     rows: list[dict[str, object]] = []
-    for item in items:
-        sale_end_raw = str(item.get("tender_form_sale_end") or "").strip()
-        if len(sale_end_raw) < 10:
-            continue
+
+    def parse_local(value: object, *, fallback_time: object = None) -> tuple[datetime, bool] | None:
+        raw = str(value or "").strip()
+        if len(raw) < 10:
+            return None
+        date_text = raw[:10]
+        time_text = str(fallback_time or "").strip()
+        embedded_time = raw[11:16] if len(raw) >= 16 and raw[10] in {" ", "T"} else ""
+        resolved_time = embedded_time or time_text
         try:
-            sale_end_date = datetime.strptime(sale_end_raw[:10], "%Y-%m-%d").date()
+            day = datetime.strptime(date_text, "%Y-%m-%d").date()
         except ValueError:
-            continue
-        if sale_end_date < local_now.date():
-            continue
-        sale_end_start = datetime.combine(sale_end_date, datetime.min.time(), tzinfo=DIGEST_TIMEZONE)
-        if sale_end_start - local_now > timedelta(hours=72):
-            continue
+            return None
+        if resolved_time:
+            try:
+                clock = datetime.strptime(resolved_time[:5], "%H:%M").time()
+            except ValueError:
+                return None
+            return datetime.combine(day, clock, tzinfo=DIGEST_TIMEZONE), False
+        return datetime.combine(day, datetime.min.time(), tzinfo=DIGEST_TIMEZONE), True
+
+    for item in items:
+        candidates: list[tuple[datetime, bool, str, str]] = []
+        for field in ("tender_form_sale_end", "tender_form_sale_close"):
+            parsed = parse_local(item.get(field))
+            if parsed is not None:
+                at, date_only = parsed
+                candidates.append((at, date_only, "TENDER_FORM_SALE_END", field))
+
         final_deadline = str(item.get("deadline") or "").strip()
         final_deadline_time = str(item.get("deadline_time") or "").strip()
+        parsed_deadline = parse_local(final_deadline, fallback_time=final_deadline_time)
+        if parsed_deadline is not None:
+            at, date_only = parsed_deadline
+            candidates.append((at, date_only, "BID_SUBMISSION_DEADLINE", "deadline"))
+
+        upcoming: list[tuple[datetime, bool, str, str]] = []
+        for at, date_only, kind, field in candidates:
+            if date_only:
+                if at.date() < local_now.date():
+                    continue
+            elif at < local_now:
+                continue
+            upcoming.append((at, date_only, kind, field))
+        if not upcoming:
+            continue
+
+        at, date_only, kind, field = min(upcoming, key=lambda value: value[0])
+        if at - local_now > timedelta(hours=72):
+            continue
+
+        display_time = None if date_only else at.strftime("%H:%M")
         rows.append(
             {
                 **item,
                 "source_id": str(item.get("target_source_id") or item.get("source_id") or ""),
                 "scope_excerpt": item.get("business_summary") or item.get("scope_excerpt"),
                 "attention_action": "ACT_NOW",
-                "attention_reason": "VERIFIED_EXTERNAL_TENDER_FORM_SALE_END_WITHIN_72H_DATE_WINDOW",
-                "attention_timing_kind": "TENDER_FORM_SALE_END",
-                "deadline": sale_end_date.isoformat(),
-                "deadline_time": None,
+                "attention_reason": "VERIFIED_EXTERNAL_MILESTONE_WITHIN_72H",
+                "attention_timing_kind": kind,
+                "attention_milestone_field": field,
+                "deadline": at.date().isoformat(),
+                "deadline_time": display_time,
                 "deadline_status": "OPEN",
                 "final_bid_deadline": final_deadline,
                 "final_bid_deadline_time": final_deadline_time,
@@ -937,11 +975,14 @@ def render_business_digest(
         return "业务内容"
 
     def timing_text(item: dict[str, object]) -> str:
-        if item.get("attention_timing_kind") == "TENDER_FORM_SALE_END":
+        timing_kind = item.get("attention_timing_kind")
+        if timing_kind == "TENDER_FORM_SALE_END":
             sale_end = _deadline_text(item)
             final_deadline = f"{item.get('final_bid_deadline') or ''} {item.get('final_bid_deadline_time') or ''}".strip()
             suffix = f" · 投标截止 {final_deadline}" if final_deadline else ""
             return f"售标截止 {sale_end}{suffix}"
+        if timing_kind == "BID_SUBMISSION_DEADLINE":
+            return f"投标截止 {_deadline_text(item)}"
         value = _deadline_text(item)
         if value.startswith("活动日"):
             return value
