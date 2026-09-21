@@ -8,7 +8,7 @@ from typing import Iterator
 from .config import db_path
 
 
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 9
 
 
 @contextmanager
@@ -369,6 +369,30 @@ def migrate(path: Path | None = None) -> None:
             );
             CREATE INDEX IF NOT EXISTS idx_metric_reviews_observed
                 ON metric_reviews(observed_at DESC);
+
+            CREATE TABLE IF NOT EXISTS project_lifecycle_events (
+                event_id TEXT PRIMARY KEY,
+                project_key TEXT NOT NULL,
+                source_id TEXT NOT NULL,
+                stage TEXT NOT NULL,
+                detected_at TEXT NOT NULL,
+                title TEXT NOT NULL,
+                url TEXT,
+                evidence_kind TEXT NOT NULL,
+                metadata_json TEXT NOT NULL DEFAULT '{}',
+                UNIQUE(project_key, source_id, stage, url)
+            );
+            CREATE INDEX IF NOT EXISTS idx_project_lifecycle_project_detected
+                ON project_lifecycle_events(project_key, detected_at);
+
+            CREATE TABLE IF NOT EXISTS project_procurement_links (
+                project_key TEXT PRIMARY KEY,
+                canonical_key TEXT NOT NULL UNIQUE,
+                linked_at TEXT NOT NULL,
+                linked_by TEXT NOT NULL,
+                link_basis TEXT NOT NULL,
+                FOREIGN KEY(canonical_key) REFERENCES canonical_items(canonical_key)
+            );
             """
         )
 

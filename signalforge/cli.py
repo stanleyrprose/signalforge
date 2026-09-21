@@ -35,6 +35,7 @@ from .jev_noise_shadow import (
 )
 from .jev_noise_triage import jev_noise_triage_report
 from .jev_shadow import DEFAULT_MODEL as JEV_DEFAULT_MODEL, DEFAULT_THRESHOLD as JEV_DEFAULT_THRESHOLD, jev_shadow_report
+from .leadtime import leadtime_report, link_procurement, record_project_event
 from .mpa import build_manual_bundle_preview, parse_listing_records, parse_pdf_business_fields, preview_summary
 from .mpa_manual import commit_manual_provider_bundle
 from .opportunities import current_opportunities
@@ -305,6 +306,19 @@ def main(argv: list[str] | None = None) -> int:
     opportunities_parser.add_argument("--source-id")
     opportunities_parser.add_argument("--include-expired", action="store_true")
     opportunities_parser.add_argument("--limit", type=int, default=50)
+    lifecycle_event_parser = sub.add_parser("project-event")
+    lifecycle_event_parser.add_argument("--project-key", required=True)
+    lifecycle_event_parser.add_argument("--source-id", required=True)
+    lifecycle_event_parser.add_argument("--stage", required=True)
+    lifecycle_event_parser.add_argument("--title", required=True)
+    lifecycle_event_parser.add_argument("--url")
+    lifecycle_link_parser = sub.add_parser("project-link-procurement")
+    lifecycle_link_parser.add_argument("--project-key", required=True)
+    lifecycle_link_parser.add_argument("--canonical-key", required=True)
+    lifecycle_link_parser.add_argument("--basis", required=True)
+    lifecycle_link_parser.add_argument("--by", default="operator")
+    lifecycle_report_parser = sub.add_parser("project-leadtime")
+    lifecycle_report_parser.add_argument("--limit", type=int, default=100)
     sub.add_parser("briefing")
     audit_parser = sub.add_parser("audit")
     audit_parser.add_argument("--no-network", action="store_true")
@@ -496,6 +510,25 @@ def main(argv: list[str] | None = None) -> int:
                 include_expired=bool(args.include_expired),
                 limit=int(args.limit),
             )
+        elif args.cmd == "project-event":
+            if not SOURCE_ID_PATTERN.fullmatch(args.source_id):
+                raise ValueError("invalid source id")
+            result = record_project_event(
+                project_key=args.project_key,
+                source_id=args.source_id,
+                stage=args.stage,
+                title=args.title,
+                url=args.url,
+            )
+        elif args.cmd == "project-link-procurement":
+            result = link_procurement(
+                project_key=args.project_key,
+                canonical_key=args.canonical_key,
+                link_basis=args.basis,
+                linked_by=args.by,
+            )
+        elif args.cmd == "project-leadtime":
+            result = leadtime_report(limit=int(args.limit))
         elif args.cmd == "briefing":
             result = business_briefing()
         elif args.cmd == "audit":
