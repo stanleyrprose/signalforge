@@ -95,8 +95,8 @@ class AssuranceTests(unittest.TestCase):
             with connect(database) as conn:
                 tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
                 version = conn.execute("SELECT MAX(version) FROM schema_meta").fetchone()[0]
-        self.assertEqual(SCHEMA_VERSION, 8)
-        self.assertEqual(version, 8)
+        self.assertEqual(SCHEMA_VERSION, 9)
+        self.assertEqual(version, 9)
         self.assertTrue(
             {
                 "assurance_runs", "coverage_audit_results", "noise_review_samples", "missed_signals",
