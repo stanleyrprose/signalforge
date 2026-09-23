@@ -74,9 +74,10 @@ def _ocr_result(
     page_count: int = 1,
     processed_pages: int = 1,
     truncated: bool = False,
+    runtime_projection: bool = False,
 ) -> dict[str, object]:
     digest = hashlib.sha256(payload).hexdigest()
-    return {
+    result: dict[str, object] = {
         "provider_contract_version": 1,
         "provider_request_id": str(uuid.uuid4()),
         "provider_fetch_sha256": provider_fetch_sha256 or digest,
@@ -96,6 +97,17 @@ def _ocr_result(
         "network_access": False,
         "intermediate_images_retained": False,
     }
+    if runtime_projection:
+        result.update(
+            {
+                "provider_runtime_projection_status": "OBSERVED",
+                "provider_runtime_state": "unknown",
+                "provider_job_state": "succeeded",
+                "provider_business_verification_state": "unknown",
+                "business_verification_required": True,
+            }
+        )
+    return result
 
 
 class ExternalOfficialReviewTests(unittest.TestCase):
@@ -160,6 +172,26 @@ class ExternalOfficialReviewTests(unittest.TestCase):
         self.assertEqual(fields["proposed_deadline_time"], "14:00")
         self.assertIn("Bid submission 2026-09-29 09:30-14:00", fields["next_action_summary"])
         self.assertIn("RC wall and roof repair", fields["scope_excerpt"])
+
+    def test_review_packet_surfaces_runtime_projection_but_keeps_human_gate(self) -> None:
+        _Reader.text = _native_mpt_text()
+        payload = b"%PDF-1.4 runtime projection fixture"
+        ocr = _ocr_result(payload, _ocr_mpt_text(), runtime_projection=True)
+        with patch("signalforge.external_official_review.PdfReader", _Reader):
+            packet = build_external_official_review_packet(
+                _lead(),
+                fetcher=lambda *_args, **_kwargs: payload,
+                ocr_provider=lambda _url: ocr,
+            )
+
+        self.assertEqual(packet["status"], "DUAL_EVIDENCE_REVIEW_READY")
+        self.assertEqual(packet["provider_runtime_projection_status"], "OBSERVED")
+        self.assertEqual(packet["provider_job_state"], "succeeded")
+        self.assertEqual(packet["provider_business_verification_state"], "unknown")
+        self.assertTrue(packet["business_verification_required"])
+        self.assertEqual(packet["authority"], "HUMAN_REVIEW_REQUIRED")
+        self.assertFalse(packet["verified_external"])
+        self.assertTrue(packet["human_confirmation_required"])
 
     def test_conflicting_deadline_time_fails_closed_and_preserves_both_values(self) -> None:
         _Reader.text = _native_mpt_text(deadline_time="14း00")

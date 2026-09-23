@@ -17,8 +17,14 @@ SHA = "a" * 64
 REQUEST_ID = str(uuid.uuid4())
 
 
-def _payload(*, page_count: int = 1, processed_pages: int = 1, truncated: bool = False) -> dict:
-    return {
+def _payload(
+    *,
+    page_count: int = 1,
+    processed_pages: int = 1,
+    truncated: bool = False,
+    runtime_projection: bool = False,
+) -> dict:
+    payload = {
         "fetch": {
             "url": URL,
             "status": 200,
@@ -44,6 +50,31 @@ def _payload(*, page_count: int = 1, processed_pages: int = 1, truncated: bool =
             "intermediate_images_retained": False,
         },
     }
+    if runtime_projection:
+        payload["runtime_projection"] = {
+            "runtime_state": {
+                "runtime_id": "mac-mm-01",
+                "runtime_type": "browser",
+                "contract_version": "agent-runtime-v1.1",
+                "operational_state": "unknown",
+                "reason_codes": ["READINESS_NOT_RECHECKED_FOR_PROVIDER_REQUEST"],
+            },
+            "job_state": {
+                "job_id": "browser-job-1",
+                "native_state": "COMPOSED_SUCCEEDED",
+                "state": "succeeded",
+                "failure_class": None,
+                "partial_effect_possible": False,
+            },
+            "verification_state": {
+                "status": "unknown",
+                "scope": "business_semantics",
+                "reason": "SOURCE_CROSS_CHECK_REQUIRED",
+                "checks": [],
+            },
+            "artifacts": [{"kind": "ocr_input", "sha256": SHA, "portable": False}],
+        }
+    return payload
 
 
 def _capture(payload: dict) -> ProviderDiagnosticCapture:
@@ -88,6 +119,51 @@ class ProviderDocumentOCRTests(unittest.TestCase):
         self.assertEqual(kwargs["capability"], "DOCUMENT_OCR")
         self.assertEqual(kwargs["url"], URL)
         self.assertEqual(kwargs["expected_content_types"], ["application/json"])
+
+    def test_wrapper_consumes_runtime_projection_without_upgrading_business_truth(self) -> None:
+        with patch(
+            "signalforge.acquisition_runtime.acquire_provider_diagnostic_bytes",
+            return_value=_capture(_payload(runtime_projection=True)),
+        ):
+            raw = _capture(_payload(runtime_projection=True))
+            raw_payload = json.loads(raw.payload.decode("utf-8"))
+            raw = ProviderDiagnosticCapture(
+                payload=raw.payload,
+                provider_request_id=raw.provider_request_id,
+                sha256=raw.sha256,
+                media_type=raw.media_type,
+                final_url=raw.final_url,
+                http_status=raw.http_status,
+                artifact_path=raw.artifact_path,
+                runtime_projection=raw_payload["runtime_projection"],
+            )
+            with patch(
+                "signalforge.acquisition_runtime.acquire_provider_diagnostic_bytes",
+                return_value=raw,
+            ):
+                result = acquire_provider_document_ocr(database=Path("/tmp/x.db"), url=URL)
+
+        self.assertEqual(result.result["provider_runtime_projection_status"], "OBSERVED")
+        self.assertEqual(result.result["provider_runtime_state"], "unknown")
+        self.assertEqual(result.result["provider_job_state"], "succeeded")
+        self.assertEqual(result.result["provider_business_verification_state"], "unknown")
+        self.assertTrue(result.result["business_verification_required"])
+        self.assertTrue(result.business_verification_required)
+
+    def test_runtime_projection_present_but_invalid_fails_closed_in_diagnostic_parser(self) -> None:
+        payload = _payload(runtime_projection=True)
+        payload["runtime_projection"]["job_state"]["state"] = "failed"
+        raw = json.dumps(payload).encode("utf-8")
+        from signalforge.acquisition_runtime import _runtime_projection_from_json_payload
+
+        with self.assertRaisesRegex(RuntimeError, "contradicts accepted provider success"):
+            _runtime_projection_from_json_payload(raw)
+
+        payload = _payload(runtime_projection=True)
+        payload["runtime_projection"]["artifacts"][0]["private_ref"] = "/private/mac/evidence"
+        raw = json.dumps(payload).encode("utf-8")
+        with self.assertRaisesRegex(RuntimeError, "private runtime reference"):
+            _runtime_projection_from_json_payload(raw)
 
     def test_wrapper_rejects_hosts_and_paths_outside_frozen_pic_scope(self) -> None:
         invalid = (

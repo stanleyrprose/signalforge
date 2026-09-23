@@ -46,6 +46,7 @@ class ProviderDiagnosticCapture:
     final_url: str | None
     http_status: int | None
     artifact_path: str
+    runtime_projection: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -54,6 +55,8 @@ class ProviderDocumentOCRCapture:
     input_sha256: str
     result: dict[str, Any]
     artifact_path: str
+    runtime_projection: dict[str, Any] | None = None
+    business_verification_required: bool = True
 
 
 def _json(value: object) -> str:
@@ -204,6 +207,72 @@ PROVIDER_CONTRACT_NAME = "Provider-Invocation-Contract-v1.json"
 PROVIDER_TERMINAL_FAILURES = {"FAILED", "EXPIRED", "CANCELLED"}
 
 
+_RUNTIME_OPERATIONAL_STATES = {"ready", "degraded", "blocked", "unknown"}
+_RUNTIME_JOB_STATES = {
+    "queued",
+    "waiting",
+    "running",
+    "succeeded",
+    "failed",
+    "cancelled",
+    "timeout",
+    "recovery_required",
+    "unknown",
+}
+_RUNTIME_VERIFICATION_STATES = {"not_required", "pending", "pass", "fail", "unknown"}
+
+
+def _contains_private_runtime_ref(value: object) -> bool:
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if key == "private_ref":
+                return True
+            if _contains_private_runtime_ref(item):
+                return True
+    elif isinstance(value, list):
+        return any(_contains_private_runtime_ref(item) for item in value)
+    return False
+
+
+def _validate_provider_runtime_projection(value: object) -> dict[str, Any] | None:
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        raise RuntimeError("provider runtime projection must be an object")
+
+    runtime_state = value.get("runtime_state")
+    job_state = value.get("job_state")
+    verification_state = value.get("verification_state")
+    artifacts = value.get("artifacts")
+    if not isinstance(runtime_state, dict) or not isinstance(job_state, dict) or not isinstance(verification_state, dict):
+        raise RuntimeError("provider runtime projection state objects missing")
+    if not isinstance(artifacts, list):
+        raise RuntimeError("provider runtime projection artifacts must be a list")
+    if runtime_state.get("contract_version") != "agent-runtime-v1.1":
+        raise RuntimeError("provider runtime projection contract version unsupported")
+    if runtime_state.get("operational_state") not in _RUNTIME_OPERATIONAL_STATES:
+        raise RuntimeError("provider runtime projection operational state invalid")
+    if job_state.get("state") not in _RUNTIME_JOB_STATES:
+        raise RuntimeError("provider runtime projection job state invalid")
+    if job_state.get("state") != "succeeded":
+        raise RuntimeError("provider runtime projection contradicts accepted provider success")
+    if verification_state.get("status") not in _RUNTIME_VERIFICATION_STATES:
+        raise RuntimeError("provider runtime projection verification state invalid")
+    if _contains_private_runtime_ref(value):
+        raise RuntimeError("provider runtime projection leaked private runtime reference")
+    return value
+
+
+def _runtime_projection_from_json_payload(payload: bytes) -> dict[str, Any] | None:
+    try:
+        value = json.loads(payload.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise RuntimeError("provider JSON evidence is not valid UTF-8 JSON") from exc
+    if not isinstance(value, dict):
+        raise RuntimeError("provider JSON evidence must be an object")
+    return _validate_provider_runtime_projection(value.get("runtime_projection"))
+
+
 def _load_provider_contract() -> dict:
     path = repo_root() / "registry" / PROVIDER_CONTRACT_NAME
     try:
@@ -299,6 +368,7 @@ def acquire_provider_diagnostic_bytes(
         raise RuntimeError(f"provider diagnostic content type mismatch: {media_type}")
     if str(row["result_request_sha256"] or "") != str(provider_request["request_sha256"]):
         raise RuntimeError("provider diagnostic request/result correlation mismatch")
+    runtime_projection = _runtime_projection_from_json_payload(payload) if media_type == "application/json" else None
     return ProviderDiagnosticCapture(
         payload=payload,
         provider_request_id=str(provider_request["provider_request_id"]),
@@ -307,6 +377,7 @@ def acquire_provider_diagnostic_bytes(
         final_url=str(row["result_final_url"]) if row["result_final_url"] else None,
         http_status=int(row["result_http_status"]) if row["result_http_status"] is not None else None,
         artifact_path=str(artifact_path),
+        runtime_projection=runtime_projection,
     )
 
 
@@ -415,12 +486,22 @@ def acquire_provider_document_ocr(
     if not isinstance(truncated, bool) or truncated != (processed_pages < page_count):
         raise RuntimeError("provider document OCR page completeness metadata invalid")
 
+    runtime_projection = capture.runtime_projection
+    runtime_state = runtime_projection.get("runtime_state") if runtime_projection is not None else {}
+    job_state = runtime_projection.get("job_state") if runtime_projection is not None else {}
+    verification_state = runtime_projection.get("verification_state") if runtime_projection is not None else {}
     normalized = dict(ocr)
     normalized.update(
         {
             "provider_contract_version": 1,
             "provider_request_id": capture.provider_request_id,
             "provider_fetch_sha256": fetch_sha256,
+            "provider_runtime_projection": runtime_projection,
+            "provider_runtime_projection_status": "OBSERVED" if runtime_projection is not None else "LEGACY_MISSING",
+            "provider_runtime_state": str(runtime_state.get("operational_state") or "unknown"),
+            "provider_job_state": str(job_state.get("state") or "unknown"),
+            "provider_business_verification_state": str(verification_state.get("status") or "unknown"),
+            "business_verification_required": True,
         }
     )
     return ProviderDocumentOCRCapture(
@@ -428,6 +509,8 @@ def acquire_provider_document_ocr(
         input_sha256=input_sha256,
         result=normalized,
         artifact_path=capture.artifact_path,
+        runtime_projection=runtime_projection,
+        business_verification_required=True,
     )
 
 
