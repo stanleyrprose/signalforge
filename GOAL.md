@@ -13,6 +13,15 @@ Source expansion, parser coverage, OCR, Assurance and delivery mechanics are mea
 
 The primary Telegram / briefing surface should therefore prefer **current, actionable, official government/SOE tenders with clear scope and dates**. Off-mission records (for example medical procurement, customs auctions, ordinary commodities, chemicals, yarn, consumer goods and general logistics) may remain in canonical storage for audit/research, but should not consume the main tender briefing unless a separately reviewed business reason promotes them.
 
+### Core business-success metrics
+
+SignalForge tracks two primary business outcomes and keeps them transparent rather than collapsing them into one opaque score:
+
+1. **Opportunity output quality** — report current mission opportunity count plus Signal Quality evidence/actionability distribution, Trust distribution, known timeframe/next-action/official-evidence rates, verified-external proof completeness, and Assurance coverage/miss/false-negative observables. `signal_quality_score` is an evidence/actionability measure, **not** a false-positive precision estimate; reviewed-external opportunities remain separately proven and are not assigned a canonical Signal Quality score.
+2. **Project-to-procurement lead time** — for projects explicitly linked by reviewed identity to a later procurement, measure from the first retained lifecycle precursor to the procurement's **official publication date/time**. `canonical_items.created_at` is only a fallback when official publication evidence is unavailable or invalid because ingestion delay must not inflate early-warning performance. Date-only publication evidence is measured in Myanmar calendar days.
+
+Every lead-time report must expose its linked/measured sample size, official-publication-vs-ingestion-fallback basis, and first-stage breakdown. The linked sample answers “how early did we detect projects that later became procurement”; it is **not** a precursor-to-procurement conversion rate unless a separately matured cohort denominator is defined and reviewed.
+
 ### Alternate official coverage rule
 
 Issuer-original canonical acquisition remains the preferred truth path. When an issuer's normal tender surface omits an opportunity, SignalForge may still count it as business coverage only when a reviewed alternate official surface provides the issuer's own document and all of the following are proven: issuer identity, business scope, deadline/actionability, allowlisted official URL, and retained document SHA256. Such records are labeled `VERIFIED_EXTERNAL_OFFICIAL_OPPORTUNITY`, remain `canonical_truth=false`, and must never be represented as canonical Signals. If the canonical pipeline later acquires the same official URL, canonical coverage supersedes the verified-external record without double counting.

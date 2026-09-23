@@ -23,6 +23,7 @@ from .auditor import audit
 from .briefing import business_briefing
 from .browser_escalation import browser_escalation_candidates
 from .business_digest import business_digest, telegram_digest
+from .business_kpis import business_kpi_report
 from .config import Registry, SOURCE_ID_PATTERN, db_path
 from .db import connect, migrate
 from .engine import run_due, run_source
@@ -319,6 +320,8 @@ def main(argv: list[str] | None = None) -> int:
     lifecycle_link_parser.add_argument("--by", default="operator")
     lifecycle_report_parser = sub.add_parser("project-leadtime")
     lifecycle_report_parser.add_argument("--limit", type=int, default=100)
+    business_kpi_parser = sub.add_parser("business-kpis")
+    business_kpi_parser.add_argument("--lead-limit", type=int, default=100)
     sub.add_parser("briefing")
     audit_parser = sub.add_parser("audit")
     audit_parser.add_argument("--no-network", action="store_true")
@@ -529,6 +532,8 @@ def main(argv: list[str] | None = None) -> int:
             )
         elif args.cmd == "project-leadtime":
             result = leadtime_report(limit=int(args.limit))
+        elif args.cmd == "business-kpis":
+            result = business_kpi_report(lead_limit=int(args.lead_limit))
         elif args.cmd == "briefing":
             result = business_briefing()
         elif args.cmd == "audit":
