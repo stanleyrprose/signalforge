@@ -450,6 +450,15 @@ def build_external_official_review_packet(
             "ocr_page_count": page_count,
             "ocr_processed_pages": processed_pages,
             "ocr_page_limit_truncated": page_limit_truncated,
+            "provider_runtime_projection_status": str(
+                ocr_result.get("provider_runtime_projection_status") or "LEGACY_MISSING"
+            ),
+            "provider_runtime_state": str(ocr_result.get("provider_runtime_state") or "unknown"),
+            "provider_job_state": str(ocr_result.get("provider_job_state") or "unknown"),
+            "provider_business_verification_state": str(
+                ocr_result.get("provider_business_verification_state") or "unknown"
+            ),
+            "business_verification_required": True,
         }
     )
     if page_limit_truncated:
