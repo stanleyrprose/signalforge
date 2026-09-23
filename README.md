@@ -21,6 +21,15 @@ sh -n bin/signalforge
 sh -n deploy/deploy-signalforge-release.sh
 ```
 
+## Core business KPI tooling
+
+```sh
+signalforge business-kpis
+signalforge project-leadtime --limit 100
+```
+
+`business-kpis` is read-only. It keeps output-quality evidence/actionability, Assurance miss/coverage risk, and project-to-procurement lead time as separate observables. Lead time prefers official procurement publication evidence over SignalForge ingestion timestamps and reports sample/basis limitations explicitly.
+
 ## MPA preview tooling
 
 S15A remains deferred/inactive. The preview tools are operator-only and are not VPS Worker verbs:
