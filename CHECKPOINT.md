@@ -1,5 +1,23 @@
 # CHECKPOINT
 
+## Latest production override — 2026-09-24
+
+This section supersedes older production-state statements below; historical sections are retained as evidence.
+
+- Active Bangkok SignalForge release: `95e9161956df2b737c851cbedc78d1eb23f1621b` (PR #245 core business KPI release; previous active release `675c40e21427dfb13cd32978b156887eeecabef0`).
+- Production verification at `2026-09-24T16:21:39Z` / `2026-09-24 22:51 Asia/Yangon`: `signalforge business-kpis --lead-limit 20` PASS.
+- Core business opportunities: `9` = `7 canonical + 2 reviewed verified-external`; status `8 OPEN + 1 UNKNOWN`.
+- Canonical Signal Quality: average `82.3`, median `85`; bands `4 VERY_HIGH + 2 HIGH + 1 REVIEW`; `6/7` Trust A; `7/7` official-evidence dimension present; `6/7` known timeframe; `6/7` explicit next action.
+- Verified-external proof completeness: `2/2` complete; these remain non-canonical and are not assigned a canonical Signal Quality score.
+- Assurance: `REVIEW`; mandatory coverage proof `0.7143`; mandatory business coverage accounted `0.8571`; `open_misses=0`, `open_red_misses=0`, noise reviewed false-negative rate `0.04`; coverage-risk count `3`.
+- Known coverage risks remain: MPT issuer discovery partial, S21 Myanma Railways fetch failure, and S20/YESC business-detail partial. S21 is an existing known timeout problem, not a KPI-release regression.
+- Project-to-procurement lead-time production sample: `tracked_projects=0`, `linked_projects=0`. Therefore “how many days early” is **UNKNOWN / NOT YET MEASURABLE**, not zero days.
+- Historical records were deliberately not backfilled as project precursors unless they prove the same project identity and actual SignalForge first-detection time; no fuzzy/artificial link was created merely to populate the metric.
+- Lead-time definition: first retained reviewed precursor detection -> official procurement publication date/time; canonical ingestion time is fallback only when official publication evidence is unavailable/invalid.
+- Four production timers are enabled + active; SQLite `PRAGMA quick_check=ok`.
+- Full local suite for release: `504 passed`; PR #245 GitHub `verify` PASS.
+- Production closure evidence: `docs/verification/CORE-BUSINESS-KPI-PRODUCTION-CLOSURE-2026-09-24.md`.
+
 Date: 2026-09-04 (Asia/Yangon)
 Branch: `main` after S28 Department of Fisheries production onboarding closure.
 
