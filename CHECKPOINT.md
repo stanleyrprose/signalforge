@@ -13,7 +13,7 @@ This section records code state after PR #247 and does **not** supersede the pro
 - Promotion uses canonical `created_at` (SignalForge first retention) as `detected_at`; issuer publication date remains separate historical evidence. Fuzzy project-to-procurement linking remains prohibited.
 - New operator surfaces: `signalforge project-precursors`, `signalforge project-promote-precursor`, and `business-kpis.project_precursor_pipeline`.
 - Bangkok deployment is **PENDING / NOT VERIFIED** in this checkpoint. CodexPro/Mac access timed out repeatedly during rollout, and the repository has no deployment GitHub Actions workflow (only `verify.yml`). Do not claim S48 production-active until the standard Bangkok release script and live acceptance checks succeed.
-- Resume point: deploy `main@1caeac90bfdc6beebe06f68bf1d60aab3e755225` to Bangkok, then verify active symlink, S48 source state, `project-precursors`, `business-kpis --lead-limit 20`, all four timers, SQLite quick check, and that the existing tender opportunity surface is not polluted by precursor candidates.
+- Resume point: deploy the current `main` release containing code revision `1caeac90bfdc6beebe06f68bf1d60aab3e755225` to Bangkok, then verify active symlink, S48 source state, `project-precursors`, `business-kpis --lead-limit 20`, all four timers, SQLite quick check, and that the existing tender opportunity surface is not polluted by precursor candidates.
 
 
 ## Latest production override — 2026-09-24
