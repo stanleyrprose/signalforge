@@ -75,7 +75,7 @@ class MoiProjectPrecursorParserTests(unittest.TestCase):
         html = _listing(
             _card(node="83043", title="Yadanabon Cyber City project coordination meeting"),
             _card(node="90001", title="Education project coordination meeting"),
-            _card(node="90002", title="5G network update without project marker"),
+            _card(node="90002", title="5G network technology update"),
         )
         entries = parse_project_listing(html)
         self.assertEqual(len(entries), 1)
