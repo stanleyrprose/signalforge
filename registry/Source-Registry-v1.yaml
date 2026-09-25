@@ -2534,27 +2534,13 @@
         },
         "supplementary": [],
         "escalation": {
-          "DNS_FAILURE": {
-            "action": "RETRY"
-          },
-          "CONNECT_TIMEOUT": {
-            "action": "RETRY"
-          },
-          "HTTP_429": {
-            "action": "RETRY"
-          },
-          "HTTP_403": {
-            "action": "REVIEW"
-          },
-          "TLS_FAILURE": {
-            "action": "FAIL"
-          },
-          "JS_RENDER_REQUIRED": {
-            "action": "REVIEW_CAPABILITY"
-          },
-          "PARSER_DRIFT": {
-            "action": "REAUDIT"
-          }
+          "DNS_FAILURE": {"action": "RETRY"},
+          "CONNECT_TIMEOUT": {"action": "RETRY"},
+          "HTTP_429": {"action": "RETRY"},
+          "HTTP_403": {"action": "REVIEW"},
+          "TLS_FAILURE": {"action": "FAIL"},
+          "JS_RENDER_REQUIRED": {"action": "REVIEW_CAPABILITY"},
+          "PARSER_DRIFT": {"action": "REAUDIT"}
         }
       },
       "attachment_policy": {
@@ -2620,33 +2606,16 @@
       "egress_profile": "mm-intl-datacenter",
       "acquisition_policy": {
         "enabled": true,
-        "primary": {
-          "method": "DIRECT_HTTP",
-          "target_kind": "HTML"
-        },
+        "primary": {"method": "DIRECT_HTTP", "target_kind": "HTML"},
         "supplementary": [],
         "escalation": {
-          "DNS_FAILURE": {
-            "action": "RETRY"
-          },
-          "CONNECT_TIMEOUT": {
-            "action": "RETRY"
-          },
-          "HTTP_429": {
-            "action": "RETRY"
-          },
-          "HTTP_403": {
-            "action": "REVIEW"
-          },
-          "TLS_FAILURE": {
-            "action": "FAIL"
-          },
-          "JS_RENDER_REQUIRED": {
-            "action": "REVIEW_CAPABILITY"
-          },
-          "PARSER_DRIFT": {
-            "action": "REAUDIT"
-          }
+          "DNS_FAILURE": {"action": "RETRY"},
+          "CONNECT_TIMEOUT": {"action": "RETRY"},
+          "HTTP_429": {"action": "RETRY"},
+          "HTTP_403": {"action": "REVIEW"},
+          "TLS_FAILURE": {"action": "FAIL"},
+          "JS_RENDER_REQUIRED": {"action": "REVIEW_CAPABILITY"},
+          "PARSER_DRIFT": {"action": "REAUDIT"}
         }
       },
       "attachment_policy": {
@@ -2711,33 +2680,16 @@
       "egress_profile": "mm-intl-datacenter",
       "acquisition_policy": {
         "enabled": true,
-        "primary": {
-          "method": "DIRECT_HTTP",
-          "target_kind": "HTML"
-        },
+        "primary": {"method": "DIRECT_HTTP", "target_kind": "HTML"},
         "supplementary": [],
         "escalation": {
-          "DNS_FAILURE": {
-            "action": "RETRY"
-          },
-          "CONNECT_TIMEOUT": {
-            "action": "RETRY"
-          },
-          "HTTP_429": {
-            "action": "RETRY"
-          },
-          "HTTP_403": {
-            "action": "REVIEW"
-          },
-          "TLS_FAILURE": {
-            "action": "FAIL"
-          },
-          "JS_RENDER_REQUIRED": {
-            "action": "REVIEW_CAPABILITY"
-          },
-          "PARSER_DRIFT": {
-            "action": "REAUDIT"
-          }
+          "DNS_FAILURE": {"action": "RETRY"},
+          "CONNECT_TIMEOUT": {"action": "RETRY"},
+          "HTTP_429": {"action": "RETRY"},
+          "HTTP_403": {"action": "REVIEW"},
+          "TLS_FAILURE": {"action": "FAIL"},
+          "JS_RENDER_REQUIRED": {"action": "REVIEW_CAPABILITY"},
+          "PARSER_DRIFT": {"action": "REAUDIT"}
         }
       },
       "attachment_policy": {
@@ -2797,33 +2749,16 @@
       "egress_profile": "mm-intl-datacenter",
       "acquisition_policy": {
         "enabled": true,
-        "primary": {
-          "method": "DIRECT_HTTP",
-          "target_kind": "HTML"
-        },
+        "primary": {"method": "DIRECT_HTTP", "target_kind": "HTML"},
         "supplementary": [],
         "escalation": {
-          "DNS_FAILURE": {
-            "action": "RETRY"
-          },
-          "CONNECT_TIMEOUT": {
-            "action": "RETRY"
-          },
-          "HTTP_429": {
-            "action": "RETRY"
-          },
-          "HTTP_403": {
-            "action": "REVIEW"
-          },
-          "TLS_FAILURE": {
-            "action": "FAIL"
-          },
-          "JS_RENDER_REQUIRED": {
-            "action": "REVIEW_CAPABILITY"
-          },
-          "PARSER_DRIFT": {
-            "action": "REAUDIT"
-          }
+          "DNS_FAILURE": {"action": "RETRY"},
+          "CONNECT_TIMEOUT": {"action": "RETRY"},
+          "HTTP_429": {"action": "RETRY"},
+          "HTTP_403": {"action": "REVIEW"},
+          "TLS_FAILURE": {"action": "FAIL"},
+          "JS_RENDER_REQUIRED": {"action": "REVIEW_CAPABILITY"},
+          "PARSER_DRIFT": {"action": "REAUDIT"}
         }
       },
       "attachment_policy": {
@@ -2883,33 +2818,16 @@
       "egress_profile": "mm-intl-datacenter",
       "acquisition_policy": {
         "enabled": true,
-        "primary": {
-          "method": "DIRECT_HTTP",
-          "target_kind": "HTML"
-        },
+        "primary": {"method": "DIRECT_HTTP", "target_kind": "HTML"},
         "supplementary": [],
         "escalation": {
-          "DNS_FAILURE": {
-            "action": "RETRY"
-          },
-          "CONNECT_TIMEOUT": {
-            "action": "RETRY"
-          },
-          "HTTP_429": {
-            "action": "RETRY"
-          },
-          "HTTP_403": {
-            "action": "REVIEW"
-          },
-          "TLS_FAILURE": {
-            "action": "FAIL"
-          },
-          "JS_RENDER_REQUIRED": {
-            "action": "REVIEW_CAPABILITY"
-          },
-          "PARSER_DRIFT": {
-            "action": "REAUDIT"
-          }
+          "DNS_FAILURE": {"action": "RETRY"},
+          "CONNECT_TIMEOUT": {"action": "RETRY"},
+          "HTTP_429": {"action": "RETRY"},
+          "HTTP_403": {"action": "REVIEW"},
+          "TLS_FAILURE": {"action": "FAIL"},
+          "JS_RENDER_REQUIRED": {"action": "REVIEW_CAPABILITY"},
+          "PARSER_DRIFT": {"action": "REAUDIT"}
         }
       },
       "attachment_policy": {
@@ -2975,33 +2893,16 @@
       "egress_profile": "mm-intl-datacenter",
       "acquisition_policy": {
         "enabled": true,
-        "primary": {
-          "method": "DIRECT_HTTP",
-          "target_kind": "HTML"
-        },
+        "primary": {"method": "DIRECT_HTTP", "target_kind": "HTML"},
         "supplementary": [],
         "escalation": {
-          "DNS_FAILURE": {
-            "action": "RETRY"
-          },
-          "CONNECT_TIMEOUT": {
-            "action": "RETRY"
-          },
-          "HTTP_429": {
-            "action": "RETRY"
-          },
-          "HTTP_403": {
-            "action": "REVIEW"
-          },
-          "TLS_FAILURE": {
-            "action": "FAIL"
-          },
-          "JS_RENDER_REQUIRED": {
-            "action": "REVIEW_CAPABILITY"
-          },
-          "PARSER_DRIFT": {
-            "action": "REAUDIT"
-          }
+          "DNS_FAILURE": {"action": "RETRY"},
+          "CONNECT_TIMEOUT": {"action": "RETRY"},
+          "HTTP_429": {"action": "RETRY"},
+          "HTTP_403": {"action": "REVIEW"},
+          "TLS_FAILURE": {"action": "FAIL"},
+          "JS_RENDER_REQUIRED": {"action": "REVIEW_CAPABILITY"},
+          "PARSER_DRIFT": {"action": "REAUDIT"}
         }
       },
       "attachment_policy": {
@@ -3061,33 +2962,16 @@
       "egress_profile": "mm-intl-datacenter",
       "acquisition_policy": {
         "enabled": true,
-        "primary": {
-          "method": "DIRECT_HTTP",
-          "target_kind": "HTML"
-        },
+        "primary": {"method": "DIRECT_HTTP", "target_kind": "HTML"},
         "supplementary": [],
         "escalation": {
-          "DNS_FAILURE": {
-            "action": "RETRY"
-          },
-          "CONNECT_TIMEOUT": {
-            "action": "RETRY"
-          },
-          "HTTP_429": {
-            "action": "RETRY"
-          },
-          "HTTP_403": {
-            "action": "REVIEW"
-          },
-          "TLS_FAILURE": {
-            "action": "FAIL"
-          },
-          "JS_RENDER_REQUIRED": {
-            "action": "REVIEW_CAPABILITY"
-          },
-          "PARSER_DRIFT": {
-            "action": "REAUDIT"
-          }
+          "DNS_FAILURE": {"action": "RETRY"},
+          "CONNECT_TIMEOUT": {"action": "RETRY"},
+          "HTTP_429": {"action": "RETRY"},
+          "HTTP_403": {"action": "REVIEW"},
+          "TLS_FAILURE": {"action": "FAIL"},
+          "JS_RENDER_REQUIRED": {"action": "REVIEW_CAPABILITY"},
+          "PARSER_DRIFT": {"action": "REAUDIT"}
         }
       },
       "attachment_policy": {
@@ -3153,33 +3037,16 @@
       "egress_profile": "mm-intl-datacenter",
       "acquisition_policy": {
         "enabled": true,
-        "primary": {
-          "method": "DIRECT_HTTP",
-          "target_kind": "HTML"
-        },
+        "primary": {"method": "DIRECT_HTTP", "target_kind": "HTML"},
         "supplementary": [],
         "escalation": {
-          "DNS_FAILURE": {
-            "action": "RETRY"
-          },
-          "CONNECT_TIMEOUT": {
-            "action": "RETRY"
-          },
-          "HTTP_429": {
-            "action": "RETRY"
-          },
-          "HTTP_403": {
-            "action": "REVIEW"
-          },
-          "TLS_FAILURE": {
-            "action": "FAIL"
-          },
-          "JS_RENDER_REQUIRED": {
-            "action": "REVIEW_CAPABILITY"
-          },
-          "PARSER_DRIFT": {
-            "action": "REAUDIT"
-          }
+          "DNS_FAILURE": {"action": "RETRY"},
+          "CONNECT_TIMEOUT": {"action": "RETRY"},
+          "HTTP_429": {"action": "RETRY"},
+          "HTTP_403": {"action": "REVIEW"},
+          "TLS_FAILURE": {"action": "FAIL"},
+          "JS_RENDER_REQUIRED": {"action": "REVIEW_CAPABILITY"},
+          "PARSER_DRIFT": {"action": "REAUDIT"}
         }
       },
       "attachment_policy": {
