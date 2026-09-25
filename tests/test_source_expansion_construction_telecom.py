@@ -53,6 +53,7 @@ class ConstructionTelecomSourceTests(unittest.TestCase):
         self.assertEqual(PORTFOLIO_TIERS["S43"], "STRATEGIC_WATCH")
         self.assertEqual(PORTFOLIO_TIERS["S44"], "STRATEGIC_WATCH")
         self.assertEqual(PORTFOLIO_TIERS["S45"], "STRATEGIC_WATCH")
+        self.assertEqual(PORTFOLIO_TIERS["S48"], "STRATEGIC_WATCH")
 
     def test_mpt_listing_filters_for_network_technology(self) -> None:
         html = b'''<html><body>

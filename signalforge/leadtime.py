@@ -20,6 +20,7 @@ STAGES = (
     "COMMISSIONING",
     "O_AND_M",
 )
+PRECURSOR_STAGES = ("POLICY", "BUDGET", "CAPACITY_BUILDING", "PROJECT_ANNOUNCEMENT", "PRE_PROCUREMENT")
 
 MYANMAR_TZ = timezone(timedelta(hours=6, minutes=30))
 _DATE_ONLY_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -159,6 +160,143 @@ def link_procurement(
             (project_key, canonical_key, linked, linked_by, link_basis),
         )
     return {"project_key": project_key, "canonical_key": canonical_key, "linked_at": linked}
+
+
+
+def precursor_candidates(*, database: Path | None = None, limit: int = 50) -> dict[str, object]:
+    if limit < 1 or limit > 500:
+        raise ValueError("limit must be between 1 and 500")
+    target = database or db_path()
+    migrate(target)
+    candidates: list[dict[str, object]] = []
+    tracked: dict[str, str] = {}
+    with connect(target) as conn:
+        for event in conn.execute("SELECT project_key,metadata_json FROM project_lifecycle_events"):
+            try:
+                metadata = json.loads(str(event["metadata_json"] or "{}"))
+            except json.JSONDecodeError:
+                continue
+            if isinstance(metadata, dict):
+                key = str(metadata.get("precursor_canonical_key") or "")
+                if key:
+                    tracked[key] = str(event["project_key"])
+        rows = conn.execute(
+            """
+            SELECT canonical_key,source_id,title,publication_date,url,created_at,evidence_sha256,payload_json
+            FROM canonical_items
+            WHERE item_kind='REGULATORY_NOTICE'
+            ORDER BY created_at DESC,canonical_key ASC
+            """
+        ).fetchall()
+        for row in rows:
+            try:
+                payload = json.loads(str(row["payload_json"] or "{}"))
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(payload, dict) or payload.get("business_stage") != "PROJECT_PRECURSOR_CANDIDATE":
+                continue
+            if payload.get("precursor_review_required") is not True:
+                continue
+            key = str(row["canonical_key"])
+            project_key = tracked.get(key)
+            candidates.append({
+                "canonical_key": key,
+                "source_id": str(row["source_id"]),
+                "title": str(row["title"] or ""),
+                "publication_date": row["publication_date"],
+                "first_retained_at": str(row["created_at"]),
+                "url": row["url"],
+                "evidence_sha256": row["evidence_sha256"],
+                "precursor_stage_hint": payload.get("precursor_stage_hint"),
+                "relevance_categories": payload.get("relevance_categories") or [],
+                "review_status": "TRACKED" if project_key else "PENDING_REVIEW",
+                "project_key": project_key,
+            })
+    pending = sum(1 for row in candidates if row["review_status"] == "PENDING_REVIEW")
+    return {
+        "metric": "PROJECT_PRECURSOR_PIPELINE",
+        "summary": {
+            "candidates": len(candidates),
+            "pending_review": pending,
+            "tracked": len(candidates) - pending,
+            "returned_candidates": min(limit, len(candidates)),
+        },
+        "candidates": candidates[:limit],
+        "semantics": {
+            "candidate_is_not_confirmed_project": True,
+            "human_review_required_before_lifecycle_promotion": True,
+            "first_retained_at_is_detection_evidence": True,
+            "issuer_publication_date_is_not_signalforge_detection_time": True,
+            "fuzzy_project_linking_prohibited": True,
+        },
+    }
+
+
+def promote_precursor_from_canonical(
+    *,
+    canonical_key: str,
+    project_key: str,
+    stage: str,
+    review_basis: str,
+    reviewed_by: str,
+    database: Path | None = None,
+) -> dict[str, object]:
+    stage = stage.upper()
+    if stage not in PRECURSOR_STAGES:
+        raise ValueError(f"invalid precursor stage: {stage}")
+    if not project_key.strip() or not review_basis.strip() or not reviewed_by.strip():
+        raise ValueError("project_key, review_basis and reviewed_by are required")
+    target = database or db_path()
+    migrate(target)
+    with connect(target) as conn:
+        row = conn.execute(
+            """
+            SELECT canonical_key,source_id,item_kind,title,publication_date,url,created_at,evidence_sha256,payload_json
+            FROM canonical_items WHERE canonical_key=?
+            """,
+            (canonical_key,),
+        ).fetchone()
+    if row is None:
+        raise ValueError("canonical precursor does not exist")
+    if str(row["item_kind"]) != "REGULATORY_NOTICE":
+        raise ValueError("canonical item is not a regulatory/project precursor notice")
+    try:
+        payload = json.loads(str(row["payload_json"] or "{}"))
+    except json.JSONDecodeError as exc:
+        raise ValueError("canonical precursor payload is invalid") from exc
+    if not isinstance(payload, dict) or payload.get("business_stage") != "PROJECT_PRECURSOR_CANDIDATE":
+        raise ValueError("canonical item is not a project precursor candidate")
+    if payload.get("precursor_review_required") is not True:
+        raise ValueError("canonical precursor is missing the review-required contract")
+    metadata = {
+        "precursor_canonical_key": str(row["canonical_key"]),
+        "precursor_publication_date": row["publication_date"],
+        "precursor_evidence_sha256": row["evidence_sha256"],
+        "precursor_stage_hint": payload.get("precursor_stage_hint"),
+        "precursor_selection_basis": payload.get("precursor_selection_basis"),
+        "review_basis": review_basis,
+        "reviewed_by": reviewed_by,
+        "detection_time_semantics": "CANONICAL_FIRST_INGESTION_TIME_NOT_PUBLICATION_DATE",
+    }
+    result = record_project_event(
+        project_key=project_key,
+        source_id=str(row["source_id"]),
+        stage=stage,
+        title=str(row["title"] or ""),
+        url=str(row["url"]) if row["url"] else None,
+        evidence_kind="RETAINED_CANONICAL_OFFICIAL",
+        detected_at=_parse(str(row["created_at"])),
+        metadata=metadata,
+        database=target,
+    )
+    return {
+        **result,
+        "canonical_key": canonical_key,
+        "publication_date": row["publication_date"],
+        "review_basis": review_basis,
+        "reviewed_by": reviewed_by,
+        "detection_time_semantics": metadata["detection_time_semantics"],
+    }
 
 
 def leadtime_report(*, database: Path | None = None, limit: int = 100) -> dict[str, object]:

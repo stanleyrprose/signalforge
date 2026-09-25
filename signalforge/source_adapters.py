@@ -47,6 +47,8 @@ from .moc import parse_tender_records as parse_moc_tender_records
 from .mte import parse_tender_records as parse_mte_tender_records
 from .mpt import SitemapEntry, parse_sitemap, parse_tender_detail as parse_mpt_tender_detail
 from .mpt_network import parse_network_records as parse_mpt_network_records
+from .moi_project_precursor import parse_project_detail as parse_moi_project_detail
+from .moi_project_precursor import parse_project_listing as parse_moi_project_listing
 from .mytel import parse_tender_records as parse_mytel_tender_records
 from .ptd import extract_tender_pdf_urls as extract_ptd_tender_pdf_urls
 from .ptd import parse_tender_detail as parse_ptd_tender_detail
@@ -156,6 +158,11 @@ def _parse_dwir_detail(payload: bytes, url: str) -> list[object]:
     tender = parse_dwir_tender_detail(payload, url)
     return [tender] if tender is not None else []
 
+
+
+def _parse_moi_project_detail(payload: bytes, url: str) -> list[object]:
+    item = parse_moi_project_detail(payload, url)
+    return [item] if item is not None else []
 
 
 def _parse_moi_detail(payload: bytes, url: str) -> list[object]:
@@ -526,6 +533,16 @@ ADAPTERS = {
         parse_discovery=_empty_discovery,
         parse_detail=lambda _payload, _url: [],
         parse_discovery_records=parse_mpt_network_records,
+    ),
+    "moi_project_precursor": SourceAdapter(
+        name="moi_project_precursor",
+        discovery_content_types=("text/html",),
+        discovery_parser_version="moi-news-project-precursor-list-v1",
+        detail_parser_version="moi-news-project-precursor-detail-v1",
+        normalizer_version="moi-project-precursor-normalize-v1",
+        canonicalizer_version="moi-news-node-id-v1",
+        parse_discovery=parse_moi_project_listing,
+        parse_detail=_parse_moi_project_detail,
     ),
     "ptd_policy_notice": SourceAdapter(
         name="ptd_policy_notice",

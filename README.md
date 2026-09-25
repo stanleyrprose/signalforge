@@ -25,10 +25,12 @@ sh -n deploy/deploy-signalforge-release.sh
 
 ```sh
 signalforge business-kpis
+signalforge project-precursors --limit 50
+signalforge project-promote-precursor --canonical-key moi-project:83043 --project-key yadanabon-cyber-city --stage PROJECT_ANNOUNCEMENT --basis "reviewed exact project identity" --by operator
 signalforge project-leadtime --limit 100
 ```
 
-`business-kpis` is read-only. It keeps output-quality evidence/actionability, Assurance miss/coverage risk, and project-to-procurement lead time as separate observables. Lead time prefers official procurement publication evidence over SignalForge ingestion timestamps and reports sample/basis limitations explicitly.
+`business-kpis` is read-only. It keeps output-quality evidence/actionability, the reviewed project-precursor pipeline, Assurance miss/coverage risk, and project-to-procurement lead time as separate observables. `project-precursors` is a read-only review queue. A precursor becomes lifecycle evidence only through explicit `project-promote-precursor`; promotion preserves the canonical first-retention timestamp as SignalForge detection evidence and never substitutes the issuer's historical publication date. Lead time still requires an explicit reviewed project-to-procurement link and reports sample/basis limitations explicitly.
 
 ## MPA preview tooling
 
