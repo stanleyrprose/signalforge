@@ -1,5 +1,21 @@
 # CHECKPOINT
 
+## Latest code rollout checkpoint — 2026-09-25
+
+This section records code state after PR #247 and does **not** supersede the production facts in the 2026-09-24 section until Bangkok deployment is verified.
+
+- PR #247 `feat: capture reviewed project precursors for lead-time tracking` merged to `main` at `1caeac90bfdc6beebe06f68bf1d60aab3e755225`.
+- GitHub Actions `verify` run `36145751602` PASS after one test-fixture correction; registry contract, Python compile, full unit suite, and shell syntax all passed.
+- S48 `MOI Official Project Precursor News` is now in code as a direct-HTTP, review-required upstream source.
+- S48 first-baseline policy is `baseline_lookback_days=0`: do not historical-backfill project precursors merely to populate lead-time metrics.
+- Candidate contract: project marker + target sector + forward-action evidence; open Tender/bid-invitation material is excluded from precursor classification.
+- A retained `PROJECT_PRECURSOR_CANDIDATE` does not write lifecycle evidence automatically. Human review must explicitly promote it.
+- Promotion uses canonical `created_at` (SignalForge first retention) as `detected_at`; issuer publication date remains separate historical evidence. Fuzzy project-to-procurement linking remains prohibited.
+- New operator surfaces: `signalforge project-precursors`, `signalforge project-promote-precursor`, and `business-kpis.project_precursor_pipeline`.
+- Bangkok deployment is **PENDING / NOT VERIFIED** in this checkpoint. CodexPro/Mac access timed out repeatedly during rollout, and the repository has no deployment GitHub Actions workflow (only `verify.yml`). Do not claim S48 production-active until the standard Bangkok release script and live acceptance checks succeed.
+- Resume point: deploy `main@1caeac90bfdc6beebe06f68bf1d60aab3e755225` to Bangkok, then verify active symlink, S48 source state, `project-precursors`, `business-kpis --lead-limit 20`, all four timers, SQLite quick check, and that the existing tender opportunity surface is not polluted by precursor candidates.
+
+
 ## Latest production override — 2026-09-24
 
 This section supersedes older production-state statements below; historical sections are retained as evidence.
