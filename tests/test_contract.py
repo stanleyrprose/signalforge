@@ -25,7 +25,7 @@ class ContractTests(unittest.TestCase):
         )
         self.assertEqual(manifest["verbs"]["signalforge-refresh"]["argument"], "source_id")
         self.assertEqual(manifest["grammar"]["source_id"], "^[A-Z][A-Z0-9]{0,15}$")
-        self.assertEqual(manifest["active_source_ids"], ["S05A", "S07", "S08A", "S10", "S12", "S13", "S16", "S20", "S21", "S22", "S25", "S26", "S28", "S29", "S30", "S31", "S32", "S33", "S34", "S35", "S36", "S37", "S39", "S40", "S41", "S43", "S44", "S45", "S46", "S47", "S27", "S38"])
+        self.assertEqual(manifest["active_source_ids"], ["S05A", "S07", "S08A", "S10", "S12", "S13", "S16", "S20", "S21", "S22", "S25", "S26", "S28", "S29", "S30", "S31", "S32", "S33", "S34", "S35", "S36", "S37", "S39", "S40", "S41", "S43", "S44", "S45", "S46", "S47", "S48", "S27", "S38"])
 
         registry = Registry.load(ROOT)
         with self.assertRaisesRegex(ConfigError, "invalid source id"):
@@ -145,6 +145,16 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(ycdc_mission["item_kind"], "TENDER")
         self.assertEqual(ycdc_mission["actionable_baseline_signal_policy"]["min_remaining_seconds"], 43200)
 
+        precursor = registry.source("S48")
+        self.assertEqual(precursor["adapter"], "moi_project_precursor")
+        self.assertEqual(precursor["role"], "ACTIVE_SELECTIVE")
+        self.assertEqual(precursor["item_kind"], "REGULATORY_NOTICE")
+        self.assertEqual(precursor["discovery_url"], "https://www.moi.gov.mm/news")
+        self.assertFalse(precursor["listing_complete_business_records"])
+        self.assertEqual(precursor["baseline_lookback_days"], 0)
+        self.assertEqual(precursor["health_policy"]["parse_sample_source"], "BUSINESS_PROCESSING")
+        self.assertEqual(precursor["attachment_policy"]["mode"], "HTML_ONLY_NO_ATTACHMENT_REQUIRED")
+
         energy = registry.source("S39")
         self.assertEqual(energy["adapter"], "energy_tender")
         self.assertEqual(energy["engine"], "direct_http")
@@ -176,7 +186,7 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(labour["acquisition_policy"]["supplementary"], energy["acquisition_policy"]["supplementary"])
 
         enabled = registry.enabled_sources()
-        self.assertEqual([sid for sid, _source in enabled[-6:]], ["S44", "S45", "S46", "S47", "S27", "S38"])
+        self.assertEqual([sid for sid, _source in enabled[-7:]], ["S44", "S45", "S46", "S47", "S48", "S27", "S38"])
         self.assertTrue(all(source["engine"] == "direct_http" for _sid, source in enabled[:-2]))
         self.assertTrue(all(source["engine"] == "provider" for _sid, source in enabled[-2:]))
         self.assertFalse(moi["attachment_policy"]["fetch_in_primary_pipeline"])

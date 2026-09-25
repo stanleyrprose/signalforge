@@ -7,7 +7,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from signalforge.db import connect, migrate
-from signalforge.leadtime import leadtime_report, link_procurement, record_project_event
+from signalforge.leadtime import (
+    leadtime_report,
+    link_procurement,
+    precursor_candidates,
+    promote_precursor_from_canonical,
+    record_project_event,
+)
 
 
 class ProjectLeadtimeTests(unittest.TestCase):
@@ -178,6 +184,86 @@ class ProjectLeadtimeTests(unittest.TestCase):
                     stage="GUESS",
                     title="bad stage",
                     database=database,
+                )
+
+
+    def test_reviewed_precursor_promotion_uses_first_retained_time_not_publication_date(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            database = Path(tmp) / "signalforge.db"
+            migrate(database)
+            created_at = "2026-09-25T03:00:00Z"
+            with connect(database) as conn, conn:
+                conn.execute(
+                    """
+                    INSERT INTO canonical_items(
+                        canonical_key,source_id,item_kind,title,reference_no,project_name,
+                        publication_date,deadline,location,url,content_hash,evidence_sha256,
+                        payload_json,created_at,updated_at
+                    ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                    """,
+                    (
+                        "moi-project:83043", "S48", "REGULATORY_NOTICE",
+                        "Yadanabon Cyber City project coordination meeting", "MOI-NEWS-83043",
+                        "Yadanabon Cyber City project coordination meeting", "2026-05-22", None, "Myanmar",
+                        "https://www.moi.gov.mm/news/83043", "hash-83043", "a" * 64,
+                        json.dumps({
+                            "business_stage": "PROJECT_PRECURSOR_CANDIDATE",
+                            "precursor_review_required": True,
+                            "precursor_stage_hint": "PROJECT_ANNOUNCEMENT",
+                            "precursor_selection_basis": "PROJECT_MARKER+TARGET_SECTOR+FORWARD_ACTION",
+                            "relevance_categories": ["CONSTRUCTION", "TELECOM"],
+                        }),
+                        created_at, created_at,
+                    ),
+                )
+            queue = precursor_candidates(database=database)
+            self.assertEqual(queue["summary"]["pending_review"], 1)
+            self.assertEqual(queue["candidates"][0]["first_retained_at"], created_at)
+            self.assertEqual(queue["candidates"][0]["publication_date"], "2026-05-22")
+            promoted = promote_precursor_from_canonical(
+                canonical_key="moi-project:83043",
+                project_key="yadanabon-cyber-city",
+                stage="PROJECT_ANNOUNCEMENT",
+                review_basis="reviewed exact project identity",
+                reviewed_by="operator",
+                database=database,
+            )
+            self.assertEqual(promoted["detected_at"], created_at)
+            self.assertEqual(promoted["publication_date"], "2026-05-22")
+            queue = precursor_candidates(database=database)
+            self.assertEqual(queue["summary"]["tracked"], 1)
+            self.assertEqual(queue["candidates"][0]["project_key"], "yadanabon-cyber-city")
+
+    def test_precursor_promotion_rejects_non_candidate_and_tender_stage(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            database = Path(tmp) / "signalforge.db"
+            migrate(database)
+            with connect(database) as conn, conn:
+                conn.execute(
+                    """
+                    INSERT INTO canonical_items(
+                        canonical_key,source_id,item_kind,title,reference_no,project_name,
+                        publication_date,deadline,location,url,content_hash,evidence_sha256,
+                        payload_json,created_at,updated_at
+                    ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                    """,
+                    (
+                        "notice:ordinary", "S46", "REGULATORY_NOTICE", "Ordinary policy",
+                        "ordinary", "Ordinary policy", "2026-09-24", None, "Myanmar",
+                        "https://official.test/ordinary", "hash", "sha",
+                        json.dumps({"business_stage": "STRATEGIC_INTELLIGENCE"}),
+                        "2026-09-24T00:00:00Z", "2026-09-24T00:00:00Z",
+                    ),
+                )
+            with self.assertRaisesRegex(ValueError, "not a project precursor candidate"):
+                promote_precursor_from_canonical(
+                    canonical_key="notice:ordinary", project_key="x", stage="PROJECT_ANNOUNCEMENT",
+                    review_basis="reviewed", reviewed_by="operator", database=database,
+                )
+            with self.assertRaisesRegex(ValueError, "invalid precursor stage"):
+                promote_precursor_from_canonical(
+                    canonical_key="notice:ordinary", project_key="x", stage="TENDER",
+                    review_basis="reviewed", reviewed_by="operator", database=database,
                 )
 
 
