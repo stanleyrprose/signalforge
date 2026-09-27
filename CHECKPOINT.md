@@ -1,5 +1,21 @@
 # CHECKPOINT
 
+## Latest production retirement checkpoint — 2026-09-27
+
+This section supersedes the prior S21 active-source production state while preserving all historical S21 acquisition and business evidence.
+
+- PR #251 `feat: retire unavailable S21 railway source` merged to `main` at `032798f2723dc3dc97946164b56993a6a0df3b58`; GitHub Actions `verify` PASS.
+- Bangkok active SignalForge release is now `032798f2723dc3dc97946164b56993a6a0df3b58`; previous active release was `0184ce18d7a34aa01596b6bea7a833264800d348`.
+- Release archive SHA256 matched Mac and Bangkok before deployment: `2a663ee46df177e189c467dd3c50a17385f6b094a92b6634fb1f120bd9490161`.
+- Before deployment, SignalForge had 33 active sources and was `DEGRADED / RED`; S21 alone had `986` consecutive fetch failures, last success `2026-09-13T13:00:46.633907Z`, and current source health RED.
+- S21 production state is now `enabled=false / role=RETIRED_UNAVAILABLE / acquisition_policy.enabled=false`. It is absent from the active manifest, scheduler source set, active source scorecard, CORE portfolio and mandatory Assurance coverage denominator.
+- Post-deploy SignalForge is `PASS / GREEN` with `32/32` active sources GREEN and recovery backlog 0. S21 is absent from the live source list and source scorecard.
+- Fresh Assurance completed successfully after deployment. Mandatory coverage is now `6` sources: `5 PASS + S13 PARTIAL with reviewed-external recovery`; mandatory business coverage accounted is `6/6 = 1.0`; mandatory check-failed sources are empty. Assurance remains `REVIEW` because remaining non-S21 coverage/detail risks are still surfaced rather than hidden.
+- Historical S21 provenance was retained: `45` canonical items, `4` Signals, source_state, prior failures and scheduler history remain in SQLite. The latest S21 scheduler run remains the pre-deployment `2026-09-27T08:10:20.385173Z` failed poll; the post-deploy run-due execution created no new S21 run.
+- SQLite `PRAGMA quick_check` returns `ok`; all four production timers remain enabled + active/waiting.
+- Reactivation gate remains: official Railways origin recovery or a separately reviewed reliable official replacement surface. Retirement does not imply that Myanma Railways has no current tenders.
+- Production closure evidence: `docs/verification/S21-RETIREMENT-PRODUCTION-CLOSURE-2026-09-27.md`.
+
 ## Latest production rollout checkpoint — 2026-09-27
 
 This section supersedes the 2026-09-25 deployment-pending statement and the 2026-09-24 production-release pointer.
