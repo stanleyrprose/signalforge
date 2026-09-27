@@ -25,7 +25,7 @@ class ContractTests(unittest.TestCase):
         )
         self.assertEqual(manifest["verbs"]["signalforge-refresh"]["argument"], "source_id")
         self.assertEqual(manifest["grammar"]["source_id"], "^[A-Z][A-Z0-9]{0,15}$")
-        self.assertEqual(manifest["active_source_ids"], ["S05A", "S07", "S08A", "S10", "S12", "S13", "S16", "S20", "S22", "S25", "S26", "S28", "S29", "S30", "S31", "S32", "S33", "S34", "S35", "S36", "S37", "S39", "S40", "S41", "S43", "S44", "S45", "S46", "S47", "S48", "S49", "S27", "S38"])
+        self.assertEqual(manifest["active_source_ids"], ["S05A", "S07", "S08A", "S10", "S12", "S13", "S16", "S20", "S22", "S25", "S26", "S28", "S29", "S30", "S31", "S32", "S33", "S34", "S35", "S36", "S37", "S39", "S40", "S41", "S43", "S44", "S45", "S46", "S47", "S48", "S49", "S50", "S27", "S38"])
 
         registry = Registry.load(ROOT)
         retired_s21 = registry.raw["sources"]["S21"]
@@ -85,6 +85,13 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(moi["baseline_lookback_days"], 180)
         self.assertEqual(moi["health_policy"]["parse_sample_source"], "DETAIL_SCHEDULER")
         self.assertEqual(moi["attachment_policy"]["mode"], "HTML_ONLY_NO_ATTACHMENT_REQUIRED")
+
+        moee_precursor = registry.source("S50")
+        self.assertEqual(moee_precursor["adapter"], "moee_project_precursor")
+        self.assertEqual(moee_precursor["engine"], "direct_http")
+        self.assertEqual(moee_precursor["discovery_url"], "https://moep.gov.mm/mm/ignite/page/12")
+        self.assertEqual(moee_precursor["baseline_lookback_days"], 0)
+        self.assertTrue(moee_precursor["acquisition_policy"]["enabled"])
 
         construction_precursor = registry.source("S49")
         self.assertEqual(construction_precursor["adapter"], "construction_project_precursor")
@@ -206,7 +213,7 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(labour["acquisition_policy"]["supplementary"], energy["acquisition_policy"]["supplementary"])
 
         enabled = registry.enabled_sources()
-        self.assertEqual([sid for sid, _source in enabled[-8:]], ["S44", "S45", "S46", "S47", "S48", "S49", "S27", "S38"])
+        self.assertEqual([sid for sid, _source in enabled[-9:]], ["S44", "S45", "S46", "S47", "S48", "S49", "S50", "S27", "S38"])
         self.assertTrue(all(source["engine"] == "direct_http" for _sid, source in enabled[:-2]))
         self.assertTrue(all(source["engine"] == "provider" for _sid, source in enabled[-2:]))
         self.assertFalse(moi["attachment_policy"]["fetch_in_primary_pipeline"])
