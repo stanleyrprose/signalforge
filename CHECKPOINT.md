@@ -1,5 +1,25 @@
 # CHECKPOINT
 
+## Project → procurement review queue production checkpoint — 2026-09-27
+
+This section closes the next final-goal tranche after S48/S49/S50 precursor acquisition: create an operational, review-only path from promoted projects to later procurement evidence without introducing automatic/fuzzy links.
+
+- PR #259 `feat: add reviewed project procurement link queue` merged to `main` at `e905cbd93a88bc0a19fa2bda82a15f08e27f9072`; GitHub Actions `verify` PASS (run `36325428113`).
+- Bangkok active SignalForge release is `e905cbd93a88bc0a19fa2bda82a15f08e27f9072`; previous release was `d28b2184d4930369ec93d5e73b14f3ebe23ef6ab`.
+- Release archive SHA256 matched Mac and Bangkok before deployment: `7f26cf7110d2864324b3a89e5072768614a7547f53d6cb8c8bab36670c892383`.
+- The first standard deploy attempt correctly returned `75 / SignalForge busy; deploy deferred`. No lock bypass or worker termination was used. After run-due / Telegram / Digest / Assurance services were inactive and no `signalforge-refresh@*.service` remained active/activating, the exact same verified release deployed successfully through `deploy/deploy-signalforge-release.sh`.
+- New read-only CLI: `project-link-suggestions --limit ... --per-project ...`.
+- Review suggestions require procurement evidence at or after the project's first SignalForge detection, exclude already-linked projects/canonicals, require deterministic project identity anchors, and treat sector/location/issuer only as supporting evidence. Same-location + same-sector without a real project identity anchor is explicitly rejected.
+- Suggestion score is ranking only, never probability or authority. `project-link-procurement` with explicit review basis remains the only authoritative write path; fuzzy automatic linking remains prohibited.
+- Production currently has zero promoted lifecycle projects, so live queue state is honestly `tracked_projects=0 / suggestions=0`. The system does not manufacture a sample to exercise the feature.
+- `business-kpis --lead-limit 20` now exposes `project_procurement_link_review` alongside the precursor pipeline and the reviewed lead-time metric. Current opportunity output remains 8 business opportunities (6 canonical + 2 verified external), while lead-time remains zero reviewed samples.
+- `business-digest --no-network` returns PASS with `digest_version=14` and the same review-queue data model.
+- Read-only production proof before/after CLI/KPI/Digest: `project_lifecycle_events 0→0`, `project_procurement_links 0→0`, `canonical_items 251→251`, `signals 72→72`, `digest_delivery_receipts 18→18`.
+- SignalForge remains `PASS / GREEN` with 34 active sources, recovery backlog 0. All four production timers are enabled and active/waiting. SQLite `PRAGMA quick_check` returns `ok`.
+- Focused leadtime/Digest/KPI tests: 48 PASS; full unit suite: 531 PASS; compileall and `git diff --check`: PASS.
+- Production closure evidence: `docs/verification/PROJECT-PROCUREMENT-LINK-REVIEW-PRODUCTION-CLOSURE-2026-09-27.md`.
+- Next final-goal bottleneck is no longer plumbing: it is obtaining the first **new post-activation** precursor, human-promoting its exact project identity, and later reviewing/linking a real procurement event. Historical backfill remains prohibited.
+
 ## S50 MOEE energy precursor production checkpoint — 2026-09-27
 
 S50 adds a project-formation evidence surface upstream of existing MOEE Tender coverage so future energy projects can enter reviewed lifecycle tracking before procurement publication.
