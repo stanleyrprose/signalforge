@@ -19,11 +19,12 @@ from .coverage_gaps import reviewed_coverage_gaps, verified_external_opportuniti
 from .external_official_review import build_external_official_review_packet
 from .db import connect
 from .mission_focus import classify_mission_fit
+from .leadtime import precursor_candidates
 from .telegram_delivery import TelegramDeliveryError, _send_message
 from .translation import contains_myanmar, translate_myanmar_to_zh_hans
 from .source_scorecard import source_scorecard
 
-DIGEST_VERSION = 12
+DIGEST_VERSION = 13
 DIGEST_CHANNEL = "telegram-business-digest"
 DIGEST_TIMEZONE = ZoneInfo("Asia/Yangon")
 TELEGRAM_MESSAGE_LIMIT = 4096
@@ -440,6 +441,7 @@ def business_digest(
     briefing = business_briefing(database=target, now=now, registry=registry)
     audit_result = audit(database=target, registry=registry, now=now, network=audit_network)
     scorecard_result = source_scorecard(database=target, now=now, registry=registry, window_days=30)
+    precursor_pipeline = precursor_candidates(database=target, limit=10)
     try:
         official_review_radar = aggregator_surface_snapshot(
             source_id="S01",
@@ -757,6 +759,7 @@ def business_digest(
             "official_review_packet_ready_count": review_packet_ready_count,
             "official_review_radar_status": str(official_review_radar.get("status") or "UNPROVEN"),
             "official_review_radar_policy": "FRESH_S01_AGGREGATOR_ONLY_NONCANONICAL_REVIEW_REQUIRED",
+            "project_precursor_pipeline": precursor_pipeline,
         },
         "auditor": {
             "status": audit_result.get("status"),
@@ -830,6 +833,19 @@ def render_business_digest(
     strategic_notices = activity.get("strategic_notices") or []
     if not isinstance(strategic_notices, list):
         strategic_notices = []
+    precursor_pipeline = business.get("project_precursor_pipeline") or {}
+    if not isinstance(precursor_pipeline, dict):
+        precursor_pipeline = {}
+    precursor_summary = precursor_pipeline.get("summary") or {}
+    if not isinstance(precursor_summary, dict):
+        precursor_summary = {}
+    precursor_items = precursor_pipeline.get("candidates") or []
+    if not isinstance(precursor_items, list):
+        precursor_items = []
+    pending_precursors = [
+        item for item in precursor_items
+        if isinstance(item, dict) and str(item.get("review_status") or "") == "PENDING_REVIEW"
+    ]
 
     translate_batch = translator or translate_myanmar_to_zh_hans
     digest_was_translated = False
@@ -1275,6 +1291,40 @@ def render_business_digest(
                 detail += f" · 下一步 {html.escape(next_action)}"
             lines.append(detail)
         lines.append("<i>仍属 coverage gap，不计入目标机会数。</i>")
+
+    pending_precursor_rows = pending_precursors[:3]
+    if pending_precursor_rows:
+        precursor_titles = translate_values(
+            [str(item.get("title") or "") for item in pending_precursor_rows],
+            120,
+        )
+        lines.extend([
+            "",
+            f"<b>🛰 采购前项目线索：{int(precursor_summary.get('pending_review') or len(pending_precursor_rows))} 条待复核</b>",
+        ])
+        for index, item in enumerate(pending_precursor_rows):
+            source_id = html.escape(str(item.get("source_id") or "?"))
+            title = html.escape(precursor_titles[index])
+            stage = html.escape(str(item.get("precursor_stage_hint") or "PROJECT_ANNOUNCEMENT"))
+            categories = item.get("relevance_categories") or []
+            if not isinstance(categories, list):
+                categories = []
+            sector = html.escape("/".join(str(value) for value in categories) or "TARGET_SECTOR")
+            first_retained = html.escape(str(item.get("first_retained_at") or "")[:10])
+            publication = html.escape(str(item.get("publication_date") or ""))
+            url = str(item.get("url") or "")
+            link = official_link(url, "官方原文") if url.startswith("https://www.moi.gov.mm/") else ""
+            lines.append(f"• [{source_id}] <b>{title}</b>{link}")
+            lines.append(
+                f"   阶段 {stage} · 方向 {sector} · 首次捕获 {first_retained}"
+                + (f" · 官方发布日期 {publication}" if publication else "")
+            )
+        lines.append("<i>仅为采购前项目候选；必须人工确认项目身份后才进入 lead-time tracking，不计入当前采购机会。</i>")
+    elif int(precursor_summary.get("tracked") or 0):
+        lines.extend([
+            "",
+            f"<b>🧭 Lead-time 跟踪</b>：已确认项目 {int(precursor_summary.get('tracked') or 0)} 个 · 待复核 0",
+        ])
 
     manual_rows = [item for item in manual_items[:3] if isinstance(item, dict)]
     if manual_rows:

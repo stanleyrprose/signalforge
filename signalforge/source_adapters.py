@@ -537,9 +537,9 @@ ADAPTERS = {
     "moi_project_precursor": SourceAdapter(
         name="moi_project_precursor",
         discovery_content_types=("text/html",),
-        discovery_parser_version="moi-news-project-precursor-list-v1",
-        detail_parser_version="moi-news-project-precursor-detail-v1",
-        normalizer_version="moi-project-precursor-normalize-v1",
+        discovery_parser_version="moi-news-project-precursor-list-v2",
+        detail_parser_version="moi-news-project-precursor-detail-v2",
+        normalizer_version="moi-project-precursor-normalize-v2",
         canonicalizer_version="moi-news-node-id-v1",
         parse_discovery=parse_moi_project_listing,
         parse_detail=_parse_moi_project_detail,
