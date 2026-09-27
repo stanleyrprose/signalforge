@@ -6,6 +6,8 @@ from typing import Callable
 from .atom_network import parse_network_records as parse_atom_network_records
 from .commerce import parse_notification_detail as parse_commerce_notification_detail
 from .commerce import parse_notification_listing as parse_commerce_notification_listing
+from .construction_project_precursor import parse_project_detail as parse_construction_project_detail
+from .construction_project_precursor import parse_project_listing as parse_construction_project_listing
 from .customs import parse_notification_records as parse_customs_notification_records
 from .customs_announcements import parse_auction_records as parse_customs_auction_records
 from .dast import parse_tender_detail as parse_dast_tender_detail
@@ -102,6 +104,11 @@ def _parse_mpt_detail(payload: bytes, url: str) -> list[object]:
 def _parse_yangon_construction_detail(payload: bytes, url: str) -> list[object]:
     tender = parse_yangon_construction_detail(payload, url)
     return [tender] if tender is not None else []
+
+
+def _parse_construction_project_detail(payload: bytes, url: str) -> list[object]:
+    item = parse_construction_project_detail(payload, url)
+    return [item] if item is not None else []
 
 
 def _parse_yangon_ycdc_mission_detail(payload: bytes, url: str) -> list[object]:
@@ -543,6 +550,16 @@ ADAPTERS = {
         canonicalizer_version="moi-news-node-id-v1",
         parse_discovery=parse_moi_project_listing,
         parse_detail=_parse_moi_project_detail,
+    ),
+    "construction_project_precursor": SourceAdapter(
+        name="construction_project_precursor",
+        discovery_content_types=("text/html",),
+        discovery_parser_version="construction-news-project-precursor-list-v1",
+        detail_parser_version="construction-news-project-precursor-detail-v1",
+        normalizer_version="construction-project-precursor-normalize-v1",
+        canonicalizer_version="construction-news-uuid-v1",
+        parse_discovery=parse_construction_project_listing,
+        parse_detail=_parse_construction_project_detail,
     ),
     "ptd_policy_notice": SourceAdapter(
         name="ptd_policy_notice",

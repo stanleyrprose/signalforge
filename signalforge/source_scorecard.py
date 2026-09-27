@@ -11,7 +11,7 @@ from .db import connect
 from .mission_focus import MISSION_POLICY_VERSION, classify_mission_fit
 from .opportunities import current_opportunities
 
-SCORECARD_VERSION = 5
+SCORECARD_VERSION = 6
 DEFAULT_WINDOW_DAYS = 30
 
 # Provisional portfolio tiers frozen by the 2026-09-10 business-yield audit.
@@ -19,7 +19,7 @@ DEFAULT_WINDOW_DAYS = 30
 PORTFOLIO_TIERS: dict[str, str] = {
     **{sid: "CORE" for sid in ("S13", "S20", "S30", "S38", "S39")},
     "S21": "RETIRED_UNAVAILABLE",
-    **{sid: "STRATEGIC_WATCH" for sid in ("S16", "S22", "S27", "S34", "S35", "S41", "S43", "S44", "S45", "S46", "S47", "S48")},
+    **{sid: "STRATEGIC_WATCH" for sid in ("S16", "S22", "S27", "S34", "S35", "S41", "S43", "S44", "S45", "S46", "S47", "S48", "S49")},
     **{sid: "CONTEXT" for sid in ("S05A", "S07", "S08A", "S10", "S12", "S26")},
     **{sid: "OBSERVATION" for sid in ("S25", "S28", "S29", "S31", "S32", "S33", "S36", "S37", "S40")},
 }
