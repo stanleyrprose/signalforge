@@ -1,5 +1,29 @@
 # CHECKPOINT
 
+## S50 MOEE energy precursor production checkpoint — 2026-09-27
+
+S50 adds a project-formation evidence surface upstream of existing MOEE Tender coverage so future energy projects can enter reviewed lifecycle tracking before procurement publication.
+
+- PR #257 `feat: add MOEE project precursor source` merged to `main` at `d28b2184d4930369ec93d5e73b14f3ebe23ef6ab`; GitHub `verify` PASS.
+- Bangkok active release is `d28b2184d4930369ec93d5e73b14f3ebe23ef6ab`; previous release was `fde7f078e23146dddb11208e914aed725f2b7dd3`.
+- Release archive SHA256 matched Mac and Bangkok: `27b4a326559a8bb503144f502ad6bcbd167f70d32f5ed4eef5aa2ebbb385e4df`.
+- S50 monitors `https://moep.gov.mm/mm/ignite/page/12`, structurally captures the five current main-news cards, and excludes the sidebar Tender list.
+- Detail parsing is project-clause scoped. A retained candidate requires a concrete electricity/energy asset plus explicit future/approval/finance/planning evidence. Started, operating, completed or open-procurement evidence rejects only the affected clause, not unrelated projects in the same article.
+- Candidate identity is `MOEE content id + stable normalized project-clause hash`.
+- Real-site dry verification before merge: all five current detail pages parsed successfully with zero false precursor candidates. Historical content 7133 produced exactly one valid fixture candidate: the Pinpet steel-factory planned coal-fired steam power plant; the already-under-construction 230/132kV 150MVA Switchbay in the same paragraph was excluded.
+- `baseline_lookback_days=0`: historical fixture content is not production detection evidence.
+- Verification before merge: 24 focused tests PASS, 526 full unit tests PASS, compileall PASS, `git diff --check` PASS.
+- First production systemd refresh: PASS / ExecMainStatus=0.
+- Production discovery parser `moee-latest-news-project-precursor-list-v1` found 5 current main-news entries; baseline correctly performed 0 detail attempts, created 0 canonical items and 0 signals.
+- S50 `baseline_complete=1`, no fetch failures, SQLite `quick_check=ok`.
+- Post-refresh SignalForge status: PASS / GREEN. Business Digest reports 34 monitored / 34 GREEN.
+- S50 procurement opportunity query returns 0, confirming precursor isolation from the Tender opportunity surface.
+- Project precursor pipeline remains 0 candidates / 0 pending / 0 tracked; project-to-procurement lead-time remains unmeasured rather than historically backfilled.
+- Business Digest v13 remains PASS with explicit zero-sample precursor pipeline.
+- All four production timers remain enabled and active/waiting.
+- Production closure evidence: `docs/verification/S50-MOEE-PRECURSOR-PRODUCTION-CLOSURE-2026-09-27.md`.
+- Next final-goal bottleneck: ensure a future reviewed precursor can efficiently reach an explicit human-reviewed project-to-procurement link when the eventual Tender appears. Inspect and, if necessary, add a non-authoritative link-review queue; fuzzy auto-linking remains prohibited.
+
 ## S49 Construction Ministry precursor production checkpoint — 2026-09-27
 
 S49 extends SignalForge's final-goal evidence surface upstream of Tender publication, using Ministry of Construction project/planned-capital-work news.
