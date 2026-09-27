@@ -1387,6 +1387,31 @@ class BusinessDigestTests(unittest.TestCase):
                 "missing": [],
                 "details": {"unresolved_leads": []},
             }
+            link_review = {
+                "metric": "PROJECT_PROCUREMENT_LINK_REVIEW_QUEUE",
+                "summary": {
+                    "tracked_projects": 1,
+                    "already_linked_projects": 0,
+                    "unlinked_projects": 1,
+                    "projects_with_suggestions": 1,
+                    "suggestions": 1,
+                    "returned_suggestions": 1,
+                },
+                "suggestions": [
+                    {
+                        "project_key": "pinpet-steel-factory-power",
+                        "procurement_canonical_key": "industry:pinpet:pump-house",
+                        "procurement_source_id": "S38",
+                        "procurement_title": "Pinpet steel factory Pump House equipment tender",
+                        "suggestion_score": 72,
+                        "evidence": {
+                            "shared_identity_terms": ["pinpet", "steel-factory"],
+                            "procurement_formed_at": "2026-09-28",
+                        },
+                    }
+                ],
+                "semantics": {"review_only": True, "no_link_write": True},
+            }
             with patch(
                 "signalforge.business_digest.business_briefing",
                 return_value=_briefing(),
@@ -1405,6 +1430,9 @@ class BusinessDigestTests(unittest.TestCase):
             ), patch(
                 "signalforge.business_digest.aggregator_surface_snapshot",
                 return_value=radar,
+            ), patch(
+                "signalforge.business_digest.procurement_link_suggestions",
+                return_value=link_review,
             ):
                 digest = business_digest(
                     database=database,
@@ -1420,6 +1448,11 @@ class BusinessDigestTests(unittest.TestCase):
             self.assertIn("采购前项目线索：1 条待复核", text)
             self.assertIn("New 230kV substation will be constructed", text)
             self.assertIn("不计入当前采购机会", text)
+            link_queue = digest["business"]["project_procurement_link_review"]
+            self.assertEqual(link_queue["summary"]["suggestions"], 1)
+            self.assertIn("项目→采购待复核：1 条建议", text)
+            self.assertIn("pinpet-steel-factory-power", text)
+            self.assertIn("不会自动建立 project→procurement link", text)
 
     def test_migration_creates_digest_receipt_table(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
