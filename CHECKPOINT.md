@@ -1,5 +1,27 @@
 # CHECKPOINT
 
+## S49 Construction Ministry precursor production checkpoint — 2026-09-27
+
+S49 extends SignalForge's final-goal evidence surface upstream of Tender publication, using Ministry of Construction project/planned-capital-work news.
+
+- PR #255 merged to `main` at `fde7f078e23146dddb11208e914aed725f2b7dd3`; GitHub `verify` PASS.
+- Bangkok active release is `fde7f078e23146dddb11208e914aed725f2b7dd3`; previous release was `386edb2aa94b41a92cf9d5e25c9a1ad8d72c07fa`.
+- Release archive SHA256 matched Mac and Bangkok: `11540fbe9dc1147b43bc5962eb9c9ebba76270c15ec9c033de9244fa32a4eb20`.
+- S49 uses the TLS-valid `https://construction.gov.mm` host. The certificate-mismatched `www` hostname is not used and TLS verification is not disabled.
+- Parser scope is main-project title + primary relevant paragraph, preventing unrelated later site-inspection notes from poisoning the primary project stage.
+- Generic bilateral/sector cooperation without exact project identity remains strategic context, not a lead-time candidate.
+- `baseline_lookback_days=0`: historical front-page records are parser evidence only and do not establish SignalForge detection time.
+- First production systemd refresh: PASS / ExecMainStatus=0.
+- Live listing parser found 1 selector-matching historical listing item; baseline correctly performed `details_attempted=0`, `canonical_items=0`, `signals_created=0`.
+- S49 `baseline_complete=1`, no fetch failures, SQLite `quick_check=ok`.
+- Post-refresh SignalForge status: PASS / GREEN; 33 monitored sources, 33 GREEN.
+- S49 procurement opportunity query returns 0, confirming precursor isolation from the Tender surface.
+- Project precursor pipeline remains 0 candidates / 0 pending / 0 tracked; project-to-procurement lead-time remains unmeasured rather than backfilled.
+- Business Digest v13 remains PASS with explicit zero-sample precursor pipeline.
+- All four production timers remain enabled and active/waiting.
+- Production closure evidence: `docs/verification/S49-CONSTRUCTION-PRECURSOR-PRODUCTION-CLOSURE-2026-09-27.md`.
+- Next final-goal priority: add upstream official energy/power project approval, financing, planning/design or planned-capital-work evidence; do not prioritize another ordinary Tender source.
+
 ## Latest project-precursor v2 production checkpoint — 2026-09-27
 
 This section records the next final-goal tranche after S21 retirement: improve true pre-procurement precursor recall without manufacturing lead-time samples.
