@@ -19,12 +19,12 @@ from .coverage_gaps import reviewed_coverage_gaps, verified_external_opportuniti
 from .external_official_review import build_external_official_review_packet
 from .db import connect
 from .mission_focus import classify_mission_fit
-from .leadtime import precursor_candidates
+from .leadtime import precursor_candidates, procurement_link_suggestions
 from .telegram_delivery import TelegramDeliveryError, _send_message
 from .translation import contains_myanmar, translate_myanmar_to_zh_hans
 from .source_scorecard import source_scorecard
 
-DIGEST_VERSION = 13
+DIGEST_VERSION = 14
 DIGEST_CHANNEL = "telegram-business-digest"
 DIGEST_TIMEZONE = ZoneInfo("Asia/Yangon")
 TELEGRAM_MESSAGE_LIMIT = 4096
@@ -442,6 +442,11 @@ def business_digest(
     audit_result = audit(database=target, registry=registry, now=now, network=audit_network)
     scorecard_result = source_scorecard(database=target, now=now, registry=registry, window_days=30)
     precursor_pipeline = precursor_candidates(database=target, limit=10)
+    procurement_link_review = procurement_link_suggestions(
+        database=target,
+        limit=10,
+        per_project=3,
+    )
     try:
         official_review_radar = aggregator_surface_snapshot(
             source_id="S01",
@@ -760,6 +765,7 @@ def business_digest(
             "official_review_radar_status": str(official_review_radar.get("status") or "UNPROVEN"),
             "official_review_radar_policy": "FRESH_S01_AGGREGATOR_ONLY_NONCANONICAL_REVIEW_REQUIRED",
             "project_precursor_pipeline": precursor_pipeline,
+            "project_procurement_link_review": procurement_link_review,
         },
         "auditor": {
             "status": audit_result.get("status"),
@@ -846,6 +852,15 @@ def render_business_digest(
         item for item in precursor_items
         if isinstance(item, dict) and str(item.get("review_status") or "") == "PENDING_REVIEW"
     ]
+    link_review = business.get("project_procurement_link_review") or {}
+    if not isinstance(link_review, dict):
+        link_review = {}
+    link_review_summary = link_review.get("summary") or {}
+    if not isinstance(link_review_summary, dict):
+        link_review_summary = {}
+    link_review_items = link_review.get("suggestions") or []
+    if not isinstance(link_review_items, list):
+        link_review_items = []
 
     translate_batch = translator or translate_myanmar_to_zh_hans
     digest_was_translated = False
@@ -1325,6 +1340,40 @@ def render_business_digest(
             "",
             f"<b>🧭 Lead-time 跟踪</b>：已确认项目 {int(precursor_summary.get('tracked') or 0)} 个 · 待复核 0",
         ])
+
+    link_review_rows = [item for item in link_review_items[:3] if isinstance(item, dict)]
+    if link_review_rows:
+        procurement_titles = translate_values(
+            [str(item.get("procurement_title") or "") for item in link_review_rows],
+            120,
+        )
+        lines.extend([
+            "",
+            f"<b>🔗 项目→采购待复核：{int(link_review_summary.get('suggestions') or len(link_review_rows))} 条建议</b>",
+        ])
+        for index, item in enumerate(link_review_rows):
+            project_key = html.escape(str(item.get("project_key") or "?"))
+            source_id = html.escape(str(item.get("procurement_source_id") or "?"))
+            canonical_key = html.escape(str(item.get("procurement_canonical_key") or "?"))
+            title = html.escape(procurement_titles[index])
+            score = int(item.get("suggestion_score") or 0)
+            evidence = item.get("evidence") or {}
+            if not isinstance(evidence, dict):
+                evidence = {}
+            shared = evidence.get("shared_identity_terms") or []
+            if not isinstance(shared, list):
+                shared = []
+            shared_text = html.escape("/".join(str(value) for value in shared[:3]) or "identity")
+            formed_at = html.escape(str(evidence.get("procurement_formed_at") or "")[:10])
+            lines.append(f"• <b>{project_key}</b> → [{source_id}] {title}")
+            lines.append(
+                f"   候选 {canonical_key} · 排序分 {score}/100 · 共同身份 {shared_text}"
+                + (f" · 采购形成 {formed_at}" if formed_at else "")
+            )
+        lines.append(
+            "<i>仅为人工 link review 建议；不会自动建立 project→procurement link。"
+            "确认后仍需显式 project-link-procurement + basis/by。</i>"
+        )
 
     manual_rows = [item for item in manual_items[:3] if isinstance(item, dict)]
     if manual_rows:

@@ -36,7 +36,7 @@ from .jev_noise_shadow import (
 )
 from .jev_noise_triage import jev_noise_triage_report
 from .jev_shadow import DEFAULT_MODEL as JEV_DEFAULT_MODEL, DEFAULT_THRESHOLD as JEV_DEFAULT_THRESHOLD, jev_shadow_report
-from .leadtime import leadtime_report, link_procurement, precursor_candidates, promote_precursor_from_canonical, record_project_event
+from .leadtime import leadtime_report, link_procurement, precursor_candidates, procurement_link_suggestions, promote_precursor_from_canonical, record_project_event
 from .mpa import build_manual_bundle_preview, parse_listing_records, parse_pdf_business_fields, preview_summary
 from .mpa_manual import commit_manual_provider_bundle
 from .opportunities import current_opportunities
@@ -326,6 +326,9 @@ def main(argv: list[str] | None = None) -> int:
     precursor_promote_parser.add_argument("--stage", required=True)
     precursor_promote_parser.add_argument("--basis", required=True)
     precursor_promote_parser.add_argument("--by", default="operator")
+    link_suggestion_parser = sub.add_parser("project-link-suggestions")
+    link_suggestion_parser.add_argument("--limit", type=int, default=50)
+    link_suggestion_parser.add_argument("--per-project", type=int, default=3)
     lifecycle_report_parser = sub.add_parser("project-leadtime")
     lifecycle_report_parser.add_argument("--limit", type=int, default=100)
     business_kpi_parser = sub.add_parser("business-kpis")
@@ -547,6 +550,11 @@ def main(argv: list[str] | None = None) -> int:
                 stage=args.stage,
                 review_basis=args.basis,
                 reviewed_by=args.by,
+            )
+        elif args.cmd == "project-link-suggestions":
+            result = procurement_link_suggestions(
+                limit=int(args.limit),
+                per_project=int(args.per_project),
             )
         elif args.cmd == "project-leadtime":
             result = leadtime_report(limit=int(args.limit))

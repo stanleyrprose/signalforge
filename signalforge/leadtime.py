@@ -8,6 +8,7 @@ from pathlib import Path
 
 from .config import db_path
 from .db import connect, migrate
+from .mission_focus import classify_mission_fit
 
 STAGES = (
     "POLICY",
@@ -296,6 +297,359 @@ def promote_precursor_from_canonical(
         "review_basis": review_basis,
         "reviewed_by": reviewed_by,
         "detection_time_semantics": metadata["detection_time_semantics"],
+    }
+
+
+_GENERIC_IDENTITY_TERMS = {
+    "project", "projects", "tender", "procurement", "construction", "works", "work",
+    "planned", "plan", "planning", "new", "build", "building", "built", "upgrade",
+    "expand", "expansion", "implementation", "implement", "approval", "approved",
+    "budget", "fund", "funding", "purchase", "supply", "equipment", "installation",
+    "ministry", "department", "government", "myanmar", "city", "road", "bridge",
+    "power", "plant", "station", "substation", "grid", "transmission", "distribution",
+    "line", "network", "telecom", "energy", "engineering", "electricity", "ict", "digital", "infrastructure",
+    "စီမံကိန်း", "လုပ်ငန်း", "အတွက်", "အတွင်း", "အသစ်", "တည်ဆောက်", "တည်ဆောက်ရန်",
+    "တည်ဆောက်မည်", "တည်ဆောက်မည့်", "တည်ဆောက်မည့်", "ဆောက်လုပ်", "တိုးချဲ့",
+    "ဆောင်ရွက်", "အကောင်အထည်ဖော်", "ဝယ်ယူ", "အိတ်ဖွင့်တင်ဒါ", "အိတ်ဖွင့်တင်ဒါ",
+    "တင်ဒါ", "ဖိတ်ခေါ်", "ခေါ်ယူ", "ဝန်ကြီးဌာန", "ဦးစီးဌာန", "အခြေအနေ",
+    "ဓာတ်အားပေးစက်ရုံ", "ဓာတ်အားခွဲရုံ", "ဓာတ်အားလိုင်း",
+}
+_IDENTITY_SUFFIXES = ("စီမံကိန်း", "လုပ်ငန်း", "အတွင်း", "အတွက်")
+_IDENTITY_SPLIT_RE = re.compile(r"[\s,.;:!?()\[\]{}<>/\\|+&'\"“”‘’၊။\-–—]+")
+_GENERIC_LOCATIONS = {"myanmar", "မြန်မာ", "မြန်မာနိုင်ငံ"}
+
+
+def _identity_terms(*values: object) -> list[str]:
+    terms: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        text = " ".join(str(value or "").split()).lower()
+        for raw in _IDENTITY_SPLIT_RE.split(text):
+            term = raw.strip()
+            if not term:
+                continue
+            for suffix in _IDENTITY_SUFFIXES:
+                if term.endswith(suffix) and len(term) >= len(suffix) + 4:
+                    term = term[: -len(suffix)]
+                    break
+            if (
+                not term
+                or term in _GENERIC_IDENTITY_TERMS
+                or len(term) < 4
+                or any(ch.isdigit() for ch in term)
+                or not any(ch.isalpha() for ch in term)
+                or term in seen
+            ):
+                continue
+            seen.add(term)
+            terms.append(term)
+    return terms
+
+
+def _compact_identity_text(*values: object) -> str:
+    combined = " ".join(str(value or "") for value in values).lower()
+    return "".join(_IDENTITY_SPLIT_RE.split(combined))
+
+
+def _safe_payload(value: object) -> dict[str, object]:
+    try:
+        parsed = json.loads(str(value or "{}"))
+    except json.JSONDecodeError:
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def _procurement_temporal_evidence(
+    *,
+    publication_date: object,
+    created_at: str,
+    first_detected_at: datetime,
+) -> tuple[str, str] | None:
+    publication = str(publication_date or "").strip()
+    if publication:
+        if _DATE_ONLY_RE.fullmatch(publication):
+            procurement_date = datetime.strptime(publication, "%Y-%m-%d").date()
+            if procurement_date < first_detected_at.astimezone(MYANMAR_TZ).date():
+                return None
+            return publication, "OFFICIAL_PUBLICATION_DATE"
+        try:
+            procurement_at = _parse(publication)
+        except ValueError:
+            pass
+        else:
+            if procurement_at < first_detected_at:
+                return None
+            return procurement_at.isoformat().replace("+00:00", "Z"), "OFFICIAL_PUBLICATION_DATETIME"
+
+    created = _parse(created_at)
+    if created < first_detected_at:
+        return None
+    return created.isoformat().replace("+00:00", "Z"), "CANONICAL_CREATED_AT_FALLBACK"
+
+
+def procurement_link_suggestions(
+    *,
+    database: Path | None = None,
+    limit: int = 50,
+    per_project: int = 3,
+) -> dict[str, object]:
+    """Return review-only candidate procurement links for promoted projects."""
+
+    if limit < 1 or limit > 500:
+        raise ValueError("limit must be between 1 and 500")
+    if per_project < 1 or per_project > 20:
+        raise ValueError("per_project must be between 1 and 20")
+    target = database or db_path()
+    migrate(target)
+
+    with connect(target) as conn:
+        event_rows = conn.execute(
+            """
+            SELECT event_id,project_key,source_id,stage,detected_at,title,url,metadata_json
+            FROM project_lifecycle_events
+            ORDER BY detected_at ASC,event_id ASC
+            """
+        ).fetchall()
+        linked_rows = conn.execute(
+            "SELECT project_key,canonical_key FROM project_procurement_links"
+        ).fetchall()
+        procurement_rows = conn.execute(
+            """
+            SELECT canonical_key,source_id,item_kind,title,project_name,reference_no,
+                   publication_date,location,url,created_at,payload_json
+            FROM canonical_items
+            WHERE item_kind IN ('TENDER','AUCTION_NOTICE')
+            ORDER BY created_at DESC,canonical_key ASC
+            """
+        ).fetchall()
+
+        linked_projects = {str(row["project_key"]) for row in linked_rows}
+        linked_canonicals = {str(row["canonical_key"]) for row in linked_rows}
+        first_events: dict[str, object] = {}
+        for row in event_rows:
+            first_events.setdefault(str(row["project_key"]), row)
+
+        suggestions: list[dict[str, object]] = []
+        projects_with_suggestions: set[str] = set()
+        for project_key, event in first_events.items():
+            if project_key in linked_projects:
+                continue
+            first_detected = _parse(str(event["detected_at"]))
+            event_metadata = _safe_payload(event["metadata_json"])
+            precursor_key = str(event_metadata.get("precursor_canonical_key") or "")
+            precursor = None
+            precursor_payload: dict[str, object] = {}
+            if precursor_key:
+                precursor = conn.execute(
+                    """
+                    SELECT title,project_name,location,payload_json
+                    FROM canonical_items WHERE canonical_key=?
+                    """,
+                    (precursor_key,),
+                ).fetchone()
+                if precursor is not None:
+                    precursor_payload = _safe_payload(precursor["payload_json"])
+
+            project_values: list[object] = [project_key, event["title"]]
+            project_location = ""
+            project_issuer = ""
+            project_sectors: set[str] = set()
+            if precursor is not None:
+                project_values.extend(
+                    (
+                        precursor["title"],
+                        precursor["project_name"],
+                        precursor_payload.get("scope_summary"),
+                    )
+                )
+                project_location = str(
+                    precursor_payload.get("project_location_hint")
+                    or precursor_payload.get("location")
+                    or precursor["location"]
+                    or ""
+                )
+                project_issuer = str(precursor_payload.get("issuer") or "")
+                raw_categories = precursor_payload.get("relevance_categories") or []
+                if isinstance(raw_categories, list):
+                    project_sectors = {str(value) for value in raw_categories if str(value)}
+
+            support_only_terms = set(_identity_terms(project_location, project_issuer))
+            project_terms = [
+                term
+                for term in _identity_terms(*project_values)
+                if term not in support_only_terms
+            ]
+            if not project_terms:
+                continue
+
+            per_project_rows: list[dict[str, object]] = []
+            for row in procurement_rows:
+                canonical_key = str(row["canonical_key"])
+                if canonical_key in linked_canonicals:
+                    continue
+                temporal = _procurement_temporal_evidence(
+                    publication_date=row["publication_date"],
+                    created_at=str(row["created_at"]),
+                    first_detected_at=first_detected,
+                )
+                if temporal is None:
+                    continue
+                formed_at, temporal_basis = temporal
+                payload = _safe_payload(row["payload_json"])
+                procurement_values = (
+                    row["title"],
+                    row["project_name"],
+                    payload.get("scope_summary"),
+                    row["reference_no"],
+                )
+                procurement_compact = _compact_identity_text(*procurement_values)
+                shared = sorted(
+                    {
+                        term
+                        for term in project_terms
+                        if term and _compact_identity_text(term) in procurement_compact
+                    },
+                    key=lambda value: (-len(value), value),
+                )
+                if not shared:
+                    continue
+
+                max_anchor_len = max(len(term) for term in shared)
+                identity_score = min(75, max_anchor_len * 4 + max(0, len(shared) - 1) * 15)
+                if not (max_anchor_len >= 8 or len(shared) >= 2):
+                    continue
+
+                mission = classify_mission_fit(
+                    {
+                        "source_id": str(row["source_id"]),
+                        "item_kind": str(row["item_kind"]),
+                        "title": str(row["title"] or ""),
+                        "project_name": str(row["project_name"] or ""),
+                        "scope_summary": payload.get("scope_summary"),
+                        "relevance_categories": payload.get("relevance_categories") or [],
+                        "issuer": payload.get("issuer"),
+                        "location": row["location"],
+                    }
+                )
+                procurement_sector = (
+                    str(mission.get("mission_sector") or "")
+                    if bool(mission.get("mission_fit"))
+                    else ""
+                )
+                sector_match = bool(procurement_sector and procurement_sector in project_sectors)
+
+                procurement_location = str(
+                    payload.get("project_location_hint")
+                    or payload.get("location")
+                    or row["location"]
+                    or ""
+                )
+                project_location_key = _compact_identity_text(project_location)
+                procurement_location_key = _compact_identity_text(procurement_location)
+                location_match = bool(
+                    project_location_key
+                    and procurement_location_key
+                    and project_location_key not in _GENERIC_LOCATIONS
+                    and procurement_location_key not in _GENERIC_LOCATIONS
+                    and project_location_key == procurement_location_key
+                )
+                procurement_issuer = str(payload.get("issuer") or "")
+                issuer_match = bool(
+                    project_issuer
+                    and procurement_issuer
+                    and _compact_identity_text(project_issuer)
+                    == _compact_identity_text(procurement_issuer)
+                )
+
+                score = min(
+                    100,
+                    identity_score
+                    + (10 if sector_match else 0)
+                    + (10 if location_match else 0)
+                    + (5 if issuer_match else 0),
+                )
+                if not (identity_score >= 50 or (identity_score >= 35 and score >= 55)):
+                    continue
+
+                per_project_rows.append(
+                    {
+                        "project_key": project_key,
+                        "project_first_detected_at": str(event["detected_at"]),
+                        "project_first_stage": str(event["stage"]),
+                        "project_title": str(event["title"] or ""),
+                        "precursor_canonical_key": precursor_key or None,
+                        "procurement_canonical_key": canonical_key,
+                        "procurement_source_id": str(row["source_id"]),
+                        "procurement_title": str(row["title"] or ""),
+                        "procurement_project_name": str(row["project_name"] or ""),
+                        "procurement_reference_no": row["reference_no"],
+                        "procurement_publication_date": row["publication_date"],
+                        "procurement_created_at": str(row["created_at"]),
+                        "procurement_url": row["url"],
+                        "suggestion_score": score,
+                        "evidence": {
+                            "shared_identity_terms": shared[:8],
+                            "identity_anchor_score": identity_score,
+                            "project_sectors": sorted(project_sectors),
+                            "procurement_sector": procurement_sector or None,
+                            "sector_match": sector_match,
+                            "project_location": project_location or None,
+                            "procurement_location": procurement_location or None,
+                            "location_match": location_match,
+                            "project_issuer": project_issuer or None,
+                            "procurement_issuer": procurement_issuer or None,
+                            "issuer_match": issuer_match,
+                            "procurement_formed_at": formed_at,
+                            "temporal_basis": temporal_basis,
+                        },
+                        "authority": "REVIEW_ONLY_NO_LINK_WRITE",
+                        "required_action": "EXPLICIT_PROJECT_LINK_PROCUREMENT_REVIEW",
+                    }
+                )
+
+            per_project_rows.sort(
+                key=lambda item: (
+                    -int(item["suggestion_score"]),
+                    str(item["procurement_publication_date"] or item["procurement_created_at"]),
+                    str(item["procurement_canonical_key"]),
+                )
+            )
+            selected = per_project_rows[:per_project]
+            if selected:
+                projects_with_suggestions.add(project_key)
+                suggestions.extend(selected)
+
+    suggestions.sort(
+        key=lambda item: (
+            -int(item["suggestion_score"]),
+            str(item["project_first_detected_at"]),
+            str(item["project_key"]),
+            str(item["procurement_canonical_key"]),
+        )
+    )
+    tracked_projects = len(first_events)
+    linked_project_count = len(linked_projects)
+    return {
+        "metric": "PROJECT_PROCUREMENT_LINK_REVIEW_QUEUE",
+        "summary": {
+            "tracked_projects": tracked_projects,
+            "already_linked_projects": linked_project_count,
+            "unlinked_projects": max(0, tracked_projects - linked_project_count),
+            "projects_with_suggestions": len(projects_with_suggestions),
+            "suggestions": len(suggestions),
+            "returned_suggestions": min(limit, len(suggestions)),
+        },
+        "suggestions": suggestions[:limit],
+        "semantics": {
+            "review_only": True,
+            "suggestion_score_is_ranking_not_probability": True,
+            "no_link_write": True,
+            "human_review_required": True,
+            "explicit_link_command_remains_authoritative": True,
+            "procurement_must_not_predate_first_detection": True,
+            "sector_location_issuer_are_supporting_not_authoritative": True,
+            "fuzzy_automatic_linking_prohibited": True,
+        },
     }
 
 

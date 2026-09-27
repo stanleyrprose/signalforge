@@ -7,7 +7,7 @@ from .assurance import assurance_status
 from .config import Registry, db_path
 from .coverage_gaps import verified_external_opportunities
 from .db import connect
-from .leadtime import leadtime_report, precursor_candidates
+from .leadtime import leadtime_report, precursor_candidates, procurement_link_suggestions
 from .mission_focus import classify_mission_fit
 from .opportunities import current_opportunities
 
@@ -199,5 +199,10 @@ def business_kpi_report(
             assurance=assurance,
         ),
         "project_precursor_pipeline": precursor_candidates(database=target, limit=lead_limit),
+        "project_procurement_link_review": procurement_link_suggestions(
+            database=target,
+            limit=lead_limit,
+            per_project=3,
+        ),
         "project_to_procurement_lead_time": leadtime_report(database=target, limit=lead_limit),
     }
