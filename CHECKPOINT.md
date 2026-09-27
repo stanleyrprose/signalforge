@@ -1,5 +1,25 @@
 # CHECKPOINT
 
+## Latest project-precursor v2 production checkpoint — 2026-09-27
+
+This section records the next final-goal tranche after S21 retirement: improve true pre-procurement precursor recall without manufacturing lead-time samples.
+
+- PR #253 `feat: improve pre-procurement precursor capture` merged to `main` at `386edb2aa94b41a92cf9d5e25c9a1ad8d72c07fa`; GitHub Actions `verify` PASS.
+- Bangkok active SignalForge release is now `386edb2aa94b41a92cf9d5e25c9a1ad8d72c07fa`; previous active code release was `032798f2723dc3dc97946164b56993a6a0df3b58`.
+- Release archive SHA256 matched Mac and Bangkok before deployment: `bf3f91015deb6f9bbad2a2b0cce4d10c473e731e8b1cf74b1ca8afdaf953fe62`.
+- S48 selection policy is now v2. Listing recall accepts a target-sector title with either an explicit project marker or concrete future capital intent. Detail acceptance remains fail-closed and requires pre-procurement forward evidence while excluding work already underway, groundbreaking/foundation-stone activity, opening/completion/commissioning, and open procurement.
+- Business Digest version 13 now includes `project_precursor_pipeline` and surfaces pending human-review candidates without counting them as procurement opportunities.
+- Verification before merge: 51 final-goal targeted tests PASS, 509 full unit tests PASS, compileall PASS, `git diff --check` PASS.
+- First live S48 v2 refresh completed through `signalforge-refresh@S48.service` with `Result=success / ExecMainStatus=0`; latest processing record uses `moi-news-project-precursor-list-v2`.
+- Current live MOI page yielded zero accepted pre-procurement candidates: `items_found=0`, `details_attempted=0`, S48 canonical count 0. This is accepted evidence, not a failure: current inspected engineering/construction examples were already under construction, repair execution, or foundation-stone stage and therefore correctly excluded.
+- `project-precursors --limit 50` remains zero candidate / zero pending / zero tracked. `business-kpis --lead-limit 20` therefore keeps project-to-procurement lead-time unmeasured rather than fabricating history.
+- `business-digest --no-network` returns PASS with `digest_version=13`, current business opportunities 8, and the explicit zero-sample precursor pipeline.
+- `opportunities --source-id S48 --include-expired --limit 50` returns zero, confirming precursor logic remains isolated from the Tender opportunity surface.
+- SignalForge remains `PASS / GREEN` with 32 active sources; S48 is GREEN with no fetch failures. Parse health is UNKNOWN only because no BUSINESS_PROCESSING detail sample exists yet.
+- SQLite `PRAGMA quick_check` returns `ok`; all four production timers remain enabled and active/waiting.
+- Production closure evidence: `docs/verification/S48-PRECURSOR-V2-PRODUCTION-CLOSURE-2026-09-27.md`.
+- Next final-goal bottleneck: diversify upstream precursor evidence toward official project approval, budget/funding, planning, feasibility/design and planned-capital-work surfaces. Ordinary tender-source count is not the bottleneck.
+
 ## Latest production retirement checkpoint — 2026-09-27
 
 This section supersedes the prior S21 active-source production state while preserving all historical S21 acquisition and business evidence.
