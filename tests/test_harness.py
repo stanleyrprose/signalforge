@@ -146,7 +146,7 @@ class HarnessTests(unittest.TestCase):
     def test_mandatory_check_failure_makes_business_coverage_unknown(self) -> None:
         status, assurance, briefing, telegram = _snapshots()
         assurance["coverage"] = [
-            {"source_id": source_id, "status": "CHECK_FAILED" if source_id == "S21" else "PASS"}
+            {"source_id": source_id, "status": "CHECK_FAILED" if source_id == "S30" else "PASS"}
             for source_id in MANDATORY_COVERAGE_SOURCES
         ]
         report = evaluate_harness(
@@ -161,7 +161,7 @@ class HarnessTests(unittest.TestCase):
         self.assertEqual(report["sensors"]["S2"]["reason_code"], "BUSINESS_COVERAGE_UNVERIFIED")
         self.assertEqual(
             report["sensors"]["S2"]["mandatory_coverage_unknown"],
-            [{"source_id": "S21", "status": "CHECK_FAILED"}],
+            [{"source_id": "S30", "status": "CHECK_FAILED"}],
         )
 
     def test_supplemental_coverage_does_not_block_mandatory_done_gate(self) -> None:

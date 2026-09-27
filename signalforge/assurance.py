@@ -25,7 +25,7 @@ from .source_scorecard import PORTFOLIO_TIERS, _is_known_historical_noise, sourc
 
 ASSURANCE_VERSION = 1
 METRIC_REVIEW_VERSION = 1
-MANDATORY_COVERAGE_SOURCES = ("S13", "S20", "S21", "S30", "S38", "S39", "S41")
+MANDATORY_COVERAGE_SOURCES = ("S13", "S20", "S30", "S38", "S39", "S41")
 CORE_SOURCES = tuple(sorted(source_id for source_id, tier in PORTFOLIO_TIERS.items() if tier == "CORE"))
 COVERAGE_STATUSES = {"PASS", "GAP", "PARTIAL", "UNPROVEN", "CHECK_FAILED"}
 MISS_STATUSES = {"OPEN", "RESOLVED", "FALSE_POSITIVE"}

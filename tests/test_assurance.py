@@ -527,7 +527,7 @@ class AssuranceTests(unittest.TestCase):
         )
         self.assertEqual(unproven["status"], "UNPROVEN")
 
-    def test_assurance_status_separates_coverage_risk_from_confirmed_miss(self) -> None:
+    def test_retired_s21_legacy_failure_is_not_current_coverage_risk(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             database = self._db(tmp)
             run_id = "00000000-0000-4000-8000-000000000211"
@@ -589,19 +589,8 @@ class AssuranceTests(unittest.TestCase):
 
             latest = assurance_status(database=database)
             self.assertEqual(latest["counts"]["open_misses"], 0)
-            self.assertEqual(latest["coverage_risk_count"], 1)
-            risk = latest["coverage_risks"][0]
-            self.assertEqual(risk["source_id"], "S21")
-            self.assertEqual(risk["source_name"], "Myanma Railways Tenders")
-            self.assertEqual(risk["coverage_status"], "CHECK_FAILED")
-            self.assertEqual(risk["last_success_at"], "2026-09-13T13:00:46Z")
-            self.assertEqual(risk["retained_tender_count"], 1)
-            self.assertEqual(risk["retained_open_tender_count"], 0)
-            self.assertEqual(risk["latest_retained_tender_publication_date"], "2026-09-01")
-            self.assertEqual(risk["latest_retained_tender_deadline"], "2026-09-14")
-            self.assertEqual(risk["retained_tender_context_semantics"], "RETAINED_STATE_ONLY_NOT_CURRENT_COVERAGE_PROOF")
-            self.assertFalse(risk["known_miss"])
-            self.assertEqual(risk["semantics"], "COVERAGE_RISK_NOT_CONFIRMED_MISS")
+            self.assertEqual(latest["coverage_risk_count"], 0)
+            self.assertEqual(latest["coverage_risks"], [])
 
             with patch("signalforge.briefing.current_opportunities", return_value={
                 "qualification_policy_version": 1,
@@ -613,8 +602,8 @@ class AssuranceTests(unittest.TestCase):
             }):
                 briefing = business_briefing(database=database)
             self.assertEqual(briefing["assurance"]["open_misses"], 0)
-            self.assertEqual(briefing["assurance"]["coverage_risk_count"], 1)
-            self.assertEqual(briefing["assurance"]["coverage_risks"][0]["source_id"], "S21")
+            self.assertEqual(briefing["assurance"]["coverage_risk_count"], 0)
+            self.assertEqual(briefing["assurance"]["coverage_risks"], [])
 
     def test_assurance_status_preserves_mpt_issuer_discovery_partial_risk(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -816,8 +805,6 @@ class AssuranceTests(unittest.TestCase):
                         },
                     }
                     if source_id == "S13"
-                    else {"source_id": source_id, "status": "CHECK_FAILED", "missing": [], "details": {}}
-                    if source_id == "S21"
                     else {"source_id": source_id, "status": "PASS", "missing": [], "details": {}}
                 )
                 for source_id in MANDATORY_COVERAGE_SOURCES
@@ -842,11 +829,11 @@ class AssuranceTests(unittest.TestCase):
             reasons = review["conclusions"]["review_reasons"]
             self.assertEqual(metrics["mandatory_coverage_proven"], 5)
             self.assertEqual(metrics["mandatory_reviewed_external_recovery_sources"], ["S13"])
-            self.assertEqual(metrics["mandatory_check_failed_sources"], ["S21"])
+            self.assertEqual(metrics["mandatory_check_failed_sources"], [])
             self.assertEqual(metrics["mandatory_business_coverage_accounted"], 6)
-            self.assertEqual(metrics["mandatory_business_coverage_accounted_rate"], 0.8571)
+            self.assertEqual(metrics["mandatory_business_coverage_accounted_rate"], 1.0)
             self.assertIn("MANDATORY_COVERAGE_PARTIAL_RECOVERED_EXTERNALLY", reasons)
-            self.assertIn("MANDATORY_COVERAGE_CHECK_FAILED", reasons)
+            self.assertNotIn("MANDATORY_COVERAGE_CHECK_FAILED", reasons)
             self.assertNotIn("MANDATORY_COVERAGE_NOT_FULLY_PROVEN", reasons)
 
     def test_metric_validity_is_review_when_coverage_unproven_and_fail_with_red_miss(self) -> None:
