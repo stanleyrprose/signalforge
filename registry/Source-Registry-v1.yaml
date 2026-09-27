@@ -191,9 +191,15 @@
     "S21": {
       "name": "Myanma Railways Tenders",
       "adapter": "railways",
-      "enabled": true,
-      "role": "ACTIVE_PRIMARY",
-      "audit_status": "GREEN_CANDIDATE_PARSE_STRONG",
+      "enabled": false,
+      "role": "RETIRED_UNAVAILABLE",
+      "audit_status": "RETIRED_PERSISTENT_ORIGIN_TIMEOUT_2026_09_27",
+      "retirement": {
+        "retired_at": "2026-09-27",
+        "reason": "PERSISTENT_ORIGIN_CONNECT_TIMEOUT",
+        "historical_data_retained": true,
+        "reactivation_gate": "OFFICIAL_ORIGIN_RECOVERY_OR_REVIEWED_REPLACEMENT_SURFACE"
+      },
       "item_kind": "TENDER",
       "network_zone": "myanmar-international",
       "engine": "direct_http",
@@ -244,7 +250,7 @@
       "source_policy_version": 1,
       "egress_profile": "mm-intl-datacenter",
       "acquisition_policy": {
-        "enabled": true,
+        "enabled": false,
         "primary": {
           "method": "DIRECT_HTTP",
           "target_kind": "HTML"

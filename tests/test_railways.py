@@ -37,6 +37,11 @@ class RailwayFetcher:
 def _railway_registry(*, actionable: bool = False) -> Registry:
     raw = json.loads(json.dumps(Registry.load(ROOT).raw))
     source = raw["sources"]["S21"]
+    # Production retires S21, but adapter/engine regression tests keep an
+    # explicit isolated active fixture so the recovery path remains testable.
+    source["enabled"] = True
+    source["role"] = "ACTIVE_PRIMARY"
+    source["acquisition_policy"]["enabled"] = True
     if not actionable:
         source.pop("actionable_baseline_signal_policy", None)
     source["bootstrap_seed_urls"] = [DETAIL_URL]

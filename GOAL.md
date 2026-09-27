@@ -135,12 +135,13 @@ Expand and operate SignalForge across high-value Myanmar official sources while 
 
 ### S21 — Myanma Railways Tenders
 
-- production-enabled;
-- Direct HTTP / category-list discovery + multi-item detail parser;
-- first production baseline parsed 45 business tenders from 10 detail pages;
-- first baseline created zero customer signals;
-- source health GREEN;
-- evidence: `docs/verification/S21-SOURCE-ONBOARDING-2026-09-04.md`.
+- retired from active production on 2026-09-27 after persistent issuer-origin connect timeouts made the source operationally non-productive;
+- registry state is `enabled=false / role=RETIRED_UNAVAILABLE / acquisition_policy.enabled=false`;
+- removed from active scheduler polling, source-scorecard CORE portfolio, and active mandatory Assurance coverage denominator;
+- historical canonical items, Signals, evidence, source state, adapter, parser tests, and onboarding evidence are retained for provenance and possible future recovery;
+- retirement does not assert that Myanma Railways has no new tenders; it only states that the current official origin is not a reliable production acquisition surface;
+- reactivation requires official-origin recovery or a separately reviewed reliable official replacement surface;
+- historical onboarding evidence: `docs/verification/S21-SOURCE-ONBOARDING-2026-09-04.md`.
 
 ### S22 — Inland Water Transport Tenders
 
