@@ -1,8 +1,22 @@
 # CHECKPOINT
 
-## Latest code rollout checkpoint — 2026-09-25
+## Latest production rollout checkpoint — 2026-09-27
 
-This section records code state after PR #247 and does **not** supersede the production facts in the 2026-09-24 section until Bangkok deployment is verified.
+This section supersedes the 2026-09-25 deployment-pending statement and the 2026-09-24 production-release pointer.
+
+- Bangkok active SignalForge release is now `0184ce18d7a34aa01596b6bea7a833264800d348`, containing S48 code revision `1caeac90bfdc6beebe06f68bf1d60aab3e755225`; previous active release was `95e9161956df2b737c851cbedc78d1eb23f1621b`.
+- Deployment used the standard `deploy/deploy-signalforge-release.sh` path. Release archive SHA256 matched Mac and Bangkok before deployment: `15ad6c8cf27d438ddf4f8ca8dfbee7f1198765988d6596cc37ce3c13def75a00`.
+- S48 first production baseline ran through the required `signalforge-refresh@S48.service` Worker/systemd path and completed successfully: `baseline_complete=1`, `consecutive_failures=0`, `last_error=null`, fetch/freshness/source health GREEN. Parse health is UNKNOWN only because the zero-candidate baseline produced no BUSINESS_PROCESSING sample (`PARSE_SAMPLE_INSUFFICIENT`), not because acquisition failed.
+- `signalforge project-precursors --limit 50` returns zero candidates / zero pending review / zero tracked projects. `signalforge business-kpis --lead-limit 20` passes and preserves a zero linked/tracked lead-time sample rather than inventing historical evidence.
+- `signalforge opportunities --source-id S48 --include-expired --limit 50` returns PASS with zero opportunities, confirming the precursor source did not enter the Tender opportunity surface.
+- All four production timers are enabled + active/waiting: run-due, Telegram immediate delivery, Telegram digest, and Assurance.
+- SQLite `PRAGMA quick_check` returns `ok`.
+- Global SignalForge remains DEGRADED/RED with the pre-existing S21 Myanma Railways timeout still RED; S48 itself is GREEN and introduced no new recovery backlog.
+- Production closure evidence: `docs/verification/S48-PROJECT-PRECURSOR-PRODUCTION-CLOSURE-2026-09-27.md`.
+
+## Code rollout checkpoint — 2026-09-25 (historical)
+
+This section records the pre-production code state after PR #247. Its deployment-pending statements are historical and are superseded by the 2026-09-27 production rollout checkpoint above.
 
 - PR #247 `feat: capture reviewed project precursors for lead-time tracking` merged to `main` at `1caeac90bfdc6beebe06f68bf1d60aab3e755225`.
 - GitHub Actions `verify` run `36145751602` PASS after one test-fixture correction; registry contract, Python compile, full unit suite, and shell syntax all passed.
