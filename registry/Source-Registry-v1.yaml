@@ -2951,7 +2951,7 @@
       "canonical_key": "moi_news_node_id",
       "first_baseline_customer_signal": false,
       "bootstrap_seed_urls": [],
-      "selection_policy_version": 1,
+      "selection_policy_version": 2,
       "health_policy": {
         "freshness_yellow_seconds": 3600,
         "freshness_red_seconds": 5400,
@@ -2964,7 +2964,7 @@
         "parse_probe_interval_seconds": 7200,
         "parse_sample_source": "BUSINESS_PROCESSING"
       },
-      "source_policy_version": 1,
+      "source_policy_version": 2,
       "egress_profile": "mm-intl-datacenter",
       "acquisition_policy": {
         "enabled": true,

@@ -82,6 +82,29 @@ class MoiProjectPrecursorParserTests(unittest.TestCase):
         self.assertEqual(entries[0].url, DETAIL_URL)
         self.assertEqual(entries[0].lastmod, "2026-09-25T00:00:00+06:30")
 
+    def test_listing_v2_routes_future_capital_intent_without_literal_project_marker(self) -> None:
+        html = _listing(
+            _card(node="83043", title="New 230kV substation will be constructed in Nay Pyi Taw"),
+            _card(node="90001", title="5G network technology update"),
+            _card(node="90002", title="230kV substation construction underway in Nay Pyi Taw"),
+            _card(node="90003", title="New museum building foundation stone ceremony"),
+        )
+        entries = parse_project_listing(html)
+        self.assertEqual([entry.url for entry in entries], [DETAIL_URL])
+
+    def test_listing_v2_rejects_current_moi_late_stage_construction_patterns(self) -> None:
+        html = _listing(
+            _card(
+                node="88580",
+                title="နေပြည်တော်ကောင်စီနယ်မြေအတွင်း မန္တလေးငလျင်ကြီးကြောင့် ပျက်စီးသွားသော ဝန်ထမ်းအိမ်ရာများ အသစ်ပြန်လည်တည်ဆောက်နေပြီး တိုက် ၂၉၃ လုံး (၄၆၆၈ ခန်း) ကို အရှိန်အဟုန်ဖြင့် ဆောင်ရွက်လျက်ရှိ",
+            ),
+            _card(
+                node="88584",
+                title="ကျိုင်းတုံမြို့ရှိ အသစ်ဆောက်လုပ်မည့် ပြတိုက်အဆောက်အအုံ အုတ်မြစ်အခမ်းအနားကျင်းပ",
+            ),
+        )
+        self.assertEqual(parse_project_listing(html), [])
+
     def test_listing_structural_drift_fails_closed(self) -> None:
         with self.assertRaisesRegex(MoiProjectPrecursorParseError, "card structure"):
             parse_project_listing(b"<html><body>changed</body></html>")
@@ -101,6 +124,46 @@ class MoiProjectPrecursorParserTests(unittest.TestCase):
         self.assertIsNone(parse_project_detail(completed, DETAIL_URL))
         tender = _detail(body="The digital infrastructure project invites Open Tender bids for network construction.")
         self.assertIsNone(parse_project_detail(tender, DETAIL_URL))
+
+    def test_detail_v2_accepts_preprocurement_capital_intent_without_project_word(self) -> None:
+        detail = _detail(
+            title="New 230kV substation will be constructed in Nay Pyi Taw",
+            body=(
+                "The electricity master plan approved the new substation. "
+                "Detailed design will be prepared before procurement."
+            ),
+        )
+        item = parse_project_detail(detail, DETAIL_URL)
+        self.assertIsNotNone(item)
+        assert item is not None
+        self.assertEqual(item.precursor_stage_hint, "PROJECT_ANNOUNCEMENT")
+        self.assertEqual(list(item.relevance_categories), ["ENERGY"])
+        payload = item.payload()
+        self.assertEqual(payload["selection_policy_version"], 2)
+        self.assertEqual(
+            payload["precursor_selection_basis"],
+            "TARGET_SECTOR+PRE_PROCUREMENT_FORWARD_ACTION+(PROJECT_MARKER_OR_CAPITAL_INTENT)-NOT_STARTED-NOT_OPEN_PROCUREMENT",
+        )
+
+    def test_detail_v2_rejects_started_groundbreaking_and_open_procurement(self) -> None:
+        underway = _detail(
+            title="New 230kV substation will be constructed in Nay Pyi Taw",
+            body="The electricity project master plan was approved and construction is underway.",
+        )
+        self.assertIsNone(parse_project_detail(underway, DETAIL_URL))
+
+        groundbreaking = _detail(
+            title="New 230kV substation will be constructed in Nay Pyi Taw",
+            body="The electricity project master plan was approved and the foundation stone ceremony was held.",
+        )
+        self.assertIsNone(parse_project_detail(groundbreaking, DETAIL_URL))
+
+        tender = _detail(
+            title="New 230kV substation will be constructed in Nay Pyi Taw",
+            body="The electricity project master plan was approved. Invitation to tender is now open.",
+        )
+        self.assertIsNone(parse_project_detail(tender, DETAIL_URL))
+
 
 
 class MoiProjectPrecursorLifecycleTests(unittest.TestCase):

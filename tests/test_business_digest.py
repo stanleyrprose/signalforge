@@ -1341,6 +1341,86 @@ class BusinessDigestTests(unittest.TestCase):
         self.assertEqual(send.call_count, 2)
         self.assertEqual(receipt_count, 2)
 
+    def test_digest_surfaces_pending_project_precursor_without_counting_it_as_procurement(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            database = self._db(tmp)
+            with connect(database) as conn, conn:
+                conn.execute(
+                    """
+                    INSERT INTO canonical_items(
+                        canonical_key,source_id,item_kind,title,reference_no,project_name,
+                        publication_date,deadline,location,url,content_hash,evidence_sha256,
+                        payload_json,created_at,updated_at
+                    ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                    """,
+                    (
+                        "moi-project:99001",
+                        "S48",
+                        "REGULATORY_NOTICE",
+                        "New 230kV substation will be constructed in Nay Pyi Taw",
+                        "MOI-NEWS-99001",
+                        "New 230kV substation will be constructed in Nay Pyi Taw",
+                        "2026-09-27",
+                        None,
+                        "Myanmar",
+                        "https://www.moi.gov.mm/news/99001",
+                        "hash-99001",
+                        "a" * 64,
+                        json.dumps(
+                            {
+                                "business_stage": "PROJECT_PRECURSOR_CANDIDATE",
+                                "precursor_review_required": True,
+                                "precursor_stage_hint": "PROJECT_ANNOUNCEMENT",
+                                "relevance_categories": ["ENERGY"],
+                            }
+                        ),
+                        "2026-09-27T08:00:00Z",
+                        "2026-09-27T08:00:00Z",
+                    ),
+                )
+
+            radar = {
+                "source_id": "S01",
+                "status": "PASS",
+                "official": 0,
+                "covered": 0,
+                "missing": [],
+                "details": {"unresolved_leads": []},
+            }
+            with patch(
+                "signalforge.business_digest.business_briefing",
+                return_value=_briefing(),
+            ), patch(
+                "signalforge.business_digest.audit",
+                return_value=_audit(),
+            ), patch(
+                "signalforge.business_digest.source_scorecard",
+                return_value=_scorecard(),
+            ), patch(
+                "signalforge.business_digest.reviewed_coverage_gaps",
+                return_value=[],
+            ), patch(
+                "signalforge.business_digest.verified_external_opportunities",
+                return_value=[],
+            ), patch(
+                "signalforge.business_digest.aggregator_surface_snapshot",
+                return_value=radar,
+            ):
+                digest = business_digest(
+                    database=database,
+                    registry=_Registry(),  # type: ignore[arg-type]
+                    now=datetime(2026, 9, 27, 9, 0, tzinfo=UTC),
+                    audit_network=False,
+                )
+
+            pipeline = digest["business"]["project_precursor_pipeline"]
+            self.assertEqual(pipeline["summary"]["pending_review"], 1)
+            self.assertEqual(digest["business"]["current_opportunities"], 3)
+            text = render_business_digest(digest, translator=lambda values: (values, False))
+            self.assertIn("采购前项目线索：1 条待复核", text)
+            self.assertIn("New 230kV substation will be constructed", text)
+            self.assertIn("不计入当前采购机会", text)
+
     def test_migration_creates_digest_receipt_table(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             database = self._db(tmp)

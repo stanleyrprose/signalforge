@@ -12,7 +12,7 @@ MOI_BASE_URL = "https://www.moi.gov.mm"
 MOI_PROJECT_LIST_URL = f"{MOI_BASE_URL}/news"
 MOI_PROJECT_ISSUER = "Ministry of Information, Myanmar"
 MOI_HOSTS = {"moi.gov.mm", "www.moi.gov.mm"}
-SELECTION_POLICY_VERSION = 1
+SELECTION_POLICY_VERSION = 2
 
 _PROJECT_TOKENS = ("စီမံကိန်း", "project")
 _SECTOR_TOKENS: dict[str, tuple[str, ...]] = {
@@ -33,12 +33,32 @@ _SECTOR_TOKENS: dict[str, tuple[str, ...]] = {
         "အင်ဂျင်နီယာ", "စက်မှုဇုန်", "ရေပေးဝေ", "ရေဆိုး",
     ),
 }
-_FORWARD_ACTION_TOKENS = (
-    "implementation", "implement", "will continue", "continue implementation", "to construct",
-    "will construct", "to upgrade", "will upgrade", "to expand", "will expand", "approved",
-    "approval", "master plan", "conceptual plan", "budget allocation", "procurement plan",
-    "အကောင်အထည်ဖော်", "ဆက်လက်ဆောင်ရွက်", "ဆက်လက် အကောင်အထည်ဖော်", "တည်ဆောက်မည်",
-    "အဆင့်မြှင့်", "တိုးချဲ့", "ခွင့်ပြု", "မဟာစီမံကိန်း", "ဘတ်ဂျက်",
+_CAPITAL_INTENT_TOKENS = (
+    "to construct", "will construct", "will be constructed", "planned construction", "to build", "will build", "will be built",
+    "to upgrade", "will upgrade", "to expand", "will expand", "new substation",
+    "new data center", "new data centre",
+    "တည်ဆောက်မည်", "တည်ဆောက်မည့်", "တည်ဆောက်ရန်",
+    "ဆောက်လုပ်မည်", "ဆောက်လုပ်မည့်", "ဆောက်လုပ်ရန်",
+    "အဆင့်မြှင့်မည်", "အဆင့်မြှင့်မည့်", "အဆင့်မြှင့်ရန်",
+    "တိုးချဲ့မည်", "တိုးချဲ့မည့်", "တိုးချဲ့ရန်",
+)
+_PRE_PROCUREMENT_FORWARD_TOKENS = (
+    *_CAPITAL_INTENT_TOKENS,
+    "approved project", "project approved", "approval granted", "master plan",
+    "conceptual plan", "feasibility study", "detailed design", "budget allocation",
+    "fund allocation", "funding approved", "loan approved", "procurement plan",
+    "tender preparation", "bid preparation",
+    "စီမံကိန်း အတည်ပြု", "စီမံကိန်းအတည်ပြု", "ခွင့်ပြုချက်",
+    "အတည်ပြုချက်", "မဟာစီမံကိန်း", "ဖြစ်နိုင်ခြေလေ့လာ",
+    "ဒီဇိုင်းရေးဆွဲ", "ဘတ်ဂျက်ခွဲဝေ", "ဘတ်ဂျက်", "ရန်ပုံငွေ",
+    "တင်ဒါပြင်ဆင်",
+)
+_STARTED_OR_COMPLETED_TOKENS = (
+    "under construction", "construction underway", "construction is underway", "work is underway", "works are underway",
+    "implementation is underway", "groundbreaking", "foundation stone", "opened", "inaugurated",
+    "commissioned", "completed", "completion ceremony",
+    "တည်ဆောက်နေ", "ဆောက်လုပ်နေ", "ဆောင်ရွက်လျက်ရှိ", "အကောင်အထည်ဖော်လျက်ရှိ",
+    "စတင်ဆောင်ရွက်", "အုတ်မြစ်", "ဖွင့်လှစ်", "ပြီးစီး",
 )
 _OPEN_PROCUREMENT_TOKENS = (
     "open tender", "invitation to tender", "invitation for bid", "invitation to bid",
@@ -132,9 +152,19 @@ def _relevance_categories(value: str) -> list[str]:
     ]
 
 
+def _capital_intent_marker(value: str) -> bool:
+    normalized = normalize_text(value).lower()
+    return any(token.lower() in normalized for token in _CAPITAL_INTENT_TOKENS)
+
+
 def _has_forward_action(value: str) -> bool:
     normalized = normalize_text(value).lower()
-    return any(token.lower() in normalized for token in _FORWARD_ACTION_TOKENS)
+    return any(token.lower() in normalized for token in _PRE_PROCUREMENT_FORWARD_TOKENS)
+
+
+def _has_started_or_completed(value: str) -> bool:
+    normalized = normalize_text(value).lower()
+    return any(token.lower() in normalized for token in _STARTED_OR_COMPLETED_TOKENS)
 
 
 def _is_open_procurement(value: str) -> bool:
@@ -152,7 +182,12 @@ def _stage_hint(value: str) -> str:
 
 
 def _listing_candidate(title: str) -> bool:
-    return _project_marker(title) and bool(_relevance_categories(title)) and not _is_open_procurement(title)
+    return (
+        bool(_relevance_categories(title))
+        and (_project_marker(title) or _capital_intent_marker(title))
+        and _is_open_procurement(title) is False
+        and _has_started_or_completed(title) is False
+    )
 
 
 class _ListingParser(HTMLParser):
@@ -291,7 +326,7 @@ class MoiProjectPrecursor:
             "business_stage": "PROJECT_PRECURSOR_CANDIDATE",
             "precursor_stage_hint": self.precursor_stage_hint,
             "precursor_review_required": True,
-            "precursor_selection_basis": "PROJECT_MARKER+TARGET_SECTOR+FORWARD_ACTION",
+            "precursor_selection_basis": "TARGET_SECTOR+PRE_PROCUREMENT_FORWARD_ACTION+(PROJECT_MARKER_OR_CAPITAL_INTENT)-NOT_STARTED-NOT_OPEN_PROCUREMENT",
             "relevance_categories": list(self.relevance_categories),
             "detail_completeness": "OFFICIAL_NEWS_TITLE_DATE_BODY",
             "url": self.url,
@@ -384,9 +419,10 @@ def parse_project_detail(html_bytes: bytes, page_url: str) -> MoiProjectPrecurso
         or not title
         or not body
         or publication_date is None
-        or not _project_marker(combined)
         or not categories
+        or not (_project_marker(combined) or _capital_intent_marker(combined))
         or not _has_forward_action(combined)
+        or _has_started_or_completed(combined)
         or _is_open_procurement(combined)
     ):
         return None
