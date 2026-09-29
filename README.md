@@ -1,6 +1,6 @@
 # SignalForge
 
-Bangkok-only commercial-signal application for Myanmar tender/regulation evidence collection, canonicalization and downstream delivery.
+Bangkok-only Myanmar government/SOE tender notification application. The primary product path detects formal `TENDER` changes and delivers clear Simplified-Chinese procurement notices to Telegram; precursor/early-project discovery is not part of the current production goal.
 
 ## R5 scope
 
@@ -21,16 +21,30 @@ sh -n bin/signalforge
 sh -n deploy/deploy-signalforge-release.sh
 ```
 
-## Core business KPI tooling
+## Primary tender delivery
 
 ```sh
-signalforge business-kpis
-signalforge project-precursors --limit 50
-signalforge project-promote-precursor --canonical-key moi-project:83043 --project-key yadanabon-cyber-city --stage PROJECT_ANNOUNCEMENT --basis "reviewed exact project identity" --by operator
-signalforge project-leadtime --limit 100
+signalforge telegram-deliver --dry-run
+signalforge telegram-deliver
+signalforge briefing
 ```
 
-`business-kpis` is read-only. It keeps output-quality evidence/actionability, the reviewed project-precursor pipeline, Assurance miss/coverage risk, and project-to-procurement lead time as separate observables. `project-precursors` is a read-only review queue. A precursor becomes lifecycle evidence only through explicit `project-promote-precursor`; promotion preserves the canonical first-retention timestamp as SignalForge detection evidence and never substitutes the issuer's historical publication date. Lead time still requires an explicit reviewed project-to-procurement link and reports sample/basis limitations explicitly.
+`telegram-deliver` sends each undelivered formal tender Signal once. Sector and priority remain metadata, but no longer suppress a formal `TENDER` from primary Telegram delivery. Notifications prioritize buyer, procurement scope, quantity/lot, explicit monetary amount when present, dates, tender number and official source. Myanmar/English presentation text is translated to Simplified Chinese when the bounded translation provider is available; canonical evidence remains unchanged.
+
+### Pilot business-profile matching
+
+Business-profile matching is optional and deterministic. With no profile configured, production keeps ALL_TENDERS behavior.
+
+Examples:
+
+    signalforge telegram-deliver --dry-run --profile profiles/business-profile.example.json
+    SIGNALFORGE_BUSINESS_PROFILE=/srv/signalforge/config/customer-a.json signalforge telegram-deliver
+
+A profile may use relevance_categories, product keywords, buyer_keywords, exclude_keywords, and minimum_score. MATCHED_ONLY filters delivery only after a formal tender has entered the primary briefing; it never mutates canonical evidence or source acquisition.
+
+This is the managed-service pilot layer for customer-specific Telegram feeds. It is intentionally not a public self-service portal, billing system, or public API.
+
+The historical project-precursor and project-to-procurement tooling remains in the repository for provenance and possible future reuse, but S48/S49/S50 are retired from active polling under the current product goal.
 
 ## MPA preview tooling
 

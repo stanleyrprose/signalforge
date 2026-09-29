@@ -2920,9 +2920,9 @@
     "S48": {
       "name": "MOI Official Project Precursor News",
       "adapter": "moi_project_precursor",
-      "enabled": true,
-      "role": "ACTIVE_SELECTIVE",
-      "audit_status": "GREEN_DIRECT_HTTP_OFFICIAL_NEWS_PROJECT_PRECURSOR_REVIEW_REQUIRED",
+      "enabled": false,
+      "role": "RETIRED_OUT_OF_SCOPE",
+      "audit_status": "RETIRED_PROJECT_PRECURSOR_OUT_OF_CURRENT_GOAL_2026_09_29",
       "item_kind": "REGULATORY_NOTICE",
       "network_zone": "myanmar-international",
       "engine": "direct_http",
@@ -2952,6 +2952,7 @@
       "first_baseline_customer_signal": false,
       "bootstrap_seed_urls": [],
       "selection_policy_version": 2,
+      "retirement": {"reason": "PROJECT_PRECURSOR_OUT_OF_CURRENT_GOAL", "historical_data_retained": true, "reactivation_gate": "EXPLICIT_USER_GOAL_CHANGE"},
       "health_policy": {
         "freshness_yellow_seconds": 3600,
         "freshness_red_seconds": 5400,
@@ -2967,7 +2968,7 @@
       "source_policy_version": 2,
       "egress_profile": "mm-intl-datacenter",
       "acquisition_policy": {
-        "enabled": true,
+        "enabled": false,
         "primary": {"method": "DIRECT_HTTP", "target_kind": "HTML"},
         "supplementary": [],
         "escalation": {
@@ -2989,9 +2990,9 @@
     "S49": {
       "name": "Ministry of Construction Planned Capital Works",
       "adapter": "construction_project_precursor",
-      "enabled": true,
-      "role": "ACTIVE_SELECTIVE",
-      "audit_status": "GREEN_DIRECT_HTTP_NONWWW_TLS_VALID_PROJECT_PRECURSOR_REVIEW_REQUIRED",
+      "enabled": false,
+      "role": "RETIRED_OUT_OF_SCOPE",
+      "audit_status": "RETIRED_PROJECT_PRECURSOR_OUT_OF_CURRENT_GOAL_2026_09_29",
       "item_kind": "REGULATORY_NOTICE",
       "network_zone": "myanmar-international",
       "engine": "direct_http",
@@ -3021,6 +3022,7 @@
       "first_baseline_customer_signal": false,
       "bootstrap_seed_urls": [],
       "selection_policy_version": 1,
+      "retirement": {"reason": "PROJECT_PRECURSOR_OUT_OF_CURRENT_GOAL", "historical_data_retained": true, "reactivation_gate": "EXPLICIT_USER_GOAL_CHANGE"},
       "health_policy": {
         "freshness_yellow_seconds": 3600,
         "freshness_red_seconds": 5400,
@@ -3036,7 +3038,7 @@
       "source_policy_version": 1,
       "egress_profile": "mm-intl-datacenter",
       "acquisition_policy": {
-        "enabled": true,
+        "enabled": false,
         "primary": {"method": "DIRECT_HTTP", "target_kind": "HTML"},
         "supplementary": [],
         "escalation": {
@@ -3058,9 +3060,9 @@
     "S50": {
       "name": "MOEE Project Formation News",
       "adapter": "moee_project_precursor",
-      "enabled": true,
-      "role": "ACTIVE_SELECTIVE",
-      "audit_status": "GREEN_DIRECT_HTTP_OFFICIAL_MOEE_PROJECT_PRECURSOR_REVIEW_REQUIRED",
+      "enabled": false,
+      "role": "RETIRED_OUT_OF_SCOPE",
+      "audit_status": "RETIRED_PROJECT_PRECURSOR_OUT_OF_CURRENT_GOAL_2026_09_29",
       "item_kind": "REGULATORY_NOTICE",
       "network_zone": "myanmar-international",
       "engine": "direct_http",
@@ -3090,6 +3092,7 @@
       "first_baseline_customer_signal": false,
       "bootstrap_seed_urls": [],
       "selection_policy_version": 1,
+      "retirement": {"reason": "PROJECT_PRECURSOR_OUT_OF_CURRENT_GOAL", "historical_data_retained": true, "reactivation_gate": "EXPLICIT_USER_GOAL_CHANGE"},
       "health_policy": {
         "freshness_yellow_seconds": 3600,
         "freshness_red_seconds": 5400,
@@ -3105,7 +3108,7 @@
       "source_policy_version": 1,
       "egress_profile": "mm-intl-datacenter",
       "acquisition_policy": {
-        "enabled": true,
+        "enabled": false,
         "primary": {"method": "DIRECT_HTTP", "target_kind": "HTML"},
         "supplementary": [],
         "escalation": {

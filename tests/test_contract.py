@@ -25,7 +25,7 @@ class ContractTests(unittest.TestCase):
         )
         self.assertEqual(manifest["verbs"]["signalforge-refresh"]["argument"], "source_id")
         self.assertEqual(manifest["grammar"]["source_id"], "^[A-Z][A-Z0-9]{0,15}$")
-        self.assertEqual(manifest["active_source_ids"], ["S05A", "S07", "S08A", "S10", "S12", "S13", "S16", "S20", "S22", "S25", "S26", "S28", "S29", "S30", "S31", "S32", "S33", "S34", "S35", "S36", "S37", "S39", "S40", "S41", "S43", "S44", "S45", "S46", "S47", "S48", "S49", "S50", "S27", "S38"])
+        self.assertEqual(manifest["active_source_ids"], ["S05A", "S07", "S08A", "S10", "S12", "S13", "S16", "S20", "S22", "S25", "S26", "S28", "S29", "S30", "S31", "S32", "S33", "S34", "S35", "S36", "S37", "S39", "S40", "S41", "S43", "S44", "S45", "S46", "S47", "S27", "S38"])
 
         registry = Registry.load(ROOT)
         retired_s21 = registry.raw["sources"]["S21"]
@@ -86,20 +86,26 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(moi["health_policy"]["parse_sample_source"], "DETAIL_SCHEDULER")
         self.assertEqual(moi["attachment_policy"]["mode"], "HTML_ONLY_NO_ATTACHMENT_REQUIRED")
 
-        moee_precursor = registry.source("S50")
+        moee_precursor = registry.raw["sources"]["S50"]
+        self.assertFalse(moee_precursor["enabled"])
+        self.assertEqual(moee_precursor["role"], "RETIRED_OUT_OF_SCOPE")
         self.assertEqual(moee_precursor["adapter"], "moee_project_precursor")
         self.assertEqual(moee_precursor["engine"], "direct_http")
         self.assertEqual(moee_precursor["discovery_url"], "https://moep.gov.mm/mm/ignite/page/12")
         self.assertEqual(moee_precursor["baseline_lookback_days"], 0)
-        self.assertTrue(moee_precursor["acquisition_policy"]["enabled"])
+        self.assertFalse(moee_precursor["acquisition_policy"]["enabled"])
+        self.assertTrue(moee_precursor["retirement"]["historical_data_retained"])
 
-        construction_precursor = registry.source("S49")
+        construction_precursor = registry.raw["sources"]["S49"]
+        self.assertFalse(construction_precursor["enabled"])
+        self.assertEqual(construction_precursor["role"], "RETIRED_OUT_OF_SCOPE")
         self.assertEqual(construction_precursor["adapter"], "construction_project_precursor")
         self.assertEqual(construction_precursor["engine"], "direct_http")
         self.assertEqual(construction_precursor["network_zone"], "myanmar-international")
         self.assertEqual(construction_precursor["discovery_url"], "https://construction.gov.mm/news-show/f87c94b0-d396-11ec-a8be-e9291a621227?page=1")
         self.assertEqual(construction_precursor["baseline_lookback_days"], 0)
-        self.assertTrue(construction_precursor["acquisition_policy"]["enabled"])
+        self.assertFalse(construction_precursor["acquisition_policy"]["enabled"])
+        self.assertTrue(construction_precursor["retirement"]["historical_data_retained"])
 
         industry = registry.source("S38")
         self.assertEqual(industry["engine"], "provider")
@@ -172,15 +178,18 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(ycdc_mission["item_kind"], "TENDER")
         self.assertEqual(ycdc_mission["actionable_baseline_signal_policy"]["min_remaining_seconds"], 43200)
 
-        precursor = registry.source("S48")
+        precursor = registry.raw["sources"]["S48"]
+        self.assertFalse(precursor["enabled"])
         self.assertEqual(precursor["adapter"], "moi_project_precursor")
-        self.assertEqual(precursor["role"], "ACTIVE_SELECTIVE")
+        self.assertEqual(precursor["role"], "RETIRED_OUT_OF_SCOPE")
         self.assertEqual(precursor["item_kind"], "REGULATORY_NOTICE")
         self.assertEqual(precursor["discovery_url"], "https://www.moi.gov.mm/news")
         self.assertFalse(precursor["listing_complete_business_records"])
         self.assertEqual(precursor["baseline_lookback_days"], 0)
         self.assertEqual(precursor["health_policy"]["parse_sample_source"], "BUSINESS_PROCESSING")
         self.assertEqual(precursor["attachment_policy"]["mode"], "HTML_ONLY_NO_ATTACHMENT_REQUIRED")
+        self.assertFalse(precursor["acquisition_policy"]["enabled"])
+        self.assertTrue(precursor["retirement"]["historical_data_retained"])
 
         energy = registry.source("S39")
         self.assertEqual(energy["adapter"], "energy_tender")
@@ -213,7 +222,7 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(labour["acquisition_policy"]["supplementary"], energy["acquisition_policy"]["supplementary"])
 
         enabled = registry.enabled_sources()
-        self.assertEqual([sid for sid, _source in enabled[-9:]], ["S44", "S45", "S46", "S47", "S48", "S49", "S50", "S27", "S38"])
+        self.assertEqual([sid for sid, _source in enabled[-6:]], ["S44", "S45", "S46", "S47", "S27", "S38"])
         self.assertTrue(all(source["engine"] == "direct_http" for _sid, source in enabled[:-2]))
         self.assertTrue(all(source["engine"] == "provider" for _sid, source in enabled[-2:]))
         self.assertFalse(moi["attachment_policy"]["fetch_in_primary_pipeline"])

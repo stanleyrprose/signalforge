@@ -3,6 +3,7 @@ from __future__ import annotations
 import html
 import json
 import os
+import re
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
@@ -235,3 +236,49 @@ def translate_myanmar_to_zh_hans(
             return result, True
 
     return originals, False
+
+
+def translate_tender_fields_to_zh_hans(
+    values: list[str],
+    *,
+    database: Path | None = None,
+    mac_wait_seconds: float = 20.0,
+    provider_priority: str | None = None,
+) -> tuple[list[str], bool]:
+    """Translate user-facing tender fields to Simplified Chinese.
+
+    The Mac OAuth LLM handles mixed Myanmar/English prose. If it is unavailable,
+    fall back to the existing Myanmar-only cloud path so translation can never
+    suppress a time-sensitive tender alert.
+    """
+    originals = [str(value or "") for value in values]
+    indices = [
+        index
+        for index, value in enumerate(originals)
+        if value.strip() and (contains_myanmar(value) or re.search(r"[A-Za-z]", value))
+    ]
+    if not indices:
+        return originals, False
+
+    priority = _priority(provider_priority)
+    if database is not None and "mac_oauth_llm" in priority:
+        subset = [originals[index] for index in indices]
+        try:
+            translated, ok = request_translation_and_wait(
+                subset,
+                database=database,
+                wait_seconds=mac_wait_seconds,
+            )
+        except Exception:
+            translated, ok = subset, False
+        if ok and len(translated) == len(indices):
+            result = list(originals)
+            for index, text in zip(indices, translated, strict=True):
+                result[index] = text
+            return result, True
+
+    fallback_priority = ",".join(provider for provider in priority if provider != "mac_oauth_llm")
+    return translate_myanmar_to_zh_hans(
+        originals,
+        provider_priority=fallback_priority or "original",
+    )

@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import patch
 
+from signalforge.business_profile import BusinessProfile
 from signalforge.db import connect, migrate
 from signalforge.telegram_delivery import TelegramDeliveryError, render_telegram_message, telegram_deliver
 
@@ -46,6 +47,58 @@ def _briefing(*, signal_id: str = "sig-1", action: str = "PRIORITIZE") -> dict[s
 
 
 class TelegramDeliveryTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self._translation_patch = patch(
+            "signalforge.telegram_delivery.translate_tender_fields_to_zh_hans",
+            side_effect=lambda values, **_kwargs: (values, False),
+        )
+        self._translation_patch.start()
+
+    def tearDown(self) -> None:
+        self._translation_patch.stop()
+
+    def test_matched_only_profile_filters_irrelevant_tender_before_delivery(self) -> None:
+        profile = BusinessProfile.from_dict(
+            {
+                "profile_id": "medical-only",
+                "delivery_mode": "MATCHED_ONLY",
+                "relevance_categories": ["MEDICAL"],
+                "keywords": ["surgical"],
+            }
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            database = Path(tmp) / "signalforge.db"
+            migrate(database)
+            with patch("signalforge.telegram_delivery.business_briefing", return_value=_briefing()):
+                result = telegram_deliver(database=database, dry_run=True, business_profile=profile)
+        self.assertEqual(result["pending_count"], 0)
+        self.assertEqual(result["signal_pending_count"], 0)
+        self.assertEqual(result["filtered_out_count"], 1)
+        self.assertEqual(result["business_profile_id"], "medical-only")
+        self.assertEqual(result["business_profile_delivery_mode"], "MATCHED_ONLY")
+
+    def test_matching_profile_adds_customer_relevance_to_message(self) -> None:
+        profile = BusinessProfile.from_dict(
+            {
+                "profile_id": "ict-pilot",
+                "delivery_mode": "MATCHED_ONLY",
+                "relevance_categories": ["ICT"],
+                "keywords": ["server"],
+            }
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            database = Path(tmp) / "signalforge.db"
+            migrate(database)
+            with patch("signalforge.telegram_delivery.business_briefing", return_value=_briefing()):
+                result = telegram_deliver(database=database, dry_run=True, business_profile=profile)
+        self.assertEqual(result["pending_count"], 1)
+        self.assertEqual(result["filtered_out_count"], 0)
+        pending = result["pending"][0]
+        self.assertEqual(pending["business_profile_id"], "ict-pilot")
+        self.assertGreaterEqual(pending["business_profile_match_score"], 45)
+        self.assertIn("🎯 与你业务关联：", pending["message"])
+        self.assertIn("ICT", pending["message"])
+
     def test_dry_run_needs_no_credentials_and_does_not_write_receipt(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             database = Path(tmp) / "signalforge.db"
@@ -73,7 +126,7 @@ class TelegramDeliveryTests(unittest.TestCase):
                 row = conn.execute("SELECT signal_id,attention_action,provider_message_id FROM delivery_receipts").fetchone()
                 self.assertEqual(tuple(row), ("sig-1", "PRIORITIZE", "101"))
 
-    def test_action_upgrade_with_same_signal_is_delivered_once(self) -> None:
+    def test_action_upgrade_without_new_signal_is_not_redelivered(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             database = Path(tmp) / "signalforge.db"
             migrate(database)
@@ -83,12 +136,12 @@ class TelegramDeliveryTests(unittest.TestCase):
                 with patch("signalforge.telegram_delivery.business_briefing", return_value=_briefing(action="ACT_NOW")):
                     upgraded = telegram_deliver(database=database, bot_token="secret", chat_id="42")
                     repeated = telegram_deliver(database=database, bot_token="secret", chat_id="42")
-            self.assertEqual(upgraded["sent_count"], 1)
+            self.assertEqual(upgraded["sent_count"], 0)
             self.assertEqual(repeated["sent_count"], 0)
             with connect(database) as conn:
-                self.assertEqual(conn.execute("SELECT COUNT(*) FROM delivery_receipts").fetchone()[0], 2)
+                self.assertEqual(conn.execute("SELECT COUNT(*) FROM delivery_receipts").fetchone()[0], 1)
 
-    def test_deadline_crossing_72h_escalates_same_signal_without_source_update(self) -> None:
+    def test_deadline_crossing_does_not_redeliver_without_new_signal(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             database = Path(tmp) / "signalforge.db"
             migrate(database)
@@ -167,17 +220,16 @@ class TelegramDeliveryTests(unittest.TestCase):
                     chat_id="42",
                 )
 
-            self.assertEqual(before["sent_count"], 0)
-            self.assertEqual(upgraded["sent_count"], 1)
+            self.assertEqual(before["sent_count"], 1)
+            self.assertEqual(upgraded["sent_count"], 0)
             self.assertEqual(repeated["sent_count"], 0)
             self.assertEqual(send.call_count, 1)
-            self.assertEqual(upgraded["sent"][0]["canonical_key"], "industry:test-72h")
-            self.assertEqual(upgraded["sent"][0]["attention_action"], "ACT_NOW")
+            self.assertEqual(before["sent"][0]["canonical_key"], "industry:test-72h")
             with connect(database) as conn:
                 row = conn.execute(
                     "SELECT signal_id,attention_action,priority_band FROM delivery_receipts WHERE canonical_key='industry:test-72h'"
                 ).fetchone()
-            self.assertEqual(tuple(row), ("sig-test-72h", "ACT_NOW", "HIGH"))
+            self.assertEqual(tuple(row), ("sig-test-72h", "PRIORITIZE", "MEDIUM"))
 
     def test_new_signal_same_action_is_delivered(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -208,16 +260,22 @@ class TelegramDeliveryTests(unittest.TestCase):
         item["scope_excerpt"] = "x" * 10000
         text = render_telegram_message(item)
         self.assertLessEqual(len(text), 4096)
-        self.assertIn("🔴 <b>优先关注</b> · HIGH · A级 · ICT", text)
-        self.assertIn("🏛 买方：Ministry &lt;Foreign&gt; &amp; Affairs", text)
+        self.assertIn("📢 <b>政府/国企招标 · 新招标</b>", text)
+        self.assertIn("🏛 采购方：Ministry &lt;Foreign&gt; &amp; Affairs", text)
         self.assertIn("Data Server &amp; SQL &lt;Tender&gt;", text)
         self.assertIn("⏰ 截止：<b>2026-09-18 16:30</b>", text)
         self.assertIn("🔎 证据：官方 HTML + 官方文本 PDF", text)
-        self.assertIn("📡 Signal：NEW", text)
         self.assertIn("🔗 <a href=", text)
-        scope_line = next(line for line in text.splitlines() if line.startswith("📦 范围："))
+        scope_line = next(line for line in text.splitlines() if line.startswith("📦 采购内容："))
         self.assertLessEqual(scope_line.count("x"), 240)
         self.assertNotIn("<Foreign>", text)
+
+    def test_explicit_money_is_rendered_without_inference(self) -> None:
+        item = _briefing()["attention"][0]
+        assert isinstance(item, dict)
+        item["price_or_budget_summary"] = "4 billion MMK"
+        text = render_telegram_message(item)
+        self.assertIn("💰 金额（原文）：4 billion MMK", text)
 
     def test_focus_references_are_rendered_separately_from_full_reference_bundle(self) -> None:
         item = _briefing()["attention"][0]
@@ -226,9 +284,9 @@ class TelegramDeliveryTests(unittest.TestCase):
         item["focus_reference_numbers"] = ["DMP/L-026(26-27)", "DMP/L-067(26-27)"]
         item["scope_excerpt"] = "DMP/L-026 Communication and Information Technology | DMP/L-067 IOT Module"
         text = render_telegram_message(item)
-        self.assertIn("📌 编号：DMP/L-026(26-27), DMP/L-040(26-27), DMP/L-067(26-27)", text)
+        self.assertIn("📌 招标编号：DMP/L-026(26-27), DMP/L-040(26-27), DMP/L-067(26-27)", text)
         self.assertIn("🧩 相关分包：DMP/L-026(26-27), DMP/L-067(26-27)", text)
-        self.assertIn("📦 范围：DMP/L-026 Communication and Information Technology | DMP/L-067 IOT Module", text)
+        self.assertIn("📦 采购内容：DMP/L-026 Communication and Information Technology | DMP/L-067 IOT Module", text)
 
     def test_ptd_participation_deadline_is_not_rendered_as_generic_bid_deadline(self) -> None:
         item = _briefing()["attention"][0]
@@ -278,25 +336,19 @@ class TelegramDeliveryTests(unittest.TestCase):
         text = render_telegram_message(item)
         self.assertIn("🏛 卖方：Myanma Timber Enterprise", text)
         self.assertIn("🗓 活动日：<b>2026-09-15 08:30</b>", text)
-        self.assertIn("📦 数量/批次：Approximately 6,243 tons of teak/hardwood logs and sawn timber", text)
+        self.assertIn("🔢 数量/批次：Approximately 6,243 tons of teak/hardwood logs and sawn timber", text)
         self.assertIn("📍 地点：Myanma Timber Enterprise, Gyogon Forest Compound, Insein Township, Yangon", text)
         self.assertIn("➡️ 下一步：Complete the prescribed tender/auction application", text)
-        self.assertIn("🧭 Signal质量：<b>59/100 · MEDIUM</b>", text)
+        self.assertNotIn("Signal质量", text)
         self.assertNotIn("⏰ 截止：", text)
-        self.assertIn("官方商业活动日期明确", text)
-        self.assertIn("事件可信但行动信息不完整", text)
+        self.assertNotIn("为什么", text)
 
-    def test_action_labels_are_compact_and_deterministic(self) -> None:
-        expected = {
-            "ACT_NOW": "立即行动",
-            "PRIORITIZE": "优先关注",
-            "REVIEW": "人工复核",
-        }
-        for action, label in expected.items():
-            item = _briefing(action=action)["attention"][0]
-            assert isinstance(item, dict)
-            text = render_telegram_message(item)
-            self.assertIn(f"<b>{label}</b>", text)
+    def test_signal_type_controls_tender_notification_label(self) -> None:
+        item = _briefing()["attention"][0]
+        assert isinstance(item, dict)
+        self.assertIn("新招标", render_telegram_message(item))
+        item["latest_signal_type"] = "UPDATED"
+        self.assertIn("招标更新", render_telegram_message(item))
 
 
     def test_burmese_fields_are_translated_for_telegram_display_only(self) -> None:
@@ -312,24 +364,25 @@ class TelegramDeliveryTests(unittest.TestCase):
         })
 
         def fake_translator(values: list[str]) -> tuple[list[str], bool]:
-            self.assertEqual(len(values), 6)
+            self.assertEqual(len(values), 7)
             return [
                 "医疗物资公开招标",
                 "卫生部",
                 "采购医院使用的医疗物资",
                 "100套",
+                "",
                 "仰光",
                 "获取招标文件",
             ], True
 
         text = render_telegram_message(item, translator=fake_translator)
         self.assertIn("<b>医疗物资公开招标</b>", text)
-        self.assertIn("🏛 买方：卫生部", text)
-        self.assertIn("📦 范围：采购医院使用的医疗物资", text)
-        self.assertIn("📦 数量/批次：100套", text)
+        self.assertIn("🏛 采购方：卫生部", text)
+        self.assertIn("📦 采购内容：采购医院使用的医疗物资", text)
+        self.assertIn("🔢 数量/批次：100套", text)
         self.assertIn("📍 地点：仰光", text)
         self.assertIn("➡️ 下一步：获取招标文件", text)
-        self.assertIn("🌐 缅文内容已机器翻译为中文", text)
+        self.assertIn("🌐 原文内容已机器翻译为中文", text)
         self.assertNotIn("ဆေးပစ္စည်း", text)
 
     def test_credentials_required_only_for_real_delivery(self) -> None:
