@@ -10,7 +10,7 @@ from .db import connect, migrate
 from .mission_focus import MISSION_POLICY_VERSION, MISSION_STATEMENT, classify_mission_fit
 from .opportunities import current_opportunities
 
-BRIEFING_POLICY_VERSION = 2
+BRIEFING_POLICY_VERSION = 3
 
 
 def _collapse(value: object) -> str:
@@ -22,6 +22,25 @@ def _excerpt(value: object, limit: int = 1800) -> str:
     if len(text) <= limit:
         return text
     return text[: max(0, limit - 1)].rstrip() + "…"
+
+
+_MONEY_PATTERN = re.compile(
+    r"(?i)(?:\b(?:MMK|USD|US\$|KYATS?|KS)\s*[0-9][0-9,]*(?:\.[0-9]+)?(?:\s*(?:THOUSAND|MILLION|BILLION|TRILLION))?"
+    r"|\b[0-9][0-9,]*(?:\.[0-9]+)?(?:\s*(?:THOUSAND|MILLION|BILLION|TRILLION))?\s*(?:MMK|USD|US\$|KYATS?|KS)\b"
+    r"|\$\s*[0-9][0-9,]*(?:\.[0-9]+)?)"
+)
+
+
+def _money_excerpt(*values: object) -> str | None:
+    """Return only an explicit monetary token already present in official evidence."""
+    for value in values:
+        text = _collapse(value)
+        if not text:
+            continue
+        match = _MONEY_PATTERN.search(text)
+        if match:
+            return match.group(0)
+    return None
 
 
 def _attention_action(item: dict[str, object]) -> str:
@@ -103,6 +122,13 @@ def _attention_item(item: dict[str, object]) -> dict[str, object]:
         "quantity_or_lot_summary": item.get("quantity_or_lot_summary"),
         "quantity_or_lot_evidence": item.get("quantity_or_lot_evidence"),
         "quantity_or_lot_confidence": item.get("quantity_or_lot_confidence"),
+        "price_or_budget_summary": item.get("price_or_budget_summary") or _money_excerpt(
+            item.get("focus_scope_summary"),
+            item.get("scope_summary"),
+            item.get("quantity_or_lot_summary"),
+            item.get("next_action_summary"),
+            item.get("title"),
+        ),
         "next_action_summary": item.get("next_action_summary"),
         "next_action_evidence": item.get("next_action_evidence"),
         "reviewed_enrichment_status": item.get("reviewed_enrichment_status"),
@@ -135,13 +161,15 @@ def business_briefing(
             continue
         classification = classify_mission_fit(raw)
         item = {**raw, **classification}
-        if classification["mission_fit"]:
+        if str(raw.get("item_kind") or "") == "TENDER":
             rows.append(item)
         else:
             excluded_rows.append(item)
 
-    attention_rows = [item for item in rows if item.get("priority_band") in {"HIGH", "REVIEW"}]
-    watch_rows = [item for item in rows if item.get("priority_band") == "MEDIUM"]
+    # Primary Telegram delivery is complete formal-tender notification. Priority and
+    # sector remain metadata; neither may suppress a current official TENDER.
+    attention_rows = list(rows)
+    watch_rows: list[dict[str, object]] = []
 
     attention = [_attention_item(item) for item in attention_rows]
     action_counts = {
@@ -175,7 +203,7 @@ def business_briefing(
 
     excluded_reason_counts: dict[str, int] = {}
     for item in excluded_rows:
-        reason = str(item.get("mission_reason") or "UNKNOWN")
+        reason = "NON_TENDER_PRIMARY_DELIVERY_SCOPE"
         excluded_reason_counts[reason] = excluded_reason_counts.get(reason, 0) + 1
 
     target = database or db_path()

@@ -417,6 +417,7 @@ def main(argv: list[str] | None = None) -> int:
     manual_resolve_parser.add_argument("--by", default="operator")
     telegram_parser = sub.add_parser("telegram-deliver")
     telegram_parser.add_argument("--dry-run", action="store_true")
+    telegram_parser.add_argument("--profile")
     telegram_digest_parser = sub.add_parser("telegram-digest")
     telegram_digest_parser.add_argument("--dry-run", action="store_true")
     telegram_digest_parser.add_argument("--no-network", action="store_true")
@@ -663,7 +664,10 @@ def main(argv: list[str] | None = None) -> int:
         elif args.cmd == "manual-resolve":
             result = resolve_manual_promotion(args.promotion_id, note=args.note, resolved_by=args.by)
         elif args.cmd == "telegram-deliver":
-            result = telegram_deliver(dry_run=bool(args.dry_run))
+            result = telegram_deliver(
+                dry_run=bool(args.dry_run),
+                profile_path=Path(args.profile).expanduser() if args.profile else None,
+            )
         elif args.cmd == "telegram-digest":
             result = telegram_digest(dry_run=bool(args.dry_run), audit_network=not bool(args.no_network))
         else:

@@ -66,7 +66,12 @@ class MapFetcher:
 
 def _registry() -> Registry:
     raw = json.loads(json.dumps(Registry.load(ROOT).raw))
-    raw["sources"] = {"S48": raw["sources"]["S48"]}
+    source = raw["sources"]["S48"]
+    # Production retires S48, but this isolated historical-capability fixture
+    # re-enables it so parser/lifecycle behavior remains regression-tested.
+    source["enabled"] = True
+    source["acquisition_policy"]["enabled"] = True
+    raw["sources"] = {"S48": source}
     return Registry(raw)
 
 

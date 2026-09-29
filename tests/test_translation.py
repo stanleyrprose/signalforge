@@ -5,7 +5,7 @@ import unittest
 from unittest.mock import patch
 from urllib.error import URLError
 
-from signalforge.translation import contains_myanmar, translate_myanmar_to_zh_hans
+from signalforge.translation import contains_myanmar, translate_myanmar_to_zh_hans, translate_tender_fields_to_zh_hans
 
 
 class _Response:
@@ -88,6 +88,35 @@ class TranslationTests(unittest.TestCase):
         self.assertTrue(translated)
         mac.assert_called_once()
         cloud.assert_not_called()
+
+    def test_tender_translation_sends_english_and_myanmar_to_mac_provider(self) -> None:
+        values = ["Open Tender for Data Server", "အိတ်ဖွင့်တင်ဒါ", "中文保持不变"]
+        with patch(
+            "signalforge.translation.request_translation_and_wait",
+            return_value=(["数据服务器公开招标", "公开招标"], True),
+        ) as mac:
+            result, translated = translate_tender_fields_to_zh_hans(
+                values,
+                database=__import__("pathlib").Path("/tmp/fake.db"),
+                provider_priority="mac_oauth_llm,original",
+            )
+        self.assertEqual(result, ["数据服务器公开招标", "公开招标", "中文保持不变"])
+        self.assertTrue(translated)
+        self.assertEqual(mac.call_args.args[0], values[:2])
+
+    def test_tender_translation_fails_open_when_mac_is_unavailable(self) -> None:
+        values = ["Open Tender for Data Server"]
+        with patch(
+            "signalforge.translation.request_translation_and_wait",
+            return_value=(values, False),
+        ):
+            result, translated = translate_tender_fields_to_zh_hans(
+                values,
+                database=__import__("pathlib").Path("/tmp/fake.db"),
+                provider_priority="mac_oauth_llm,original",
+            )
+        self.assertEqual(result, values)
+        self.assertFalse(translated)
 
     def test_transport_failure_keeps_original_burmese(self) -> None:
         values = ["အိတ်ဖွင့်တင်ဒါ"]

@@ -2,35 +2,33 @@
 
 ## Primary business goal
 
-SignalForge exists to output **high-quality Myanmar government / state-owned-enterprise tender and procurement intelligence** in four target domains:
+SignalForge exists to **detect official Myanmar government / state-owned-enterprise procurement tenders promptly and deliver each new or materially updated tender to Telegram in clear Simplified Chinese**.
 
-1. engineering projects and engineering equipment/services;
-2. construction / civil / infrastructure works;
-3. telecommunications and ICT infrastructure;
-4. energy / power / oil-and-gas infrastructure.
+The primary delivery surface is a tender notification product, not an early-project-opportunity product. Formal `TENDER` records are eligible for Telegram regardless of sector or commercial priority. Sector/relevance classification may remain as metadata for filtering and analysis, but it must not suppress a formal government/SOE tender from the primary notification path.
 
-Source expansion, parser coverage, OCR, Assurance and delivery mechanics are means to this business-output goal, not goals by themselves. A source count, GREEN health state or high raw Signal volume is not success unless it improves the quality, completeness or actionability of this target tender output.
+Each Telegram notice should make the procurement facts readable without opening the source first. When the official evidence contains them, the notice should expose:
 
-The primary Telegram / briefing surface should therefore prefer **current, actionable, official government/SOE tenders with clear scope and dates**. Off-mission records (for example medical procurement, customs auctions, ordinary commodities, chemicals, yarn, consumer goods and general logistics) may remain in canonical storage for audit/research, but should not consume the main tender briefing unless a separately reviewed business reason promotes them.
+1. procuring entity / buyer;
+2. concise procurement scope / item description;
+3. quantity, lots or units;
+4. explicit price, budget or monetary amount (without inferring whether an amount is a unit price, ceiling or total when the source does not say so);
+5. tender / reference number;
+6. submission / document-sale / opening dates as applicable;
+7. location when available; and
+8. a direct official-source link.
+
+Presentation translation is allowed, but canonical facts remain the original issuer evidence. Numbers, dates, tender references, model names and monetary values must not be invented or silently changed during translation.
+
+Source expansion, parser coverage, OCR, Assurance and delivery mechanics are means to this business-output goal, not goals by themselves. A source count, GREEN health state or high raw Signal volume is not success unless it improves timely and complete formal-tender delivery.
 
 ### Core business-success metrics
 
-SignalForge tracks two primary business outcomes and keeps them transparent rather than collapsing them into one opaque score:
+SignalForge tracks two primary outcomes:
 
-1. **Opportunity output quality** — report current mission opportunity count plus Signal Quality evidence/actionability distribution, Trust distribution, known timeframe/next-action/official-evidence rates, verified-external proof completeness, and Assurance coverage/miss/false-negative observables. `signal_quality_score` is an evidence/actionability measure, **not** a false-positive precision estimate; reviewed-external opportunities remain separately proven and are not assigned a canonical Signal Quality score.
-2. **Project-to-procurement lead time** — for projects explicitly linked by reviewed identity to a later procurement, measure from the first retained lifecycle precursor to the procurement's **official publication date/time**. `canonical_items.created_at` is only a fallback when official publication evidence is unavailable or invalid because ingestion delay must not inflate early-warning performance. Date-only publication evidence is measured in Myanmar calendar days.
+1. **Tender delivery coverage and timeliness** — how many official new/materially-updated `TENDER` Signals are successfully delivered to Telegram, with delivery latency measured from Signal creation/publication observation to successful provider receipt where timestamps are available.
+2. **Tender notice completeness** — buyer, procurement scope, quantity/lot, monetary amount when explicitly present, deadline/opening date, reference number and official-link availability. Missing source facts remain explicitly absent; they are never synthesized merely to improve completeness.
 
-Every lead-time report must expose its linked/measured sample size, official-publication-vs-ingestion-fallback basis, and first-stage breakdown. The linked sample answers “how early did we detect projects that later became procurement”; it is **not** a precursor-to-procurement conversion rate unless a separately matured cohort denominator is defined and reviewed.
-
-Project precursor acquisition is fail-closed. S48 MOI official news uses a two-stage pre-procurement gate: listing recall may route a target-sector record when its title contains either an explicit project marker or a concrete future capital-action marker; the detail page must then prove target-sector relevance plus explicit pre-procurement forward evidence. Records that show work already underway, groundbreaking/foundation-stone activity, opening/completion/commissioning, or an already-open procurement are excluded from precursor classification. This deliberately increases recall without treating late-stage construction news as early-warning evidence.
-
-A retained `PROJECT_PRECURSOR_CANDIDATE` is **not** a lifecycle event and does not count as a procurement opportunity until human review explicitly confirms project identity and promotes it. Pending candidates must be visible in the Business Digest so the review queue does not remain hidden in CLI-only operations. Promotion must preserve `canonical_items.created_at` as SignalForge's detection time; issuer publication date remains separate historical evidence and must never replace detection time. Project-to-procurement linkage remains explicit/reviewed; fuzzy linking is prohibited. A zero lead-time sample is valid until a real reviewed precursor later forms procurement; SignalForge must never manufacture historical precursor links merely to produce a non-zero metric.
-
-S49 Ministry of Construction Planned Capital Works extends the same reviewed precursor lifecycle contract to an official source with stronger project-formation evidence. Its production URL is the TLS-valid non-`www` Construction Ministry host; SignalForge must not disable TLS verification to use the certificate-mismatched `www` hostname. S49 classifies only the **main project** represented by the article title plus primary paragraph, because Construction Ministry articles may append site-inspection notes about unrelated work already under construction. Generic bilateral cooperation or sector-framework discussion without an exact project identity is strategic context, not a lead-time candidate. Initial baseline lookback is zero: historical front-page articles may be used as parser verification fixtures, but production lead-time detection begins only from records retained after activation.
-
-S50 MOEE Project Formation News adds an official energy-sector precursor surface upstream of S20/S39 Tender coverage. Its listing parser is structural and captures only main latest-news cards, excluding the sidebar Tender list; title keywords are intentionally not required because named future projects may appear only in article bodies. Detail parsing is project-clause scoped and may emit multiple reviewed precursor candidates from one article. Each retained clause must contain a concrete electricity/energy asset plus explicit future/approval/finance/planning evidence, while started/operating/completed/open-procurement evidence rejects only the affected clause rather than poisoning unrelated projects in the same article. Candidate identity is `MOEE content id + stable normalized project-clause hash`. S50 starts with zero baseline lookback; historical MOEE articles such as the Pinpet planned power-plant example are parser fixtures only and must never be counted as SignalForge historical detection.
-
-The project-to-procurement measurement workflow includes a **review-only procurement link suggestion queue** for already promoted precursor projects. Suggestions must be read-only and may use deterministic identity-anchor, timing, sector, location and issuer evidence only to rank items for human review. Procurement evidence that predates the project's first SignalForge detection is ineligible. Sector/location/issuer matches are supporting evidence only and must never create authority. The queue must never call `link_procurement`, mutate lifecycle state, or affect the lead-time KPI. An explicit reviewed `project-link-procurement` action with `basis` and reviewer identity remains the only authoritative write path; fuzzy automatic linking remains prohibited.
+Project-to-procurement lead time is no longer a primary business goal. The historical precursor/linking implementation and retained evidence remain for provenance and possible future reuse, but dedicated precursor acquisition is outside current production scope. S48, S49 and S50 are therefore retired from active polling rather than deleted.
 
 ### Alternate official coverage rule
 

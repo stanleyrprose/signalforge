@@ -1,0 +1,24 @@
+{
+  "profile_id": "pilot-china-telecom-power",
+  "name": "China Telecom & Power Supplier Pilot",
+  "delivery_mode": "MATCHED_ONLY",
+  "minimum_score": 45,
+  "relevance_categories": ["TELECOM", "ICT", "ENERGY", "CONSTRUCTION", "ENGINEERING"],
+  "keywords": [
+    "fiber",
+    "fibre",
+    "router",
+    "switch",
+    "server",
+    "data center",
+    "battery",
+    "rectifier",
+    "ups",
+    "generator",
+    "solar",
+    "transformer",
+    "transmission"
+  ],
+  "buyer_keywords": ["mpt", "mytel", "ministry of electric power", "ministry of energy"],
+  "exclude_keywords": []
+}
