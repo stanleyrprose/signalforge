@@ -368,8 +368,8 @@ def telegram_deliver(
                 """
                 INSERT OR IGNORE INTO delivery_receipts(
                     delivery_key,channel,canonical_key,signal_id,attention_action,priority_band,
-                    payload_sha256,provider_message_id,sent_at
-                ) VALUES (?,?,?,?,?,?,?,?,?)
+                    payload_sha256,provider_message_id,sent_at,profile_id,profile_match_score
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?)
                 """,
                 (
                     item["delivery_key"],
@@ -381,6 +381,8 @@ def telegram_deliver(
                     item["payload_sha256"],
                     message_id,
                     sent_at,
+                    item.get("business_profile_id"),
+                    item.get("business_profile_match_score"),
                 ),
             )
         sent.append(
