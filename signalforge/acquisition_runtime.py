@@ -390,20 +390,25 @@ def acquire_provider_document_ocr(
     poll_interval_seconds: float = 0.5,
     sleeper: Callable[[float], None] = time.sleep,
     request_now: datetime | None = None,
+    source_id: str = "S01",
+    source_policy_version: int = 2,
+    target_role: str = "OFFICIAL_DOCUMENT",
+    allowed_https_hosts: tuple[str, ...] = ("myanmar.gov.mm",),
+    allowed_path_prefix: str = "/documents/",
 ) -> ProviderDocumentOCRCapture:
-    """Acquire bounded OCR evidence for an S01 Portal-hosted official PDF.
+    """Acquire bounded OCR evidence for an explicitly authorized official PDF.
 
-    The provider queue is the audit trail. This helper does not create a
-    scheduler/acquisition/evidence-envelope record and does not promote the OCR
-    result into canonical business truth.
+    The provider queue and source-specific PIC remain the authority boundary.
+    Defaults preserve the original S01 Myanmar National Portal contract.
     """
 
     parsed = urlparse(url)
     host = (parsed.hostname or "").lower()
     decoded_path = unquote(parsed.path)
+    normalized_hosts = {value.lower() for value in allowed_https_hosts}
     if (
         parsed.scheme != "https"
-        or not parsed.path.startswith("/documents/")
+        or not parsed.path.startswith(allowed_path_prefix)
         or ".." in decoded_path.split("/")
         or parsed.username is not None
         or parsed.password is not None
@@ -411,16 +416,17 @@ def acquire_provider_document_ocr(
         or parsed.query
         or parsed.fragment
     ):
-        raise ValueError("document OCR requires an exact HTTPS Myanmar National Portal /documents/ URL")
-    if host != "myanmar.gov.mm":
+        raise ValueError("document OCR URL is outside the approved HTTPS path boundary")
+    if host not in normalized_hosts:
         raise ValueError("document OCR host is not authorized")
-    target_role = "OFFICIAL_DOCUMENT"
+    if not source_id or source_policy_version < 1 or not target_role:
+        raise ValueError("document OCR source policy identity is invalid")
 
     capture = acquire_provider_diagnostic_bytes(
         database=database,
         assurance_run_id=str(uuid.uuid4()),
-        source_id="S01",
-        source_policy_version=2,
+        source_id=source_id,
+        source_policy_version=source_policy_version,
         target_role=target_role,
         url=url,
         timeout_seconds=timeout_seconds,

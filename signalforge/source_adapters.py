@@ -45,7 +45,10 @@ from .moi import parse_tender_listing as parse_moi_tender_listing
 from .moba import parse_tender_detail as parse_moba_tender_detail
 from .moba import parse_tender_listing as parse_moba_tender_listing
 from .mcrd import parse_tender_records as parse_mcrd_tender_records
+from .moc import document_ocr_url as moc_document_ocr_url
+from .moc import enrich_tender_with_document_ocr as enrich_moc_tender_with_document_ocr
 from .moc import parse_tender_records as parse_moc_tender_records
+from .moc import restore_tender_from_payload as restore_moc_tender_from_payload
 from .mte import parse_tender_records as parse_mte_tender_records
 from .mpt import SitemapEntry, parse_sitemap, parse_tender_detail as parse_mpt_tender_detail
 from .mpt_network import parse_network_records as parse_mpt_network_records
@@ -77,6 +80,9 @@ DiscoveryRecordParser = Callable[[bytes, str], list[object]]
 DetailParser = Callable[[bytes, str], list[object]]
 DetailAttachmentExtractor = Callable[[bytes, str], list[str]]
 DetailWithAttachmentsParser = Callable[[bytes, str, list[tuple[str, bytes]]], list[object]]
+DiscoveryRecordDocumentUrl = Callable[[object], str | None]
+DiscoveryRecordOcrEnricher = Callable[[object, dict[str, object]], object]
+DiscoveryRecordPayloadRestorer = Callable[[object, dict[str, object]], object]
 
 
 @dataclass(frozen=True)
@@ -92,6 +98,9 @@ class SourceAdapter:
     parse_discovery_records: DiscoveryRecordParser | None = None
     extract_detail_attachments: DetailAttachmentExtractor | None = None
     parse_detail_with_attachments: DetailWithAttachmentsParser | None = None
+    discovery_record_document_url: DiscoveryRecordDocumentUrl | None = None
+    enrich_discovery_record_with_ocr: DiscoveryRecordOcrEnricher | None = None
+    restore_discovery_record_from_payload: DiscoveryRecordPayloadRestorer | None = None
 
 
 def _empty_discovery(_payload: bytes) -> list[SitemapEntry]:
@@ -500,6 +509,9 @@ ADAPTERS = {
         parse_discovery=_empty_discovery,
         parse_detail=lambda _payload, _url: [],
         parse_discovery_records=parse_moc_tender_records,
+        discovery_record_document_url=moc_document_ocr_url,
+        enrich_discovery_record_with_ocr=enrich_moc_tender_with_document_ocr,
+        restore_discovery_record_from_payload=restore_moc_tender_from_payload,
     ),
     "yangon_construction_tender": SourceAdapter(
         name="yangon_construction_tender",

@@ -25,7 +25,7 @@ class ContractTests(unittest.TestCase):
         )
         self.assertEqual(manifest["verbs"]["signalforge-refresh"]["argument"], "source_id")
         self.assertEqual(manifest["grammar"]["source_id"], "^[A-Z][A-Z0-9]{0,15}$")
-        self.assertEqual(manifest["active_source_ids"], ["S05A", "S07", "S08A", "S10", "S12", "S13", "S16", "S20", "S22", "S25", "S26", "S28", "S29", "S30", "S31", "S32", "S33", "S34", "S35", "S36", "S37", "S39", "S40", "S41", "S43", "S44", "S45", "S46", "S47", "S27", "S38"])
+        self.assertEqual(manifest["active_source_ids"], ["S05A", "S07", "S08A", "S10", "S12", "S13", "S16", "S20", "S22", "S23", "S25", "S26", "S28", "S29", "S30", "S31", "S32", "S33", "S34", "S35", "S36", "S37", "S39", "S40", "S41", "S43", "S44", "S45", "S46", "S47", "S27", "S38"])
 
         registry = Registry.load(ROOT)
         retired_s21 = registry.raw["sources"]["S21"]
@@ -239,6 +239,17 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(detail_policy["capabilities"], ["PUBLIC_READ_ACQUIRE", "C0_FETCH"])
         self.assertFalse(detail_policy["allow_query"])
         self.assertFalse(detail_policy["allow_fragment"])
+
+        s23_ocr = provider_contract["source_policies"]["S23"]
+        self.assertEqual(s23_ocr["allowed_capabilities"], ["DOCUMENT_OCR"])
+        self.assertEqual(s23_ocr["source_policy_version"], 2)
+        s23_doc = s23_ocr["targets"]["OFFICIAL_DOCUMENT"]
+        self.assertEqual(s23_doc["https_host"], "construction.gov.mm")
+        self.assertEqual(s23_doc["path_prefix"], "/storage/TinDar/")
+        self.assertEqual(s23_doc["capabilities"], ["DOCUMENT_OCR"])
+        self.assertEqual(s23_doc["max_bytes"], 4000000)
+        self.assertFalse(s23_doc["allow_query"])
+        self.assertFalse(s23_doc["allow_fragment"])
 
         doa = registry.source("S36")
         self.assertEqual(doa["adapter"], "doa_tender")

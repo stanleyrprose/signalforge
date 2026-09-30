@@ -10,7 +10,12 @@ from typing import Callable
 from urllib.parse import urlparse
 
 from .acquisition_contract import ProcessingFailure, request_reason
-from .acquisition_runtime import acquire_local_bytes, acquire_provider_bytes, record_processing
+from .acquisition_runtime import (
+    acquire_local_bytes,
+    acquire_provider_bytes,
+    acquire_provider_document_ocr,
+    record_processing,
+)
 from .config import Registry, db_path, evidence_root
 from .db import connect, migrate
 from .http import fetch_bytes, fetch_bytes_cloudrity_d1n
@@ -628,6 +633,93 @@ def _acquire_source_bytes(
     raise EngineError(f"unsupported source engine: {source_id}")
 
 
+def _enrich_discovery_records_with_document_ocr(
+    *,
+    source_id: str,
+    source: dict,
+    adapter,
+    records: list[object],
+    database: Path,
+    now: datetime,
+) -> tuple[list[object], int]:
+    config = source.get("document_ocr_enrichment")
+    if not isinstance(config, dict) or config.get("enabled") is not True:
+        return records, 0
+    if (
+        adapter.discovery_record_document_url is None
+        or adapter.enrich_discovery_record_with_ocr is None
+        or adapter.restore_discovery_record_from_payload is None
+    ):
+        raise EngineError(f"document OCR enrichment adapter hooks missing: {source_id}")
+
+    hosts = config.get("allowed_https_hosts")
+    path_prefix = config.get("allowed_path_prefix")
+    if (
+        not isinstance(hosts, list)
+        or not hosts
+        or not all(isinstance(value, str) and value for value in hosts)
+        or not isinstance(path_prefix, str)
+        or not path_prefix.startswith("/")
+    ):
+        raise EngineError(f"document OCR enrichment URL policy invalid: {source_id}")
+
+    enriched_records: list[object] = []
+    errors = 0
+    today = now.date().isoformat()
+    for record in records:
+        url = adapter.discovery_record_document_url(record)
+        deadline = str(getattr(record, "deadline", "") or "")
+        if not url or (config.get("open_only") is True and deadline and deadline < today):
+            enriched_records.append(record)
+            continue
+
+        cached_payload: dict[str, object] | None = None
+        canonical_key = str(getattr(record, "canonical_key", "") or "")
+        if canonical_key:
+            with connect(database) as conn:
+                row = conn.execute(
+                    "SELECT payload_json FROM canonical_items WHERE canonical_key=? AND source_id=?",
+                    (canonical_key, source_id),
+                ).fetchone()
+            if row is not None:
+                try:
+                    value = json.loads(str(row["payload_json"] or "{}"))
+                except json.JSONDecodeError:
+                    value = {}
+                if isinstance(value, dict):
+                    cached_payload = value
+
+        if cached_payload is not None:
+            restored = adapter.restore_discovery_record_from_payload(record, cached_payload)
+            if str(getattr(restored, "document_ocr_status", "") or "") == "CROSSCHECKED":
+                enriched_records.append(restored)
+                continue
+
+        try:
+            capture = acquire_provider_document_ocr(
+                database=database,
+                url=str(url),
+                timeout_seconds=int(config.get("timeout_seconds", 90)),
+                max_bytes=int(config.get("max_bytes", 8_000_000)),
+                request_now=now,
+                source_id=source_id,
+                source_policy_version=int(config.get("source_policy_version", source["source_policy_version"])),
+                target_role=str(config.get("target_role", "OFFICIAL_DOCUMENT")),
+                allowed_https_hosts=tuple(str(value) for value in hosts),
+                allowed_path_prefix=path_prefix,
+            )
+            enriched = adapter.enrich_discovery_record_with_ocr(record, capture.result)
+            if str(getattr(enriched, "document_ocr_status", "") or "") != "CROSSCHECKED":
+                errors += 1
+            enriched_records.append(enriched)
+        except Exception:
+            # Acquisition/OCR enrichment is fail-closed for customer readiness,
+            # not a reason to discard issuer-original listing discovery.
+            errors += 1
+            enriched_records.append(record)
+    return enriched_records, errors
+
+
 def run_source(
     source_id: str,
     *,
@@ -741,6 +833,15 @@ def run_source(
                 )
                 raise
 
+            discovery_records, ocr_enrichment_errors = _enrich_discovery_records_with_document_ocr(
+                source_id=source_id,
+                source=source,
+                adapter=adapter,
+                records=discovery_records,
+                database=database,
+                now=now,
+            )
+            detail_errors += ocr_enrichment_errors
             items_parsed = len(discovery_records)
             tenders_parsed = sum(
                 1 for item in discovery_records if str(getattr(item, "item_kind", "TENDER")) == "TENDER"

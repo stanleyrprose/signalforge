@@ -3131,9 +3131,9 @@
     "S23": {
       "name": "Ministry of Construction National Tenders",
       "adapter": "moc_tender",
-      "enabled": false,
-      "role": "DEFERRED_READY",
-      "audit_status": "READY_TLS_BLOCKED_ISSUER_CERT_EXPIRED",
+      "enabled": true,
+      "role": "ACTIVE_PRIMARY",
+      "audit_status": "GREEN_DIRECT_HTTP_LISTING_PLUS_MAC_DOCUMENT_OCR",
       "item_kind": "TENDER",
       "network_zone": "myanmar-international",
       "engine": "direct_http",
@@ -3181,7 +3181,7 @@
         "parse_probe_interval_seconds": 7200,
         "parse_sample_source": "BUSINESS_PROCESSING"
       },
-      "source_policy_version": 1,
+      "source_policy_version": 2,
       "egress_profile": "mm-intl-datacenter",
       "acquisition_policy": {
         "enabled": true,
@@ -3198,16 +3198,36 @@
         }
       },
       "attachment_policy": {
-        "mode": "METADATA_ONLY_OFFICIAL_PDF",
-        "current_health": "LISTING_TITLE_REGION_END_DATE_PDF_METADATA_TLS_BLOCKED",
-        "fetch_in_primary_pipeline": false
+        "mode": "OFFICIAL_PDF_DOCUMENT_OCR_ENRICHMENT",
+        "current_health": "GREEN_SCAN_ONLY_PDF_MAC_DOCUMENT_OCR",
+        "fetch_in_primary_pipeline": false,
+        "customer_readiness": "FAIL_CLOSED_UNLESS_OCR_SCOPE_QUANTITY_DEADLINE_CROSSCHECK"
+      },
+      "document_ocr_enrichment": {
+        "enabled": true,
+        "provider_id": "mac-mm-01",
+        "capability": "DOCUMENT_OCR",
+        "source_policy_version": 2,
+        "target_role": "OFFICIAL_DOCUMENT",
+        "allowed_https_hosts": ["construction.gov.mm", "www.construction.gov.mm"],
+        "allowed_path_prefix": "/storage/TinDar/",
+        "max_bytes": 4000000,
+        "timeout_seconds": 120,
+        "open_only": true,
+        "reuse_cached_by_attachment_url": true,
+        "business_truth_policy": "LISTING_DEADLINE_MUST_MATCH_OCR_DOCUMENT"
       },
       "activation_gate": {
-        "type": "STRICT_TLS_HTTPS",
-        "status": "BLOCKED_ISSUER_CERT_EXPIRED",
+        "type": "STRICT_TLS_HTTPS_PLUS_DOCUMENT_OCR",
+        "status": "PASS",
+        "verified_at": "2026-09-30",
         "requirements": {
           "tls_verification_required": true,
-          "expected_http_status": 200
+          "expected_http_status": 200,
+          "bangkok_listing_verified": true,
+          "mac_listing_verified": true,
+          "scan_pdf_document_ocr_verified": true,
+          "ocr_business_fields_fail_closed": true
         },
         "enable_only_after_gate_pass": true
       }
@@ -3221,7 +3241,6 @@
     "S17": "MCDC — DEFER; current issuer-original tender posts are stable but business details are scan-only PDFs (0 extracted text in fresh audit), so onboarding requires a separately approved Burmese image/OCR capability",
     "S18": "NPTDC — DEFER; correct legacy PHP board path is Direct-HTTP reachable when literal parentheses are preserved, but tender specifics are image-based and the mixed 3MB board still requires classifier + image/OCR capability",
     "S19": "MOEP E-Tender — EXCLUDED R0 RED-TLS",
-    "S23": "Ministry of Construction National Tenders — READY_TLS_BLOCKED: parser/identity/source policy are implemented but enabled=false; activate only after Bangkok strict HTTPS verifies the issuer certificate and returns HTTP 200; no TLS bypass or Browser certificate workaround",
     "S24": "National Portal / highways fallback — fallback only"
   }
 }

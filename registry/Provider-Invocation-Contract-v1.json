@@ -134,6 +134,31 @@
           }
         }
       }
+    },
+    "S23": {
+      "enabled": true,
+      "source_policy_version": 2,
+      "allowed_capabilities": [
+        "DOCUMENT_OCR"
+      ],
+      "targets": {
+        "OFFICIAL_DOCUMENT": {
+          "https_host": "construction.gov.mm",
+          "path_prefix": "/storage/TinDar/",
+          "capabilities": [
+            "DOCUMENT_OCR"
+          ],
+          "max_bytes": 4000000,
+          "max_run_seconds": 120,
+          "allow_query": false,
+          "allow_fragment": false,
+          "final_url_policy": {
+            "mode": "APPROVED_HOST_PATH",
+            "https_host": "construction.gov.mm",
+            "path_prefix": "/storage/TinDar/"
+          }
+        }
+      }
     }
   }
 }

@@ -122,6 +122,7 @@ def _attention_item(item: dict[str, object]) -> dict[str, object]:
         "quantity_or_lot_summary": item.get("quantity_or_lot_summary"),
         "quantity_or_lot_evidence": item.get("quantity_or_lot_evidence"),
         "quantity_or_lot_confidence": item.get("quantity_or_lot_confidence"),
+        "customer_readiness_excluded_reason": item.get("customer_readiness_excluded_reason"),
         "price_or_budget_summary": item.get("price_or_budget_summary") or _money_excerpt(
             item.get("focus_scope_summary"),
             item.get("scope_summary"),
