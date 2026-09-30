@@ -1,5 +1,24 @@
 # CHECKPOINT
 
+## Tender Radar paid-pilot validation production checkpoint — 2026-09-30
+
+SignalForge's current business goal is now formal Myanmar government/SOE Tender intelligence delivered in Chinese, with customer-specific pilot matching and measurable downstream action. The productization/validation tranche is production-closed.
+
+- PR #262 added pilot delivery attribution, `pilot-feedback` and `pilot-report`; merged as `db87b23730251a343ccb23040598535e57e80782`.
+- The first v10 production deploy exposed a real existing-DB migration-order defect (`no such column: profile_id`). Standard deployment rollback restored `e88421475785bbf33fdaf36df264883e09527649`, schema v9, `quick_check=ok`, and all four timers. No lock bypass, DB hand-edit or forced worker termination was used.
+- PR #263 fixed the v9 → v10 migration ordering and added a production-shaped legacy-row preservation regression test; CI PASS and merged as `9466ba391a7b5c10fc9a3ccb5760a9342134bf36`.
+- Live v10 audit then exposed a product-level issue: 41 historical owner receipts polluted the pilot denominator, and global owner-feed dedupe could suppress delivery of the same Tender Signal to a second pilot customer.
+- PR #264 separated paying-pilot delivery into `pilot_delivery_receipts`, keyed by `channel + profile_id + canonical_key + signal_id`; owner `delivery_receipts` remain unchanged. CI verify PASS and merged as `2500d6f044c1f3dad985f15fc2e2f207d39199bf`.
+- Final production release: `2500d6f044c1f3dad985f15fc2e2f207d39199bf`; previous release: `9466ba391a7b5c10fc9a3ccb5760a9342134bf36`.
+- Final release archive SHA256 matched Mac and Bangkok: `44738ec629289295d9c800153feec461db39457261571eadb98ac259a63c1eb4`.
+- Final local validation: targeted DB/pilot/Telegram/Assurance 46/46 PASS; full suite 550/550 PASS; compileall, registry JSON, deploy shell syntax and `git diff --check` PASS.
+- Live production acceptance: schema v11; `pilot_delivery_receipts`, `pilot_feedback_events` and legacy `delivery_receipts` present; owner receipts preserved 41→41; pilot receipts=0; pilot feedback events=0; SQLite `quick_check=ok`; SignalForge PASS/GREEN; recovery backlog=0; all four production timers enabled+active.
+- Live `pilot-report` honestly returns zero deliveries and null conversion rates because no real paying pilot has yet been onboarded. No synthetic customer, receipt or feedback was inserted.
+- Paying-pilot operation is intentionally manual for now: unique Business Profile + customer Telegram chat ID → `telegram-deliver --profile ...` → record observed `WORTH_REVIEWING` / `ACTION_TAKEN` / `BID_OR_QUOTE_INITIATED` → inspect `pilot-report`.
+- Public signup, billing, dashboard, automatic multi-customer fan-out and Cloudflare self-service remain explicitly deferred.
+- Next bottleneck is commercial validation, not engineering: onboard the first 3–5 real pilot companies and test willingness to pay RMB 200–500/month.
+- Production closure evidence: `docs/verification/TENDER-RADAR-PILOT-VALIDATION-PRODUCTION-CLOSURE-2026-09-30.md`.
+
 ## Project → procurement review queue production checkpoint — 2026-09-27
 
 This section closes the next final-goal tranche after S48/S49/S50 precursor acquisition: create an operational, review-only path from promoted projects to later procurement evidence without introducing automatic/fuzzy links.
