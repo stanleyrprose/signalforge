@@ -1320,7 +1320,10 @@ class BusinessDigestTests(unittest.TestCase):
         ), patch("signalforge.business_digest.source_scorecard", return_value=_scorecard()):
             database = self._db(tmp)
             result = telegram_digest(database=database, now=datetime(2026,9,10,12,0,tzinfo=UTC), dry_run=True, audit_network=False)
-            self.assertEqual(result["pending_count"], 1)
+            self.assertEqual(result["pending_count"], 0)
+            self.assertEqual(result["sent_count"], 0)
+            self.assertTrue(result["disabled"])
+            self.assertEqual(result["reason"], "CUSTOMER_TELEGRAM_CANONICAL_TENDER_CARDS_ONLY")
             with connect(database) as conn:
                 self.assertEqual(conn.execute("SELECT COUNT(*) FROM digest_delivery_receipts").fetchone()[0], 0)
 
@@ -1334,12 +1337,14 @@ class BusinessDigestTests(unittest.TestCase):
             next_day = telegram_digest(database=database, now=datetime(2026,9,11,2,0,tzinfo=UTC), bot_token="secret", chat_id="42", audit_network=False)
             with connect(database) as conn:
                 receipt_count = conn.execute("SELECT COUNT(*) FROM digest_delivery_receipts").fetchone()[0]
-        self.assertEqual(first["sent_count"], 1)
+        self.assertEqual(first["sent_count"], 0)
         self.assertEqual(second["sent_count"], 0)
-        self.assertTrue(second["deduplicated"])
-        self.assertEqual(next_day["sent_count"], 1)
-        self.assertEqual(send.call_count, 2)
-        self.assertEqual(receipt_count, 2)
+        self.assertEqual(next_day["sent_count"], 0)
+        self.assertTrue(first["disabled"])
+        self.assertTrue(second["disabled"])
+        self.assertTrue(next_day["disabled"])
+        self.assertEqual(send.call_count, 0)
+        self.assertEqual(receipt_count, 0)
 
     def test_digest_surfaces_pending_project_precursor_without_counting_it_as_procurement(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

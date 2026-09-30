@@ -80,7 +80,12 @@ SIGNALFORGE_TELEGRAM_CHAT_ID=<customer-chat-id> \
 
 Repeated execution for the same `profile_id + canonical_key + signal_id` is idempotent.
 
-Paying-pilot delivery also has a Business Readiness Gate. A matched Tender is withheld from the customer feed unless the deadline is confirmed open, the procurement scope is actionable, and quantity/scale is explicitly explained. If the production translation path still leaves Myanmar script in the customer message, delivery fails closed instead of sending untranslated text. Internal sentinels such as `UNKNOWN` are never customer-facing.
+Telegram customer delivery has a single Customer-Ready Tender Contract, using the accepted 137/138 message standard. It applies to both owner and pilot feeds, not only paying-pilot delivery. A canonical Tender is withheld unless the deadline is confirmed open, the procurement scope is actionable, and quantity/scale is explicitly explained. The card is procurement-first: buyer/issuer + procurement scope, quantity/scale, deadline, participation/next action when known, evidence, and official link. If the production translation path still leaves Myanmar script in the customer message, delivery fails closed instead of sending untranslated text. Internal sentinels such as `UNKNOWN` are never customer-facing.
+
+Telegram is deliberately narrower than SignalForge's internal operator surfaces:
+- noncanonical manual promotions remain available internally but are not sent to customer Telegram;
+- the aggregate daily business digest remains available through internal CLI/reporting but its Telegram sender is disabled;
+- therefore SignalForge's Telegram output is reserved for customer-ready canonical Tender cards only.
 
 For a production-equivalent quality preview without writing pilot delivery receipts:
 
