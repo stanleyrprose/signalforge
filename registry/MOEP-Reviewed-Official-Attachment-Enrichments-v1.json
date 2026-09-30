@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "review_policy": "S20_EXACT_OFFICIAL_ATTACHMENT_BUSINESS_ENRICHMENT_V1",
+  "records": {
+    "moep:7150:2026-09-08": {
+      "source_id": "S20",
+      "item_kind": "TENDER",
+      "reference_no": "MOEP-CONTENT-7150",
+      "publication_date": "2026-09-08",
+      "article_url": "https://moep.gov.mm/mm/ignite/contentView/7150",
+      "attachment_name": "YESC-4778.pdf",
+      "attachment_url": "https://moep.gov.mm/mm/userfile/YESC-4778.pdf",
+      "document_sha256": "bb0443e90913f2b86dbee9a18163ed5b529f10a5c38de136ec21d292ad1007c6",
+      "reviewed_at": "2026-09-30",
+      "review_status": "REVIEWED_OFFICIAL_ATTACHMENT_OCR_MULTI_PASS",
+      "fields": {
+        "scope_summary": "YESC为14个区县所属城镇采购11-6.6/0.4kV、200kVA配电变压器及变压器配套物资（2026-2027财年）。",
+        "quantity_or_lot_summary": "200kVA配电变压器49台；另含变压器配套物资，公告未逐项披露配套物资数量。",
+        "quantity_or_lot_evidence": "MOEP_OFFICIAL_ATTACHMENT_OCR_MULTI_PASS",
+        "quantity_or_lot_confidence": "REVIEWED_MULTI_PASS",
+        "deadline": "2026-09-22",
+        "deadline_time": "14:00",
+        "deadline_kind": "BID_SUBMISSION_DEADLINE",
+        "deadline_evidence": "MOEP_OFFICIAL_ATTACHMENT_OCR_MULTI_PASS",
+        "reference_numbers": ["44(T)/YESC/(Dist)/26-27"],
+        "reference_count": 1,
+        "reference_numbers_evidence": "MOEP_OFFICIAL_ATTACHMENT_OCR_MULTI_PASS",
+        "next_action_summary": "该招标已于2026-09-22 14:00截止，当前只保留历史证据，不作为开放商机推送。",
+        "next_action_evidence": "MOEP_OFFICIAL_ATTACHMENT_OCR_MULTI_PASS",
+        "detail_completeness": "HTML_PLUS_REVIEWED_OFFICIAL_ATTACHMENT_OCR"
+      }
+    },
+    "moep:7157:2026-09-11": {
+      "source_id": "S20",
+      "item_kind": "TENDER",
+      "reference_no": "MOEP-CONTENT-7157",
+      "publication_date": "2026-09-11",
+      "article_url": "https://moep.gov.mm/mm/ignite/contentView/7157",
+      "attachment_name": "ACCC_Conductor_Form.pdf",
+      "attachment_url": "https://moep.gov.mm/mm/userfile/ACCC_Conductor_Form.pdf",
+      "document_sha256": "a9ba95b79dcbaa81fb898b3c27bd3b0479d362e1d26866706782c308a9508954",
+      "reviewed_at": "2026-09-30",
+      "review_status": "REVIEWED_OFFICIAL_ATTACHMENT_NATIVE_TEXT",
+      "fields": {
+        "scope_summary": "DPTSC采购Kamanat–Hlawga 230kV输电线路导线改造所需材料：将现有ACSR导线更换为ACCC导线。",
+        "quantity_or_lot_summary": "工程规模为38.4英里输电线路；公开公告未披露各类材料的逐项数量。",
+        "quantity_or_lot_evidence": "MOEP_OFFICIAL_ATTACHMENT_NATIVE_TEXT",
+        "quantity_or_lot_confidence": "REVIEWED_NATIVE_TEXT",
+        "reference_numbers": ["45(T)/DPTSC(PSD)/2026-2027"],
+        "reference_count": 1,
+        "reference_numbers_evidence": "MOEP_OFFICIAL_ATTACHMENT_NATIVE_TEXT",
+        "detail_completeness": "HTML_PLUS_REVIEWED_OFFICIAL_ATTACHMENT_NATIVE_TEXT"
+      }
+    },
+    "moep:7197:2026-09-30": {
+      "source_id": "S20",
+      "item_kind": "TENDER",
+      "reference_no": "MOEP-CONTENT-7197",
+      "publication_date": "2026-09-30",
+      "article_url": "https://moep.gov.mm/mm/ignite/contentView/7197",
+      "attachment_name": "EPGE-2192_(29_9_26).pdf",
+      "attachment_url": "https://moep.gov.mm/mm/userfile/EPGE-2192_(29_9_26).pdf",
+      "document_sha256": "6cecdd7f2e479468e56e5b7fd6d84d971eb74391aa132c7ebe6c6edbfbc991a3",
+      "reviewed_at": "2026-09-30",
+      "review_status": "REVIEWED_OFFICIAL_ATTACHMENT_OCR_MULTI_PASS",
+      "fields": {
+        "scope_summary": "EPGE共7个分包：74号Upper Paunglaung水电站HVAC系统升级；75号Thaphanseik水电站电气备件；76号Kun Chaung、Nan Cho及Upper Paunglaung等水电站电气备件；77号Baluchaung-1/2等水电站电气备件；78号Paunglaung水电站电气备件；79号Yeywa水电站电气备件；80号Mone Chaung水电站1号机Governor System相关工作/物资。",
+        "quantity_or_lot_summary": "共7个分包；明确披露的电气备件类别数分别为6类、10类、5类、9类、2类；HVAC升级及Governor System相关分包未在公开公告中披露逐项件数。",
+        "quantity_or_lot_evidence": "MOEP_OFFICIAL_ATTACHMENT_OCR_MULTI_PASS",
+        "quantity_or_lot_confidence": "REVIEWED_MULTI_PASS",
+        "deadline": "2026-10-13",
+        "deadline_time": "13:00",
+        "deadline_kind": "BID_SUBMISSION_DEADLINE",
+        "deadline_evidence": "MOEP_OFFICIAL_ATTACHMENT_OCR_MULTI_PASS",
+        "location": "EPGE, Office No.27, Nay Pyi Taw",
+        "location_evidence": "MOEP_OFFICIAL_ATTACHMENT_OCR_MULTI_PASS",
+        "reference_numbers": [
+          "74(Re-T)/EPGE(REHP)/2026-2027",
+          "75(Re-T)/EPGE(REHP)/2026-2027",
+          "76(Re-T)/EPGE(REHP)/2026-2027",
+          "77(Re-T)/EPGE(REHP)/2026-2027",
+          "78(Re-T)/EPGE(REHP)/2026-2027",
+          "79(Re-T)/EPGE(REHP)/2026-2027",
+          "80(Re-T)/EPGE(REHP)/2026-2027"
+        ],
+        "reference_count": 7,
+        "reference_numbers_evidence": "MOEP_OFFICIAL_ATTACHMENT_OCR_MULTI_PASS",
+        "next_action_summary": "招标文件销售期为2026-09-30至2026-10-12；Technical Proposal与Financial Proposal须分袋密封，并于2026-10-13 13:00前现场提交至内比都Office No.27 EPGE。",
+        "next_action_evidence": "MOEP_OFFICIAL_ATTACHMENT_OCR_MULTI_PASS",
+        "detail_completeness": "HTML_PLUS_REVIEWED_OFFICIAL_ATTACHMENT_OCR"
+      }
+    }
+  }
+}

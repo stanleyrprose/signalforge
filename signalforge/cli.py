@@ -418,6 +418,7 @@ def main(argv: list[str] | None = None) -> int:
     manual_resolve_parser.add_argument("--by", default="operator")
     telegram_parser = sub.add_parser("telegram-deliver")
     telegram_parser.add_argument("--dry-run", action="store_true")
+    telegram_parser.add_argument("--translate-preview", action="store_true")
     telegram_parser.add_argument("--profile")
     pilot_feedback_parser = sub.add_parser("pilot-feedback")
     pilot_feedback_parser.add_argument("--profile-id", required=True)
@@ -674,8 +675,11 @@ def main(argv: list[str] | None = None) -> int:
         elif args.cmd == "manual-resolve":
             result = resolve_manual_promotion(args.promotion_id, note=args.note, resolved_by=args.by)
         elif args.cmd == "telegram-deliver":
+            if bool(args.translate_preview) and not bool(args.dry_run):
+                raise ValueError("--translate-preview requires --dry-run")
             result = telegram_deliver(
                 dry_run=bool(args.dry_run),
+                translate_preview=bool(args.translate_preview),
                 profile_path=Path(args.profile).expanduser() if args.profile else None,
             )
         elif args.cmd == "pilot-feedback":

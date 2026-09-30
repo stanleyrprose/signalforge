@@ -80,6 +80,17 @@ SIGNALFORGE_TELEGRAM_CHAT_ID=<customer-chat-id> \
 
 Repeated execution for the same `profile_id + canonical_key + signal_id` is idempotent.
 
+Paying-pilot delivery also has a Business Readiness Gate. A matched Tender is withheld from the customer feed unless the deadline is confirmed open, the procurement scope is actionable, and quantity/scale is explicitly explained. If the production translation path still leaves Myanmar script in the customer message, delivery fails closed instead of sending untranslated text. Internal sentinels such as `UNKNOWN` are never customer-facing.
+
+For a production-equivalent quality preview without writing pilot delivery receipts:
+
+```sh
+signalforge telegram-deliver \
+  --dry-run \
+  --translate-preview \
+  --profile profiles/customer-a.json
+```
+
 ## Commercial validation
 
 Before building self-service SaaS, onboard 5–10 pilot companies manually.

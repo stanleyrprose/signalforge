@@ -14,7 +14,7 @@ from .briefing import business_briefing
 from .business_profile import BusinessProfile, load_business_profile, match_tender
 from .config import db_path
 from .db import connect
-from .translation import translate_myanmar_to_zh_hans, translate_tender_fields_to_zh_hans
+from .translation import contains_myanmar, translate_myanmar_to_zh_hans, translate_tender_fields_to_zh_hans
 
 CHANNEL = "telegram"
 TELEGRAM_MESSAGE_LIMIT = 4096
@@ -97,10 +97,10 @@ def render_manual_promotion_message(
 
 def _deadline_text(item: dict[str, object]) -> str:
     if item.get("deadline_status") == "UNKNOWN":
-        return "UNKNOWN（官方材料未提供）"
+        return "未在已核验材料中确认"
     deadline = str(item.get("deadline") or "")
     deadline_time = str(item.get("deadline_time") or "")
-    return f"{deadline} {deadline_time}".strip() or "UNKNOWN"
+    return f"{deadline} {deadline_time}".strip() or "未在已核验材料中确认"
 
 
 def _deadline_label(item: dict[str, object]) -> str:
@@ -149,7 +149,7 @@ def _evidence_label(value: object) -> str:
         "OFFICIAL_HTML_VIA_PROVIDER": "官方 HTML（Mac Provider）",
         "OFFICIAL_HTML_PLUS_TEXT_PDF": "官方 HTML + 官方文本 PDF",
         "OFFICIAL_HTML": "官方 HTML",
-    }.get(str(value or ""), str(value or "UNKNOWN"))
+    }.get(str(value or ""), str(value or "已核验官方来源"))
 
 
 def _compact_scope(value: object, limit: int = 240) -> str:
@@ -157,6 +157,22 @@ def _compact_scope(value: object, limit: int = 240) -> str:
     if len(text) <= limit:
         return text
     return text[: max(0, limit - 1)].rstrip() + "…"
+
+
+def _pilot_business_readiness(item: dict[str, object]) -> list[str]:
+    reasons: list[str] = []
+    if str(item.get("deadline_status") or "") != "OPEN":
+        reasons.append("DEADLINE_NOT_CONFIRMED_OPEN")
+    opportunity_status = str(item.get("opportunity_status") or "")
+    if opportunity_status and opportunity_status != "OPEN":
+        reasons.append("OPPORTUNITY_NOT_OPEN")
+    scope = _compact_scope(item.get("scope_excerpt"), limit=320)
+    if len(scope) < 16:
+        reasons.append("PROCUREMENT_SCOPE_NOT_ACTIONABLE")
+    quantity = " ".join(str(item.get("quantity_or_lot_summary") or "").split())
+    if not quantity:
+        reasons.append("QUANTITY_OR_SCALE_NOT_EXPLAINED")
+    return reasons
 
 
 def render_telegram_message(
@@ -175,8 +191,20 @@ def render_telegram_message(
     translated_values, was_translated = translate_batch(
         [raw_title, raw_issuer, raw_scope, raw_quantity, raw_amount, raw_location, raw_next_action]
     )
+    translated_title, translated_issuer, translated_scope, translated_quantity, translated_amount, translated_location, translated_next_action = translated_values
+    if item.get("business_profile_id") and translated_scope:
+        translated_title = _compact_scope(f"{translated_issuer}｜{translated_scope}", limit=128)
     title, issuer, scope, quantity, amount, location, next_action = [
-        html.escape(value) for value in translated_values
+        html.escape(value)
+        for value in (
+            translated_title,
+            translated_issuer,
+            translated_scope,
+            translated_quantity,
+            translated_amount,
+            translated_location,
+            translated_next_action,
+        )
     ]
     reference_numbers = item.get("reference_numbers")
     if isinstance(reference_numbers, list) and reference_numbers:
@@ -190,7 +218,10 @@ def render_telegram_message(
         else ""
     )
     url = html.escape(str(item.get("url") or ""), quote=True)
-    evidence = html.escape(_evidence_label(item.get("evidence_level")))
+    evidence_text = _evidence_label(item.get("evidence_level"))
+    if item.get("reviewed_attachment_status"):
+        evidence_text += " + 官方附件（人工核验）"
+    evidence = html.escape(evidence_text)
     signal_type = str(item.get("latest_signal_type") or "")
     signal_label = {"NEW": "新招标", "UPDATED": "招标更新"}.get(signal_type, "招标通知")
     icon = "📢" if signal_type == "NEW" else "🔄" if signal_type == "UPDATED" else "🔔"
@@ -205,7 +236,7 @@ def render_telegram_message(
     if scope:
         lines.append(f"📦 采购内容：{scope}")
     if item.get("quantity_or_lot_summary"):
-        lines.append(f"🔢 数量/批次：{quantity}")
+        lines.append(f"🔢 数量/规模：{quantity}")
     if item.get("price_or_budget_summary"):
         lines.append(f"💰 金额（原文）：{amount}")
     if item.get("deadline_status") != "UNKNOWN":
@@ -282,6 +313,7 @@ def telegram_deliver(
     database: Path | None = None,
     now: datetime | None = None,
     dry_run: bool = False,
+    translate_preview: bool = False,
     bot_token: str | None = None,
     chat_id: str | None = None,
     business_profile: BusinessProfile | None = None,
@@ -307,8 +339,9 @@ def telegram_deliver(
     pending: list[dict[str, object]] = []
     manual_pending: list[dict[str, object]] = []
     filtered_out_count = 0
+    quality_filtered: list[dict[str, object]] = []
     translator: TranslationBatch | None = None
-    if not dry_run:
+    if not dry_run or translate_preview:
         def translate_for_delivery(values: list[str]) -> tuple[list[str], bool]:
             return translate_tender_fields_to_zh_hans(values, database=target)
 
@@ -326,6 +359,15 @@ def telegram_deliver(
                 delivery_item["business_profile_id"] = profile.profile_id
                 delivery_item["business_profile_match_score"] = profile_match["score"]
                 delivery_item["business_profile_match_summary"] = profile_match["summary"]
+                readiness_reasons = _pilot_business_readiness(delivery_item)
+                if readiness_reasons:
+                    quality_filtered.append(
+                        {
+                            "canonical_key": str(delivery_item.get("canonical_key") or ""),
+                            "reasons": readiness_reasons,
+                        }
+                    )
+                    continue
             signal_id = str(delivery_item.get("latest_signal_id") or "")
             if not signal_id:
                 raise TelegramDeliveryError("attention item missing latest_signal_id")
@@ -354,6 +396,14 @@ def telegram_deliver(
             if exists is not None:
                 continue
             text = render_telegram_message(delivery_item, translator=translator)
+            if profile is not None and (not dry_run or translate_preview) and contains_myanmar(text):
+                quality_filtered.append(
+                    {
+                        "canonical_key": str(delivery_item.get("canonical_key") or ""),
+                        "reasons": ["UNTRANSLATED_MYANMAR_PRESENT"],
+                    }
+                )
+                continue
             pending.append({**delivery_item, "delivery_key": key, "message": text, "payload_sha256": _payload_sha256(text)})
         for item in manual_rows:
             if not isinstance(item, dict):
@@ -380,6 +430,9 @@ def telegram_deliver(
             "signal_pending_count": len(pending),
             "manual_pending_count": len(manual_pending),
             "filtered_out_count": filtered_out_count,
+            "quality_filtered_count": len(quality_filtered),
+            "quality_filtered": quality_filtered,
+            "translate_preview": bool(translate_preview),
             "business_profile_id": profile.profile_id if profile is not None else None,
             "business_profile_delivery_mode": profile.delivery_mode if profile is not None else "ALL_TENDERS",
             "pending": [*pending, *manual_pending],
@@ -481,6 +534,8 @@ def telegram_deliver(
         "signal_sent_count": len(sent),
         "manual_sent_count": len(manual_sent),
         "filtered_out_count": filtered_out_count,
+        "quality_filtered_count": len(quality_filtered),
+        "quality_filtered": quality_filtered,
         "business_profile_id": profile.profile_id if profile is not None else None,
         "business_profile_delivery_mode": profile.delivery_mode if profile is not None else "ALL_TENDERS",
         "sent": sent,
