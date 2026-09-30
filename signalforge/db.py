@@ -123,8 +123,6 @@ def migrate(path: Path | None = None) -> None:
             );
             CREATE INDEX IF NOT EXISTS idx_delivery_receipts_channel_sent
                 ON delivery_receipts(channel, sent_at DESC);
-            CREATE INDEX IF NOT EXISTS idx_delivery_receipts_profile_sent
-                ON delivery_receipts(profile_id, sent_at DESC);
 
             CREATE TABLE IF NOT EXISTS pilot_feedback_events (
                 event_id TEXT PRIMARY KEY,
