@@ -45,23 +45,23 @@ class PilotValidationTests(unittest.TestCase):
             )
             conn.execute(
                 """
-                INSERT INTO delivery_receipts(
-                    delivery_key,channel,canonical_key,signal_id,attention_action,priority_band,
-                    payload_sha256,provider_message_id,sent_at,profile_id,profile_match_score
+                INSERT INTO pilot_delivery_receipts(
+                    delivery_key,channel,profile_id,canonical_key,signal_id,attention_action,
+                    priority_band,profile_match_score,payload_sha256,provider_message_id,sent_at
                 ) VALUES (?,?,?,?,?,?,?,?,?,?,?)
                 """,
                 (
                     "delivery-1",
                     "telegram",
+                    "pilot-ict",
                     "mpt:pilot-1",
                     "sig-pilot-1",
                     "PRIORITIZE",
                     "HIGH",
+                    75,
                     "payload-1",
                     "1001",
                     "2026-09-29T00:01:00Z",
-                    "pilot-ict",
-                    75,
                 ),
             )
 
@@ -113,6 +113,41 @@ class PilotValidationTests(unittest.TestCase):
             self.assertEqual(report["bid_or_quote_rate"], 1.0)
             self.assertEqual(report["feedback_by_type"]["ACTION_TAKEN"]["events"], 1)
             self.assertEqual(len(report["recent_feedback"]), 3)
+
+    def test_owner_feed_receipts_are_excluded_from_pilot_denominator(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            database = Path(tmp) / "signalforge.db"
+            migrate(database)
+            with connect(database) as conn, conn:
+                conn.execute(
+                    """
+                    INSERT INTO delivery_receipts(
+                        delivery_key,channel,canonical_key,signal_id,attention_action,priority_band,
+                        payload_sha256,provider_message_id,sent_at,profile_id,profile_match_score
+                    ) VALUES (?,?,?,?,?,?,?,?,?,?,?)
+                    """,
+                    (
+                        "owner-delivery",
+                        "telegram",
+                        "owner:tender",
+                        "owner-signal",
+                        "PRIORITIZE",
+                        "HIGH",
+                        "payload-owner",
+                        "2001",
+                        "2026-09-29T00:02:00Z",
+                        None,
+                        None,
+                    ),
+                )
+
+            report = pilot_validation_report(database=database)
+            self.assertEqual(report["delivery_count"], 0)
+            self.assertEqual(report["unique_tenders_delivered"], 0)
+            self.assertEqual(report["profiles_with_attributed_delivery"], 0)
+            self.assertIsNone(report["worth_reviewing_rate"])
+            self.assertIsNone(report["action_rate"])
+            self.assertIsNone(report["bid_or_quote_rate"])
 
     def test_invalid_event_type_fails_closed(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

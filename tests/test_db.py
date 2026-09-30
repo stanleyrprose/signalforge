@@ -85,7 +85,7 @@ class DatabaseMigrationTests(unittest.TestCase):
 
             self.assertEqual(discovery, ("2026-09-02T11:00:00+00:00", "2026-09-02T11:00:00+00:00", None, 0))
             self.assertEqual(state, ("2026-09-02T12:00:00Z", "2026-09-02T12:00:00Z", 0, None, None))
-            self.assertEqual(versions, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+            self.assertEqual(versions, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
             self.assertEqual(canonical, ("TENDER", "Existing Tender", "Existing Tender"))
             self.assertTrue({"item_kind", "title"} <= canonical_columns)
             self.assertTrue({"recovery", "outage_window_start", "outage_window_end", "backlog_remaining", "details_attempted", "details_succeeded", "tenders_parsed", "items_parsed"} <= scheduler_columns)
@@ -122,7 +122,7 @@ class DatabaseMigrationTests(unittest.TestCase):
                         'legacy-delivery','telegram','mpt:legacy','sig-legacy','PRIORITIZE','HIGH',
                         'payload','100','2026-09-29T00:00:00Z'
                     );
-                    DELETE FROM schema_meta WHERE version=10;
+                    DELETE FROM schema_meta WHERE version>=10;
                     """
                 )
 
@@ -139,7 +139,7 @@ class DatabaseMigrationTests(unittest.TestCase):
             self.assertTrue({"profile_id", "profile_match_score"} <= columns)
             self.assertIn("idx_delivery_receipts_profile_sent", indexes)
             self.assertEqual(row, ("mpt:legacy", None, None))
-            self.assertEqual(version, 10)
+            self.assertEqual(version, 11)
 
 
     def test_v4_scheduler_history_backfills_items_parsed_from_tenders(self) -> None:
@@ -174,7 +174,7 @@ class DatabaseMigrationTests(unittest.TestCase):
                 versions = [value[0] for value in conn.execute("SELECT version FROM schema_meta ORDER BY version")]
 
             self.assertEqual(row, (7, 7))
-            self.assertEqual(versions, [4, 5, 6, 7, 8, 9, 10])
+            self.assertEqual(versions, [4, 5, 6, 7, 8, 9, 10, 11])
 
 
 if __name__ == "__main__":

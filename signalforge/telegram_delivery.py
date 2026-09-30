@@ -36,6 +36,19 @@ def _delivery_key(item: dict[str, object]) -> str:
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
+def _pilot_delivery_key(item: dict[str, object], profile_id: str) -> str:
+    raw = "|".join(
+        (
+            CHANNEL,
+            "pilot",
+            profile_id,
+            str(item.get("canonical_key") or ""),
+            str(item.get("latest_signal_id") or ""),
+        )
+    )
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
 def _payload_sha256(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
@@ -286,6 +299,10 @@ def telegram_deliver(
     manual_rows = manual_bundle.get("items") or []
     if not isinstance(manual_rows, list):
         manual_rows = []
+    if profile is not None:
+        # Paying-pilot delivery is intentionally limited to canonical tender
+        # notifications. Manual promotions remain owner/operator-only.
+        manual_rows = []
 
     pending: list[dict[str, object]] = []
     manual_pending: list[dict[str, object]] = []
@@ -312,14 +329,28 @@ def telegram_deliver(
             signal_id = str(delivery_item.get("latest_signal_id") or "")
             if not signal_id:
                 raise TelegramDeliveryError("attention item missing latest_signal_id")
-            key = _delivery_key(delivery_item)
-            # Semantic lookup keeps rollout compatible with legacy receipts whose
-            # delivery_key also included attention_action. A priority/urgency change
-            # alone is not a new tender fact and must not trigger another Telegram.
-            exists = conn.execute(
-                "SELECT 1 FROM delivery_receipts WHERE channel=? AND canonical_key=? AND signal_id=?",
-                (CHANNEL, str(delivery_item.get("canonical_key") or ""), signal_id),
-            ).fetchone()
+            if profile is not None:
+                key = _pilot_delivery_key(delivery_item, profile.profile_id)
+                exists = conn.execute(
+                    """
+                    SELECT 1 FROM pilot_delivery_receipts
+                    WHERE channel=? AND profile_id=? AND canonical_key=? AND signal_id=?
+                    """,
+                    (
+                        CHANNEL,
+                        profile.profile_id,
+                        str(delivery_item.get("canonical_key") or ""),
+                        signal_id,
+                    ),
+                ).fetchone()
+            else:
+                key = _delivery_key(delivery_item)
+                # Semantic lookup keeps rollout compatible with legacy owner-feed
+                # receipts whose delivery_key also included attention_action.
+                exists = conn.execute(
+                    "SELECT 1 FROM delivery_receipts WHERE channel=? AND canonical_key=? AND signal_id=?",
+                    (CHANNEL, str(delivery_item.get("canonical_key") or ""), signal_id),
+                ).fetchone()
             if exists is not None:
                 continue
             text = render_telegram_message(delivery_item, translator=translator)
@@ -364,27 +395,51 @@ def telegram_deliver(
         message_id = _send_message(bot_token=token, chat_id=target_chat, text=str(item["message"]))
         sent_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
         with connect(target) as conn, conn:
-            conn.execute(
-                """
-                INSERT OR IGNORE INTO delivery_receipts(
-                    delivery_key,channel,canonical_key,signal_id,attention_action,priority_band,
-                    payload_sha256,provider_message_id,sent_at,profile_id,profile_match_score
-                ) VALUES (?,?,?,?,?,?,?,?,?,?,?)
-                """,
-                (
-                    item["delivery_key"],
-                    CHANNEL,
-                    item["canonical_key"],
-                    item["latest_signal_id"],
-                    item["attention_action"],
-                    item["priority_band"],
-                    item["payload_sha256"],
-                    message_id,
-                    sent_at,
-                    item.get("business_profile_id"),
-                    item.get("business_profile_match_score"),
-                ),
-            )
+            profile_id = item.get("business_profile_id")
+            if profile_id:
+                conn.execute(
+                    """
+                    INSERT OR IGNORE INTO pilot_delivery_receipts(
+                        delivery_key,channel,profile_id,canonical_key,signal_id,attention_action,
+                        priority_band,profile_match_score,payload_sha256,provider_message_id,sent_at
+                    ) VALUES (?,?,?,?,?,?,?,?,?,?,?)
+                    """,
+                    (
+                        item["delivery_key"],
+                        CHANNEL,
+                        profile_id,
+                        item["canonical_key"],
+                        item["latest_signal_id"],
+                        item["attention_action"],
+                        item["priority_band"],
+                        int(item.get("business_profile_match_score") or 0),
+                        item["payload_sha256"],
+                        message_id,
+                        sent_at,
+                    ),
+                )
+            else:
+                conn.execute(
+                    """
+                    INSERT OR IGNORE INTO delivery_receipts(
+                        delivery_key,channel,canonical_key,signal_id,attention_action,priority_band,
+                        payload_sha256,provider_message_id,sent_at,profile_id,profile_match_score
+                    ) VALUES (?,?,?,?,?,?,?,?,?,?,?)
+                    """,
+                    (
+                        item["delivery_key"],
+                        CHANNEL,
+                        item["canonical_key"],
+                        item["latest_signal_id"],
+                        item["attention_action"],
+                        item["priority_band"],
+                        item["payload_sha256"],
+                        message_id,
+                        sent_at,
+                        None,
+                        None,
+                    ),
+                )
         sent.append(
             {
                 "canonical_key": item["canonical_key"],

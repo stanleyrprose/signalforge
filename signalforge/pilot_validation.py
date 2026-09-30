@@ -76,7 +76,7 @@ def record_pilot_feedback(
 
         delivered = conn.execute(
             """
-            SELECT 1 FROM delivery_receipts
+            SELECT 1 FROM pilot_delivery_receipts
             WHERE canonical_key=? AND profile_id=?
             LIMIT 1
             """,
@@ -135,7 +135,7 @@ def pilot_validation_report(
             SELECT COUNT(*) AS delivery_count,
                    COUNT(DISTINCT canonical_key) AS unique_tenders,
                    COUNT(DISTINCT profile_id) AS profiles
-            FROM delivery_receipts
+            FROM pilot_delivery_receipts
             {where}
             """,
             params,

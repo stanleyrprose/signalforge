@@ -124,10 +124,66 @@ class TelegramDeliveryTests(unittest.TestCase):
             self.assertEqual(result["sent_count"], 1)
             with connect(database) as conn:
                 row = conn.execute(
-                    "SELECT profile_id,profile_match_score FROM delivery_receipts WHERE canonical_key='mofa:1'"
+                    "SELECT profile_id,profile_match_score FROM pilot_delivery_receipts WHERE canonical_key='mofa:1'"
                 ).fetchone()
             self.assertEqual(row["profile_id"], "ict-pilot")
             self.assertGreaterEqual(int(row["profile_match_score"]), 45)
+
+    def test_same_signal_can_be_delivered_once_to_each_pilot_profile(self) -> None:
+        profile_a = BusinessProfile.from_dict(
+            {
+                "profile_id": "ict-pilot-a",
+                "delivery_mode": "MATCHED_ONLY",
+                "relevance_categories": ["ICT"],
+                "keywords": ["server"],
+            }
+        )
+        profile_b = BusinessProfile.from_dict(
+            {
+                "profile_id": "ict-pilot-b",
+                "delivery_mode": "MATCHED_ONLY",
+                "relevance_categories": ["ICT"],
+                "keywords": ["server"],
+            }
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            database = Path(tmp) / "signalforge.db"
+            migrate(database)
+            with patch("signalforge.telegram_delivery.business_briefing", return_value=_briefing()), patch(
+                "signalforge.telegram_delivery._send_message", return_value="404"
+            ) as send:
+                first = telegram_deliver(
+                    database=database,
+                    bot_token="secret",
+                    chat_id="chat-a",
+                    business_profile=profile_a,
+                )
+                second = telegram_deliver(
+                    database=database,
+                    bot_token="secret",
+                    chat_id="chat-b",
+                    business_profile=profile_b,
+                )
+                repeated_a = telegram_deliver(
+                    database=database,
+                    bot_token="secret",
+                    chat_id="chat-a",
+                    business_profile=profile_a,
+                )
+            self.assertEqual(first["sent_count"], 1)
+            self.assertEqual(second["sent_count"], 1)
+            self.assertEqual(repeated_a["sent_count"], 0)
+            self.assertEqual(send.call_count, 2)
+            with connect(database) as conn:
+                profiles = [
+                    row["profile_id"]
+                    for row in conn.execute(
+                        "SELECT profile_id FROM pilot_delivery_receipts ORDER BY profile_id"
+                    )
+                ]
+                owner_receipts = conn.execute("SELECT COUNT(*) FROM delivery_receipts").fetchone()[0]
+            self.assertEqual(profiles, ["ict-pilot-a", "ict-pilot-b"])
+            self.assertEqual(owner_receipts, 0)
 
     def test_dry_run_needs_no_credentials_and_does_not_write_receipt(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

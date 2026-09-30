@@ -69,6 +69,17 @@ Official source
 
 No dashboard is required for the first paying pilots.
 
+Each paying pilot has an independent `profile_id`. Pilot delivery receipts are stored separately from the owner feed, so the same Tender Signal can be delivered once to each matching pilot without one customer's receipt suppressing another customer's notification. Manual promotions remain owner/operator-only; pilot delivery is canonical Tender-only.
+
+Manual pilot delivery uses the existing bot token with the customer's Telegram chat ID and Business Profile:
+
+```sh
+SIGNALFORGE_TELEGRAM_CHAT_ID=<customer-chat-id> \
+  signalforge telegram-deliver --profile profiles/customer-a.json
+```
+
+Repeated execution for the same `profile_id + canonical_key + signal_id` is idempotent.
+
 ## Commercial validation
 
 Before building self-service SaaS, onboard 5–10 pilot companies manually.
