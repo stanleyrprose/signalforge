@@ -1472,45 +1472,18 @@ def telegram_digest(
     chat_id: str | None = None,
     audit_network: bool = True,
 ) -> dict[str, object]:
-    target = database or db_path()
-    now = (now or datetime.now(UTC)).astimezone(UTC)
-    digest = business_digest(database=target, now=now, audit_network=audit_network)
-    digest_date = str(digest["digest_date"])
-    key = _digest_key(digest_date)
-    translator: TranslationBatch | None = None
-    if not dry_run:
-        def translate_for_digest(values: list[str]) -> tuple[list[str], bool]:
-            return translate_myanmar_to_zh_hans(values, database=target)
+    """Keep aggregate digest off the customer Telegram channel.
 
-        translator = translate_for_digest
-    text = render_business_digest(digest, translator=translator)
-    payload_sha256 = hashlib.sha256(text.encode("utf-8")).hexdigest()
-
-    with connect(target) as conn:
-        exists = conn.execute("SELECT 1 FROM digest_delivery_receipts WHERE digest_key=?", (key,)).fetchone() is not None
-    if exists:
-        return {"status": "PASS", "channel": DIGEST_CHANNEL, "dry_run": dry_run, "digest_date": digest_date, "pending_count": 0, "sent_count": 0, "deduplicated": True}
-
-    pending = {"digest_key": key, "digest_date": digest_date, "message": text, "payload_sha256": payload_sha256, "digest": digest}
-    if dry_run:
-        return {"status": "PASS", "channel": DIGEST_CHANNEL, "dry_run": True, "digest_date": digest_date, "pending_count": 1, "pending": pending}
-
-    token = bot_token or os.environ.get("SIGNALFORGE_TELEGRAM_BOT_TOKEN", "")
-    target_chat = chat_id or os.environ.get("SIGNALFORGE_TELEGRAM_CHAT_ID", "")
-    if not token or not target_chat:
-        raise TelegramDeliveryError("telegram credentials are not configured")
-
-    message_id = _send_message(bot_token=token, chat_id=target_chat, text=text)
-    sent_at = _iso(datetime.now(UTC))
-    window = digest.get("window") or {}
-    assert isinstance(window, dict)
-    with connect(target) as conn, conn:
-        conn.execute(
-            """
-            INSERT OR IGNORE INTO digest_delivery_receipts(
-                digest_key,channel,digest_date,window_start,window_end,payload_sha256,provider_message_id,sent_at
-            ) VALUES (?,?,?,?,?,?,?,?)
-            """,
-            (key, DIGEST_CHANNEL, digest_date, window.get("start"), window.get("end"), payload_sha256, message_id, sent_at),
-        )
-    return {"status": "PASS", "channel": DIGEST_CHANNEL, "dry_run": False, "digest_date": digest_date, "pending_count": 1, "sent_count": 1, "message_id": message_id, "delivery_semantics": "ONCE_PER_MYANMAR_CALENDAR_DAY_WITH_SUCCESS_RECEIPT"}
+    Telegram is reserved for customer-ready canonical Tender cards rendered by
+    telegram_delivery. The full business digest remains available through the
+    internal business-digest/CLI surface.
+    """
+    return {
+        "status": "PASS",
+        "channel": DIGEST_CHANNEL,
+        "dry_run": bool(dry_run),
+        "pending_count": 0,
+        "sent_count": 0,
+        "disabled": True,
+        "reason": "CUSTOMER_TELEGRAM_CANONICAL_TENDER_CARDS_ONLY",
+    }

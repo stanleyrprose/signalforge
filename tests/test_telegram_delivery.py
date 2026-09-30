@@ -18,6 +18,7 @@ def _briefing(*, signal_id: str = "sig-1", action: str = "PRIORITIZE") -> dict[s
         "attention": [
             {
                 "canonical_key": "mofa:1",
+                "item_kind": "TENDER",
                 "attention_action": action,
                 "priority_band": "HIGH",
                 "trust_grade": "A",
@@ -57,6 +58,64 @@ class TelegramDeliveryTests(unittest.TestCase):
 
     def tearDown(self) -> None:
         self._translation_patch.stop()
+
+    def test_owner_feed_uses_same_customer_readiness_gate_as_pilot(self) -> None:
+        briefing = _briefing()
+        briefing["attention"][0]["quantity_or_lot_summary"] = None
+        with tempfile.TemporaryDirectory() as tmp:
+            database = Path(tmp) / "signalforge.db"
+            migrate(database)
+            with patch("signalforge.telegram_delivery.business_briefing", return_value=briefing):
+                result = telegram_deliver(database=database, dry_run=True)
+        self.assertEqual(result["pending_count"], 0)
+        self.assertEqual(result["quality_filtered_count"], 1)
+        self.assertIn("QUANTITY_OR_SCALE_NOT_EXPLAINED", result["quality_filtered"][0]["reasons"])
+
+    def test_owner_feed_fails_closed_when_myanmar_remains(self) -> None:
+        briefing = _briefing()
+        briefing["attention"][0]["title"] = "အိတ်ဖွင့်တင်ဒါ"
+        briefing["attention"][0]["issuer"] = "ဝန်ကြီးဌာန"
+        briefing["attention"][0]["scope_excerpt"] = "ဆာဗာနှစ်လုံး ဝယ်ယူခြင်းနှင့် တပ်ဆင်ခြင်း"
+        with tempfile.TemporaryDirectory() as tmp:
+            database = Path(tmp) / "signalforge.db"
+            migrate(database)
+            with patch("signalforge.telegram_delivery.business_briefing", return_value=briefing), patch(
+                "signalforge.telegram_delivery._send_message", return_value="999"
+            ) as send:
+                result = telegram_deliver(database=database, bot_token="secret", chat_id="42")
+        self.assertEqual(result["sent_count"], 0)
+        self.assertEqual(result["quality_filtered_count"], 1)
+        self.assertEqual(result["quality_filtered"][0]["reasons"], ["UNTRANSLATED_MYANMAR_PRESENT"])
+        send.assert_not_called()
+
+    def test_manual_promotions_are_suppressed_from_customer_telegram(self) -> None:
+        briefing = _briefing()
+        briefing["attention"] = []
+        briefing["manual_promotions"] = {
+            "items": [
+                {
+                    "promotion_id": "manual-1",
+                    "title": "Unstructured tender lead",
+                    "summary": "Possible procurement lead",
+                    "priority_band": "HIGH",
+                }
+            ]
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            database = Path(tmp) / "signalforge.db"
+            migrate(database)
+            with patch("signalforge.telegram_delivery.business_briefing", return_value=briefing):
+                result = telegram_deliver(database=database, dry_run=True)
+        self.assertEqual(result["pending_count"], 0)
+        self.assertEqual(result["manual_pending_count"], 0)
+        self.assertEqual(result["manual_suppressed_count"], 1)
+
+    def test_owner_tender_title_is_procurement_first_like_137_138(self) -> None:
+        item = dict(_briefing()["attention"][0])
+        text = render_telegram_message(item, translator=lambda values: (values, False))
+        self.assertIn("Ministry &lt;Foreign&gt; &amp; Affairs｜Dell PowerEdge", text)
+        self.assertIn("📦 采购内容：Dell PowerEdge", text)
+        self.assertIn("🔢 数量/规模：2 servers", text)
 
     def test_matched_only_profile_filters_irrelevant_tender_before_delivery(self) -> None:
         profile = BusinessProfile.from_dict(
@@ -342,6 +401,7 @@ class TelegramDeliveryTests(unittest.TestCase):
                 "deadline_time": "16:00",
                 "deadline_evidence": "EXPLICIT_HTML_TENDER_CLOSE_DATE_TIME",
                 "scope_summary": "Electrical spare parts and Mechanical spare parts for industrial plant operations.",
+                "quantity_or_lot_summary": "Electrical spare parts lot ×1; Mechanical spare parts lot ×1.",
                 "detail_completeness": "HTML_BUSINESS_SCOPE_AND_DEADLINE_NO_ATTACHMENT_REQUIRED",
                 "url": "https://www.industrymsme.gov.mm/announcements/test-72h",
             }
@@ -447,7 +507,7 @@ class TelegramDeliveryTests(unittest.TestCase):
         self.assertLessEqual(len(text), 4096)
         self.assertIn("📢 <b>政府/国企招标 · 新招标</b>", text)
         self.assertIn("🏛 采购方：Ministry &lt;Foreign&gt; &amp; Affairs", text)
-        self.assertIn("Data Server &amp; SQL &lt;Tender&gt;", text)
+        self.assertIn("Ministry &lt;Foreign&gt; &amp; Affairs｜", text)
         self.assertIn("⏰ 截止：<b>2026-09-18 16:30</b>", text)
         self.assertIn("🔎 证据：官方 HTML + 官方文本 PDF", text)
         self.assertIn("🔗 <a href=", text)
@@ -561,7 +621,7 @@ class TelegramDeliveryTests(unittest.TestCase):
             ], True
 
         text = render_telegram_message(item, translator=fake_translator)
-        self.assertIn("<b>医疗物资公开招标</b>", text)
+        self.assertIn("<b>卫生部｜采购医院使用的医疗物资</b>", text)
         self.assertIn("🏛 采购方：卫生部", text)
         self.assertIn("📦 采购内容：采购医院使用的医疗物资", text)
         self.assertIn("🔢 数量/规模：100套", text)

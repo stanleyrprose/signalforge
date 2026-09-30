@@ -159,8 +159,11 @@ def _compact_scope(value: object, limit: int = 240) -> str:
     return text[: max(0, limit - 1)].rstrip() + "…"
 
 
-def _pilot_business_readiness(item: dict[str, object]) -> list[str]:
+def _telegram_business_readiness(item: dict[str, object]) -> list[str]:
     reasons: list[str] = []
+    item_kind = str(item.get("item_kind") or "")
+    if item_kind and item_kind != "TENDER":
+        reasons.append("ITEM_KIND_NOT_TENDER")
     if str(item.get("deadline_status") or "") != "OPEN":
         reasons.append("DEADLINE_NOT_CONFIRMED_OPEN")
     opportunity_status = str(item.get("opportunity_status") or "")
@@ -192,7 +195,7 @@ def render_telegram_message(
         [raw_title, raw_issuer, raw_scope, raw_quantity, raw_amount, raw_location, raw_next_action]
     )
     translated_title, translated_issuer, translated_scope, translated_quantity, translated_amount, translated_location, translated_next_action = translated_values
-    if item.get("business_profile_id") and translated_scope:
+    if str(item.get("item_kind") or "") == "TENDER" and translated_scope:
         translated_title = _compact_scope(f"{translated_issuer}｜{translated_scope}", limit=128)
     title, issuer, scope, quantity, amount, location, next_action = [
         html.escape(value)
@@ -331,10 +334,10 @@ def telegram_deliver(
     manual_rows = manual_bundle.get("items") or []
     if not isinstance(manual_rows, list):
         manual_rows = []
-    if profile is not None:
-        # Paying-pilot delivery is intentionally limited to canonical tender
-        # notifications. Manual promotions remain owner/operator-only.
-        manual_rows = []
+    # Telegram is now a customer-facing canonical Tender channel. Manual
+    # promotions remain available to operator/business-digest surfaces only.
+    manual_suppressed_count = len(manual_rows)
+    manual_rows = []
 
     pending: list[dict[str, object]] = []
     manual_pending: list[dict[str, object]] = []
@@ -359,15 +362,15 @@ def telegram_deliver(
                 delivery_item["business_profile_id"] = profile.profile_id
                 delivery_item["business_profile_match_score"] = profile_match["score"]
                 delivery_item["business_profile_match_summary"] = profile_match["summary"]
-                readiness_reasons = _pilot_business_readiness(delivery_item)
-                if readiness_reasons:
-                    quality_filtered.append(
-                        {
-                            "canonical_key": str(delivery_item.get("canonical_key") or ""),
-                            "reasons": readiness_reasons,
-                        }
-                    )
-                    continue
+            readiness_reasons = _telegram_business_readiness(delivery_item)
+            if readiness_reasons:
+                quality_filtered.append(
+                    {
+                        "canonical_key": str(delivery_item.get("canonical_key") or ""),
+                        "reasons": readiness_reasons,
+                    }
+                )
+                continue
             signal_id = str(delivery_item.get("latest_signal_id") or "")
             if not signal_id:
                 raise TelegramDeliveryError("attention item missing latest_signal_id")
@@ -396,7 +399,7 @@ def telegram_deliver(
             if exists is not None:
                 continue
             text = render_telegram_message(delivery_item, translator=translator)
-            if profile is not None and (not dry_run or translate_preview) and contains_myanmar(text):
+            if (not dry_run or translate_preview) and contains_myanmar(text):
                 quality_filtered.append(
                     {
                         "canonical_key": str(delivery_item.get("canonical_key") or ""),
@@ -429,6 +432,7 @@ def telegram_deliver(
             "pending_count": len(pending) + len(manual_pending),
             "signal_pending_count": len(pending),
             "manual_pending_count": len(manual_pending),
+            "manual_suppressed_count": manual_suppressed_count,
             "filtered_out_count": filtered_out_count,
             "quality_filtered_count": len(quality_filtered),
             "quality_filtered": quality_filtered,
@@ -530,6 +534,7 @@ def telegram_deliver(
         "pending_count": len(pending) + len(manual_pending),
         "signal_pending_count": len(pending),
         "manual_pending_count": len(manual_pending),
+        "manual_suppressed_count": manual_suppressed_count,
         "sent_count": len(sent) + len(manual_sent),
         "signal_sent_count": len(sent),
         "manual_sent_count": len(manual_sent),
@@ -540,5 +545,5 @@ def telegram_deliver(
         "business_profile_delivery_mode": profile.delivery_mode if profile is not None else "ALL_TENDERS",
         "sent": sent,
         "manual_sent": manual_sent,
-        "delivery_semantics": "AT_LEAST_ONCE_WITH_SEPARATE_SIGNAL_AND_MANUAL_SUCCESS_RECEIPTS",
+        "delivery_semantics": "AT_LEAST_ONCE_CUSTOMER_READY_CANONICAL_TENDERS_ONLY",
     }

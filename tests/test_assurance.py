@@ -367,13 +367,15 @@ class AssuranceTests(unittest.TestCase):
             self.assertIn("🧑 人工升级", text)
             self.assertIn("重要但非标准采购线索", text)
             dry = telegram_deliver(database=database, dry_run=True)
-            self.assertEqual(dry["manual_pending_count"], 1)
-            self.assertIn("不是 canonical Signal", dry["pending"][0]["message"])
-            with patch("signalforge.telegram_delivery._send_message", return_value="9001"):
+            self.assertEqual(dry["manual_pending_count"], 0)
+            self.assertEqual(dry["manual_suppressed_count"], 1)
+            with patch("signalforge.telegram_delivery._send_message", return_value="9001") as send_message:
                 sent = telegram_deliver(database=database, bot_token="secret", chat_id="42")
-            self.assertEqual(sent["manual_sent_count"], 1)
+            self.assertEqual(sent["manual_sent_count"], 0)
+            self.assertEqual(sent["manual_suppressed_count"], 1)
+            send_message.assert_not_called()
             with connect(database) as conn:
-                self.assertEqual(conn.execute("SELECT COUNT(*) FROM manual_delivery_receipts").fetchone()[0], 1)
+                self.assertEqual(conn.execute("SELECT COUNT(*) FROM manual_delivery_receipts").fetchone()[0], 0)
                 self.assertEqual(conn.execute("SELECT COUNT(*) FROM delivery_receipts").fetchone()[0], 0)
             resolved = resolve_manual_promotion(str(promoted["promotion"]["promotion_id"]), note="closed", database=database)
             self.assertEqual(resolved["promotion"]["status"], "RESOLVED")
