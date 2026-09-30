@@ -600,6 +600,19 @@ def _acquire_source_bytes(
     observed_at: str,
     fetcher: Fetcher,
 ):
+    engine = source.get("engine")
+    target_limits = source.get("provider_target_limits") if engine == "provider" else None
+    target_limit = target_limits.get(target_kind) if isinstance(target_limits, dict) else None
+    timeout_seconds = int(
+        target_limit.get("timeout_seconds", source["request_timeout_seconds"])
+        if isinstance(target_limit, dict)
+        else source["request_timeout_seconds"]
+    )
+    max_bytes = int(
+        target_limit.get("max_bytes", source["request_max_bytes"])
+        if isinstance(target_limit, dict)
+        else source["request_max_bytes"]
+    )
     common = {
         "database": database,
         "scheduler_run_id": scheduler_run_id,
@@ -609,12 +622,11 @@ def _acquire_source_bytes(
         "egress_profile": str(source["egress_profile"]),
         "target_kind": target_kind,
         "url": url,
-        "timeout_seconds": int(source["request_timeout_seconds"]),
-        "max_bytes": int(source["request_max_bytes"]),
+        "timeout_seconds": timeout_seconds,
+        "max_bytes": max_bytes,
         "expected_content_types": expected_content_types,
         "observed_at": observed_at,
     }
-    engine = source.get("engine")
     if engine == "direct_http":
         effective_fetcher = fetcher
         if source.get("http_fetch_profile") == "cloudrity_d1n_v1" and fetcher is fetch_bytes:
@@ -1063,6 +1075,12 @@ def run_source(
                 details_attempted += 1
             if index and delay:
                 sleeper(delay)
+            detail_target_kind = str(source.get("detail_target_kind") or "HTML").upper()
+            detail_expected_content_types = (
+                ["application/pdf"] if detail_target_kind == "PDF" else ["text/html"]
+            )
+            if detail_target_kind not in {"HTML", "PDF"}:
+                raise EngineError(f"unsupported detail_target_kind: {source_id}: {detail_target_kind}")
             try:
                 detail_capture = _acquire_source_bytes(
                     source=source,
@@ -1070,9 +1088,9 @@ def run_source(
                     scheduler_run_id=app_run_id,
                     source_id=source_id,
                     reason=request_reason(trigger_kind, health_probe=entry.url == health_probe_url),
-                    target_kind="HTML",
+                    target_kind=detail_target_kind,
                     url=entry.url,
-                    expected_content_types=["text/html"],
+                    expected_content_types=detail_expected_content_types,
                     observed_at=observed_at,
                     fetcher=fetcher,
                 )
@@ -1086,7 +1104,13 @@ def run_source(
             attachment_captures = []
             attachment_payloads: list[tuple[str, bytes]] = []
             # Preserve the acquired detail before attachment extraction or parsing.
-            _write_evidence(source_id, html, detail_capture.sha256, evidence)
+            _write_evidence(
+                source_id,
+                html,
+                detail_capture.sha256,
+                evidence,
+                suffix=".pdf" if detail_target_kind == "PDF" else ".html",
+            )
 
             if adapter.extract_detail_attachments is not None:
                 attachment_policy = source.get("attachment_policy") or {}
@@ -1170,7 +1194,7 @@ def run_source(
                     signals_created=0,
                     failure=(
                         ProcessingFailure.PDF_PARSE_FAILURE
-                        if adapter.parse_detail_with_attachments is not None
+                        if adapter.parse_detail_with_attachments is not None or detail_target_kind == "PDF"
                         else ProcessingFailure.HTML_PARSE_FAILURE
                     ),
                 )

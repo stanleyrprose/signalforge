@@ -542,7 +542,7 @@ def acquire_provider_bytes(
 ) -> AcquisitionCapture:
     if reason not in REQUEST_REASONS:
         raise ValueError(f"unsupported acquisition reason: {reason}")
-    if target_kind not in {"DISCOVERY", "HTML"}:
+    if target_kind not in {"DISCOVERY", "HTML", "PDF"}:
         raise ValueError(f"unsupported provider target kind: {target_kind}")
     if egress_profile != "mac-direct":
         raise ValueError("provider acquisition must use mac-direct")

@@ -163,8 +163,35 @@ class Registry:
                 if source.get("network_zone") != "mac-direct" or source.get("provider_id") != "mac-mm-01":
                     raise ConfigError(f"Provider source must route only to mac-mm-01 direct network: {source_id}")
                 roles = source.get("provider_target_roles")
-                if roles != {"DISCOVERY": "LISTING", "HTML": "DETAIL"}:
+                allowed_role_projections = (
+                    {"DISCOVERY": "LISTING", "HTML": "DETAIL"},
+                    {"DISCOVERY": "LISTING", "HTML": "DETAIL", "PDF": "PDF"},
+                )
+                if roles not in allowed_role_projections:
                     raise ConfigError(f"Provider source target-role projection invalid: {source_id}")
+                if isinstance(roles, dict) and "PDF" in roles:
+                    supplementary = ((source.get("acquisition_policy") or {}).get("supplementary") or [])
+                    if supplementary != [{
+                        "method": "MAC_BROWSER_PROVIDER",
+                        "target_kind": "PDF",
+                        "required": True,
+                        "max_count": 1,
+                        "same_origin_only": True,
+                    }]:
+                        raise ConfigError(f"Provider PDF target must use one required same-origin supplementary PDF: {source_id}")
+                target_limits = source.get("provider_target_limits")
+                if target_limits is not None:
+                    if not isinstance(target_limits, dict) or set(target_limits) != set(roles):
+                        raise ConfigError(f"Provider target limits must exactly match target roles: {source_id}")
+                    for target_kind, limit in target_limits.items():
+                        if not isinstance(limit, dict):
+                            raise ConfigError(f"Provider target limit invalid: {source_id} {target_kind}")
+                        max_bytes = limit.get("max_bytes")
+                        timeout_seconds = limit.get("timeout_seconds")
+                        if not isinstance(max_bytes, int) or max_bytes < 1:
+                            raise ConfigError(f"Provider target max_bytes invalid: {source_id} {target_kind}")
+                        if not isinstance(timeout_seconds, int) or timeout_seconds < 1:
+                            raise ConfigError(f"Provider target timeout invalid: {source_id} {target_kind}")
                 if source.get("provider_capability") != "PUBLIC_READ_ACQUIRE":
                     raise ConfigError(
                         f"Provider source must use PUBLIC_READ_ACQUIRE under the current production contract: {source_id}"

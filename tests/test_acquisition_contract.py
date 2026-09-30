@@ -70,6 +70,19 @@ class AcquisitionContractTests(unittest.TestCase):
         with self.assertRaisesRegex(AcquisitionContractError, "max_count invalid"):
             validate_source_acquisition_policy("S39", bad)
 
+    def test_s51_uses_html_discovery_with_direct_pdf_detail(self) -> None:
+        registry = Registry.load(ROOT)
+        source = registry.source("S51")
+        self.assertEqual(source["acquisition_policy"]["primary"], {"method": "DIRECT_HTTP", "target_kind": "HTML"})
+        self.assertEqual(source["detail_target_kind"], "PDF")
+        self.assertEqual(source["acquisition_policy"]["supplementary"], [])
+        validate_source_acquisition_policy("S51", source)
+
+        bad = copy.deepcopy(source)
+        bad["detail_target_kind"] = "BINARY"
+        with self.assertRaisesRegex(AcquisitionContractError, "unsupported detail_target_kind"):
+            validate_source_acquisition_policy("S51", bad)
+
     def test_acquisition_failure_classification_is_failure_aware(self) -> None:
         self.assertEqual(classify_acquisition_failure(TimeoutError("timed out")), AcquisitionFailure.CONNECT_TIMEOUT)
         self.assertEqual(classify_acquisition_failure(ssl.SSLError("certificate verify failed")), AcquisitionFailure.TLS_FAILURE)

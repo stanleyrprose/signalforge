@@ -10,7 +10,7 @@ from zoneinfo import ZoneInfo
 
 from pypdf import PdfReader
 
-from .mpt import normalize_text
+from .mpt import SitemapEntry, normalize_text
 
 MPA_LISTING_URL = "https://www.mpa.gov.mm/tenders-and-announcement/"
 MPA_HOSTS = {"mpa.gov.mm", "www.mpa.gov.mm"}
@@ -76,8 +76,14 @@ def classify_item_kind(title: str) -> str:
         "မလိုအပ်တော့",
         "သံတိုသံစအဟောင်း",
         "ကုန်သေတ္တာအခွံ",
+        "ပြည်သူ့ဘဏ္ဍာသိမ်းဆည်း",
     )
-    if "auction" in lowered or any(token in text for token in disposal_tokens):
+    unlicensed_container_disposal = (
+        "id မရှိ" in lowered
+        and "လိုင်စင်မရှိ" in text
+        and "ကုန်သေတ္တာ" in text
+    )
+    if "auction" in lowered or unlicensed_container_disposal or any(token in text for token in disposal_tokens):
         return "AUCTION_NOTICE"
     if "တင်ဒါ" in text or "tender" in lowered:
         return "TENDER"
@@ -354,6 +360,38 @@ def _signal_match(text: str, signals: tuple[tuple[str, str], ...]) -> tuple[str,
     return best
 
 
+def _procurement_signal_match(text: str) -> tuple[str, str, int] | None:
+    lowered = text.lower()
+    candidates: list[tuple[str, str, int]] = []
+    for token, label in _PROCUREMENT_SIGNALS:
+        start = 0
+        token_lower = token.lower()
+        while True:
+            index = lowered.find(token_lower, start)
+            if index < 0:
+                break
+            start = index + max(1, len(token_lower))
+            if label == "PURCHASE_MY":
+                compact_after = re.sub(r"\s+", "", text[index + len(token): index + len(token) + 50])
+                compact_before = re.sub(r"\s+", "", text[max(0, index - 100):index])
+                # Buying a tender form / rules is not issuer procurement.
+                if compact_after.startswith(("နိုင်", "နိိုင်")):
+                    continue
+                if not compact_after.startswith(("ရန်", "လို", "မည်", "ခြင်း")):
+                    if "ပုံစံ" in compact_before or "စည်းကမ်း" in compact_before:
+                        continue
+                    # Bare ဝယ်ယူ without an explicit procurement verb complement
+                    # is too ambiguous to promote to canonical Tender.
+                    continue
+            elif label == "PURCHASE_EN":
+                before = lowered[max(0, index - 60):index]
+                after = lowered[index + len(token_lower):index + len(token_lower) + 60]
+                if "tender form" in before or "tender document" in before or after.lstrip().startswith((" form", " document")):
+                    continue
+            candidates.append((token, label, index))
+    return min(candidates, key=lambda value: value[2]) if candidates else None
+
+
 def classify_pdf_text(text: str) -> tuple[str | None, str, str | None, str | None]:
     disposal = _signal_match(text, _DISPOSAL_SIGNALS)
     if disposal is not None:
@@ -361,7 +399,7 @@ def classify_pdf_text(text: str) -> tuple[str | None, str, str | None, str | Non
         start = max(0, index - 180)
         end = min(len(text), index + max(420, len(token) + 180))
         return "AUCTION_NOTICE", "DETERMINISTIC_PDF", basis, text[start:end]
-    procurement = _signal_match(text, _PROCUREMENT_SIGNALS)
+    procurement = _procurement_signal_match(text)
     if procurement is not None:
         token, basis, index = procurement
         start = max(0, index - 180)
@@ -517,3 +555,222 @@ def preview_summary(records: list[MpaListingRecord]) -> dict[str, object]:
         "classification": "TITLE_ONLY_REQUIRES_DETAIL_PDF_FOR_FINAL_ITEM_KIND",
         "records": [record.preview_payload() for record in records],
     }
+
+
+class _TitleParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self._title_depth = 0
+        self.parts: list[str] = []
+        self.og_title: str | None = None
+
+    def handle_starttag(self, tag: str, attrs) -> None:  # type: ignore[no-untyped-def]
+        lowered = tag.lower()
+        if lowered == "meta":
+            property_name = (_attr(attrs, "property") or "").lower()
+            content = _attr(attrs, "content")
+            if property_name == "og:title" and content:
+                self.og_title = normalize_text(content)
+            return
+        if lowered == "title":
+            self._title_depth += 1
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag.lower() == "title" and self._title_depth:
+            self._title_depth -= 1
+
+    def handle_data(self, data: str) -> None:
+        if self._title_depth:
+            value = normalize_text(data)
+            if value:
+                self.parts.append(value)
+
+
+def parse_tender_listing(html_bytes: bytes, page_url: str = MPA_LISTING_URL) -> list[SitemapEntry]:
+    records = parse_listing_records(html_bytes, page_url)
+    entries: list[SitemapEntry] = []
+    seen: set[str] = set()
+    for record in records:
+        # Listing semantics are only a cheap prefilter. Final business direction
+        # is determined from the issuer PDF, where disposal outranks procurement.
+        if record.provisional_item_kind != "TENDER" or record.url in seen:
+            continue
+        seen.add(record.url)
+        entries.append(
+            SitemapEntry(
+                url=record.url,
+                lastmod=f"{record.publication_date}T00:00:00+06:30",
+            )
+        )
+    return entries
+
+
+def extract_tender_pdf_urls(detail_html: bytes, detail_url: str) -> list[str]:
+    if _normalize_record_url(detail_url) != detail_url:
+        raise MpaParseError("unexpected MPA detail URL")
+    return [extract_detail_pdf_url(detail_html)]
+
+
+def _detail_title(detail_html: bytes) -> str:
+    parser = _TitleParser()
+    parser.feed(detail_html.decode("utf-8", errors="replace"))
+    title = parser.og_title or normalize_text(" ".join(parser.parts))
+    suffix = " - Myanma Port Authority"
+    if title.endswith(suffix):
+        title = title[: -len(suffix)].strip()
+    if not title:
+        raise MpaParseError("MPA detail title not found")
+    return title
+
+
+def _detail_publication_date(detail_html: bytes) -> str | None:
+    text = detail_html.decode("utf-8", errors="replace")
+    match = re.search(r'"datePublished"\s*:\s*"(20\d{2}-\d{2}-\d{2})T', text)
+    return match.group(1) if match else None
+
+
+def _quantity_or_scale_summary(title: str) -> tuple[str, str]:
+    normalized = normalize_text(title.translate(_MYANMAR_DIGIT_TRANSLATION))
+    numeric = re.search(
+        r"(?P<context>.{0,42}?)(?P<count>\d+)\s*(?P<unit>လုံး|စင်း|စုံ|ခု|lot|lots|unit|units|tug|tugs)\b",
+        normalized,
+        re.IGNORECASE,
+    )
+    if numeric:
+        count = numeric.group("count")
+        unit = normalize_text(numeric.group("unit"))
+        english_unit = unit.lower()
+        if english_unit in {"lot", "lots", "unit", "units", "tug", "tugs", "no", "nos"}:
+            unit = unit[:1].upper() + unit[1:]
+        return f"{count} {unit}", "HIGH"
+
+    word_numbers = {
+        "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+        "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
+    }
+    word = re.search(
+        r"\b(one|two|three|four|five|six|seven|eight|nine|ten)\s+([A-Za-z][A-Za-z -]{1,40})",
+        normalized,
+        re.IGNORECASE,
+    )
+    if word:
+        count = word_numbers[word.group(1).lower()]
+        noun = normalize_text(word.group(2)).split(" for ", 1)[0][:48]
+        return f"{count} {noun}", "HIGH"
+
+    return (
+        "公开公告未披露明确数量/规模；按该招标公告整体采购范围处理",
+        "HIGH",
+    )
+
+
+@dataclass(frozen=True)
+class MpaTender:
+    post_id: int
+    title: str
+    publication_date: str | None
+    deadline: str | None
+    deadline_time: str | None
+    reference_no: str
+    reference_no_kind: str
+    scope_excerpt: str
+    quantity_or_lot_summary: str
+    quantity_or_lot_confidence: str
+    url: str
+    pdf_url: str
+    classification_basis: str | None
+
+    item_kind = "TENDER"
+    location = None
+
+    @property
+    def canonical_key(self) -> str:
+        return f"mpa:{self.post_id}"
+
+    @property
+    def project_name(self) -> str:
+        return self.title
+
+    def payload(self) -> dict[str, object]:
+        return {
+            "item_kind": self.item_kind,
+            "issuer": "Myanma Port Authority",
+            "title": self.title,
+            "project_name": self.project_name,
+            "reference_no": self.reference_no,
+            "reference_no_kind": self.reference_no_kind,
+            "source_record_id": str(self.post_id),
+            "publication_date": self.publication_date,
+            "deadline": self.deadline,
+            "deadline_time": self.deadline_time,
+            "deadline_kind": "BID_SUBMISSION_DEADLINE" if self.deadline else None,
+            "deadline_evidence": "ISSUER_ORIGINAL_TEXT_PDF" if self.deadline else None,
+            "location": None,
+            "scope_summary": self.scope_excerpt,
+            "scope_excerpt": self.scope_excerpt,
+            "quantity_or_lot_summary": self.quantity_or_lot_summary,
+            "quantity_or_lot_evidence": "ISSUER_TITLE_OR_OFFICIAL_PDF",
+            "quantity_or_lot_confidence": self.quantity_or_lot_confidence,
+            "selection_policy_version": 1,
+            "business_stage": "OPPORTUNITY",
+            "classification_status": "DETERMINISTIC_PDF",
+            "classification_basis": self.classification_basis,
+            "detail_completeness": "DETAIL_HTML_PLUS_ISSUER_TEXT_PDF",
+            "evidence_level": "OFFICIAL_HTML_PLUS_TEXT_PDF",
+            "pdf_url": self.pdf_url,
+            "url": self.url,
+        }
+
+
+def parse_tender_detail_with_attachments(
+    detail_html: bytes,
+    detail_url: str,
+    attachments: list[tuple[str, bytes]],
+) -> list[MpaTender]:
+    if len(attachments) != 1:
+        raise MpaParseError(f"expected exactly one MPA PDF attachment, found {len(attachments)}")
+    pdf_url, pdf_bytes = attachments[0]
+    expected_pdf_url = extract_detail_pdf_url(detail_html)
+    if pdf_url != expected_pdf_url:
+        raise MpaParseError("MPA PDF attachment does not match detail page")
+
+    fields = parse_pdf_business_fields(pdf_bytes)
+    if fields.final_item_kind != "TENDER":
+        # AUCTION_NOTICE and REVIEW_REQUIRED are intentionally not canonical
+        # procurement opportunities.
+        return []
+
+    post_id = extract_wordpress_post_id(detail_html)
+    title = _detail_title(detail_html)
+    if classify_item_kind(title) == "AUCTION_NOTICE":
+        return []
+    if not fields.scope_excerpt:
+        raise MpaParseError("MPA deterministic procurement scope excerpt missing")
+    clean_scope = title if title and title.lower() != "myanma port authority" else fields.scope_excerpt
+    publication_date = _detail_publication_date(detail_html)
+    deadline = None
+    deadline_time = None
+    if fields.deadline_local:
+        parsed = datetime.fromisoformat(fields.deadline_local)
+        deadline = parsed.date().isoformat()
+        deadline_time = parsed.strftime("%H:%M")
+    reference_no = fields.reference_no or f"MPA-POST-{post_id}"
+    reference_kind = "issuer_reference_no" if fields.reference_no else "wordpress_post_id"
+    quantity, quantity_confidence = _quantity_or_scale_summary(title)
+    return [
+        MpaTender(
+            post_id=post_id,
+            title=title,
+            publication_date=publication_date,
+            deadline=deadline,
+            deadline_time=deadline_time,
+            reference_no=reference_no,
+            reference_no_kind=reference_kind,
+            scope_excerpt=clean_scope,
+            quantity_or_lot_summary=quantity,
+            quantity_or_lot_confidence=quantity_confidence,
+            url=detail_url,
+            pdf_url=pdf_url,
+            classification_basis=fields.classification_basis,
+        )
+    ]

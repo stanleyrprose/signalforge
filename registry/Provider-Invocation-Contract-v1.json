@@ -159,6 +159,63 @@
           }
         }
       }
+    },
+    "S15A": {
+      "enabled": true,
+      "source_policy_version": 2,
+      "allowed_capabilities": [
+        "PUBLIC_READ_ACQUIRE",
+        "C0_FETCH"
+      ],
+      "targets": {
+        "LISTING": {
+          "exact_urls": [
+            "https://www.mpa.gov.mm/tenders-and-announcement/"
+          ],
+          "capabilities": [
+            "PUBLIC_READ_ACQUIRE",
+            "C0_FETCH"
+          ],
+          "max_bytes": 2000000,
+          "max_run_seconds": 90
+        },
+        "DETAIL": {
+          "https_host": "www.mpa.gov.mm",
+          "path_prefix": "/announcements/",
+          "path_suffix": "/",
+          "capabilities": [
+            "PUBLIC_READ_ACQUIRE",
+            "C0_FETCH"
+          ],
+          "max_bytes": 2000000,
+          "max_run_seconds": 90,
+          "allow_query": false,
+          "allow_fragment": false,
+          "final_url_policy": {
+            "mode": "APPROVED_HOST_PATH",
+            "https_host": "www.mpa.gov.mm",
+            "path_prefix": "/announcements/"
+          }
+        },
+        "PDF": {
+          "https_host": "www.mpa.gov.mm",
+          "path_prefix": "/wp-content/uploads/",
+          "path_suffix": ".pdf",
+          "capabilities": [
+            "PUBLIC_READ_ACQUIRE",
+            "C0_FETCH"
+          ],
+          "max_bytes": 10485760,
+          "max_run_seconds": 120,
+          "allow_query": false,
+          "allow_fragment": false,
+          "final_url_policy": {
+            "mode": "APPROVED_HOST_PATH",
+            "https_host": "www.mpa.gov.mm",
+            "path_prefix": "/wp-content/uploads/"
+          }
+        }
+      }
     }
   }
 }

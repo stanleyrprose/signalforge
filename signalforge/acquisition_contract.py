@@ -104,16 +104,23 @@ def validate_source_acquisition_policy(source_id: str, source: dict[str, Any]) -
                 f"provider primary policy must pin mac-mm-01 PUBLIC_READ_ACQUIRE: {source_id}"
             )
 
+    detail_target_kind = str(source.get("detail_target_kind") or "HTML").upper()
+    if detail_target_kind not in {"HTML", "PDF"}:
+        raise AcquisitionContractError(f"unsupported detail_target_kind: {source_id}")
+    if detail_target_kind == "PDF" and engine != "direct_http":
+        raise AcquisitionContractError(f"PDF detail target requires Direct HTTP: {source_id}")
+
     supplementary = policy.get("supplementary")
     if not isinstance(supplementary, list):
         raise AcquisitionContractError(f"acquisition supplementary policy must be a list: {source_id}")
+    expected_supplementary_method = "DIRECT_HTTP" if engine == "direct_http" else "MAC_BROWSER_PROVIDER"
     for item in supplementary:
         if not isinstance(item, dict):
             raise AcquisitionContractError(f"supplementary acquisition policy entry invalid: {source_id}")
-        if engine != "direct_http":
-            raise AcquisitionContractError(f"provider source supplementary acquisition is not authorized: {source_id}")
-        if item.get("method") != "DIRECT_HTTP" or item.get("target_kind") != "PDF":
-            raise AcquisitionContractError(f"supplementary acquisition must be Direct HTTP PDF: {source_id}")
+        if item.get("method") != expected_supplementary_method or item.get("target_kind") != "PDF":
+            raise AcquisitionContractError(
+                f"supplementary acquisition must be {expected_supplementary_method} PDF: {source_id}"
+            )
         if item.get("same_origin_only") is not True:
             raise AcquisitionContractError(f"supplementary PDF must be same-origin: {source_id}")
         if not isinstance(item.get("required"), bool):
