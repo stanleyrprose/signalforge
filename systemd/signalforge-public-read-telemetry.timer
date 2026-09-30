@@ -1,0 +1,12 @@
+[Unit]
+Description=SignalForge hourly PUBLIC_READ_ACQUIRE route telemetry timer
+
+[Timer]
+OnCalendar=*-*-* *:17:00 UTC
+Persistent=true
+RandomizedDelaySec=3m
+AccuracySec=1m
+Unit=signalforge-public-read-telemetry.service
+
+[Install]
+WantedBy=timers.target

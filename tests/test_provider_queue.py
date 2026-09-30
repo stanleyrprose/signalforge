@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+import json
 import tempfile
 import unittest
 import uuid
@@ -165,6 +166,67 @@ class ProviderQueueTests(unittest.TestCase):
         self.assertEqual(result["status"], "NO_WORK")
         status = provider_queue_status(provider_id="mac-mm-01", database=self.db, now=NOW + timedelta(seconds=31))
         self.assertEqual(status["counts"]["EXPIRED"], 1)
+
+    def test_initialize_adds_route_column_to_existing_provider_requests_table(self) -> None:
+        legacy = Path(self.tmp.name) / "legacy.db"
+        with sqlite3.connect(legacy) as conn:
+            conn.execute("""
+                CREATE TABLE provider_requests (
+                    provider_request_id TEXT PRIMARY KEY,
+                    schema_version INTEGER NOT NULL,
+                    provider_id TEXT NOT NULL,
+                    source_id TEXT NOT NULL,
+                    capability TEXT NOT NULL,
+                    target_role TEXT NOT NULL,
+                    priority INTEGER NOT NULL DEFAULT 0,
+                    request_sha256 TEXT NOT NULL,
+                    request_json TEXT NOT NULL,
+                    state TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    requested_at TEXT NOT NULL,
+                    expires_at TEXT NOT NULL,
+                    claimed_at TEXT,
+                    claim_expires_at TEXT,
+                    current_provider_attempt_id TEXT,
+                    claim_token_sha256 TEXT,
+                    completed_at TEXT,
+                    result_sha256 TEXT,
+                    browser_job_id TEXT,
+                    result_media_type TEXT,
+                    result_artifact_bytes INTEGER,
+                    result_artifact_path TEXT,
+                    result_final_url TEXT,
+                    result_http_status INTEGER,
+                    result_request_sha256 TEXT,
+                    failure_class TEXT
+                )
+            """)
+        initialize_provider_queue(legacy)
+        with sqlite3.connect(legacy) as conn:
+            columns = {row[1] for row in conn.execute("PRAGMA table_info(provider_requests)")}
+        self.assertIn("result_route_json", columns)
+
+    def test_complete_persists_route_summary_json(self) -> None:
+        request = new_request(capability="PUBLIC_READ_ACQUIRE")
+        enqueue_provider_request(request, contract=contract(), database=self.db, now=NOW)
+        claimed = claim_next_provider_request(provider_id="mac-mm-01", database=self.db, now=NOW)
+        summary = {"schema_version": 1, "selected_capability": "C0_FETCH"}
+        complete_provider_claim(
+            provider_request_id=request["provider_request_id"],
+            provider_attempt_id=claimed["provider_attempt_id"],
+            claim_token=claimed["claim_token"],
+            result_sha256="d" * 64,
+            browser_job_id="browser-job-route",
+            database=self.db,
+            result_route_summary=summary,
+            now=NOW + timedelta(seconds=2),
+        )
+        with sqlite3.connect(self.db) as conn:
+            stored = conn.execute(
+                "SELECT result_route_json FROM provider_requests WHERE provider_request_id=?",
+                (request["provider_request_id"],),
+            ).fetchone()[0]
+        self.assertEqual(json.loads(stored), summary)
 
     def test_complete_is_exactly_once_at_commit_boundary(self) -> None:
         request = new_request()

@@ -455,6 +455,9 @@ class ContractTests(unittest.TestCase):
         self.assertIn("signalforge-assurance.service", deploy)
         self.assertIn("signalforge-assurance.timer", deploy)
         self.assertIn("ASSURANCE_TIMER_WAS_ENABLED", deploy)
+        self.assertIn("signalforge-public-read-telemetry.service", deploy)
+        self.assertIn("signalforge-public-read-telemetry.timer", deploy)
+        self.assertIn("PUBLIC_READ_TELEMETRY_TIMER_WAS_ENABLED", deploy)
         self.assertIn("/etc/signalforge", deploy)
         service = (ROOT / "systemd" / "signalforge-telegram-deliver.service").read_text(encoding="utf-8")
         timer = (ROOT / "systemd" / "signalforge-telegram-deliver.timer").read_text(encoding="utf-8")
@@ -462,6 +465,8 @@ class ContractTests(unittest.TestCase):
         digest_timer = (ROOT / "systemd" / "signalforge-telegram-digest.timer").read_text(encoding="utf-8")
         assurance_service = (ROOT / "systemd" / "signalforge-assurance.service").read_text(encoding="utf-8")
         assurance_timer = (ROOT / "systemd" / "signalforge-assurance.timer").read_text(encoding="utf-8")
+        telemetry_service = (ROOT / "systemd" / "signalforge-public-read-telemetry.service").read_text(encoding="utf-8")
+        telemetry_timer = (ROOT / "systemd" / "signalforge-public-read-telemetry.timer").read_text(encoding="utf-8")
         self.assertIn("EnvironmentFile=/etc/signalforge/telegram.env", service)
         self.assertIn("ExecStart=/srv/signalforge/active/bin/signalforge telegram-deliver", service)
         self.assertIn("User=signalforge", service)
@@ -475,6 +480,11 @@ class ContractTests(unittest.TestCase):
         self.assertNotIn("telegram.env", assurance_service)
         self.assertIn("OnCalendar=Sun *-*-* 14:40:00 UTC", assurance_timer)
         self.assertIn("Persistent=true", assurance_timer)
+        self.assertIn("EnvironmentFile=/etc/signalforge/telegram.env", telemetry_service)
+        self.assertIn("ExecStart=/srv/signalforge/active/bin/signalforge public-read-telemetry-alert --window-hours 24", telemetry_service)
+        self.assertIn("User=signalforge", telemetry_service)
+        self.assertIn("OnCalendar=*-*-* *:17:00 UTC", telemetry_timer)
+        self.assertIn("Persistent=true", telemetry_timer)
 
     def test_worker_application_correlation_is_fail_closed(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

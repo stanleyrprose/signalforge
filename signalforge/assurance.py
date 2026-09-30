@@ -21,6 +21,7 @@ from .http import fetch_bytes
 from .mpt import normalize_text
 from .moep_reviewed_enrichment import apply_reviewed_moep_overlay
 from .national_portal import national_portal_page_url, parse_current_high_value_tender_leads
+from .public_read_telemetry import public_read_telemetry_report
 from .source_scorecard import PORTFOLIO_TIERS, _is_known_historical_noise, source_scorecard
 
 ASSURANCE_VERSION = 1
@@ -1287,6 +1288,7 @@ def run_assurance(
         )
 
     audit_result = audit(database=target, registry=registry, now=observed, network=network)
+    public_read_telemetry = public_read_telemetry_report(database=target, now=observed, window_hours=24)
     coverage_rows: list[dict[str, object]] = []
     sources_raw = registry.raw.get("sources") or {}
     for source_id in MANDATORY_COVERAGE_SOURCES:
@@ -1452,6 +1454,12 @@ def run_assurance(
             "open_misses": open_misses,
             "open_red_misses": red_misses,
             "metric_validity": metric_review["status"],
+            "public_read_telemetry": {
+                "status": public_read_telemetry["status"],
+                "verification_gate": public_read_telemetry["verification_gate"],
+                "routes": public_read_telemetry["routes"],
+                "anomalies": public_read_telemetry["anomalies"],
+            },
         }
         final_status = str(metric_review["status"])
         conn.execute(
@@ -1471,6 +1479,7 @@ def run_assurance(
         "verified_resolved_aggregator_misses": verified_resolved_aggregator_misses,
         "auto_resolved_aggregator_misses": auto_resolved_aggregator_misses,
         "metric_review": metric_review,
+        "public_read_telemetry": public_read_telemetry,
         "contract": {"sends_telegram": False, "mutates_canonical_or_signals": False, "persists_assurance_state": True, "unsupported_coverage_never_defaults_to_pass": True},
     }
 
