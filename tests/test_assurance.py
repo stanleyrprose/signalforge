@@ -208,7 +208,7 @@ class AssuranceTests(unittest.TestCase):
             kwargs = provider.call_args.kwargs
             self.assertEqual(kwargs["assurance_run_id"], "00000000-0000-4000-8000-000000000001")
             self.assertEqual(kwargs["target_role"], "LISTING")
-            self.assertEqual(kwargs["capability"], "C0_FETCH")
+            self.assertEqual(kwargs["capability"], "PUBLIC_READ_ACQUIRE")
 
     def test_miss_ledger_deduplicates_and_supports_resolution(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

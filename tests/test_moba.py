@@ -44,7 +44,7 @@ class MobaTests(unittest.TestCase):
         self.assertIsNone(parse_tender_detail(payload, "https://example.com/my/tender/3475"))
         self.assertIsNone(parse_tender_detail(payload, f"{DETAIL_URL}?page=1"))
 
-    def test_production_provider_contract_is_c0_only_and_url_bounded(self) -> None:
+    def test_production_provider_contract_uses_public_read_and_is_url_bounded(self) -> None:
         contract = json.loads((REPO / "registry" / "Provider-Invocation-Contract-v1.json").read_text())
         ids = {
             "signalforge_job_id": "11111111-1111-4111-8111-111111111111",
@@ -54,20 +54,20 @@ class MobaTests(unittest.TestCase):
         listing = build_provider_request(
             contract=contract,
             source_id="S27",
-            source_policy_version=1,
-            capability="C0_FETCH",
+            source_policy_version=2,
+            capability="PUBLIC_READ_ACQUIRE",
             target_role="LISTING",
             requested_url=LIST_URL,
             max_bytes=1_000_000,
             max_run_seconds=90,
             **ids,
         )
-        self.assertEqual(listing["mcp_tool"], "browser_fetch")
+        self.assertEqual(listing["mcp_tool"], "browser_acquire")
         detail = build_provider_request(
             contract=contract,
             source_id="S27",
-            source_policy_version=1,
-            capability="C0_FETCH",
+            source_policy_version=2,
+            capability="PUBLIC_READ_ACQUIRE",
             target_role="DETAIL",
             requested_url=DETAIL_URL,
             max_bytes=1_000_000,
@@ -79,7 +79,7 @@ class MobaTests(unittest.TestCase):
             build_provider_request(
                 contract=contract,
                 source_id="S27",
-                source_policy_version=1,
+                source_policy_version=2,
                 capability="C1_RENDER",
                 target_role="LISTING",
                 requested_url=LIST_URL,
@@ -91,7 +91,7 @@ class MobaTests(unittest.TestCase):
             build_provider_request(
                 contract=contract,
                 source_id="S27",
-                source_policy_version=1,
+                source_policy_version=2,
                 capability="C0_FETCH",
                 target_role="DETAIL",
                 requested_url=f"{DETAIL_URL}?page=1",

@@ -27,7 +27,7 @@ def contract() -> dict:
         "provider_id": "mac-mm-01",
         "transport": "pull_ssh_v1",
         "enabled": False,
-        "allowed_capabilities": ["C0_FETCH", "C1_RENDER", "C2_INSPECT", "C3_BROWSER_USE", "DOCUMENT_OCR"],
+        "allowed_capabilities": ["PUBLIC_READ_ACQUIRE", "C0_FETCH", "C1_RENDER", "C2_INSPECT", "C3_BROWSER_USE", "DOCUMENT_OCR"],
         "tool_map": dict(CAPABILITY_TOOL_MAP),
         "limits": {
             "max_run_seconds": 180,
@@ -45,17 +45,17 @@ def contract() -> dict:
         "source_policies": {
             "S38": {
                 "enabled": True,
-                "source_policy_version": 1,
-                "allowed_capabilities": ["C0_FETCH", "C1_RENDER", "C2_INSPECT", "C3_BROWSER_USE"],
+                "source_policy_version": 2,
+                "allowed_capabilities": ["PUBLIC_READ_ACQUIRE", "C0_FETCH", "C1_RENDER", "C2_INSPECT", "C3_BROWSER_USE"],
                 "targets": {
                     "LISTING": {
-                        "capabilities": ["C0_FETCH", "C1_RENDER", "C2_INSPECT", "C3_BROWSER_USE"],
+                        "capabilities": ["PUBLIC_READ_ACQUIRE", "C0_FETCH", "C1_RENDER", "C2_INSPECT", "C3_BROWSER_USE"],
                         "exact_urls": ["https://www.industrymsme.gov.mm/announcements"],
                         "max_bytes": 1_000_000,
                         "max_run_seconds": 45,
                     },
                     "DETAIL": {
-                        "capabilities": ["C0_FETCH", "C1_RENDER", "C2_INSPECT", "C3_BROWSER_USE"],
+                        "capabilities": ["PUBLIC_READ_ACQUIRE", "C0_FETCH", "C1_RENDER", "C2_INSPECT", "C3_BROWSER_USE"],
                         "https_host": "www.industrymsme.gov.mm",
                         "path_prefix": "/announcements/",
                         "allow_query": False,
@@ -98,12 +98,12 @@ def ids() -> dict[str, str]:
     }
 
 
-def build(capability: str = "C0_FETCH", **kwargs):
+def build(capability: str = "PUBLIC_READ_ACQUIRE", **kwargs):
     args = ids()
     args.update(
         contract=contract(),
         source_id="S38",
-        source_policy_version=1,
+        source_policy_version=2,
         capability=capability,
         target_role="LISTING",
         requested_url="https://www.industrymsme.gov.mm/announcements",
@@ -120,6 +120,7 @@ class ProviderInvocationContractTests(unittest.TestCase):
     def test_contract_projects_browser_capabilities_and_document_ocr_exactly(self) -> None:
         value = validate_contract_projection(contract())
         self.assertEqual(set(value["allowed_capabilities"]), set(CAPABILITY_TOOL_MAP))
+        self.assertEqual(value["tool_map"]["PUBLIC_READ_ACQUIRE"], "browser_acquire")
         self.assertEqual(value["tool_map"]["C0_FETCH"], "browser_fetch")
         self.assertEqual(value["tool_map"]["C1_RENDER"], "browser_render")
         self.assertEqual(value["tool_map"]["C2_INSPECT"], "browser_inspect")
@@ -128,6 +129,7 @@ class ProviderInvocationContractTests(unittest.TestCase):
 
     def test_builds_valid_readonly_requests_for_c0_c1_c2(self) -> None:
         for capability in (
+            ProviderCapability.PUBLIC_READ_ACQUIRE.value,
             ProviderCapability.C0_FETCH.value,
             ProviderCapability.C1_RENDER.value,
             ProviderCapability.C2_INSPECT.value,
@@ -214,7 +216,7 @@ class ProviderInvocationContractTests(unittest.TestCase):
                 )
         with self.assertRaisesRegex(ProviderInvocationError, "not source-authorized"):
             build_provider_request(
-                contract=contract(), source_id="S38", source_policy_version=1, capability="DOCUMENT_OCR",
+                contract=contract(), source_id="S38", source_policy_version=2, capability="DOCUMENT_OCR",
                 target_role="LISTING", requested_url="https://www.industrymsme.gov.mm/announcements",
                 max_bytes=1_000_000, max_run_seconds=45, now=NOW, ttl_seconds=90, **ids(),
             )
@@ -236,7 +238,7 @@ class ProviderInvocationContractTests(unittest.TestCase):
         })
         ids_value = ids()
         request = build_provider_request(
-            contract=value, source_id="S38", source_policy_version=1, capability="C1_RENDER",
+            contract=value, source_id="S38", source_policy_version=2, capability="C1_RENDER",
             target_role="LISTING", requested_url="https://www.industrymsme.gov.mm/announcements",
             max_bytes=1_000_000, max_run_seconds=45, now=NOW, ttl_seconds=90, **ids_value,
         )
@@ -283,7 +285,7 @@ class ProviderInvocationContractTests(unittest.TestCase):
             build_provider_request(
                 contract=value,
                 source_id="S38",
-                source_policy_version=1,
+                source_policy_version=2,
                 capability="C1_RENDER",
                 target_role="LISTING",
                 requested_url="https://www.industrymsme.gov.mm/announcements",

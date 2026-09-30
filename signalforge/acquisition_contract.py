@@ -99,8 +99,10 @@ def validate_source_acquisition_policy(source_id: str, source: dict[str, Any]) -
     if primary.get("target_kind") != "HTML":
         raise AcquisitionContractError(f"primary target_kind must be HTML: {source_id}")
     if engine == "provider":
-        if primary.get("provider_id") != "mac-mm-01" or primary.get("capability") != "C0_FETCH":
-            raise AcquisitionContractError(f"provider primary policy must pin mac-mm-01 C0_FETCH: {source_id}")
+        if primary.get("provider_id") != "mac-mm-01" or primary.get("capability") != "PUBLIC_READ_ACQUIRE":
+            raise AcquisitionContractError(
+                f"provider primary policy must pin mac-mm-01 PUBLIC_READ_ACQUIRE: {source_id}"
+            )
 
     supplementary = policy.get("supplementary")
     if not isinstance(supplementary, list):

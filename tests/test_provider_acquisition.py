@@ -64,7 +64,7 @@ class ProviderAcquisitionTests(unittest.TestCase):
                 database=database,
                 scheduler_run_id="11111111-1111-4111-8111-111111111111",
                 source_id="S38",
-                source_policy_version=1,
+                source_policy_version=2,
                 reason="MANUAL",
                 egress_profile="mac-direct",
                 target_kind="DISCOVERY",
@@ -89,7 +89,7 @@ class ProviderAcquisitionTests(unittest.TestCase):
             self.assertEqual(evidence["execution_scope"], "REMOTE_MAC_PROVIDER")
             self.assertEqual(evidence["provider_id"], "mac-mm-01")
             self.assertEqual(evidence["egress_profile"], "mac-direct")
-            self.assertEqual(evidence["fetch_method"], "PROVIDER_C0_FETCH")
+            self.assertEqual(evidence["fetch_method"], "PROVIDER_PUBLIC_READ_ACQUIRE")
             self.assertEqual(evidence["final_url"], URL)
             self.assertEqual(evidence["artifact_sha256"], hashlib.sha256(artifact).hexdigest())
             with connect(database) as conn:

@@ -5,6 +5,7 @@
   "transport": "pull_ssh_v1",
   "enabled": true,
   "allowed_capabilities": [
+    "PUBLIC_READ_ACQUIRE",
     "C0_FETCH",
     "C1_RENDER",
     "C2_INSPECT",
@@ -16,7 +17,8 @@
     "C1_RENDER": "browser_render",
     "C2_INSPECT": "browser_inspect",
     "C3_BROWSER_USE": "browser_use",
-    "DOCUMENT_OCR": "document_ocr"
+    "DOCUMENT_OCR": "document_ocr",
+    "PUBLIC_READ_ACQUIRE": "browser_acquire"
   },
   "limits": {
     "max_run_seconds": 180,
@@ -34,8 +36,9 @@
   "source_policies": {
     "S38": {
       "enabled": true,
-      "source_policy_version": 1,
+      "source_policy_version": 2,
       "allowed_capabilities": [
+        "PUBLIC_READ_ACQUIRE",
         "C0_FETCH"
       ],
       "targets": {
@@ -44,6 +47,7 @@
             "https://www.industrymsme.gov.mm/announcements"
           ],
           "capabilities": [
+            "PUBLIC_READ_ACQUIRE",
             "C0_FETCH"
           ],
           "max_bytes": 1000000,
@@ -53,6 +57,7 @@
           "https_host": "www.industrymsme.gov.mm",
           "path_prefix": "/announcements/",
           "capabilities": [
+            "PUBLIC_READ_ACQUIRE",
             "C0_FETCH"
           ],
           "max_bytes": 1000000,
@@ -69,8 +74,9 @@
     },
     "S27": {
       "enabled": true,
-      "source_policy_version": 1,
+      "source_policy_version": 2,
       "allowed_capabilities": [
+        "PUBLIC_READ_ACQUIRE",
         "C0_FETCH"
       ],
       "targets": {
@@ -79,6 +85,7 @@
             "https://moba.gov.mm/my/tender"
           ],
           "capabilities": [
+            "PUBLIC_READ_ACQUIRE",
             "C0_FETCH"
           ],
           "max_bytes": 1000000,
@@ -88,6 +95,7 @@
           "https_host": "moba.gov.mm",
           "path_prefix": "/my/tender/",
           "capabilities": [
+            "PUBLIC_READ_ACQUIRE",
             "C0_FETCH"
           ],
           "max_bytes": 1000000,
