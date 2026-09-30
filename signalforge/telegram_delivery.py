@@ -148,6 +148,7 @@ def _evidence_label(value: object) -> str:
     return {
         "OFFICIAL_HTML_VIA_PROVIDER": "官方 HTML（Mac Provider）",
         "OFFICIAL_HTML_PLUS_TEXT_PDF": "官方 HTML + 官方文本 PDF",
+        "OFFICIAL_TEXT_PDF": "官方文本 PDF",
         "OFFICIAL_HTML": "官方 HTML",
     }.get(str(value or ""), str(value or "已核验官方来源"))
 

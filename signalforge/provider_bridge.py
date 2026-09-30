@@ -95,7 +95,19 @@ def _manual_candidate(registry: Registry, source_id: str) -> tuple[dict[str, Any
         raise ProviderBridgeError(f"source is not approved for manual provider bridge: {source_id}")
     deferred = registry.raw.get("deferred_sources") or {}
     if source_id not in deferred:
-        raise ProviderBridgeError(f"manual bridge v0 candidate must remain deferred: {source_id}")
+        sources = registry.raw.get("sources") or {}
+        active = sources.get(source_id) if isinstance(sources, dict) else None
+        fallback_allowed = candidate.get("allow_active_fallback") is True
+        if (
+            not fallback_allowed
+            or not isinstance(active, dict)
+            or active.get("enabled") is not True
+            or active.get("engine") != "provider"
+            or active.get("provider_id") != provider_id
+        ):
+            raise ProviderBridgeError(
+                f"manual bridge v0 candidate must remain deferred or be an explicitly approved active provider fallback: {source_id}"
+            )
     if candidate.get("task_type") != "fetch" or candidate.get("egress") != "direct":
         raise ProviderBridgeError(f"manual bridge v0 supports direct C0 fetch only: {source_id}")
     url = candidate.get("url")

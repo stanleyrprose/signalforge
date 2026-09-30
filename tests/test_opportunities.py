@@ -172,6 +172,45 @@ class OpportunityViewTests(unittest.TestCase):
             self.assertEqual(row["deadline_kind"], "BID_SUBMISSION_DEADLINE")
 
 
+    def test_explicit_pdf_evidence_and_budget_summary_survive_read_view(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            database = Path(tmp) / "signalforge.db"
+            migrate(database)
+            payload = {
+                "item_kind": "TENDER",
+                "business_stage": "OPPORTUNITY",
+                "issuer": "Digital Development Department",
+                "title": "Shared ICT Hardware",
+                "reference_no": "DD-1/2026",
+                "deadline": "2026-10-16",
+                "deadline_time": "13:00",
+                "deadline_kind": "BID_SUBMISSION_DEADLINE",
+                "scope_summary": "Supply of Shared ICT Hardware for mmGov Platform; procurement item: Switch.",
+                "quantity_or_lot_summary": "Official notice does not disclose Switch unit quantity.",
+                "price_or_budget_summary": "Procurement budget not disclosed; tender form fee: MMK 10,000.",
+                "evidence_level": "OFFICIAL_TEXT_PDF",
+                "detail_completeness": "ISSUER_PDF_SCOPE_ITEM_SCHEDULE_FEE_LOCATION",
+                "url": "https://myanmar.gov.mm/documents/example.pdf/abc",
+            }
+            with connect(database) as conn, conn:
+                _insert_canonical(conn, key="digital-development:dd-1/2026", source_id="S51", payload=payload)
+                _insert_signal(
+                    conn, signal_id="sig-ddd", source_id="S51",
+                    key="digital-development:dd-1/2026", created_at="2026-10-01T00:00:00Z",
+                )
+            result = current_opportunities(
+                database=database,
+                now=datetime(2026, 10, 1, 1, 0, tzinfo=UTC),
+                source_id="S51",
+            )
+            self.assertEqual(result["count"], 1)
+            row = result["opportunities"][0]
+            self.assertEqual(row["evidence_level"], "OFFICIAL_TEXT_PDF")
+            self.assertEqual(
+                row["price_or_budget_summary"],
+                "Procurement budget not disclosed; tender form fee: MMK 10,000.",
+            )
+
     def test_energy_reviewed_participation_overlay_flows_through_read_view(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             database = Path(tmp) / "signalforge.db"

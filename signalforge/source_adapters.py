@@ -12,6 +12,10 @@ from .customs import parse_notification_records as parse_customs_notification_re
 from .customs_announcements import parse_auction_records as parse_customs_auction_records
 from .dast import parse_tender_detail as parse_dast_tender_detail
 from .dast import parse_tender_listing as parse_dast_tender_listing
+from .digital_development import (
+    parse_digital_development_listing,
+    parse_digital_development_pdf,
+)
 from .dica import parse_announcement_detail as parse_dica_announcement_detail
 from .dica import parse_announcement_listing as parse_dica_announcement_listing
 from .doa import parse_tender_records as parse_doa_tender_records
@@ -33,6 +37,9 @@ from .monpifer import parse_tender_records as parse_monpifer_tender_records
 from .moep import parse_tender_detail as parse_moep_tender_detail
 from .moep import parse_tender_listing as parse_moep_tender_listing
 from .moea import parse_tender_records as parse_moea_tender_records
+from .mpa import extract_tender_pdf_urls as extract_mpa_tender_pdf_urls
+from .mpa import parse_tender_detail_with_attachments as parse_mpa_tender_detail_with_attachments
+from .mpa import parse_tender_listing as parse_mpa_tender_listing
 from .mofa import extract_tender_pdf_urls as extract_mofa_tender_pdf_urls
 from .mofa import parse_tender_detail as parse_mofa_tender_detail
 from .mofa import parse_tender_detail_with_attachments as parse_mofa_tender_detail_with_attachments
@@ -129,6 +136,11 @@ def _parse_yangon_ycdc_mission_detail(payload: bytes, url: str) -> list[object]:
 
 def _parse_dast_detail(payload: bytes, url: str) -> list[object]:
     tender = parse_dast_tender_detail(payload, url)
+    return [tender] if tender is not None else []
+
+
+def _parse_digital_development_detail(payload: bytes, url: str) -> list[object]:
+    tender = parse_digital_development_pdf(payload, url)
     return [tender] if tender is not None else []
 
 
@@ -230,6 +242,28 @@ ADAPTERS = {
         canonicalizer_version="dast-wordpress-post-id-v1",
         parse_discovery=parse_dast_tender_listing,
         parse_detail=_parse_dast_detail,
+    ),
+    "digital_development_tender": SourceAdapter(
+        name="digital_development_tender",
+        discovery_content_types=("text/html",),
+        discovery_parser_version="national-portal-ddd-document-discovery-v1",
+        detail_parser_version="ddd-issuer-text-pdf-v1",
+        normalizer_version="ddd-tender-normalize-v1",
+        canonicalizer_version="ddd-issuer-tender-number-v1",
+        parse_discovery=parse_digital_development_listing,
+        parse_detail=_parse_digital_development_detail,
+    ),
+    "mpa_tender": SourceAdapter(
+        name="mpa_tender",
+        discovery_content_types=("text/html", "application/xhtml+xml"),
+        discovery_parser_version="mpa-tender-category-v2",
+        detail_parser_version="mpa-detail-plus-text-pdf-v2",
+        normalizer_version="mpa-tender-normalize-v2",
+        canonicalizer_version="mpa-wordpress-post-id-v1",
+        parse_discovery=parse_mpa_tender_listing,
+        parse_detail=lambda _payload, _url: [],
+        extract_detail_attachments=extract_mpa_tender_pdf_urls,
+        parse_detail_with_attachments=parse_mpa_tender_detail_with_attachments,
     ),
     "ptd_tender": SourceAdapter(
         name="ptd_tender",

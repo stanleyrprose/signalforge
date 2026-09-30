@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import copy
+import json
 import unittest
 import uuid
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 from signalforge.provider_invocation import (
     CAPABILITY_TOOL_MAP,
@@ -220,6 +222,52 @@ class ProviderInvocationContractTests(unittest.TestCase):
                 target_role="LISTING", requested_url="https://www.industrymsme.gov.mm/announcements",
                 max_bytes=1_000_000, max_run_seconds=45, now=NOW, ttl_seconds=90, **ids(),
             )
+
+    def test_production_contract_allows_only_bounded_s15a_pdf_provider_target(self) -> None:
+        value = json.loads(
+            (Path(__file__).resolve().parents[1] / "registry" / "Provider-Invocation-Contract-v1.json").read_text()
+        )
+        pdf_url = "https://www.mpa.gov.mm/wp-content/uploads/2026/09/example.pdf"
+        request = build_provider_request(
+            contract=value,
+            source_id="S15A",
+            source_policy_version=2,
+            capability="PUBLIC_READ_ACQUIRE",
+            target_role="PDF",
+            requested_url=pdf_url,
+            max_bytes=10 * 1024 * 1024,
+            max_run_seconds=120,
+            now=NOW,
+            ttl_seconds=90,
+            **ids(),
+        )
+        self.assertEqual(request["mcp_tool"], "browser_acquire")
+        self.assertEqual(request["target_role"], "PDF")
+        self.assertEqual(request["final_url_policy"]["https_host"], "www.mpa.gov.mm")
+        validate_provider_request(request, contract=value, now=NOW)
+
+        invalid_urls = (
+            "https://www.mpa.gov.mm/wp-content/uploads/2026/09/example.html",
+            "https://www.mpa.gov.mm/announcements/example.pdf",
+            "https://mpa.gov.mm/wp-content/uploads/2026/09/example.pdf",
+            "https://www.mpa.gov.mm/wp-content/uploads/2026/09/example.pdf?download=1",
+            "https://example.com/wp-content/uploads/2026/09/example.pdf",
+        )
+        for url in invalid_urls:
+            with self.assertRaises(ProviderInvocationError, msg=url):
+                build_provider_request(
+                    contract=value,
+                    source_id="S15A",
+                    source_policy_version=2,
+                    capability="PUBLIC_READ_ACQUIRE",
+                    target_role="PDF",
+                    requested_url=url,
+                    max_bytes=10 * 1024 * 1024,
+                    max_run_seconds=120,
+                    now=NOW,
+                    ttl_seconds=90,
+                    **ids(),
+                )
 
     def test_final_url_policy_can_allow_bounded_same_issuer_navigation(self) -> None:
         value = contract()

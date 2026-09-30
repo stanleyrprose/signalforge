@@ -25,7 +25,7 @@ class ContractTests(unittest.TestCase):
         )
         self.assertEqual(manifest["verbs"]["signalforge-refresh"]["argument"], "source_id")
         self.assertEqual(manifest["grammar"]["source_id"], "^[A-Z][A-Z0-9]{0,15}$")
-        self.assertEqual(manifest["active_source_ids"], ["S05A", "S07", "S08A", "S10", "S12", "S13", "S16", "S20", "S22", "S23", "S25", "S26", "S28", "S29", "S30", "S31", "S32", "S33", "S34", "S35", "S36", "S37", "S39", "S40", "S41", "S43", "S44", "S45", "S46", "S47", "S27", "S38"])
+        self.assertEqual(manifest["active_source_ids"], ["S05A", "S07", "S08A", "S10", "S12", "S13", "S16", "S20", "S22", "S23", "S25", "S26", "S28", "S29", "S30", "S31", "S32", "S33", "S34", "S35", "S36", "S37", "S39", "S40", "S41", "S43", "S44", "S45", "S46", "S47", "S51", "S15A", "S27", "S38"])
 
         registry = Registry.load(ROOT)
         retired_s21 = registry.raw["sources"]["S21"]
@@ -221,10 +221,18 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(labour["bootstrap_seed_urls"], [])
         self.assertEqual(labour["acquisition_policy"]["supplementary"], energy["acquisition_policy"]["supplementary"])
 
+        ddd = registry.source("S51")
+        self.assertEqual(ddd["adapter"], "digital_development_tender")
+        self.assertEqual(ddd["engine"], "direct_http")
+        self.assertEqual(ddd["discovery_url"], "https://myanmar.gov.mm/tenders")
+        self.assertEqual(ddd["detail_target_kind"], "PDF")
+        self.assertEqual(ddd["canonical_key"], "issuer_tender_number")
+        self.assertEqual(ddd["actionable_baseline_signal_policy"]["min_remaining_seconds"], 43200)
+
         enabled = registry.enabled_sources()
-        self.assertEqual([sid for sid, _source in enabled[-6:]], ["S44", "S45", "S46", "S47", "S27", "S38"])
-        self.assertTrue(all(source["engine"] == "direct_http" for _sid, source in enabled[:-2]))
-        self.assertTrue(all(source["engine"] == "provider" for _sid, source in enabled[-2:]))
+        self.assertEqual([sid for sid, _source in enabled[-8:]], ["S44", "S45", "S46", "S47", "S51", "S15A", "S27", "S38"])
+        self.assertTrue(all(source["engine"] == "direct_http" for _sid, source in enabled[:-3]))
+        self.assertTrue(all(source["engine"] == "provider" for _sid, source in enabled[-3:]))
         self.assertFalse(moi["attachment_policy"]["fetch_in_primary_pipeline"])
 
         provider_contract = json.loads((ROOT / "registry" / "Provider-Invocation-Contract-v1.json").read_text())
@@ -235,6 +243,15 @@ class ContractTests(unittest.TestCase):
         )
         detail_policy = provider_contract["source_policies"]["S27"]["targets"]["DETAIL"]
         self.assertEqual(detail_policy["https_host"], "moba.gov.mm")
+        mpa_policy = provider_contract["source_policies"]["S15A"]
+        self.assertEqual(mpa_policy["allowed_capabilities"], ["PUBLIC_READ_ACQUIRE", "C0_FETCH"])
+        self.assertEqual(
+            mpa_policy["targets"]["LISTING"]["exact_urls"],
+            ["https://www.mpa.gov.mm/tenders-and-announcement/"],
+        )
+        self.assertEqual(mpa_policy["targets"]["DETAIL"]["path_prefix"], "/announcements/")
+        self.assertEqual(mpa_policy["targets"]["PDF"]["path_prefix"], "/wp-content/uploads/")
+        self.assertEqual(mpa_policy["targets"]["PDF"]["path_suffix"], ".pdf")
         self.assertEqual(detail_policy["path_prefix"], "/my/tender/")
         self.assertEqual(detail_policy["capabilities"], ["PUBLIC_READ_ACQUIRE", "C0_FETCH"])
         self.assertFalse(detail_policy["allow_query"])
@@ -339,7 +356,8 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(ird["attachment_policy"]["mode"], "METADATA_ONLY_NON_BLOCKING")
         self.assertFalse(ird["attachment_policy"]["fetch_in_primary_pipeline"])
         self.assertIn("S04", registry.raw["deferred_sources"])
-        self.assertIn("S15A", registry.raw["deferred_sources"])
+        self.assertNotIn("S15A", registry.raw["deferred_sources"])
+        self.assertIn("S15A", {source_id for source_id, _source in registry.enabled_sources()})
         self.assertIn("S15B", registry.raw["deferred_sources"])
 
         dica = registry.source("S10")

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import stat
@@ -43,6 +44,22 @@ class ProviderBridgeTests(unittest.TestCase):
     def test_unapproved_source_cannot_create_manual_provider_request(self) -> None:
         with self.assertRaisesRegex(ProviderBridgeError, "not approved"):
             build_provider_request("S27", registry=Registry.load(ROOT))
+
+    def test_active_manual_bridge_requires_explicit_candidate_fallback_approval(self) -> None:
+        registry = Registry.load(ROOT)
+        self.assertIs(
+            registry.raw["manual_provider_bridge"]["candidates"]["S15A"]["allow_active_fallback"],
+            True,
+        )
+        raw = copy.deepcopy(registry.raw)
+        raw["manual_provider_bridge"]["candidates"]["S38"] = copy.deepcopy(
+            raw["manual_provider_bridge"]["candidates"]["S15A"]
+        )
+        raw["manual_provider_bridge"]["candidates"]["S38"].pop("allow_active_fallback", None)
+        with self.assertRaisesRegex(
+            ProviderBridgeError, "must remain deferred or be an explicitly approved active provider fallback"
+        ):
+            build_provider_request("S38", registry=Registry(raw))
 
     def test_manual_detail_and_pdf_targets_are_bounded_and_typed(self) -> None:
         registry = Registry.load(ROOT)

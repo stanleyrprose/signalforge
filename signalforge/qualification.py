@@ -106,6 +106,14 @@ def _has_business_scope(item: dict[str, object]) -> bool:
 
 
 def _evidence_level(item: dict[str, object], source_policy: dict[str, Any] | None) -> str:
+    explicit = str(item.get("evidence_level") or "")
+    if explicit in {
+        "OFFICIAL_HTML",
+        "OFFICIAL_HTML_VIA_PROVIDER",
+        "OFFICIAL_HTML_PLUS_TEXT_PDF",
+        "OFFICIAL_TEXT_PDF",
+    }:
+        return explicit
     completeness = str(item.get("detail_completeness") or "").upper()
     deadline_evidence = str(item.get("deadline_evidence") or "").upper()
     if "TEXT_PDF" in completeness or deadline_evidence.startswith("OFFICIAL_TEXT_NATIVE_PDF"):
