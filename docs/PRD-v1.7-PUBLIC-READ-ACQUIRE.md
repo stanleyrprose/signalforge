@@ -1,7 +1,7 @@
 # SignalForge PRD v1.7 — PUBLIC_READ_ACQUIRE Provider Extension
 
 **Date:** 2026-09-30
-**Status:** IMPLEMENTED / PRE-PRODUCTION VERIFICATION
+**Status:** PRODUCTION VERIFIED / CLOSED
 
 ## Goal
 
@@ -82,3 +82,7 @@ Before production rollout:
 6. Mac runtime, Bangkok code/registry, and Mac installed PIC must be switched as one coordinated maintenance action;
 7. end-to-end S27/S38 provider smoke must return valid HTML without customer delivery;
 8. final Browser Plane Doctor and SignalForge health checks must pass.
+
+## Production closure
+
+Production rollout and live evidence are recorded in `docs/verification/PUBLIC-READ-ACQUIRE-PRODUCTION-CLOSURE-2026-09-30.md`.
