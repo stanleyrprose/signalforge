@@ -59,6 +59,21 @@ class TelegramDeliveryTests(unittest.TestCase):
     def tearDown(self) -> None:
         self._translation_patch.stop()
 
+    def test_customer_scope_exclusion_blocks_complete_tender_card(self) -> None:
+        briefing = _briefing()
+        briefing["attention"][0]["customer_readiness_excluded_reason"] = "NON_PROCUREMENT_SERVICE_CONCESSION"
+        with tempfile.TemporaryDirectory() as tmp:
+            database = Path(tmp) / "signalforge.db"
+            migrate(database)
+            with patch("signalforge.telegram_delivery.business_briefing", return_value=briefing):
+                result = telegram_deliver(database=database, dry_run=True)
+        self.assertEqual(result["pending_count"], 0)
+        self.assertEqual(result["quality_filtered_count"], 1)
+        self.assertIn(
+            "CUSTOMER_SCOPE_EXCLUDED:NON_PROCUREMENT_SERVICE_CONCESSION",
+            result["quality_filtered"][0]["reasons"],
+        )
+
     def test_owner_feed_uses_same_customer_readiness_gate_as_pilot(self) -> None:
         briefing = _briefing()
         briefing["attention"][0]["quantity_or_lot_summary"] = None

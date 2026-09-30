@@ -410,6 +410,7 @@ def current_opportunities(
                 "quantity_or_lot_summary": payload.get("quantity_or_lot_summary"),
                 "quantity_or_lot_evidence": payload.get("quantity_or_lot_evidence"),
                 "quantity_or_lot_confidence": payload.get("quantity_or_lot_confidence"),
+                "customer_readiness_excluded_reason": payload.get("customer_readiness_excluded_reason"),
                 "next_action_summary": payload.get("next_action_summary"),
                 "next_action_evidence": payload.get("next_action_evidence"),
                 "action_time_evidence": payload.get("action_time_evidence"),

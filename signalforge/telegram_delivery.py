@@ -164,6 +164,9 @@ def _telegram_business_readiness(item: dict[str, object]) -> list[str]:
     item_kind = str(item.get("item_kind") or "")
     if item_kind and item_kind != "TENDER":
         reasons.append("ITEM_KIND_NOT_TENDER")
+    excluded_reason = str(item.get("customer_readiness_excluded_reason") or "")
+    if excluded_reason:
+        reasons.append(f"CUSTOMER_SCOPE_EXCLUDED:{excluded_reason}")
     if str(item.get("deadline_status") or "") != "OPEN":
         reasons.append("DEADLINE_NOT_CONFIRMED_OPEN")
     opportunity_status = str(item.get("opportunity_status") or "")
