@@ -13,7 +13,22 @@ EVENT_TYPES = (
     "ACTION_TAKEN",
     "BID_OR_QUOTE_INITIATED",
     "DISMISSED",
+    "RELEVANT",
+    "NOT_RELEVANT",
+    "CLICKED",
+    "IGNORED",
+    "WOULD_PAY",
+    "WOULD_NOT_PAY",
 )
+
+FEEDBACK_DIMENSIONS = {
+    "RELEVANT": ("RELEVANT", "NOT_RELEVANT"),
+    "NOT_RELEVANT": ("RELEVANT", "NOT_RELEVANT"),
+    "CLICKED": ("CLICKED", "IGNORED"),
+    "IGNORED": ("CLICKED", "IGNORED"),
+    "WOULD_PAY": ("WOULD_PAY", "WOULD_NOT_PAY"),
+    "WOULD_NOT_PAY": ("WOULD_PAY", "WOULD_NOT_PAY"),
+}
 
 
 class PilotFeedbackError(RuntimeError):
@@ -84,6 +99,19 @@ def record_pilot_feedback(
         ).fetchone()
         if delivered is None:
             raise PilotFeedbackError("no attributed delivery exists for profile_id and canonical_key")
+
+        dimension = FEEDBACK_DIMENSIONS.get(event_type)
+        if dimension is not None:
+            placeholders = ",".join("?" for _ in dimension)
+            conn.execute(
+                f"""
+                DELETE FROM pilot_feedback_events
+                WHERE profile_id=? AND canonical_key=?
+                  AND COALESCE(signal_id,'')=COALESCE(?, '')
+                  AND event_type IN ({placeholders})
+                """,
+                (profile_id, canonical_key, signal_id, *dimension),
+            )
 
         conn.execute(
             """
@@ -175,6 +203,15 @@ def pilot_validation_report(
     action_unique = int((by_type.get("ACTION_TAKEN") or {}).get("unique_tenders", 0))
     bid_unique = int((by_type.get("BID_OR_QUOTE_INITIATED") or {}).get("unique_tenders", 0))
     review_unique = int((by_type.get("WORTH_REVIEWING") or {}).get("unique_tenders", 0))
+    relevant_unique = int((by_type.get("RELEVANT") or {}).get("unique_tenders", 0))
+    not_relevant_unique = int((by_type.get("NOT_RELEVANT") or {}).get("unique_tenders", 0))
+    clicked_unique = int((by_type.get("CLICKED") or {}).get("unique_tenders", 0))
+    ignored_unique = int((by_type.get("IGNORED") or {}).get("unique_tenders", 0))
+    would_pay_unique = int((by_type.get("WOULD_PAY") or {}).get("unique_tenders", 0))
+    would_not_pay_unique = int((by_type.get("WOULD_NOT_PAY") or {}).get("unique_tenders", 0))
+    relevance_responses = relevant_unique + not_relevant_unique
+    engagement_responses = clicked_unique + ignored_unique
+    pay_responses = would_pay_unique + would_not_pay_unique
 
     return {
         "status": "PASS",
@@ -186,6 +223,12 @@ def pilot_validation_report(
         "worth_reviewing_rate": round(review_unique / delivered_unique, 4) if delivered_unique else None,
         "action_rate": round(action_unique / delivered_unique, 4) if delivered_unique else None,
         "bid_or_quote_rate": round(bid_unique / delivered_unique, 4) if delivered_unique else None,
+        "relevance_response_rate": round(relevance_responses / delivered_unique, 4) if delivered_unique else None,
+        "relevant_rate": round(relevant_unique / relevance_responses, 4) if relevance_responses else None,
+        "engagement_response_rate": round(engagement_responses / delivered_unique, 4) if delivered_unique else None,
+        "clicked_rate": round(clicked_unique / engagement_responses, 4) if engagement_responses else None,
+        "pay_intent_response_rate": round(pay_responses / delivered_unique, 4) if delivered_unique else None,
+        "would_pay_rate": round(would_pay_unique / pay_responses, 4) if pay_responses else None,
         "recent_feedback": recent,
         "north_star": "CUSTOMER_ACTION_FROM_RELEVANT_TENDER_INTELLIGENCE",
     }
