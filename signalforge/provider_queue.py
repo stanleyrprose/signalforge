@@ -73,6 +73,7 @@ def initialize_provider_queue(database: Path) -> None:
                 result_final_url TEXT,
                 result_http_status INTEGER,
                 result_request_sha256 TEXT,
+                result_route_json TEXT,
                 failure_class TEXT
             );
             CREATE INDEX IF NOT EXISTS idx_provider_requests_claim
@@ -97,6 +98,9 @@ def initialize_provider_queue(database: Path) -> None:
                 ON provider_attempts(provider_request_id, claimed_at DESC);
             """
         )
+        columns = {str(row[1]) for row in conn.execute("PRAGMA table_info(provider_requests)")}
+        if "result_route_json" not in columns:
+            conn.execute("ALTER TABLE provider_requests ADD COLUMN result_route_json TEXT")
 
 
 def enqueue_provider_request(
@@ -323,6 +327,7 @@ def complete_provider_claim(
     result_final_url: str | None = None,
     result_http_status: int | None = None,
     result_request_sha256: str | None = None,
+    result_route_summary: dict[str, Any] | None = None,
     now: datetime | None = None,
 ) -> dict[str, Any]:
     if not _valid_sha256(result_sha256):
@@ -332,6 +337,12 @@ def complete_provider_claim(
     initialize_provider_queue(database)
     observed_now = (now or datetime.now(UTC)).astimezone(UTC)
     now_text = _iso(observed_now)
+
+    result_route_json = (
+        json.dumps(result_route_summary, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        if result_route_summary is not None
+        else None
+    )
 
     with connect(database) as conn:
         conn.execute("BEGIN IMMEDIATE")
@@ -369,11 +380,12 @@ def complete_provider_claim(
             UPDATE provider_requests
             SET state='SUCCEEDED',completed_at=?,result_sha256=?,browser_job_id=?,
                 result_media_type=?,result_artifact_bytes=?,result_artifact_path=?,result_final_url=?,
-                result_http_status=?,result_request_sha256=?,claim_token_sha256=NULL
+                result_http_status=?,result_request_sha256=?,result_route_json=?,claim_token_sha256=NULL
             WHERE provider_request_id=?
             """,
             (now_text, result_sha256, browser_job_id, result_media_type, result_artifact_bytes,
-             result_artifact_path, result_final_url, result_http_status, result_request_sha256, provider_request_id),
+             result_artifact_path, result_final_url, result_http_status, result_request_sha256,
+             result_route_json, provider_request_id),
         )
         conn.execute(
             """

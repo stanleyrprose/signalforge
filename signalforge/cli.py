@@ -43,6 +43,7 @@ from .opportunities import current_opportunities
 from .pilot_validation import EVENT_TYPES as PILOT_EVENT_TYPES, pilot_validation_report, record_pilot_feedback
 from .provider_bridge import build_provider_request, import_provider_result, load_imported_provider_artifact, write_provider_request
 from .provider_r3 import prepare_r3_gate, r3_gate_status
+from .public_read_telemetry import public_read_telemetry_alert, public_read_telemetry_report
 from .source_scorecard import source_scorecard
 from .telegram_delivery import telegram_deliver
 from .translation import translation_status
@@ -370,6 +371,12 @@ def main(argv: list[str] | None = None) -> int:
     assurance_run_parser.add_argument("--no-network", action="store_true")
     assurance_run_parser.add_argument("--noise-sample-size", type=int, default=5)
     sub.add_parser("assurance-status")
+    public_read_telemetry_parser = sub.add_parser("public-read-telemetry")
+    public_read_telemetry_parser.add_argument("--window-hours", type=int, default=24)
+    public_read_telemetry_parser.add_argument("--database")
+    public_read_telemetry_alert_parser = sub.add_parser("public-read-telemetry-alert")
+    public_read_telemetry_alert_parser.add_argument("--window-hours", type=int, default=24)
+    public_read_telemetry_alert_parser.add_argument("--database")
     harness_parser = sub.add_parser("harness-verify")
     harness_parser.add_argument("--checkpoint")
     harness_parser.add_argument("--max-retries", type=int, default=3)
@@ -614,6 +621,16 @@ def main(argv: list[str] | None = None) -> int:
             result = run_assurance(network=not bool(args.no_network), noise_sample_size=int(args.noise_sample_size))
         elif args.cmd == "assurance-status":
             result = assurance_status()
+        elif args.cmd == "public-read-telemetry":
+            result = public_read_telemetry_report(
+                database=Path(args.database).expanduser() if args.database else None,
+                window_hours=int(args.window_hours),
+            )
+        elif args.cmd == "public-read-telemetry-alert":
+            result = public_read_telemetry_alert(
+                database=Path(args.database).expanduser() if args.database else None,
+                window_hours=int(args.window_hours),
+            )
         elif args.cmd == "harness-verify":
             database = db_path()
             registry = Registry.load()
