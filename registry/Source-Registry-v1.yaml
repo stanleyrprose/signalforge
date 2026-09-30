@@ -21,6 +21,7 @@
       "capabilities": {
         "c0_fetch": true,
         "c0_raw_artifact": true,
+        "public_read_acquisition_router": true,
         "c1_render": true,
         "c1_generic_interaction": false,
         "c2_readonly_inspect": true,
@@ -2058,12 +2059,12 @@
       "adapter": "industry_tender",
       "enabled": true,
       "role": "ACTIVE_PRIMARY",
-      "audit_status": "GREEN_MAC_PROVIDER_C0_HTML_SCOPE_DEADLINE_BKK_DIRECT_CONNECT_TIMEOUT",
+      "audit_status": "GREEN_MAC_PROVIDER_PUBLIC_READ_HTML_SCOPE_DEADLINE_BKK_DIRECT_CONNECT_TIMEOUT",
       "item_kind": "TENDER",
       "network_zone": "mac-direct",
       "engine": "provider",
       "provider_id": "mac-mm-01",
-      "provider_capability": "C0_FETCH",
+      "provider_capability": "PUBLIC_READ_ACQUIRE",
       "provider_target_roles": {
         "DISCOVERY": "LISTING",
         "HTML": "DETAIL"
@@ -2112,14 +2113,14 @@
         "parse_probe_interval_seconds": 7200,
         "parse_sample_source": "BUSINESS_PROCESSING"
       },
-      "source_policy_version": 1,
+      "source_policy_version": 2,
       "egress_profile": "mac-direct",
       "acquisition_policy": {
         "enabled": true,
         "primary": {
           "method": "MAC_BROWSER_PROVIDER",
           "provider_id": "mac-mm-01",
-          "capability": "C0_FETCH",
+          "capability": "PUBLIC_READ_ACQUIRE",
           "target_kind": "HTML"
         },
         "supplementary": [],
@@ -2175,12 +2176,12 @@
       "adapter": "moba_tender",
       "enabled": true,
       "role": "ACTIVE_SELECTIVE",
-      "audit_status": "GREEN_MAC_PROVIDER_C0_HTML_SCOPE_DEADLINE_BKK_STRICT_TLS_RED",
+      "audit_status": "GREEN_MAC_PROVIDER_PUBLIC_READ_HTML_SCOPE_DEADLINE_BKK_STRICT_TLS_RED",
       "item_kind": "TENDER",
       "network_zone": "mac-direct",
       "engine": "provider",
       "provider_id": "mac-mm-01",
-      "provider_capability": "C0_FETCH",
+      "provider_capability": "PUBLIC_READ_ACQUIRE",
       "provider_target_roles": {
         "DISCOVERY": "LISTING",
         "HTML": "DETAIL"
@@ -2223,14 +2224,14 @@
         "parse_probe_interval_seconds": 7200,
         "parse_sample_source": "BUSINESS_PROCESSING"
       },
-      "source_policy_version": 1,
+      "source_policy_version": 2,
       "egress_profile": "mac-direct",
       "acquisition_policy": {
         "enabled": true,
         "primary": {
           "method": "MAC_BROWSER_PROVIDER",
           "provider_id": "mac-mm-01",
-          "capability": "C0_FETCH",
+          "capability": "PUBLIC_READ_ACQUIRE",
           "target_kind": "HTML"
         },
         "supplementary": [],

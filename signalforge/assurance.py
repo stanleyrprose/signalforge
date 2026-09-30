@@ -529,7 +529,7 @@ def _coverage_from_listing(
                 timeout_seconds=int(policy.get("request_timeout_seconds") or 90),
                 max_bytes=int(policy.get("request_max_bytes") or 1_000_000),
                 expected_content_types=["text/html"],
-                capability=str(policy.get("provider_capability") or "C0_FETCH"),
+                capability=str(policy.get("provider_capability") or "PUBLIC_READ_ACQUIRE"),
                 request_now=now,
             )
             payload = capture.payload

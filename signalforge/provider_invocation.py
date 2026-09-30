@@ -21,6 +21,7 @@ class ProviderInvocationError(RuntimeError):
 
 
 class ProviderCapability(str, Enum):
+    PUBLIC_READ_ACQUIRE = "PUBLIC_READ_ACQUIRE"
     C0_FETCH = "C0_FETCH"
     C1_RENDER = "C1_RENDER"
     C2_INSPECT = "C2_INSPECT"
@@ -29,6 +30,7 @@ class ProviderCapability(str, Enum):
 
 
 CAPABILITY_TOOL_MAP = {
+    ProviderCapability.PUBLIC_READ_ACQUIRE.value: "browser_acquire",
     ProviderCapability.C0_FETCH.value: "browser_fetch",
     ProviderCapability.C1_RENDER.value: "browser_render",
     ProviderCapability.C2_INSPECT.value: "browser_inspect",
@@ -44,6 +46,7 @@ LEGACY_R3_EVIDENCE_ONLY_TOOL_MAP = {
 }
 
 READ_ONLY_CAPABILITIES = {
+    ProviderCapability.PUBLIC_READ_ACQUIRE.value,
     ProviderCapability.C0_FETCH.value,
     ProviderCapability.C1_RENDER.value,
     ProviderCapability.C2_INSPECT.value,

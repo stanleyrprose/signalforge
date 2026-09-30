@@ -623,7 +623,7 @@ def _acquire_source_bytes(
         return acquire_provider_bytes(
             **common,
             target_role=target_role,
-            capability=str(source.get("provider_capability", "C0_FETCH")),
+            capability=str(source.get("provider_capability", "PUBLIC_READ_ACQUIRE")),
         )
     raise EngineError(f"unsupported source engine: {source_id}")
 

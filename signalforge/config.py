@@ -69,6 +69,7 @@ class Registry:
         required_capabilities = {
             "c0_fetch": True,
             "c0_raw_artifact": True,
+            "public_read_acquisition_router": True,
             "c1_render": True,
             "c1_generic_interaction": False,
             "c2_readonly_inspect": True,
@@ -164,8 +165,10 @@ class Registry:
                 roles = source.get("provider_target_roles")
                 if roles != {"DISCOVERY": "LISTING", "HTML": "DETAIL"}:
                     raise ConfigError(f"Provider source target-role projection invalid: {source_id}")
-                if source.get("provider_capability") != "C0_FETCH":
-                    raise ConfigError(f"Provider source must use C0_FETCH under the current production contract: {source_id}")
+                if source.get("provider_capability") != "PUBLIC_READ_ACQUIRE":
+                    raise ConfigError(
+                        f"Provider source must use PUBLIC_READ_ACQUIRE under the current production contract: {source_id}"
+                    )
                 provider.append((source_id, source))
                 continue
             raise ConfigError(f"unsupported active source engine: {source_id}")

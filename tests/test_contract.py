@@ -110,7 +110,7 @@ class ContractTests(unittest.TestCase):
         industry = registry.source("S38")
         self.assertEqual(industry["engine"], "provider")
         self.assertEqual(industry["provider_id"], "mac-mm-01")
-        self.assertEqual(industry["provider_capability"], "C0_FETCH")
+        self.assertEqual(industry["provider_capability"], "PUBLIC_READ_ACQUIRE")
         self.assertEqual(industry["provider_target_roles"], {"DISCOVERY": "LISTING", "HTML": "DETAIL"})
         self.assertEqual(industry["network_zone"], "mac-direct")
         self.assertEqual(industry["egress_profile"], "mac-direct")
@@ -133,7 +133,7 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(moba["adapter"], "moba_tender")
         self.assertEqual(moba["engine"], "provider")
         self.assertEqual(moba["provider_id"], "mac-mm-01")
-        self.assertEqual(moba["provider_capability"], "C0_FETCH")
+        self.assertEqual(moba["provider_capability"], "PUBLIC_READ_ACQUIRE")
         self.assertEqual(moba["provider_target_roles"], {"DISCOVERY": "LISTING", "HTML": "DETAIL"})
         self.assertEqual(moba["discovery_url"], "https://moba.gov.mm/my/tender")
         self.assertEqual(moba["canonical_key"], "issuer_drupal_tender_node_id")
@@ -228,7 +228,7 @@ class ContractTests(unittest.TestCase):
         self.assertFalse(moi["attachment_policy"]["fetch_in_primary_pipeline"])
 
         provider_contract = json.loads((ROOT / "registry" / "Provider-Invocation-Contract-v1.json").read_text())
-        self.assertEqual(provider_contract["source_policies"]["S27"]["allowed_capabilities"], ["C0_FETCH"])
+        self.assertEqual(provider_contract["source_policies"]["S27"]["allowed_capabilities"], ["PUBLIC_READ_ACQUIRE", "C0_FETCH"])
         self.assertEqual(
             provider_contract["source_policies"]["S27"]["targets"]["LISTING"]["exact_urls"],
             ["https://moba.gov.mm/my/tender"],
@@ -236,7 +236,7 @@ class ContractTests(unittest.TestCase):
         detail_policy = provider_contract["source_policies"]["S27"]["targets"]["DETAIL"]
         self.assertEqual(detail_policy["https_host"], "moba.gov.mm")
         self.assertEqual(detail_policy["path_prefix"], "/my/tender/")
-        self.assertEqual(detail_policy["capabilities"], ["C0_FETCH"])
+        self.assertEqual(detail_policy["capabilities"], ["PUBLIC_READ_ACQUIRE", "C0_FETCH"])
         self.assertFalse(detail_policy["allow_query"])
         self.assertFalse(detail_policy["allow_fragment"])
 
