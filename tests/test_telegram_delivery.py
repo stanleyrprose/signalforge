@@ -99,6 +99,36 @@ class TelegramDeliveryTests(unittest.TestCase):
         self.assertIn("🎯 与你业务关联：", pending["message"])
         self.assertIn("ICT", pending["message"])
 
+
+    def test_real_profile_delivery_persists_profile_attribution(self) -> None:
+        profile = BusinessProfile.from_dict(
+            {
+                "profile_id": "ict-pilot",
+                "delivery_mode": "MATCHED_ONLY",
+                "relevance_categories": ["ICT"],
+                "keywords": ["server"],
+            }
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            database = Path(tmp) / "signalforge.db"
+            migrate(database)
+            with patch("signalforge.telegram_delivery.business_briefing", return_value=_briefing()), patch(
+                "signalforge.telegram_delivery._send_message", return_value="303"
+            ):
+                result = telegram_deliver(
+                    database=database,
+                    bot_token="secret",
+                    chat_id="42",
+                    business_profile=profile,
+                )
+            self.assertEqual(result["sent_count"], 1)
+            with connect(database) as conn:
+                row = conn.execute(
+                    "SELECT profile_id,profile_match_score FROM delivery_receipts WHERE canonical_key='mofa:1'"
+                ).fetchone()
+            self.assertEqual(row["profile_id"], "ict-pilot")
+            self.assertGreaterEqual(int(row["profile_match_score"]), 45)
+
     def test_dry_run_needs_no_credentials_and_does_not_write_receipt(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             database = Path(tmp) / "signalforge.db"

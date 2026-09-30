@@ -84,6 +84,37 @@ Track:
 4. customer took a business action;
 5. bid / quotation / partner outreach initiated.
 
+SignalForge now keeps pilot attribution in successful Telegram delivery receipts (`profile_id` + match score) and records explicit customer outcome events.
+
+Operator examples:
+
+```sh
+signalforge pilot-feedback \
+  --profile-id pilot-ict \
+  --canonical-key mpt:tender-123 \
+  --signal-id sig-123 \
+  --event WORTH_REVIEWING \
+  --note "Customer asked sales team to review"
+
+signalforge pilot-feedback \
+  --profile-id pilot-ict \
+  --canonical-key mpt:tender-123 \
+  --signal-id sig-123 \
+  --event ACTION_TAKEN \
+  --note "Contacted local partner"
+
+signalforge pilot-feedback \
+  --profile-id pilot-ict \
+  --canonical-key mpt:tender-123 \
+  --signal-id sig-123 \
+  --event BID_OR_QUOTE_INITIATED \
+  --note "Quotation preparation started"
+
+signalforge pilot-report --profile-id pilot-ict
+```
+
+Allowed outcome events are `ACKNOWLEDGED`, `WORTH_REVIEWING`, `ACTION_TAKEN`, `BID_OR_QUOTE_INITIATED`, and `DISMISSED`. Feedback is accepted only when the tender has an attributed successful delivery for that profile; this prevents ungrounded commercial-outcome claims.
+
 The North Star is not source count or raw Signal count. It is customer action caused by relevant tender intelligence.
 
 ## Explicitly out of scope for Pilot MVP

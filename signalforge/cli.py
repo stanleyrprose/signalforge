@@ -40,6 +40,7 @@ from .leadtime import leadtime_report, link_procurement, precursor_candidates, p
 from .mpa import build_manual_bundle_preview, parse_listing_records, parse_pdf_business_fields, preview_summary
 from .mpa_manual import commit_manual_provider_bundle
 from .opportunities import current_opportunities
+from .pilot_validation import EVENT_TYPES as PILOT_EVENT_TYPES, pilot_validation_report, record_pilot_feedback
 from .provider_bridge import build_provider_request, import_provider_result, load_imported_provider_artifact, write_provider_request
 from .provider_r3 import prepare_r3_gate, r3_gate_status
 from .source_scorecard import source_scorecard
@@ -418,6 +419,15 @@ def main(argv: list[str] | None = None) -> int:
     telegram_parser = sub.add_parser("telegram-deliver")
     telegram_parser.add_argument("--dry-run", action="store_true")
     telegram_parser.add_argument("--profile")
+    pilot_feedback_parser = sub.add_parser("pilot-feedback")
+    pilot_feedback_parser.add_argument("--profile-id", required=True)
+    pilot_feedback_parser.add_argument("--canonical-key", required=True)
+    pilot_feedback_parser.add_argument("--signal-id")
+    pilot_feedback_parser.add_argument("--event", required=True, choices=PILOT_EVENT_TYPES)
+    pilot_feedback_parser.add_argument("--note")
+    pilot_feedback_parser.add_argument("--by", default="operator")
+    pilot_report_parser = sub.add_parser("pilot-report")
+    pilot_report_parser.add_argument("--profile-id")
     telegram_digest_parser = sub.add_parser("telegram-digest")
     telegram_digest_parser.add_argument("--dry-run", action="store_true")
     telegram_digest_parser.add_argument("--no-network", action="store_true")
@@ -668,6 +678,17 @@ def main(argv: list[str] | None = None) -> int:
                 dry_run=bool(args.dry_run),
                 profile_path=Path(args.profile).expanduser() if args.profile else None,
             )
+        elif args.cmd == "pilot-feedback":
+            result = record_pilot_feedback(
+                profile_id=args.profile_id,
+                canonical_key=args.canonical_key,
+                signal_id=args.signal_id,
+                event_type=args.event,
+                note=args.note,
+                recorded_by=args.by,
+            )
+        elif args.cmd == "pilot-report":
+            result = pilot_validation_report(profile_id=args.profile_id)
         elif args.cmd == "telegram-digest":
             result = telegram_digest(dry_run=bool(args.dry_run), audit_network=not bool(args.no_network))
         else:

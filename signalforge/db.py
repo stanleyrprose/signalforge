@@ -8,7 +8,7 @@ from typing import Iterator
 from .config import db_path
 
 
-SCHEMA_VERSION = 9
+SCHEMA_VERSION = 10
 
 
 @contextmanager
@@ -117,10 +117,31 @@ def migrate(path: Path | None = None) -> None:
                 payload_sha256 TEXT NOT NULL,
                 provider_message_id TEXT,
                 sent_at TEXT NOT NULL,
+                profile_id TEXT,
+                profile_match_score INTEGER,
                 UNIQUE(channel, canonical_key, signal_id, attention_action)
             );
             CREATE INDEX IF NOT EXISTS idx_delivery_receipts_channel_sent
                 ON delivery_receipts(channel, sent_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_delivery_receipts_profile_sent
+                ON delivery_receipts(profile_id, sent_at DESC);
+
+            CREATE TABLE IF NOT EXISTS pilot_feedback_events (
+                event_id TEXT PRIMARY KEY,
+                profile_id TEXT NOT NULL,
+                canonical_key TEXT NOT NULL,
+                signal_id TEXT,
+                event_type TEXT NOT NULL,
+                note TEXT,
+                recorded_by TEXT NOT NULL,
+                recorded_at TEXT NOT NULL,
+                UNIQUE(profile_id, canonical_key, signal_id, event_type)
+            );
+            CREATE INDEX IF NOT EXISTS idx_pilot_feedback_profile_time
+                ON pilot_feedback_events(profile_id, recorded_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_pilot_feedback_type_time
+                ON pilot_feedback_events(event_type, recorded_at DESC);
+
             CREATE TABLE IF NOT EXISTS digest_delivery_receipts (
                 digest_key TEXT PRIMARY KEY,
                 channel TEXT NOT NULL,
@@ -428,6 +449,9 @@ def migrate(path: Path | None = None) -> None:
 
         _add_column(conn, "canonical_items", "item_kind TEXT NOT NULL DEFAULT 'TENDER'")
         _add_column(conn, "canonical_items", "title TEXT")
+        _add_column(conn, "delivery_receipts", "profile_id TEXT")
+        _add_column(conn, "delivery_receipts", "profile_match_score INTEGER")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_delivery_receipts_profile_sent ON delivery_receipts(profile_id, sent_at DESC)")
         conn.execute("UPDATE canonical_items SET item_kind='TENDER' WHERE item_kind IS NULL OR item_kind=''")
         conn.execute("UPDATE canonical_items SET title=project_name WHERE title IS NULL OR title=''")
 
