@@ -135,7 +135,27 @@ signalforge pilot-feedback \
 signalforge pilot-report --profile-id pilot-ict
 ```
 
-Allowed outcome events are `ACKNOWLEDGED`, `WORTH_REVIEWING`, `ACTION_TAKEN`, `BID_OR_QUOTE_INITIATED`, and `DISMISSED`. Feedback is accepted only when the tender has an attributed successful delivery for that profile; this prevents ungrounded commercial-outcome claims.
+Allowed outcome events include the business-outcome events `ACKNOWLEDGED`, `WORTH_REVIEWING`, `ACTION_TAKEN`, `BID_OR_QUOTE_INITIATED`, and `DISMISSED`, plus three pilot-learning dimensions:
+
+- relevance: `RELEVANT` / `NOT_RELEVANT`;
+- engagement: `CLICKED` / `IGNORED`;
+- willingness to pay: `WOULD_PAY` / `WOULD_NOT_PAY`.
+
+Each pair is mutually exclusive for one `profile_id + canonical_key + signal_id`; recording the opposite choice replaces the earlier value. Feedback is accepted only when the tender has an attributed successful delivery for that profile, preventing ungrounded pilot claims.
+
+Example:
+
+```sh
+signalforge pilot-feedback --profile-id pilot-self-telecom-ict-power   --canonical-key <canonical-key> --signal-id <signal-id> --event RELEVANT
+
+signalforge pilot-feedback --profile-id pilot-self-telecom-ict-power   --canonical-key <canonical-key> --signal-id <signal-id> --event CLICKED
+
+signalforge pilot-feedback --profile-id pilot-self-telecom-ict-power   --canonical-key <canonical-key> --signal-id <signal-id> --event WOULD_PAY
+```
+
+`pilot-report` now reports response coverage plus `relevant_rate`, `clicked_rate`, and `would_pay_rate`. The rates use only answered items for that dimension; the corresponding response-rate fields show how complete the feedback sample is.
+
+For Mac OAuth translation, the normal wait remains 20 seconds. If the request is still `PENDING` or `CLAIMED` and the provider heartbeat is healthy, SignalForge grants one bounded 15-second grace window. An unhealthy provider receives no grace. Pilot delivery remains fail-closed if untranslated Myanmar script survives.
 
 The North Star is not source count or raw Signal count. It is customer action caused by relevant tender intelligence.
 

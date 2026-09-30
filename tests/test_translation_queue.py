@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import tempfile
 import unittest
+from unittest.mock import patch
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -90,6 +91,51 @@ class TranslationQueueTests(unittest.TestCase):
         self.assertEqual(first["translation_request_id"], second["translation_request_id"])
         status = translation_queue_status(database=self.db, now=NOW + timedelta(seconds=61))
         self.assertEqual(status["counts"]["EXPIRED"], 1)
+
+    def test_wait_uses_healthy_provider_grace_for_late_success(self) -> None:
+        values = ["တင်ဒါ"]
+        with patch(
+            "signalforge.translation_queue.translation_request_result",
+            side_effect=[
+                {"state": "PENDING", "translation_request_id": "late"},
+                {"state": "SUCCEEDED", "translation_request_id": "late", "result": {"values": ["招标"]}},
+            ],
+        ), patch(
+            "signalforge.translation_queue.translation_queue_status",
+            return_value={"ready": True},
+        ), patch(
+            "signalforge.translation_queue.time.monotonic",
+            side_effect=[0.0, 20.0],
+        ), patch("signalforge.translation_queue.time.sleep"):
+            translated, ok = request_translation_and_wait(
+                values,
+                database=self.db,
+                wait_seconds=20.0,
+                grace_seconds=15.0,
+            )
+        self.assertTrue(ok)
+        self.assertEqual(translated, ["招标"])
+
+    def test_wait_does_not_grant_grace_when_provider_is_unhealthy(self) -> None:
+        values = ["တင်ဒါ"]
+        with patch(
+            "signalforge.translation_queue.translation_request_result",
+            return_value={"state": "PENDING", "translation_request_id": "late"},
+        ), patch(
+            "signalforge.translation_queue.translation_queue_status",
+            return_value={"ready": False},
+        ), patch(
+            "signalforge.translation_queue.time.monotonic",
+            side_effect=[0.0, 20.0],
+        ), patch("signalforge.translation_queue.time.sleep"):
+            translated, ok = request_translation_and_wait(
+                values,
+                database=self.db,
+                wait_seconds=20.0,
+                grace_seconds=15.0,
+            )
+        self.assertFalse(ok)
+        self.assertEqual(translated, values)
 
     def test_wait_uses_cached_result_without_sleeping(self) -> None:
         values = ["အိတ်ဖွင့်တင်ဒါ"]

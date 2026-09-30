@@ -522,6 +522,7 @@ def request_translation_and_wait(
     *,
     database: Path,
     wait_seconds: float = 20.0,
+    grace_seconds: float = 15.0,
     poll_seconds: float = 0.25,
     ttl_seconds: int = 120,
 ) -> tuple[list[str], bool]:
@@ -539,6 +540,7 @@ def request_translation_and_wait(
             return normalized, False
     request_id = str(queued["translation_request_id"])
     deadline = time.monotonic() + max(0.0, wait_seconds)
+    grace_used = False
     while True:
         current = translation_request_result(translation_request_id=request_id, database=database)
         if current and current.get("state") == "SUCCEEDED":
@@ -553,7 +555,18 @@ def request_translation_and_wait(
                 return normalized, False
         if current and current.get("state") in {"FAILED", "EXPIRED", "CANCELLED"}:
             return normalized, False
-        if time.monotonic() >= deadline:
+        now_mono = time.monotonic()
+        if now_mono >= deadline:
+            state = str((current or {}).get("state") or "")
+            if not grace_used and grace_seconds > 0 and state in {"PENDING", "CLAIMED"}:
+                try:
+                    provider_ready = translation_queue_status(database=database).get("ready") is True
+                except Exception:
+                    provider_ready = False
+                if provider_ready:
+                    grace_used = True
+                    deadline = now_mono + max(0.0, grace_seconds)
+                    continue
             return normalized, False
         time.sleep(max(0.05, min(1.0, poll_seconds)))
 

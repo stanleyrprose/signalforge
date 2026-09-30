@@ -114,6 +114,60 @@ class PilotValidationTests(unittest.TestCase):
             self.assertEqual(report["feedback_by_type"]["ACTION_TAKEN"]["events"], 1)
             self.assertEqual(len(report["recent_feedback"]), 3)
 
+    def test_feedback_dimensions_are_mutually_exclusive_and_reported(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            database = Path(tmp) / "signalforge.db"
+            self._seed(database)
+            fixed_now = datetime(2026, 9, 29, 2, 0, tzinfo=UTC)
+
+            for event_type in ("RELEVANT", "CLICKED", "WOULD_PAY"):
+                record_pilot_feedback(
+                    profile_id="pilot-ict",
+                    canonical_key="mpt:pilot-1",
+                    signal_id="sig-pilot-1",
+                    event_type=event_type,
+                    database=database,
+                    now=fixed_now,
+                )
+
+            report = pilot_validation_report(profile_id="pilot-ict", database=database)
+            self.assertEqual(report["relevance_response_rate"], 1.0)
+            self.assertEqual(report["relevant_rate"], 1.0)
+            self.assertEqual(report["engagement_response_rate"], 1.0)
+            self.assertEqual(report["clicked_rate"], 1.0)
+            self.assertEqual(report["pay_intent_response_rate"], 1.0)
+            self.assertEqual(report["would_pay_rate"], 1.0)
+
+            record_pilot_feedback(
+                profile_id="pilot-ict",
+                canonical_key="mpt:pilot-1",
+                signal_id="sig-pilot-1",
+                event_type="NOT_RELEVANT",
+                database=database,
+                now=fixed_now,
+            )
+            with connect(database) as conn:
+                rows = [
+                    row["event_type"]
+                    for row in conn.execute(
+                        """
+                        SELECT event_type FROM pilot_feedback_events
+                        WHERE profile_id='pilot-ict' AND canonical_key='mpt:pilot-1'
+                        ORDER BY event_type
+                        """
+                    )
+                ]
+            self.assertNotIn("RELEVANT", rows)
+            self.assertIn("NOT_RELEVANT", rows)
+            self.assertIn("CLICKED", rows)
+            self.assertIn("WOULD_PAY", rows)
+
+            report = pilot_validation_report(profile_id="pilot-ict", database=database)
+            self.assertEqual(report["relevance_response_rate"], 1.0)
+            self.assertEqual(report["relevant_rate"], 0.0)
+            self.assertEqual(report["clicked_rate"], 1.0)
+            self.assertEqual(report["would_pay_rate"], 1.0)
+
     def test_owner_feed_receipts_are_excluded_from_pilot_denominator(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             database = Path(tmp) / "signalforge.db"
