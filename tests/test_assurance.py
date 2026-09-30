@@ -765,13 +765,10 @@ class AssuranceTests(unittest.TestCase):
                     )
 
             latest = assurance_status(database=database)
-            self.assertEqual(latest["coverage_risk_count"], 1)
-            risk = latest["coverage_risks"][0]
-            self.assertEqual(risk["source_id"], "S20")
-            self.assertEqual(risk["affected_current_opportunities"], 1)
-            self.assertEqual(risk["reviewed_official_recovery_count"], 3)
-            self.assertEqual(risk["examples"][0]["canonical_key"], "moep:7150:2026-09-08")
-            self.assertEqual(risk["missing_business_fields"], ["deadline", "participation_details"])
+            self.assertEqual(latest["coverage_risk_count"], 0)
+            self.assertFalse(
+                any(risk.get("source_id") == "S20" for risk in latest["coverage_risks"])
+            )
 
     def test_reviewed_external_recovery_is_not_direct_coverage_pass(self) -> None:
         recovered = {

@@ -35,6 +35,7 @@ def _briefing(*, signal_id: str = "sig-1", action: str = "PRIORITIZE") -> dict[s
                 "evidence_level": "OFFICIAL_HTML_PLUS_TEXT_PDF",
                 "completeness": "FULL",
                 "scope_excerpt": "Dell PowerEdge, Windows Server, SQL Server and installation.",
+                "quantity_or_lot_summary": "2 servers plus installation service.",
                 "why_now": ["STRATEGIC_FIT_ICT_TELECOM", "A_GRADE_BUSINESS_EVIDENCE"],
                 "latest_signal_id": signal_id,
                 "latest_signal_type": "NEW",
@@ -184,6 +185,104 @@ class TelegramDeliveryTests(unittest.TestCase):
                 owner_receipts = conn.execute("SELECT COUNT(*) FROM delivery_receipts").fetchone()[0]
             self.assertEqual(profiles, ["ict-pilot-a", "ict-pilot-b"])
             self.assertEqual(owner_receipts, 0)
+
+    def test_pilot_readiness_rejects_unknown_deadline(self) -> None:
+        profile = BusinessProfile.from_dict(
+            {"profile_id": "ict-pilot", "delivery_mode": "MATCHED_ONLY", "relevance_categories": ["ICT"]}
+        )
+        briefing = _briefing()
+        briefing["attention"][0]["deadline_status"] = "UNKNOWN"
+        briefing["attention"][0]["deadline"] = None
+        with tempfile.TemporaryDirectory() as tmp:
+            database = Path(tmp) / "signalforge.db"
+            migrate(database)
+            with patch("signalforge.telegram_delivery.business_briefing", return_value=briefing):
+                result = telegram_deliver(database=database, dry_run=True, business_profile=profile)
+        self.assertEqual(result["pending_count"], 0)
+        self.assertEqual(result["quality_filtered_count"], 1)
+        self.assertIn("DEADLINE_NOT_CONFIRMED_OPEN", result["quality_filtered"][0]["reasons"])
+
+    def test_pilot_readiness_rejects_missing_quantity_or_scale(self) -> None:
+        profile = BusinessProfile.from_dict(
+            {"profile_id": "ict-pilot", "delivery_mode": "MATCHED_ONLY", "relevance_categories": ["ICT"]}
+        )
+        briefing = _briefing()
+        briefing["attention"][0]["quantity_or_lot_summary"] = None
+        with tempfile.TemporaryDirectory() as tmp:
+            database = Path(tmp) / "signalforge.db"
+            migrate(database)
+            with patch("signalforge.telegram_delivery.business_briefing", return_value=briefing):
+                result = telegram_deliver(database=database, dry_run=True, business_profile=profile)
+        self.assertEqual(result["pending_count"], 0)
+        self.assertIn("QUANTITY_OR_SCALE_NOT_EXPLAINED", result["quality_filtered"][0]["reasons"])
+
+    def test_real_pilot_delivery_fails_closed_when_myanmar_remains(self) -> None:
+        profile = BusinessProfile.from_dict(
+            {"profile_id": "ict-pilot", "delivery_mode": "MATCHED_ONLY", "relevance_categories": ["ICT"]}
+        )
+        briefing = _briefing()
+        briefing["attention"][0]["title"] = "အိတ်ဖွင့်တင်ဒါ"
+        briefing["attention"][0]["issuer"] = "ဝန်ကြီးဌာန"
+        briefing["attention"][0]["scope_excerpt"] = "ဆာဗာနှစ်လုံး ဝယ်ယူခြင်းနှင့် တပ်ဆင်ခြင်း"
+        with tempfile.TemporaryDirectory() as tmp:
+            database = Path(tmp) / "signalforge.db"
+            migrate(database)
+            with patch("signalforge.telegram_delivery.business_briefing", return_value=briefing), patch(
+                "signalforge.telegram_delivery._send_message", return_value="999"
+            ) as send:
+                result = telegram_deliver(
+                    database=database,
+                    bot_token="secret",
+                    chat_id="42",
+                    business_profile=profile,
+                )
+        self.assertEqual(result["sent_count"], 0)
+        self.assertEqual(result["quality_filtered_count"], 1)
+        self.assertEqual(result["quality_filtered"][0]["reasons"], ["UNTRANSLATED_MYANMAR_PRESENT"])
+        send.assert_not_called()
+
+    def test_translated_preview_uses_production_translation_path_without_receipt(self) -> None:
+        profile = BusinessProfile.from_dict(
+            {"profile_id": "ict-pilot", "delivery_mode": "MATCHED_ONLY", "relevance_categories": ["ICT"]}
+        )
+        briefing = _briefing()
+        briefing["attention"][0]["title"] = "အိတ်ဖွင့်တင်ဒါ"
+        briefing["attention"][0]["issuer"] = "ဝန်ကြီးဌာန"
+        briefing["attention"][0]["scope_excerpt"] = "ဆာဗာနှစ်လုံး ဝယ်ယူခြင်းနှင့် တပ်ဆင်ခြင်း"
+        with tempfile.TemporaryDirectory() as tmp:
+            database = Path(tmp) / "signalforge.db"
+            migrate(database)
+            with patch("signalforge.telegram_delivery.business_briefing", return_value=briefing), patch(
+                "signalforge.telegram_delivery.translate_tender_fields_to_zh_hans",
+                side_effect=lambda values, **_kwargs: (
+                    ["服务器采购", "政府采购方", "采购2台服务器并完成安装", *values[3:]],
+                    True,
+                ),
+            ) as translate:
+                result = telegram_deliver(
+                    database=database,
+                    dry_run=True,
+                    translate_preview=True,
+                    business_profile=profile,
+                )
+            with connect(database) as conn:
+                receipts = conn.execute("SELECT COUNT(*) FROM pilot_delivery_receipts").fetchone()[0]
+        self.assertEqual(result["pending_count"], 1)
+        self.assertTrue(result["translate_preview"])
+        self.assertEqual(result["quality_filtered_count"], 0)
+        self.assertNotIn("UNKNOWN", result["pending"][0]["message"])
+        self.assertNotIn("ဆာဗာ", result["pending"][0]["message"])
+        self.assertIn("采购2台服务器并完成安装", result["pending"][0]["message"])
+        self.assertEqual(receipts, 0)
+        translate.assert_called_once()
+
+    def test_unknown_deadline_renderer_uses_customer_language_not_internal_sentinel(self) -> None:
+        item = dict(_briefing()["attention"][0])
+        item["deadline_status"] = "UNKNOWN"
+        item["deadline"] = None
+        text = render_telegram_message(item, translator=lambda values: (values, False))
+        self.assertIn("未在已核验材料中确认", text)
+        self.assertNotIn("UNKNOWN", text)
 
     def test_dry_run_needs_no_credentials_and_does_not_write_receipt(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -422,7 +521,7 @@ class TelegramDeliveryTests(unittest.TestCase):
         text = render_telegram_message(item)
         self.assertIn("🏛 卖方：Myanma Timber Enterprise", text)
         self.assertIn("🗓 活动日：<b>2026-09-15 08:30</b>", text)
-        self.assertIn("🔢 数量/批次：Approximately 6,243 tons of teak/hardwood logs and sawn timber", text)
+        self.assertIn("🔢 数量/规模：Approximately 6,243 tons of teak/hardwood logs and sawn timber", text)
         self.assertIn("📍 地点：Myanma Timber Enterprise, Gyogon Forest Compound, Insein Township, Yangon", text)
         self.assertIn("➡️ 下一步：Complete the prescribed tender/auction application", text)
         self.assertNotIn("Signal质量", text)
@@ -465,7 +564,7 @@ class TelegramDeliveryTests(unittest.TestCase):
         self.assertIn("<b>医疗物资公开招标</b>", text)
         self.assertIn("🏛 采购方：卫生部", text)
         self.assertIn("📦 采购内容：采购医院使用的医疗物资", text)
-        self.assertIn("🔢 数量/批次：100套", text)
+        self.assertIn("🔢 数量/规模：100套", text)
         self.assertIn("📍 地点：仰光", text)
         self.assertIn("➡️ 下一步：获取招标文件", text)
         self.assertIn("🌐 原文内容已机器翻译为中文", text)
