@@ -1,11 +1,18 @@
 from __future__ import annotations
 
 import unittest
+from unittest.mock import patch
 
 from signalforge.official_media import (
     OfficialMediaParseError,
     extract_gnlm_pdf_urls,
+    extract_kyemon_pdf_urls,
+    extract_myanma_alinn_pdf_urls,
     parse_gnlm_listing,
+    parse_kyemon_detail_with_attachments,
+    parse_kyemon_listing,
+    parse_myanma_alinn_detail_with_document_ocr,
+    parse_myanma_alinn_listing,
     parse_gnlm_text_signal,
     parse_mdn_detail,
     parse_mdn_listing,
@@ -241,6 +248,75 @@ class OfficialMediaParserTests(unittest.TestCase):
         self.assertEqual(item.precursor_stage_hint, "PPP_FORMATION")
         self.assertIn("DIGITAL_GOVERNMENT", item.relevance_categories)
         self.assertIn("CYBERSECURITY", item.relevance_categories)
+
+    def test_myanma_alinn_listing_pdf_and_ocr_signal(self) -> None:
+        issue_url = "https://www.moi.gov.mm/mal/1-oct-26"
+        listing = b"""
+        <div class="a-title"><a href="/mal/1-oct-26">1 Oct 26</a></div>
+        <div class="a-title"><a href="/mal/30-sep-26">30 Sep 26</a></div>
+        """
+        entries = parse_myanma_alinn_listing(listing)
+        self.assertEqual(
+            [(entry.url, entry.lastmod) for entry in entries],
+            [
+                (issue_url, "2026-10-01T00:00:00+06:30"),
+                ("https://www.moi.gov.mm/mal/30-sep-26", "2026-09-30T00:00:00+06:30"),
+            ],
+        )
+
+        detail = b"""
+        <iframe src="//docs.google.com/viewer?embedded=true&amp;url=http%3A%2F%2Fwww.moi.gov.mm%2Fmal%2Fsites%2Fdefault%2Ffiles%2Fnewspaper-pdf%2F2026-09%2Fmal%25201.10.26.pdf"></iframe>
+        """
+        pdf_urls = extract_myanma_alinn_pdf_urls(detail, issue_url)
+        self.assertEqual(
+            pdf_urls,
+            ["https://www.moi.gov.mm/mal/sites/default/files/newspaper-pdf/2026-09/mal%201.10.26.pdf"],
+        )
+        ocr = {
+            "text": (
+                "The government will implement e-Government and Digital Government under the "
+                "Digital Development Strategy. A national data center and government network "
+                "will be developed to deliver secure public services."
+            ),
+            "languages": ["mya", "eng"],
+        }
+        items = parse_myanma_alinn_detail_with_document_ocr(detail, issue_url, ocr)
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0].publication_date, "2026-10-01")
+        self.assertIn("DIGITAL_GOVERNMENT", items[0].relevance_categories)
+        self.assertEqual(items[0].payload()["business_stage"], "PROJECT_PRECURSOR_CANDIDATE")
+
+    def test_kyemon_listing_pdf_and_native_text_signal(self) -> None:
+        issue_url = "https://www.moi.gov.mm/km/1-october-26"
+        listing = b"""
+        <div class="a-title"><a href="/km/1-october-26">1 October 26</a></div>
+        """
+        entries = parse_kyemon_listing(listing)
+        self.assertEqual(
+            [(entry.url, entry.lastmod) for entry in entries],
+            [(issue_url, "2026-10-01T00:00:00+06:30")],
+        )
+        detail = b"""
+        <iframe src="//docs.google.com/viewer?embedded=true&amp;url=http%3A%2F%2Fwww.moi.gov.mm%2Fkm%2Fsites%2Fdefault%2Ffiles%2Fnewspaper-pdf%2F2026-10%2F1%2520October%252026.pdf"></iframe>
+        """
+        pdf_url = "https://www.moi.gov.mm/km/sites/default/files/newspaper-pdf/2026-10/1%20October%2026.pdf"
+        self.assertEqual(extract_kyemon_pdf_urls(detail, issue_url), [pdf_url])
+        text = (
+            "Officials approved a digital government strategy and will implement e-Government "
+            "services through a shared cloud platform and government network."
+        )
+        with patch("signalforge.official_media._extract_pdf_text_all", return_value=text):
+            items = parse_kyemon_detail_with_attachments(
+                detail, issue_url, [(pdf_url, b"%PDF-fake")]
+            )
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0].publication_date, "2026-10-01")
+        self.assertIn("DIGITAL_GOVERNMENT", items[0].relevance_categories)
+
+    def test_newspaper_adapters_fail_closed_without_required_content(self) -> None:
+        for name in ("official_media_myanma_alinn", "official_media_kyemon"):
+            with self.assertRaisesRegex(SourceAdapterError, "requires"):
+                ADAPTERS[name].parse_detail(b"<html></html>", "https://www.moi.gov.mm/")
 
     def test_gnlm_adapter_fails_closed_without_required_pdf(self) -> None:
         adapter = ADAPTERS["official_media_gnlm"]

@@ -20,6 +20,8 @@ MDN_LIST_URL = f"{MDN_BASE_URL}/my/latest-news"
 GNLM_BASE_URL = "https://www.moi.gov.mm"
 GNLM_LIST_URL = f"{GNLM_BASE_URL}/nlm/"
 MYAWADY_LIST_URL = "https://myawady.net.mm/english_news"
+MYANMA_ALINN_LIST_URL = "https://www.moi.gov.mm/mal/"
+KYEMON_LIST_URL = "https://www.moi.gov.mm/km/"
 
 _OPEN_PROCUREMENT_TOKENS = (
     "open tender", "invitation to tender", "invitation for bid", "invitation to bid",
@@ -190,6 +192,8 @@ def _iso_date(value: str) -> str | None:
         ("%d/%m/%y", r"\d{1,2}/\d{1,2}/\d{2}"),
         ("%d/%m/%Y", r"\d{1,2}/\d{1,2}/20\d{2}"),
         ("%d %B %Y", r"\d{1,2}\s+[A-Za-z]+\s+20\d{2}"),
+        ("%d %B %y", r"\d{1,2}\s+[A-Za-z]+\s+\d{2}"),
+        ("%d %b %y", r"\d{1,2}\s+[A-Za-z]{3}\s+\d{2}"),
         ("%b %d,%Y", r"[A-Za-z]{3}\s+\d{1,2},20\d{2}"),
         ("%B %d, %Y", r"[A-Za-z]+\s+\d{1,2},\s+20\d{2}"),
     )
@@ -913,4 +917,226 @@ def parse_myawady_detail(html_bytes: bytes, page_url: str) -> OfficialMediaSigna
         publication_date=_iso_date(parser.date or ""),
         body=" ".join(parser.body),
         url=canonical,
+    )
+
+class _MoiNewspaperListingParser(HTMLParser):
+    def __init__(self, *, prefix: str) -> None:
+        super().__init__(convert_charrefs=True)
+        self.prefix = prefix
+        self.entries: list[SitemapEntry] = []
+        self._href: str | None = None
+        self._text: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs) -> None:  # type: ignore[no-untyped-def]
+        if tag != "a":
+            return
+        href = _attr(attrs, "href")
+        if not href:
+            return
+        url = _canonical_https(
+            "https://www.moi.gov.mm",
+            href,
+            hosts={"moi.gov.mm", "www.moi.gov.mm"},
+            path_prefix=f"/{self.prefix}/",
+        )
+        if url is None:
+            return
+        slug = urlparse(url).path.rstrip("/").split("/")[-1]
+        if re.fullmatch(r"\d{1,2}-[a-z]+-\d{2}(?:-\d+)?", slug, re.I):
+            self._href = url
+            self._text = []
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "a" and self._href:
+            date = _iso_date(" ".join(self._text).replace("-", " "))
+            if date is None:
+                slug = urlparse(self._href).path.rstrip("/").split("/")[-1]
+                date = _iso_date(slug.replace("-", " "))
+            if date:
+                self.entries.append(SitemapEntry(self._href, f"{date}T00:00:00+06:30"))
+            self._href = None
+            self._text = []
+
+    def handle_data(self, data: str) -> None:
+        if self._href:
+            value = normalize_text(data)
+            if value:
+                self._text.append(value)
+
+
+def _parse_moi_newspaper_listing(html_bytes: bytes, *, prefix: str) -> list[SitemapEntry]:
+    parser = _MoiNewspaperListingParser(prefix=prefix)
+    parser.feed(html_bytes.decode("utf-8", errors="replace"))
+    dedup = {entry.url: entry for entry in parser.entries}
+    return list(dedup.values())
+
+
+def parse_myanma_alinn_listing(html_bytes: bytes) -> list[SitemapEntry]:
+    return _parse_moi_newspaper_listing(html_bytes, prefix="mal")
+
+
+def parse_kyemon_listing(html_bytes: bytes) -> list[SitemapEntry]:
+    return _parse_moi_newspaper_listing(html_bytes, prefix="km")
+
+
+class _MoiNewspaperPdfParser(HTMLParser):
+    def __init__(self, page_url: str, *, prefix: str) -> None:
+        super().__init__(convert_charrefs=True)
+        self.page_url = page_url
+        self.prefix = prefix
+        self.urls: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs) -> None:  # type: ignore[no-untyped-def]
+        values = _attrs(attrs)
+        candidates: list[str] = []
+        if tag == "a" and values.get("href"):
+            candidates.append(values["href"])
+        if tag == "iframe" and values.get("src"):
+            src = unescape(values["src"])
+            match = re.search(r"(?:[?&]|&amp;)url=([^&]+)", src)
+            if match:
+                candidates.append(unquote(match.group(1)))
+        for raw in candidates:
+            url = _canonical_https(
+                self.page_url,
+                raw,
+                hosts={"moi.gov.mm", "www.moi.gov.mm"},
+                path_prefix=f"/{self.prefix}/",
+            )
+            if url and (
+                "/sites/default/files/newspaper-pdf/" in urlparse(url).path
+                or f"/{self.prefix}/file-download/download/public/" in urlparse(url).path
+            ):
+                self.urls.append(url)
+
+
+def _extract_moi_newspaper_pdf_urls(html_bytes: bytes, page_url: str, *, prefix: str) -> list[str]:
+    parser = _MoiNewspaperPdfParser(page_url, prefix=prefix)
+    parser.feed(html_bytes.decode("utf-8", errors="replace"))
+    return list(dict.fromkeys(parser.urls))[:1]
+
+
+def extract_myanma_alinn_pdf_urls(html_bytes: bytes, page_url: str) -> list[str]:
+    return _extract_moi_newspaper_pdf_urls(html_bytes, page_url, prefix="mal")
+
+
+def extract_kyemon_pdf_urls(html_bytes: bytes, page_url: str) -> list[str]:
+    return _extract_moi_newspaper_pdf_urls(html_bytes, page_url, prefix="km")
+
+
+def _newspaper_issue_date(page_url: str) -> str | None:
+    slug = urlparse(page_url).path.rstrip("/").split("/")[-1]
+    return _iso_date(slug.replace("-", " "))
+
+
+def _extract_pdf_text_all(pdf_bytes: bytes, *, max_pages: int = 40) -> str:
+    if not pdf_bytes.startswith(b"%PDF-"):
+        raise OfficialMediaParseError("official newspaper attachment is not a PDF")
+    reader = PdfReader(io.BytesIO(pdf_bytes))
+    return "\n".join((page.extract_text() or "") for page in reader.pages[:max_pages])
+
+
+def _newspaper_candidate_windows(text: str) -> list[str]:
+    normalized = normalize_text(text)
+    positions = sorted(
+        {
+            match.start()
+            for token in _GNLM_ANCHOR_TOKENS
+            for match in _token_matches(normalized, token)
+        }
+    )
+    clusters: list[int] = []
+    for position in positions:
+        if not clusters or position - clusters[-1] > 900:
+            clusters.append(position)
+    return [
+        normalized[max(0, center - 500): min(len(normalized), center + 1900)]
+        for center in clusters[:12]
+    ]
+
+
+def _parse_official_newspaper_signals(
+    text: str,
+    *,
+    page_url: str,
+    source_tag: str,
+    issuer: str,
+) -> list[OfficialMediaSignal]:
+    date = _newspaper_issue_date(page_url)
+    if date is None:
+        return []
+    record_base = urlparse(page_url).path.rstrip("/").split("/")[-1]
+    signals: list[OfficialMediaSignal] = []
+    for index, window in enumerate(_newspaper_candidate_windows(text), start=1):
+        categories = relevance_categories(window)
+        stage = _stage_hint(window)
+        if (
+            not categories
+            or not _has_forward_action(window)
+            or _is_open_procurement(window)
+            or _contains_any(window, _GNLM_NEGATIVE_CONTEXT_TOKENS)
+            or stage == "OFFICIAL_SIGNAL"
+        ):
+            continue
+        if categories == ["ICT_INFRASTRUCTURE"] and not _contains_any(
+            window, _GNLM_HIGH_SIGNAL_INFRA_TOKENS
+        ):
+            continue
+        category_label = "/".join(categories)
+        signals.append(
+            OfficialMediaSignal(
+                source_tag=source_tag,
+                record_id=f"{record_base}-{index}",
+                issuer=issuer,
+                title=f"{issuer} official {category_label} signal — {date}",
+                publication_date=date,
+                scope_summary=_scope_summary(window),
+                relevance_categories=tuple(categories),
+                precursor_stage_hint=stage,
+                url=page_url,
+            )
+        )
+        if len(signals) >= 5:
+            break
+    return signals
+
+
+def parse_kyemon_detail_with_attachments(
+    html_bytes: bytes,
+    page_url: str,
+    attachments: list[tuple[str, bytes]],
+) -> list[OfficialMediaSignal]:
+    if len(attachments) != 1:
+        raise OfficialMediaParseError("Kyemon requires exactly one primary PDF attachment")
+    attachment_url, pdf_bytes = attachments[0]
+    allowed = extract_kyemon_pdf_urls(html_bytes, page_url)
+    if attachment_url not in allowed:
+        raise OfficialMediaParseError("Kyemon PDF attachment does not match reviewed issue page")
+    return _parse_official_newspaper_signals(
+        _extract_pdf_text_all(pdf_bytes),
+        page_url=page_url,
+        source_tag="kyemon",
+        issuer="Kyemon (The Mirror)",
+    )
+
+
+def parse_myanma_alinn_detail_with_document_ocr(
+    html_bytes: bytes,
+    page_url: str,
+    ocr_result: dict[str, object],
+) -> list[OfficialMediaSignal]:
+    allowed = extract_myanma_alinn_pdf_urls(html_bytes, page_url)
+    if len(allowed) != 1:
+        raise OfficialMediaParseError("Myanma Alinn requires exactly one reviewed PDF attachment")
+    text = ocr_result.get("text")
+    if not isinstance(text, str) or not text.strip():
+        raise OfficialMediaParseError("Myanma Alinn OCR text missing")
+    languages = {str(value) for value in (ocr_result.get("languages") or [])}
+    if not {"mya", "eng"}.issubset(languages):
+        raise OfficialMediaParseError("Myanma Alinn OCR language profile invalid")
+    return _parse_official_newspaper_signals(
+        text,
+        page_url=page_url,
+        source_tag="myanma-alinn",
+        issuer="Myanma Alinn",
     )

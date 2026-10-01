@@ -152,13 +152,12 @@ def validate_source_acquisition_policy(source_id: str, source: dict[str, Any]) -
     if tls_policy is not None:
         if source_id != "S55":
             raise AcquisitionContractError(f"insecure TLS policy is restricted to S55: {source_id}")
-        if source.get("http_fetch_profile") != "myawady_strict_then_insecure_readonly_v1":
+        if source.get("http_fetch_profile") != "myawady_insecure_readonly_v2":
             raise AcquisitionContractError("S55 insecure TLS policy requires the reviewed Myawady fetch profile")
         if not isinstance(tls_policy, dict):
             raise AcquisitionContractError("S55 tls_policy must be an object")
         expected = {
-            "mode": "STRICT_THEN_INSECURE_READONLY",
-            "fallback_on": ["TLS_CERTIFICATE_FAILURE"],
+            "mode": "INSECURE_READONLY_ALWAYS",
             "allowed_hosts": ["myawady.net.mm", "www.myawady.net.mm"],
             "read_only": True,
             "no_credentials": True,
@@ -166,6 +165,35 @@ def validate_source_acquisition_policy(source_id: str, source: dict[str, Any]) -
         }
         if tls_policy != expected:
             raise AcquisitionContractError("S55 tls_policy does not match the reviewed read-only exception")
+
+    document_ocr_detail = source.get("document_ocr_detail")
+    if document_ocr_detail is not None:
+        if source_id != "S56":
+            raise AcquisitionContractError(f"detail DOCUMENT_OCR policy is restricted to S56: {source_id}")
+        if source.get("adapter") != "official_media_myanma_alinn":
+            raise AcquisitionContractError("S56 detail DOCUMENT_OCR requires the Myanma Alinn adapter")
+        if not isinstance(document_ocr_detail, dict):
+            raise AcquisitionContractError("S56 document_ocr_detail must be an object")
+        if document_ocr_detail.get("enabled") is not True:
+            raise AcquisitionContractError("S56 document_ocr_detail must be enabled")
+        if (
+            document_ocr_detail.get("provider_id") != "mac-mm-01"
+            or document_ocr_detail.get("capability") != "DOCUMENT_OCR"
+            or document_ocr_detail.get("target_role") != "OFFICIAL_NEWSPAPER"
+        ):
+            raise AcquisitionContractError("S56 document_ocr_detail provider boundary invalid")
+        if document_ocr_detail.get("allowed_https_hosts") != ["www.moi.gov.mm"]:
+            raise AcquisitionContractError("S56 document_ocr_detail host allowlist invalid")
+        if document_ocr_detail.get("allowed_path_prefix") != "/mal/sites/default/files/newspaper-pdf/":
+            raise AcquisitionContractError("S56 document_ocr_detail path boundary invalid")
+        max_bytes = document_ocr_detail.get("max_bytes")
+        timeout_seconds = document_ocr_detail.get("timeout_seconds")
+        if not isinstance(max_bytes, int) or max_bytes < 1 or max_bytes > 8_000_000:
+            raise AcquisitionContractError("S56 document_ocr_detail max_bytes invalid")
+        if not isinstance(timeout_seconds, int) or timeout_seconds < 1 or timeout_seconds > 300:
+            raise AcquisitionContractError("S56 document_ocr_detail timeout invalid")
+        if supplementary:
+            raise AcquisitionContractError("S56 detail DOCUMENT_OCR must not duplicate Bangkok PDF acquisition")
 
 
 def request_reason(trigger_kind: str, *, health_probe: bool = False) -> str:
