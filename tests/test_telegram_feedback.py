@@ -208,6 +208,49 @@ class TelegramFeedbackTests(unittest.TestCase):
             report = pilot_validation_report(profile_id="pilot-ict", database=database)
             self.assertEqual(report["action_rate"], 1.0)
 
+    def test_ack_failure_does_not_replay_durable_feedback(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            database = Path(tmp) / "signalforge.db"
+            delivery_key = self._seed(database)
+            callback = self._callback(delivery_key, "RELEVANT", callback_id="expired-callback")
+            calls: list[tuple[str, dict[str, object]]] = []
+
+            def fake_api(
+                *,
+                bot_token: str,
+                method: str,
+                payload: dict[str, object],
+                timeout: int = 15,
+            ) -> object:
+                calls.append((method, payload))
+                if method == "getWebhookInfo":
+                    return {"url": ""}
+                if method == "getUpdates":
+                    return [{"update_id": 88, "callback_query": callback}]
+                if method == "answerCallbackQuery":
+                    raise TelegramFeedbackError("telegram answerCallbackQuery HTTP 400")
+                raise AssertionError(method)
+
+            with patch("signalforge.telegram_feedback._telegram_api", side_effect=fake_api):
+                result = telegram_feedback_poll(
+                    database=database,
+                    bot_token="[REDACTED_SECRET]",
+                )
+
+            self.assertEqual(result["status"], "DEGRADED")
+            self.assertEqual(result["processed_count"], 1)
+            self.assertEqual(result["failed_count"], 0)
+            self.assertEqual(result["ack_failed_count"], 1)
+            self.assertEqual(result["last_update_id"], 88)
+
+            with connect(database) as conn:
+                state = conn.execute("SELECT last_update_id FROM telegram_update_state").fetchone()
+                events = conn.execute(
+                    "SELECT event_type,recorded_by FROM pilot_feedback_events WHERE profile_id='pilot-ict'"
+                ).fetchall()
+            self.assertEqual(state["last_update_id"], 88)
+            self.assertEqual([(row["event_type"], row["recorded_by"].split(":")[0]) for row in events], [("RELEVANT", "telegram")])
+
 
 if __name__ == "__main__":
     unittest.main()

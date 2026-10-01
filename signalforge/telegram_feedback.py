@@ -220,6 +220,7 @@ def telegram_feedback_poll(
 
     processed: list[dict[str, object]] = []
     failures: list[dict[str, object]] = []
+    ack_failures: list[dict[str, object]] = []
     ignored_count = 0
     max_update_id = last_update_id
 
@@ -243,28 +244,33 @@ def telegram_feedback_poll(
             continue
 
         callback_id = str(callback.get("id") or "")
+        answer = "反馈未记录，请联系管理员"
         try:
             recorded = record_feedback_callback(callback, database=target)
+        except TelegramFeedbackError as exc:
+            failures.append({"update_id": update_id, "error": str(exc)})
+        else:
             processed.append(recorded)
             answer = {
                 "RELEVANT": "已记录：相关",
                 "NOT_RELEVANT": "已记录：不相关",
                 "ACTION_TAKEN": "已记录：已采取行动",
             }.get(str(recorded.get("event_type") or ""), "已记录")
-            if callback_id:
+
+        # Telegram callback_query acknowledgements are UX-only. A callback can
+        # arrive late enough that Telegram rejects answerCallbackQuery even
+        # though the feedback event itself was valid and durably recorded.
+        # Never let an ACK failure prevent update-offset persistence or cause
+        # the same callback to be replayed forever.
+        if callback_id:
+            try:
                 _telegram_api(
                     bot_token=token,
                     method="answerCallbackQuery",
                     payload={"callback_query_id": callback_id, "text": answer},
                 )
-        except TelegramFeedbackError as exc:
-            failures.append({"update_id": update_id, "error": str(exc)})
-            if callback_id:
-                _telegram_api(
-                    bot_token=token,
-                    method="answerCallbackQuery",
-                    payload={"callback_query_id": callback_id, "text": "反馈未记录，请联系管理员"},
-                )
+            except TelegramFeedbackError as exc:
+                ack_failures.append({"update_id": update_id, "error": str(exc)})
 
     if max_update_id >= 0:
         updated_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
@@ -281,12 +287,14 @@ def telegram_feedback_poll(
             )
 
     return {
-        "status": "DEGRADED" if failures else "PASS",
+        "status": "DEGRADED" if failures or ack_failures else "PASS",
         "updates_received": len(updates),
         "processed_count": len(processed),
         "ignored_count": ignored_count,
         "failed_count": len(failures),
+        "ack_failed_count": len(ack_failures),
         "last_update_id": max_update_id if max_update_id >= 0 else None,
         "processed": processed,
         "failures": failures,
+        "ack_failures": ack_failures,
     }
