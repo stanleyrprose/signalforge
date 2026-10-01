@@ -3671,9 +3671,9 @@
     "S55": {
       "name": "Myawady Official English Government Digital/ICT Signals",
       "adapter": "official_media_myawady",
-      "enabled": false,
-      "role": "BLOCKED_TLS_CERTIFICATE",
-      "audit_status": "BLOCKED_STRICT_TLS_CERTIFICATE_CHAIN_BANGKOK_AND_MAC_2026_10_01",
+      "enabled": true,
+      "role": "ACTIVE_SELECTIVE_TLS_EXCEPTION",
+      "audit_status": "GREEN_READONLY_STRICT_THEN_INSECURE_TLS_FALLBACK_USER_APPROVED_2026_10_01",
       "item_kind": "REGULATORY_NOTICE",
       "network_zone": "myanmar-international",
       "engine": "direct_http",
@@ -3682,16 +3682,16 @@
       "listing_complete_business_records": false,
       "language": "en",
       "poll_interval_seconds": 1800,
-      "retry_interval_seconds": 1800,
+      "retry_interval_seconds": 300,
       "priority": 94,
-      "recovery_slo_seconds": 86400,
+      "recovery_slo_seconds": 3600,
       "availability_policy": {
-        "class": "BLOCKED_MONITORED",
-        "accepted_collection_outage_seconds": 86400,
-        "collection_rto_seconds": 86400,
-        "business_data_rpo_target_seconds": 86400,
-        "outage_status": "TLS_CERTIFICATE_BLOCKED",
-        "delivery_during_recovery": "NO_COLLECTION_UNTIL_STRICT_TLS_VALID"
+        "class": "DELAY_TOLERANT_MONITORED",
+        "accepted_collection_outage_seconds": 7200,
+        "collection_rto_seconds": 3600,
+        "business_data_rpo_target_seconds": 1800,
+        "outage_status": "DATA_COLLECTION_DELAYED",
+        "delivery_during_recovery": "CONTINUE_WITH_DEGRADED_HEALTH"
       },
       "baseline_lookback_days": 7,
       "baseline_detail_limit": 8,
@@ -3717,10 +3717,10 @@
         "parse_probe_interval_seconds": 7200,
         "parse_sample_source": "BUSINESS_PROCESSING"
       },
-      "source_policy_version": 1,
+      "source_policy_version": 2,
       "egress_profile": "mm-intl-datacenter",
       "acquisition_policy": {
-        "enabled": false,
+        "enabled": true,
         "primary": {
           "method": "DIRECT_HTTP",
           "target_kind": "HTML"
@@ -3752,16 +3752,29 @@
       },
       "attachment_policy": {
         "mode": "HTML_ONLY_NO_ATTACHMENT_REQUIRED",
-        "current_health": "BLOCKED_STRICT_TLS_CERTIFICATE_CHAIN",
+        "current_health": "READONLY_STRICT_THEN_INSECURE_TLS_FALLBACK",
         "fetch_in_primary_pipeline": false
       },
-      "block_reason": {
-        "type": "TLS_CERTIFICATE_CHAIN",
-        "verified_at": "2026-10-01",
-        "bangkok_strict_tls": "FAIL",
-        "mac_strict_tls": "FAIL",
-        "insecure_tls_bypass_allowed": false,
-        "reactivation_gate": "STRICT_TLS_VALID_OR_VERIFIED_OFFICIAL_ALTERNATE"
+      "http_fetch_profile": "myawady_strict_then_insecure_readonly_v1",
+      "tls_policy": {
+        "mode": "STRICT_THEN_INSECURE_READONLY",
+        "fallback_on": [
+          "TLS_CERTIFICATE_FAILURE"
+        ],
+        "allowed_hosts": [
+          "myawady.net.mm",
+          "www.myawady.net.mm"
+        ],
+        "read_only": true,
+        "no_credentials": true,
+        "same_origin_redirects_only": true
+      },
+      "tls_exception": {
+        "approved_at": "2026-10-01",
+        "reason": "OFFICIAL_PUBLIC_READ_SOURCE_CERTIFICATE_CHAIN_FAILURE",
+        "strict_tls_first": true,
+        "fallback_scope": "MYAWADY_HTTPS_GET_ONLY_NO_CREDENTIALS_SAME_ORIGIN",
+        "evidence_fetch_method": "DIRECT_HTTP_TLS_INSECURE_READONLY_FALLBACK"
       }
     },
     "S23": {

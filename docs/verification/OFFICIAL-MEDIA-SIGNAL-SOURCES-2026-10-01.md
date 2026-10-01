@@ -16,7 +16,7 @@ This is not generic news ingestion and does not replace canonical tender sources
 | Myanmar International TV | S52 | ACTIVE_SELECTIVE | English official Digital/ICT early signals |
 | Myanmar Digital News | S53 | ACTIVE_SELECTIVE | Burmese official Digital/ICT early signals |
 | Global New Light of Myanmar | S54 | ACTIVE_SELECTIVE | English official newspaper; daily HTML issue + required native-text PDF |
-| Myawady Web Portal | S55 | BLOCKED_TLS_CERTIFICATE | Registered source inventory only; no collection until strict TLS succeeds |
+| Myawady Web Portal | S55 | ACTIVE_SELECTIVE_TLS_EXCEPTION | Strict TLS first; certificate-failure-only read-only insecure fallback |
 
 S37 remains the separate MOI tender/department-announcement source and is unchanged.
 
@@ -68,19 +68,21 @@ Each selected issue requires exactly one same-origin PDF attachment. HTTP attach
 
 The parser searches bounded article-local windows around reviewed Digital/ICT terms and stores only a bounded relevant scope excerpt rather than the full newspaper.
 
-## Myawady boundary
+## Myawady TLS exception
 
-Strict-TLS checks from both Bangkok and Mac failed on 1 October 2026 with a certificate-chain verification error.
+Strict-TLS checks from both Bangkok and Mac failed on 1 October 2026 with a certificate-chain verification error. The user explicitly approved continued public read access even while that issuer-side certificate problem remains.
 
-S55 is therefore registered but disabled:
+S55 therefore uses a source-scoped exception rather than a global TLS downgrade:
 
-- role = BLOCKED_TLS_CERTIFICATE;
-- acquisition_policy.enabled = false;
-- insecure TLS bypass is explicitly forbidden;
-- curl -k / certificate verification disablement is not permitted;
-- reactivation requires strict TLS to become valid or a separately verified official alternate surface followed by re-audit.
+- strict TLS is always attempted first;
+- fallback is allowed only after a certificate-verification failure;
+- fallback is restricted to https://myawady.net.mm and https://www.myawady.net.mm;
+- method is GET-only/read-only with no credentials or cookies;
+- redirects must remain HTTPS and on the reviewed Myawady hosts;
+- all other sources retain the global TLS fail-closed policy;
+- acquisition evidence records the strict TLS attempt as FAILED / TLS_FAILURE and the successful fallback as DIRECT_HTTP_TLS_INSECURE_READONLY_FALLBACK.
 
-The user-supplied e-Government article URL is retained as a reviewed bootstrap reference for future reactivation.
+The reviewed e-Government article is retained as a silent bootstrap acceptance case.
 
 ## Polling / baseline
 
@@ -88,7 +90,7 @@ The user-supplied e-Government article URL is retained as a reviewed bootstrap r
 - S52 MITV: 30 minutes.
 - S53 MDN: 30 minutes.
 - S54 GNLM: 60 minutes.
-- S55 Myawady: not scheduled while blocked.
+- S55 Myawady: 30 minutes; strict TLS first with source-scoped read-only certificate fallback.
 
 First baseline customer signals are disabled. Initial runs populate canonical/history state without generating a customer Tender Telegram message.
 

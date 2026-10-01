@@ -25,7 +25,7 @@ class ContractTests(unittest.TestCase):
         )
         self.assertEqual(manifest["verbs"]["signalforge-refresh"]["argument"], "source_id")
         self.assertEqual(manifest["grammar"]["source_id"], "^[A-Z][A-Z0-9]{0,15}$")
-        self.assertEqual(manifest["active_source_ids"], ["S05A", "S07", "S08A", "S10", "S12", "S13", "S16", "S20", "S22", "S23", "S25", "S26", "S28", "S29", "S30", "S31", "S32", "S33", "S34", "S35", "S36", "S37", "S39", "S40", "S41", "S43", "S44", "S45", "S46", "S47", "S48", "S51", "S52", "S53", "S54", "S15A", "S27", "S38"])
+        self.assertEqual(manifest["active_source_ids"], ["S05A", "S07", "S08A", "S10", "S12", "S13", "S16", "S20", "S22", "S23", "S25", "S26", "S28", "S29", "S30", "S31", "S32", "S33", "S34", "S35", "S36", "S37", "S39", "S40", "S41", "S43", "S44", "S45", "S46", "S47", "S48", "S51", "S52", "S53", "S54", "S55", "S15A", "S27", "S38"])
 
         registry = Registry.load(ROOT)
         retired_s21 = registry.raw["sources"]["S21"]
@@ -222,13 +222,26 @@ class ContractTests(unittest.TestCase):
             [{"method": "DIRECT_HTTP", "target_kind": "PDF", "required": True, "max_count": 1, "same_origin_only": True}],
         )
 
-        myawady = registry.raw["sources"]["S55"]
-        self.assertFalse(myawady["enabled"])
-        self.assertEqual(myawady["role"], "BLOCKED_TLS_CERTIFICATE")
+        myawady = registry.source("S55")
+        self.assertTrue(myawady["enabled"])
+        self.assertEqual(myawady["role"], "ACTIVE_SELECTIVE_TLS_EXCEPTION")
         self.assertEqual(myawady["discovery_url"], "https://myawady.net.mm/english_news")
-        self.assertFalse(myawady["acquisition_policy"]["enabled"])
-        self.assertEqual(myawady["block_reason"]["type"], "TLS_CERTIFICATE_CHAIN")
-        self.assertFalse(myawady["block_reason"]["insecure_tls_bypass_allowed"])
+        self.assertTrue(myawady["acquisition_policy"]["enabled"])
+        self.assertEqual(myawady["http_fetch_profile"], "myawady_strict_then_insecure_readonly_v1")
+        self.assertEqual(myawady["source_policy_version"], 2)
+        self.assertEqual(myawady["tls_policy"]["mode"], "STRICT_THEN_INSECURE_READONLY")
+        self.assertTrue(myawady["tls_policy"]["read_only"])
+        self.assertTrue(myawady["tls_policy"]["no_credentials"])
+        self.assertTrue(myawady["tls_policy"]["same_origin_redirects_only"])
+        self.assertEqual(
+            myawady["tls_policy"]["allowed_hosts"],
+            ["myawady.net.mm", "www.myawady.net.mm"],
+        )
+        self.assertTrue(myawady["tls_exception"]["strict_tls_first"])
+        self.assertEqual(
+            myawady["tls_exception"]["evidence_fetch_method"],
+            "DIRECT_HTTP_TLS_INSECURE_READONLY_FALLBACK",
+        )
 
         energy = registry.source("S39")
         self.assertEqual(energy["adapter"], "energy_tender")
@@ -269,7 +282,7 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(ddd["actionable_baseline_signal_policy"]["min_remaining_seconds"], 43200)
 
         enabled = registry.enabled_sources()
-        self.assertEqual([sid for sid, _source in enabled[-8:]], ["S48", "S51", "S52", "S53", "S54", "S15A", "S27", "S38"])
+        self.assertEqual([sid for sid, _source in enabled[-8:]], ["S51", "S52", "S53", "S54", "S55", "S15A", "S27", "S38"])
         self.assertTrue(all(source["engine"] == "direct_http" for _sid, source in enabled[:-3]))
         self.assertTrue(all(source["engine"] == "provider" for _sid, source in enabled[-3:]))
         self.assertFalse(moi["attachment_policy"]["fetch_in_primary_pipeline"])

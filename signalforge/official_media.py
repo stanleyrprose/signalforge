@@ -772,3 +772,145 @@ def parse_gnlm_detail_with_attachments(
         raise OfficialMediaParseError("GNLM PDF attachment does not match reviewed issue page")
     signal = parse_gnlm_text_signal(_extract_pdf_text(pdf_bytes), page_url=page_url)
     return [signal] if signal is not None else []
+
+MYAWADY_BASE_URL = "https://myawady.net.mm"
+MYAWADY_LIST_URL = f"{MYAWADY_BASE_URL}/english_news"
+
+
+class _MyawadyListingParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.entries: list[SitemapEntry] = []
+        self._title_depth = 0
+        self._created_depth = 0
+        self._href: str | None = None
+        self._title: list[str] = []
+        self._date: str | None = None
+
+    def _reset_candidate(self) -> None:
+        self._href = None
+        self._title = []
+        self._date = None
+
+    def _flush_candidate(self) -> None:
+        title = normalize_text(" ".join(self._title))
+        if self._href and self._date and _listing_candidate(title):
+            url = _canonical_https(
+                MYAWADY_BASE_URL,
+                self._href,
+                hosts={"myawady.net.mm", "www.myawady.net.mm"},
+                path_prefix="/",
+            )
+            lastmod = _iso_listing_time(self._date)
+            if url and lastmod:
+                self.entries.append(SitemapEntry(url, lastmod))
+        self._reset_candidate()
+
+    def handle_starttag(self, tag: str, attrs) -> None:  # type: ignore[no-untyped-def]
+        classes = _classes(attrs)
+        if tag == "div" and "views-field-title" in classes:
+            if self._href or self._title:
+                self._flush_candidate()
+            self._title_depth = 1
+            return
+        if tag == "div" and "views-field-created" in classes and (self._href or self._title):
+            self._created_depth = 1
+            return
+        if self._title_depth:
+            if tag == "a":
+                href = _attr(attrs, "href")
+                if href and href not in {"/english_news", "/index.php/english_news"}:
+                    self._href = href
+            if tag not in {"br", "img", "meta", "link", "input", "hr"}:
+                self._title_depth += 1
+        if self._created_depth:
+            if tag == "time":
+                self._date = _attr(attrs, "datetime") or self._date
+            if tag not in {"br", "img", "meta", "link", "input", "hr"}:
+                self._created_depth += 1
+
+    def handle_endtag(self, tag: str) -> None:
+        if self._title_depth and tag not in {"br", "img", "meta", "link", "input", "hr"}:
+            self._title_depth -= 1
+        if self._created_depth and tag not in {"br", "img", "meta", "link", "input", "hr"}:
+            self._created_depth -= 1
+            if self._created_depth == 0:
+                self._flush_candidate()
+
+    def handle_data(self, data: str) -> None:
+        if self._title_depth:
+            value = normalize_text(data)
+            if value:
+                self._title.append(value)
+
+    def close(self) -> None:
+        super().close()
+        if self._href or self._title:
+            self._flush_candidate()
+
+def parse_myawady_listing(html_bytes: bytes) -> list[SitemapEntry]:
+    parser = _MyawadyListingParser()
+    parser.feed(html_bytes.decode("utf-8", errors="replace"))
+    dedup = {entry.url: entry for entry in parser.entries}
+    return list(dedup.values())
+
+
+class _MyawadyDetailParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.title: str | None = None
+        self.canonical: str | None = None
+        self.date: str | None = None
+        self._body_depth = 0
+        self.body: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs) -> None:  # type: ignore[no-untyped-def]
+        values = _attrs(attrs)
+        classes = _classes(attrs)
+        if tag == "meta" and values.get("property") == "og:title":
+            self.title = values.get("content") or self.title
+        if tag == "link" and values.get("rel") == "canonical":
+            self.canonical = values.get("href") or self.canonical
+        if tag == "time" and self.date is None:
+            self.date = values.get("datetime") or self.date
+        if tag == "div" and "field--name-body" in classes:
+            self._body_depth = 1
+            return
+        if self._body_depth and tag not in {"br", "img", "meta", "link", "input", "hr"}:
+            self._body_depth += 1
+
+    def handle_endtag(self, tag: str) -> None:
+        if self._body_depth and tag not in {"br", "img", "meta", "link", "input", "hr"}:
+            self._body_depth -= 1
+
+    def handle_data(self, data: str) -> None:
+        if self._body_depth:
+            value = normalize_text(data)
+            if value:
+                self.body.append(value)
+
+
+def parse_myawady_detail(html_bytes: bytes, page_url: str) -> OfficialMediaSignal | None:
+    parser = _MyawadyDetailParser()
+    parser.feed(html_bytes.decode("utf-8", errors="replace"))
+    canonical = _canonical_https(
+        MYAWADY_BASE_URL,
+        parser.canonical or page_url,
+        hosts={"myawady.net.mm", "www.myawady.net.mm"},
+        path_prefix="/",
+    )
+    if canonical is None:
+        return None
+    path = urlparse(canonical).path.rstrip("/")
+    if not path or path in {"/english_news", "/index.php/english_news"}:
+        return None
+    record_id = path.split("/")[-1]
+    return _build_signal(
+        source_tag="myawady",
+        record_id=record_id,
+        issuer="Myawady Web Portal",
+        title=parser.title or "",
+        publication_date=_iso_date(parser.date or ""),
+        body=" ".join(parser.body),
+        url=canonical,
+    )

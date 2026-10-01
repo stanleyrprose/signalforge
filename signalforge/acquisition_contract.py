@@ -148,6 +148,26 @@ def validate_source_acquisition_policy(source_id: str, source: dict[str, Any]) -
         raise AcquisitionContractError(f"PARSER_DRIFT must require re-audit: {source_id}")
 
 
+    tls_policy = source.get("tls_policy")
+    if tls_policy is not None:
+        if source_id != "S55":
+            raise AcquisitionContractError(f"insecure TLS policy is restricted to S55: {source_id}")
+        if source.get("http_fetch_profile") != "myawady_strict_then_insecure_readonly_v1":
+            raise AcquisitionContractError("S55 insecure TLS policy requires the reviewed Myawady fetch profile")
+        if not isinstance(tls_policy, dict):
+            raise AcquisitionContractError("S55 tls_policy must be an object")
+        expected = {
+            "mode": "STRICT_THEN_INSECURE_READONLY",
+            "fallback_on": ["TLS_CERTIFICATE_FAILURE"],
+            "allowed_hosts": ["myawady.net.mm", "www.myawady.net.mm"],
+            "read_only": True,
+            "no_credentials": True,
+            "same_origin_redirects_only": True,
+        }
+        if tls_policy != expected:
+            raise AcquisitionContractError("S55 tls_policy does not match the reviewed read-only exception")
+
+
 def request_reason(trigger_kind: str, *, health_probe: bool = False) -> str:
     if health_probe:
         return "HEALTH_PROBE"
