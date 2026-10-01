@@ -153,6 +153,52 @@ class OfficialMediaParserTests(unittest.TestCase):
             page_url=GNLM_URL,
         ))
 
+    def test_gnlm_rejects_short_token_and_generic_digital_noise(self) -> None:
+        strict_noise = """
+        The district project committee inspected garment businesses and confirmed that operations
+        strictly followed the handbook. Officials encouraged local entrepreneurs to develop
+        livelihoods using project revolving funds.
+        """
+        self.assertIsNone(parse_gnlm_text_signal(
+            strict_noise,
+            page_url="https://www.moi.gov.mm/nlm/1-october-2026",
+        ))
+
+        fraud_noise = """
+        Authorities detained one foreign national involved in telecom fraud and other criminal
+        activities. Law enforcement agencies collected personal data before deportation and
+        continued enforcement operations.
+        """
+        self.assertIsNone(parse_gnlm_text_signal(
+            fraud_noise,
+            page_url="https://www.moi.gov.mm/nlm/1-october-2026",
+        ))
+
+        tourism_noise = """
+        World Tourism Day 2026 focused on digital and AI innovation. Tourism businesses were
+        encouraged to use digital platforms, promote handicrafts online and develop modern
+        technologies to attract visitors.
+        """
+        self.assertIsNone(parse_gnlm_text_signal(
+            tourism_noise,
+            page_url="https://www.moi.gov.mm/nlm/28-september-2026",
+        ))
+
+        strategy_signal = """
+        Parliament discussed the national digital transformation strategy. Regarding digital
+        governance, the Deputy Minister for Digital Development and Telecommunications stated
+        that the strategy focuses on long-term socioeconomic benefits and structured performance
+        indicators. The government will implement the strategy across public services.
+        """
+        item = parse_gnlm_text_signal(
+            strategy_signal,
+            page_url="https://www.moi.gov.mm/nlm/25-september-2026",
+        )
+        self.assertIsNotNone(item)
+        assert item is not None
+        self.assertEqual(item.precursor_stage_hint, "POLICY_FORMATION")
+        self.assertIn("DIGITAL_GOVERNMENT", item.relevance_categories)
+
     def test_gnlm_adapter_fails_closed_without_required_pdf(self) -> None:
         adapter = ADAPTERS["official_media_gnlm"]
         with self.assertRaisesRegex(SourceAdapterError, "requires"):
