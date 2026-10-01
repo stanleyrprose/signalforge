@@ -18,7 +18,7 @@ from .acquisition_runtime import (
 )
 from .config import Registry, db_path, evidence_root
 from .db import connect, migrate
-from .http import fetch_bytes, fetch_bytes_cloudrity_d1n
+from .http import fetch_bytes, fetch_bytes_cloudrity_d1n, fetch_bytes_myawady_strict_then_insecure
 from .mpt import SitemapEntry
 from .source_adapters import adapter_for
 from .worker_context import load_worker_context
@@ -629,8 +629,11 @@ def _acquire_source_bytes(
     }
     if engine == "direct_http":
         effective_fetcher = fetcher
-        if source.get("http_fetch_profile") == "cloudrity_d1n_v1" and fetcher is fetch_bytes:
+        profile = source.get("http_fetch_profile")
+        if profile == "cloudrity_d1n_v1" and fetcher is fetch_bytes:
             effective_fetcher = fetch_bytes_cloudrity_d1n
+        elif profile == "myawady_strict_then_insecure_readonly_v1" and fetcher is fetch_bytes:
+            effective_fetcher = fetch_bytes_myawady_strict_then_insecure
         return acquire_local_bytes(**common, fetcher=effective_fetcher)
     if engine == "provider":
         roles = source.get("provider_target_roles") or {}
