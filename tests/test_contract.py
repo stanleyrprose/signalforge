@@ -214,6 +214,9 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(gnlm["attachment_policy"]["mode"], "REQUIRED_DAILY_ISSUE_PDF")
         self.assertTrue(gnlm["attachment_policy"]["fetch_in_primary_pipeline"])
         self.assertEqual(gnlm["attachment_policy"]["required_primary_attachments"], 1)
+        self.assertEqual(gnlm["request_timeout_seconds"], 60)
+        self.assertEqual(gnlm["request_max_bytes"], 30000000)
+        self.assertEqual(gnlm["source_policy_version"], 3)
         self.assertEqual(
             gnlm["acquisition_policy"]["supplementary"],
             [{"method": "DIRECT_HTTP", "target_kind": "PDF", "required": True, "max_count": 1, "same_origin_only": True}],

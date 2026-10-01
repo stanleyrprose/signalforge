@@ -111,3 +111,7 @@ Review found:
 - other weak generic matches: rejected under v2.
 
 v2 therefore adds ASCII token boundaries, narrower article-local windows, high-specificity ICT-infrastructure anchors, and explicit fraud/crime/law-enforcement negative context. Production timers remain gated until v2 replay passes.
+
+## GNLM large-PDF production gate
+
+The 26 September 2026 GNLM issue PDF is 21,553,662 bytes. The initial 6 MB acquisition ceiling therefore failed closed before parsing and caused the bounded backlog item to retry. S54 now uses a 30 MB request ceiling and 60-second timeout, still limited to exactly one reviewed same-origin PDF per issue.
