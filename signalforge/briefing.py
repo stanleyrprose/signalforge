@@ -97,6 +97,7 @@ def _attention_item(item: dict[str, object]) -> dict[str, object]:
         "urgency": item.get("urgency"),
         "issuer": item.get("issuer"),
         "title": item.get("title"),
+        "publication_date": item.get("publication_date"),
         "reference_no": item.get("reference_no"),
         "reference_numbers": item.get("reference_numbers"),
         "focus_reference_numbers": item.get("focus_reference_numbers"),

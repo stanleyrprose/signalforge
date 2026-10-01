@@ -38,6 +38,7 @@ class ProviderBridgeTests(unittest.TestCase):
             self.assertEqual(request["url"], "https://www.mpa.gov.mm/tenders-and-announcement/")
             self.assertEqual(metadata["provider_id"], "mac-mm-01")
             self.assertEqual(metadata["source_id"], "S15A")
+            self.assertEqual(metadata["source_policy_version"], 2)
             self.assertEqual(request["idempotency_key"], f"sf-provider:{metadata['provider_request_id']}")
             self.assertEqual(stat.S_IMODE(output.stat().st_mode), 0o600)
 

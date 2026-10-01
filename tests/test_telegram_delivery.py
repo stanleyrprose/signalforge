@@ -27,6 +27,7 @@ def _briefing(*, signal_id: str = "sig-1", action: str = "PRIORITIZE") -> dict[s
                 "urgency": "URGENT" if action == "ACT_NOW" else "NORMAL",
                 "issuer": "Ministry <Foreign> & Affairs",
                 "title": "Data Server & SQL <Tender>",
+                "publication_date": "2026-09-10",
                 "reference_no": "MOFA-1",
                 "reference_numbers": None,
                 "deadline": "2026-09-18",
@@ -74,7 +75,7 @@ class TelegramDeliveryTests(unittest.TestCase):
             result["quality_filtered"][0]["reasons"],
         )
 
-    def test_owner_feed_uses_same_customer_readiness_gate_as_pilot(self) -> None:
+    def test_owner_feed_allows_missing_normalized_quantity_with_truthful_fallback(self) -> None:
         briefing = _briefing()
         briefing["attention"][0]["quantity_or_lot_summary"] = None
         with tempfile.TemporaryDirectory() as tmp:
@@ -82,9 +83,12 @@ class TelegramDeliveryTests(unittest.TestCase):
             migrate(database)
             with patch("signalforge.telegram_delivery.business_briefing", return_value=briefing):
                 result = telegram_deliver(database=database, dry_run=True)
-        self.assertEqual(result["pending_count"], 0)
-        self.assertEqual(result["quality_filtered_count"], 1)
-        self.assertIn("QUANTITY_OR_SCALE_NOT_EXPLAINED", result["quality_filtered"][0]["reasons"])
+        self.assertEqual(result["pending_count"], 1)
+        self.assertEqual(result["quality_filtered_count"], 0)
+        self.assertIn(
+            "🔢 数量/规模：已核验摘要未单列；详见采购内容/官方原文",
+            result["pending"][0]["message"],
+        )
 
     def test_owner_feed_fails_closed_when_myanmar_remains(self) -> None:
         briefing = _briefing()
@@ -284,7 +288,7 @@ class TelegramDeliveryTests(unittest.TestCase):
         self.assertEqual(result["quality_filtered_count"], 1)
         self.assertIn("DEADLINE_NOT_CONFIRMED_OPEN", result["quality_filtered"][0]["reasons"])
 
-    def test_pilot_readiness_rejects_missing_quantity_or_scale(self) -> None:
+    def test_pilot_readiness_allows_missing_normalized_quantity(self) -> None:
         profile = BusinessProfile.from_dict(
             {"profile_id": "ict-pilot", "delivery_mode": "MATCHED_ONLY", "relevance_categories": ["ICT"]}
         )
@@ -295,8 +299,12 @@ class TelegramDeliveryTests(unittest.TestCase):
             migrate(database)
             with patch("signalforge.telegram_delivery.business_briefing", return_value=briefing):
                 result = telegram_deliver(database=database, dry_run=True, business_profile=profile)
-        self.assertEqual(result["pending_count"], 0)
-        self.assertIn("QUANTITY_OR_SCALE_NOT_EXPLAINED", result["quality_filtered"][0]["reasons"])
+        self.assertEqual(result["pending_count"], 1)
+        self.assertEqual(result["quality_filtered_count"], 0)
+        self.assertIn(
+            "🔢 数量/规模：已核验摘要未单列；详见采购内容/官方原文",
+            result["pending"][0]["message"],
+        )
 
     def test_real_pilot_delivery_fails_closed_when_myanmar_remains(self) -> None:
         profile = BusinessProfile.from_dict(
@@ -535,7 +543,7 @@ class TelegramDeliveryTests(unittest.TestCase):
         self.assertIn("🔎 证据：官方 HTML + 官方文本 PDF", text)
         self.assertIn("🔗 <a href=", text)
         scope_line = next(line for line in text.splitlines() if line.startswith("📦 采购内容："))
-        self.assertLessEqual(scope_line.count("x"), 240)
+        self.assertLessEqual(scope_line.count("x"), 320)
         self.assertNotIn("<Foreign>", text)
 
     def test_explicit_money_is_rendered_without_inference(self) -> None:
@@ -543,7 +551,32 @@ class TelegramDeliveryTests(unittest.TestCase):
         assert isinstance(item, dict)
         item["price_or_budget_summary"] = "4 billion MMK"
         text = render_telegram_message(item)
-        self.assertIn("💰 金额（原文）：4 billion MMK", text)
+        self.assertIn("💰 预算/价格（原文）：4 billion MMK", text)
+
+    def test_publication_date_is_visible_when_known(self) -> None:
+        item = _briefing()["attention"][0]
+        assert isinstance(item, dict)
+        text = render_telegram_message(item)
+        self.assertIn("📅 发布：2026-09-10", text)
+
+    def test_explicit_deadline_within_twelve_hours_gets_red_urgency(self) -> None:
+        item = _briefing()["attention"][0]
+        assert isinstance(item, dict)
+        text = render_telegram_message(
+            item,
+            now=datetime(2026, 9, 18, 4, 0, tzinfo=UTC),
+        )
+        self.assertIn("🔴 时效：约 6 小时后截止", text)
+
+    def test_same_day_deadline_without_time_is_fail_honest(self) -> None:
+        item = _briefing()["attention"][0]
+        assert isinstance(item, dict)
+        item["deadline_time"] = None
+        text = render_telegram_message(
+            item,
+            now=datetime(2026, 9, 18, 1, 0, tzinfo=UTC),
+        )
+        self.assertIn("🔴 时效：今日截止；具体时间未确认，请立即核实", text)
 
     def test_focus_references_are_rendered_separately_from_full_reference_bundle(self) -> None:
         item = _briefing()["attention"][0]

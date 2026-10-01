@@ -59,7 +59,7 @@
         "profile_mode": "ephemeral",
         "queue_timeout_sec": 60,
         "max_run_sec": 30,
-        "source_policy_version": 1,
+        "source_policy_version": 2,
         "manual_targets": {
           "DETAIL": {
             "target_kind": "HTML",
@@ -2095,7 +2095,7 @@
       "canonical_key": "issuer_announcement_id",
       "first_baseline_customer_signal": false,
       "bootstrap_seed_urls": [],
-      "selection_policy_version": 1,
+      "selection_policy_version": 2,
       "detail_parser_replay_migration": {
         "from_version": "industry-announcement-detail-v1",
         "to_version": "industry-announcement-detail-v2",
