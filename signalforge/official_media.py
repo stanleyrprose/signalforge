@@ -12,7 +12,7 @@ from pypdf import PdfReader
 
 from .mpt import SitemapEntry, normalize_text
 
-SELECTION_POLICY_VERSION = 1
+SELECTION_POLICY_VERSION = 2
 MITV_BASE_URL = "https://www.myanmaritv.com"
 MITV_LIST_URL = f"{MITV_BASE_URL}/news"
 MDN_BASE_URL = "https://mdn.gov.mm"
@@ -72,6 +72,25 @@ _IMPLEMENTATION_TOKENS = (
     "system", "coordination", "အကောင်အထည်ဖော်", "ညှိနှိုင်း", "စနစ်",
 )
 
+_GNLM_HIGH_SIGNAL_INFRA_TOKENS = (
+    "ict infrastructure", "digital infrastructure", "cloud platform", "cloud service",
+    "data center", "data centre", "shared platform", "shared digital", "fiber", "fibre",
+    "telecom", "telecommunication", "5g", "government network", "national network",
+    "ကွန်ရက်", "ဆက်သွယ်ရေး", "ဒေတာစင်တာ", "ကွန်ပျူတာစနစ်",
+)
+_GNLM_ANCHOR_TOKENS = (
+    *_CATEGORY_TOKENS["DIGITAL_GOVERNMENT"],
+    *_CATEGORY_TOKENS["CYBERSECURITY"],
+    *_GNLM_HIGH_SIGNAL_INFRA_TOKENS,
+)
+
+_GNLM_NEGATIVE_CONTEXT_TOKENS = (
+    "telecom fraud", "telecommunication fraud", "online fraud", "online scam",
+    "cybercrime", "cyber crime", "criminal activities", "criminal activity",
+    "arrested", "detained", "deported", "law enforcement", "scam centre",
+    "scam center", "fraud syndicate", "illegal online gambling",
+)
+
 
 class OfficialMediaParseError(ValueError):
     pass
@@ -95,21 +114,32 @@ def _attrs(attrs) -> dict[str, str]:  # type: ignore[no-untyped-def]
     return {str(key): str(value) for key, value in attrs if value is not None}
 
 
-def _lower(value: str) -> str:
-    return f" {normalize_text(unescape(value)).lower()} "
+def _normalized(value: str) -> str:
+    return normalize_text(unescape(value))
+
+
+def _token_matches(value: str, token: str) -> list[re.Match[str]]:
+    normalized = _normalized(value)
+    needle = normalize_text(token).strip()
+    if not needle:
+        return []
+    escaped = re.escape(needle)
+    if all(ord(char) < 128 for char in needle):
+        pattern = rf"(?<![A-Za-z0-9]){escaped}(?![A-Za-z0-9])"
+    else:
+        pattern = escaped
+    return list(re.finditer(pattern, normalized, re.I))
 
 
 def _contains_any(value: str, tokens: tuple[str, ...]) -> bool:
-    normalized = _lower(value)
-    return any(token.lower() in normalized for token in tokens)
+    return any(_token_matches(value, token) for token in tokens)
 
 
 def relevance_categories(value: str) -> list[str]:
-    normalized = _lower(value)
     return [
         category
         for category, tokens in _CATEGORY_TOKENS.items()
-        if any(token.lower() in normalized for token in tokens)
+        if _contains_any(value, tokens)
     ]
 
 
@@ -126,12 +156,12 @@ def _listing_candidate(title: str) -> bool:
 
 
 def _stage_hint(value: str) -> str:
-    if _contains_any(value, _PREPROCUREMENT_TOKENS):
-        return "PRE_PROCUREMENT"
     if _contains_any(value, _PPP_TOKENS):
         return "PPP_FORMATION"
     if _contains_any(value, _POLICY_TOKENS):
         return "POLICY_FORMATION"
+    if _contains_any(value, _PREPROCUREMENT_TOKENS):
+        return "PRE_PROCUREMENT"
     if _contains_any(value, _IMPLEMENTATION_TOKENS):
         return "IMPLEMENTATION_PREP"
     return "OFFICIAL_SIGNAL"
@@ -139,17 +169,16 @@ def _stage_hint(value: str) -> str:
 
 def _scope_summary(text: str, *, max_chars: int = 1800) -> str:
     normalized = normalize_text(text)
-    lowered = normalized.lower()
     positions = [
-        lowered.find(token.strip().lower())
+        match.start()
         for tokens in _CATEGORY_TOKENS.values()
         for token in tokens
-        if token.strip() and lowered.find(token.strip().lower()) >= 0
+        for match in _token_matches(normalized, token)
     ]
     if not positions:
         return normalized[:max_chars]
     center = min(positions)
-    start = max(0, center - 450)
+    start = max(0, center - 350)
     end = min(len(normalized), start + max_chars)
     return normalized[start:end]
 
@@ -647,7 +676,6 @@ def _extract_pdf_text(pdf_bytes: bytes) -> str:
 
 def _gnlm_candidate_windows(text: str) -> list[str]:
     normalized = normalize_text(text)
-    lowered = normalized.lower()
     exact = re.search(
         r"Push\s+to\s+Transition\s+from\s+E-Government\s+to\s+Digital\s+Governance",
         normalized,
@@ -655,23 +683,16 @@ def _gnlm_candidate_windows(text: str) -> list[str]:
     )
     if exact:
         center = exact.start()
-        return [normalized[max(0, center - 2600): min(len(normalized), center + 1800)]]
-    positions: list[int] = []
-    for tokens in _CATEGORY_TOKENS.values():
-        for token in tokens:
-            needle = token.strip().lower()
-            if not needle:
-                continue
-            offset = 0
-            while True:
-                pos = lowered.find(needle, offset)
-                if pos < 0:
-                    break
-                positions.append(pos)
-                offset = pos + len(needle)
+        return [normalized[max(0, center - 500): min(len(normalized), center + 2400)]]
+
+    positions = [
+        match.start()
+        for token in _GNLM_ANCHOR_TOKENS
+        for match in _token_matches(normalized, token)
+    ]
     windows: list[str] = []
     for center in sorted(set(positions)):
-        window = normalized[max(0, center - 1200): min(len(normalized), center + 1800)]
+        window = normalized[max(0, center - 450): min(len(normalized), center + 1100)]
         if window not in windows:
             windows.append(window)
     return windows[:20]
@@ -694,17 +715,32 @@ def parse_gnlm_text_signal(
     )
     for window in _gnlm_candidate_windows(normalized):
         categories = relevance_categories(window)
-        if not categories or not _has_forward_action(window) or _is_open_procurement(window):
+        stage = _stage_hint(window)
+        if (
+            not categories
+            or not _has_forward_action(window)
+            or _is_open_procurement(window)
+            or _contains_any(window, _GNLM_NEGATIVE_CONTEXT_TOKENS)
+            or stage == "OFFICIAL_SIGNAL"
+        ):
+            continue
+        if categories == ["ICT_INFRASTRUCTURE"] and not _contains_any(
+            window, _GNLM_HIGH_SIGNAL_INFRA_TOKENS
+        ):
             continue
         if exact_title and exact_title.group(0).lower() in window.lower():
             title = "Push to Transition from E-Government to Digital Governance"
         else:
             category_token = next(
                 (
-                    token.strip()
-                    for tokens in _CATEGORY_TOKENS.values()
+                    normalize_text(token).strip()
+                    for tokens in (
+                        _CATEGORY_TOKENS["DIGITAL_GOVERNMENT"],
+                        _CATEGORY_TOKENS["CYBERSECURITY"],
+                        _GNLM_HIGH_SIGNAL_INFRA_TOKENS,
+                    )
                     for token in tokens
-                    if token.strip() and token.strip().lower() in window.lower()
+                    if _token_matches(window, token)
                 ),
                 "Digital/ICT",
             )
@@ -718,7 +754,7 @@ def parse_gnlm_text_signal(
             publication_date=date,
             scope_summary=_scope_summary(window),
             relevance_categories=tuple(categories),
-            precursor_stage_hint=_stage_hint(window),
+            precursor_stage_hint=stage,
             url=page_url,
         )
     return None

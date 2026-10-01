@@ -95,6 +95,19 @@ First baseline customer signals are disabled. Initial runs populate canonical/hi
 ## Parser versions
 
 - MOI precursor selection policy: v3.
-- MITV official media adapter: v1.
-- MDN official media adapter: v1.
-- GNLM official media adapter: v1.
+- MITV official media adapter: v2.
+- MDN official media adapter: v2.
+- GNLM official media adapter: v2.
+
+## Production baseline noise gate
+
+The first S54 production baseline was intentionally silent and exposed over-broad newspaper matching before customer delivery was enabled. Six canonical baseline candidates were created, but zero Signals and zero Telegram messages were emitted.
+
+Review found:
+- 30 September e-Government article: true positive;
+- 1 October telecom-fraud enforcement article: false positive;
+- 28 September tourism digital-platform article: false positive;
+- 27 September neighboring tender-page contamination: false positive;
+- other weak generic matches: rejected under v2.
+
+v2 therefore adds ASCII token boundaries, narrower article-local windows, high-specificity ICT-infrastructure anchors, and explicit fraud/crime/law-enforcement negative context. Production timers remain gated until v2 replay passes.
