@@ -3433,7 +3433,7 @@
       "canonical_key": "official_media_source_record",
       "first_baseline_customer_signal": false,
       "bootstrap_seed_urls": [],
-      "selection_policy_version": 1,
+      "selection_policy_version": 2,
       "health_policy": {
         "freshness_yellow_seconds": 3600,
         "freshness_red_seconds": 7200,
@@ -3446,7 +3446,7 @@
         "parse_probe_interval_seconds": 7200,
         "parse_sample_source": "BUSINESS_PROCESSING"
       },
-      "source_policy_version": 1,
+      "source_policy_version": 2,
       "egress_profile": "mm-intl-datacenter",
       "acquisition_policy": {
         "enabled": true,
@@ -3519,7 +3519,7 @@
       "canonical_key": "official_media_source_record",
       "first_baseline_customer_signal": false,
       "bootstrap_seed_urls": [],
-      "selection_policy_version": 1,
+      "selection_policy_version": 2,
       "health_policy": {
         "freshness_yellow_seconds": 3600,
         "freshness_red_seconds": 7200,
@@ -3532,7 +3532,7 @@
         "parse_probe_interval_seconds": 7200,
         "parse_sample_source": "BUSINESS_PROCESSING"
       },
-      "source_policy_version": 1,
+      "source_policy_version": 2,
       "egress_profile": "mm-intl-datacenter",
       "acquisition_policy": {
         "enabled": true,
@@ -3576,7 +3576,7 @@
       "adapter": "official_media_gnlm",
       "enabled": true,
       "role": "ACTIVE_SELECTIVE",
-      "audit_status": "GREEN_DIRECT_HTTP_STRICT_TLS_DAILY_ISSUE_NATIVE_TEXT_PDF_DIGITAL_ICT_FILTER",
+      "audit_status": "GREEN_GNLM_FILTER_V2_PRODUCTION_BASELINE_REVIEWED_2026_10_01",
       "item_kind": "REGULATORY_NOTICE",
       "network_zone": "myanmar-international",
       "engine": "direct_http",
@@ -3605,7 +3605,7 @@
       "canonical_key": "official_media_source_record",
       "first_baseline_customer_signal": false,
       "bootstrap_seed_urls": [],
-      "selection_policy_version": 1,
+      "selection_policy_version": 2,
       "health_policy": {
         "freshness_yellow_seconds": 3600,
         "freshness_red_seconds": 7200,
@@ -3618,7 +3618,7 @@
         "parse_probe_interval_seconds": 7200,
         "parse_sample_source": "BUSINESS_PROCESSING"
       },
-      "source_policy_version": 1,
+      "source_policy_version": 2,
       "egress_profile": "mm-intl-datacenter",
       "acquisition_policy": {
         "enabled": true,
