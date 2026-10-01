@@ -25,7 +25,7 @@ class ContractTests(unittest.TestCase):
         )
         self.assertEqual(manifest["verbs"]["signalforge-refresh"]["argument"], "source_id")
         self.assertEqual(manifest["grammar"]["source_id"], "^[A-Z][A-Z0-9]{0,15}$")
-        self.assertEqual(manifest["active_source_ids"], ["S05A", "S07", "S08A", "S10", "S12", "S13", "S16", "S20", "S22", "S23", "S25", "S26", "S28", "S29", "S30", "S31", "S32", "S33", "S34", "S35", "S36", "S37", "S39", "S40", "S41", "S43", "S44", "S45", "S46", "S47", "S51", "S15A", "S27", "S38"])
+        self.assertEqual(manifest["active_source_ids"], ["S05A", "S07", "S08A", "S10", "S12", "S13", "S16", "S20", "S22", "S23", "S25", "S26", "S28", "S29", "S30", "S31", "S32", "S33", "S34", "S35", "S36", "S37", "S39", "S40", "S41", "S43", "S44", "S45", "S46", "S47", "S48", "S51", "S52", "S53", "S54", "S15A", "S27", "S38"])
 
         registry = Registry.load(ROOT)
         retired_s21 = registry.raw["sources"]["S21"]
@@ -178,18 +178,54 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(ycdc_mission["item_kind"], "TENDER")
         self.assertEqual(ycdc_mission["actionable_baseline_signal_policy"]["min_remaining_seconds"], 43200)
 
-        precursor = registry.raw["sources"]["S48"]
-        self.assertFalse(precursor["enabled"])
+        precursor = registry.source("S48")
+        self.assertTrue(precursor["enabled"])
         self.assertEqual(precursor["adapter"], "moi_project_precursor")
-        self.assertEqual(precursor["role"], "RETIRED_OUT_OF_SCOPE")
+        self.assertEqual(precursor["role"], "ACTIVE_SELECTIVE")
         self.assertEqual(precursor["item_kind"], "REGULATORY_NOTICE")
         self.assertEqual(precursor["discovery_url"], "https://www.moi.gov.mm/news")
         self.assertFalse(precursor["listing_complete_business_records"])
-        self.assertEqual(precursor["baseline_lookback_days"], 0)
+        self.assertEqual(precursor["baseline_lookback_days"], 14)
+        self.assertEqual(precursor["selection_policy_version"], 3)
+        self.assertEqual(precursor["source_policy_version"], 3)
         self.assertEqual(precursor["health_policy"]["parse_sample_source"], "BUSINESS_PROCESSING")
         self.assertEqual(precursor["attachment_policy"]["mode"], "HTML_ONLY_NO_ATTACHMENT_REQUIRED")
-        self.assertFalse(precursor["acquisition_policy"]["enabled"])
-        self.assertTrue(precursor["retirement"]["historical_data_retained"])
+        self.assertTrue(precursor["acquisition_policy"]["enabled"])
+        self.assertNotIn("retirement", precursor)
+
+        mitv = registry.source("S52")
+        self.assertEqual(mitv["adapter"], "official_media_mitv")
+        self.assertEqual(mitv["role"], "ACTIVE_SELECTIVE")
+        self.assertEqual(mitv["engine"], "direct_http")
+        self.assertEqual(mitv["discovery_url"], "https://www.myanmaritv.com/news")
+        self.assertEqual(mitv["item_kind"], "REGULATORY_NOTICE")
+        self.assertFalse(mitv["first_baseline_customer_signal"])
+
+        mdn = registry.source("S53")
+        self.assertEqual(mdn["adapter"], "official_media_mdn")
+        self.assertEqual(mdn["role"], "ACTIVE_SELECTIVE")
+        self.assertEqual(mdn["discovery_url"], "https://mdn.gov.mm/my/latest-news")
+        self.assertEqual(mdn["language"], "my")
+        self.assertTrue(mdn["acquisition_policy"]["enabled"])
+
+        gnlm = registry.source("S54")
+        self.assertEqual(gnlm["adapter"], "official_media_gnlm")
+        self.assertEqual(gnlm["discovery_url"], "https://www.moi.gov.mm/nlm/")
+        self.assertEqual(gnlm["attachment_policy"]["mode"], "REQUIRED_DAILY_ISSUE_PDF")
+        self.assertTrue(gnlm["attachment_policy"]["fetch_in_primary_pipeline"])
+        self.assertEqual(gnlm["attachment_policy"]["required_primary_attachments"], 1)
+        self.assertEqual(
+            gnlm["acquisition_policy"]["supplementary"],
+            [{"method": "DIRECT_HTTP", "target_kind": "PDF", "required": True, "max_count": 1, "same_origin_only": True}],
+        )
+
+        myawady = registry.raw["sources"]["S55"]
+        self.assertFalse(myawady["enabled"])
+        self.assertEqual(myawady["role"], "BLOCKED_TLS_CERTIFICATE")
+        self.assertEqual(myawady["discovery_url"], "https://myawady.net.mm/english_news")
+        self.assertFalse(myawady["acquisition_policy"]["enabled"])
+        self.assertEqual(myawady["block_reason"]["type"], "TLS_CERTIFICATE_CHAIN")
+        self.assertFalse(myawady["block_reason"]["insecure_tls_bypass_allowed"])
 
         energy = registry.source("S39")
         self.assertEqual(energy["adapter"], "energy_tender")
@@ -230,7 +266,7 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(ddd["actionable_baseline_signal_policy"]["min_remaining_seconds"], 43200)
 
         enabled = registry.enabled_sources()
-        self.assertEqual([sid for sid, _source in enabled[-8:]], ["S44", "S45", "S46", "S47", "S51", "S15A", "S27", "S38"])
+        self.assertEqual([sid for sid, _source in enabled[-8:]], ["S48", "S51", "S52", "S53", "S54", "S15A", "S27", "S38"])
         self.assertTrue(all(source["engine"] == "direct_http" for _sid, source in enabled[:-3]))
         self.assertTrue(all(source["engine"] == "provider" for _sid, source in enabled[-3:]))
         self.assertFalse(moi["attachment_policy"]["fetch_in_primary_pipeline"])

@@ -67,8 +67,7 @@ class MapFetcher:
 def _registry() -> Registry:
     raw = json.loads(json.dumps(Registry.load(ROOT).raw))
     source = raw["sources"]["S48"]
-    # Production retires S48, but this isolated historical-capability fixture
-    # re-enables it so parser/lifecycle behavior remains regression-tested.
+    # Production S48 is active again after the explicit 2026-10-01 user goal change.
     source["enabled"] = True
     source["acquisition_policy"]["enabled"] = True
     raw["sources"] = {"S48": source}
@@ -144,11 +143,39 @@ class MoiProjectPrecursorParserTests(unittest.TestCase):
         self.assertEqual(item.precursor_stage_hint, "PROJECT_ANNOUNCEMENT")
         self.assertEqual(list(item.relevance_categories), ["ENERGY"])
         payload = item.payload()
-        self.assertEqual(payload["selection_policy_version"], 2)
+        self.assertEqual(payload["selection_policy_version"], 3)
         self.assertEqual(
             payload["precursor_selection_basis"],
-            "TARGET_SECTOR+PRE_PROCUREMENT_FORWARD_ACTION+(PROJECT_MARKER_OR_CAPITAL_INTENT)-NOT_STARTED-NOT_OPEN_PROCUREMENT",
+            "TARGET_SECTOR+FORWARD_ACTION+(PROJECT_MARKER_OR_CAPITAL_INTENT_OR_STRATEGIC_DIGITAL_MARKER)-NOT_STARTED-NOT_OPEN_PROCUREMENT",
         )
+
+    def test_v3_accepts_e_government_policy_formation_without_project_word(self) -> None:
+        html = _listing(
+            _card(
+                node="91001",
+                title="e-Government Steering Committee coordination meeting (1/2026)",
+                date="September 30, 2026",
+            )
+        )
+        entries = parse_project_listing(html)
+        self.assertEqual([entry.url for entry in entries], ["https://www.moi.gov.mm/news/91001"])
+
+        detail = _detail(
+            node="91001",
+            title="e-Government Steering Committee coordination meeting (1/2026)",
+            date="09/30/2026",
+            body=(
+                "The committee discussed e-Government implementation and the transition to Digital Government, "
+                "including Public-Private Partnership frameworks, Single Window and One-Stop Digital Services, "
+                "cybersecurity, the National Digital Development Strategy 2030 and Digital Development Law."
+            ),
+        )
+        item = parse_project_detail(detail, "https://www.moi.gov.mm/news/91001")
+        self.assertIsNotNone(item)
+        assert item is not None
+        self.assertIn("TELECOM", item.relevance_categories)
+        self.assertEqual(item.payload()["selection_policy_version"], 3)
+        self.assertTrue(item.payload()["precursor_review_required"])
 
     def test_detail_v2_rejects_started_groundbreaking_and_open_procurement(self) -> None:
         underway = _detail(

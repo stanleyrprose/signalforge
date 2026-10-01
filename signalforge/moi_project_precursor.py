@@ -12,7 +12,7 @@ MOI_BASE_URL = "https://www.moi.gov.mm"
 MOI_PROJECT_LIST_URL = f"{MOI_BASE_URL}/news"
 MOI_PROJECT_ISSUER = "Ministry of Information, Myanmar"
 MOI_HOSTS = {"moi.gov.mm", "www.moi.gov.mm"}
-SELECTION_POLICY_VERSION = 2
+SELECTION_POLICY_VERSION = 3
 
 _PROJECT_TOKENS = ("စီမံကိန်း", "project")
 _SECTOR_TOKENS: dict[str, tuple[str, ...]] = {
@@ -22,7 +22,10 @@ _SECTOR_TOKENS: dict[str, tuple[str, ...]] = {
     ),
     "TELECOM": (
         "telecom", "telecommunication", "ict", "digital", "fiber", "fibre", "network",
-        "cyber city", "5g", "ဆက်သွယ်ရေး", "ဒီဂျစ်တယ်", "ကွန်ရက်", "ဆိုက်ဘာစီးတီး",
+        "cyber city", "5g", "e-government", "e government", "digital government",
+        "digital governance", "single window", "one-stop digital", "cybersecurity",
+        "information security", "digital development strategy", "digital development law",
+        "ဆက်သွယ်ရေး", "ဒီဂျစ်တယ်", "ကွန်ရက်", "ဆိုက်ဘာစီးတီး",
     ),
     "ENERGY": (
         "energy", "power", "electric", "electricity", "solar", "hydropower", "grid", "substation",
@@ -33,6 +36,13 @@ _SECTOR_TOKENS: dict[str, tuple[str, ...]] = {
         "အင်ဂျင်နီယာ", "စက်မှုဇုန်", "ရေပေးဝေ", "ရေဆိုး",
     ),
 }
+_STRATEGIC_DIGITAL_TOKENS = (
+    "e-government", "e government", "digital government", "digital governance",
+    "single window", "one-stop digital", "one stop digital", "cybersecurity",
+    "information security", "digital development strategy", "digital development law",
+    "public-private partnership", "public private partnership",
+)
+
 _CAPITAL_INTENT_TOKENS = (
     "to construct", "will construct", "will be constructed", "planned construction", "to build", "will build", "will be built",
     "to upgrade", "will upgrade", "to expand", "will expand", "new substation",
@@ -48,6 +58,11 @@ _PRE_PROCUREMENT_FORWARD_TOKENS = (
     "conceptual plan", "feasibility study", "detailed design", "budget allocation",
     "fund allocation", "funding approved", "loan approved", "procurement plan",
     "tender preparation", "bid preparation",
+    "transition to digital government", "transition to digital governance",
+    "digital development strategy", "digital development law",
+    "public-private partnership", "public private partnership", "single window",
+    "one-stop digital", "one stop digital", "cybersecurity framework",
+    "e-government implementation", "digital government implementation",
     "စီမံကိန်း အတည်ပြု", "စီမံကိန်းအတည်ပြု", "ခွင့်ပြုချက်",
     "အတည်ပြုချက်", "မဟာစီမံကိန်း", "ဖြစ်နိုင်ခြေလေ့လာ",
     "ဒီဇိုင်းရေးဆွဲ", "ဘတ်ဂျက်ခွဲဝေ", "ဘတ်ဂျက်", "ရန်ပုံငွေ",
@@ -152,6 +167,11 @@ def _relevance_categories(value: str) -> list[str]:
     ]
 
 
+def _strategic_digital_marker(value: str) -> bool:
+    normalized = normalize_text(value).lower()
+    return any(token.lower() in normalized for token in _STRATEGIC_DIGITAL_TOKENS)
+
+
 def _capital_intent_marker(value: str) -> bool:
     normalized = normalize_text(value).lower()
     return any(token.lower() in normalized for token in _CAPITAL_INTENT_TOKENS)
@@ -184,7 +204,7 @@ def _stage_hint(value: str) -> str:
 def _listing_candidate(title: str) -> bool:
     return (
         bool(_relevance_categories(title))
-        and (_project_marker(title) or _capital_intent_marker(title))
+        and (_project_marker(title) or _capital_intent_marker(title) or _strategic_digital_marker(title))
         and _is_open_procurement(title) is False
         and _has_started_or_completed(title) is False
     )
@@ -326,7 +346,7 @@ class MoiProjectPrecursor:
             "business_stage": "PROJECT_PRECURSOR_CANDIDATE",
             "precursor_stage_hint": self.precursor_stage_hint,
             "precursor_review_required": True,
-            "precursor_selection_basis": "TARGET_SECTOR+PRE_PROCUREMENT_FORWARD_ACTION+(PROJECT_MARKER_OR_CAPITAL_INTENT)-NOT_STARTED-NOT_OPEN_PROCUREMENT",
+            "precursor_selection_basis": "TARGET_SECTOR+FORWARD_ACTION+(PROJECT_MARKER_OR_CAPITAL_INTENT_OR_STRATEGIC_DIGITAL_MARKER)-NOT_STARTED-NOT_OPEN_PROCUREMENT",
             "relevance_categories": list(self.relevance_categories),
             "detail_completeness": "OFFICIAL_NEWS_TITLE_DATE_BODY",
             "url": self.url,
@@ -420,7 +440,7 @@ def parse_project_detail(html_bytes: bytes, page_url: str) -> MoiProjectPrecurso
         or not body
         or publication_date is None
         or not categories
-        or not (_project_marker(combined) or _capital_intent_marker(combined))
+        or not (_project_marker(combined) or _capital_intent_marker(combined) or _strategic_digital_marker(combined))
         or not _has_forward_action(combined)
         or _has_started_or_completed(combined)
         or _is_open_procurement(combined)
