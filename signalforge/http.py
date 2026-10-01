@@ -161,7 +161,7 @@ def fetch_bytes_cloudrity_d1n(url: str, *, timeout: int = 30, max_bytes: int = 2
         raise FetchError(f"Cloudrity D1N challenge persisted after one retry: {url}")
     return second
 
-def fetch_bytes_myawady_strict_then_insecure(
+def fetch_bytes_myawady_insecure_readonly(
     url: str,
     *,
     timeout: int = 30,
@@ -176,26 +176,12 @@ def fetch_bytes_myawady_strict_then_insecure(
         or parsed.password is not None
         or parsed.port not in (None, 443)
     ):
-        raise FetchError(f"Myawady insecure fallback not authorized for URL: {url}")
+        raise FetchError(f"Myawady insecure read-only profile not authorized for URL: {url}")
 
     headers = {
         "User-Agent": USER_AGENT,
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     }
-    try:
-        payload = _fetch_bytes_with_context(
-            url,
-            timeout=timeout,
-            max_bytes=max_bytes,
-            headers=headers,
-            context=ssl.create_default_context(),
-            allowed_redirect_hosts=_MYAWADY_HOSTS,
-        )
-        return FetchResult(payload=payload, fetch_method="DIRECT_HTTP_TLS_STRICT")
-    except FetchError as exc:
-        if not _is_tls_certificate_failure(exc):
-            raise
-
     insecure_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
     insecure_context.check_hostname = False
     insecure_context.verify_mode = ssl.CERT_NONE
@@ -209,6 +195,6 @@ def fetch_bytes_myawady_strict_then_insecure(
     )
     return FetchResult(
         payload=payload,
-        fetch_method="DIRECT_HTTP_TLS_INSECURE_READONLY_FALLBACK",
-        strict_tls_failed=True,
+        fetch_method="DIRECT_HTTP_TLS_INSECURE_READONLY",
+        strict_tls_failed=False,
     )

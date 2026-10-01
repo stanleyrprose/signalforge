@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import patch
 
+from signalforge.acquisition_runtime import ProviderDocumentOCRCapture
 from signalforge.cli import status
 from signalforge.config import Registry
 from signalforge.engine import run_due, run_source
@@ -52,6 +53,82 @@ class FixtureFetcher:
         if url == MPT4U_URL:
             return b"<html><h1>MPT4U</h1><p>consumer page</p></html>"
         raise AssertionError(f"unexpected fetch: {url}")
+
+
+class OfficialNewspaperEngineTests(unittest.TestCase):
+    def test_s56_uses_document_ocr_for_reviewed_pdf_without_bangkok_pdf_fetch(self) -> None:
+        listing_url = "https://www.moi.gov.mm/mal/"
+        issue_url = "https://www.moi.gov.mm/mal/1-oct-26"
+        pdf_url = "https://www.moi.gov.mm/mal/sites/default/files/newspaper-pdf/2026-09/mal%201.10.26.pdf"
+        listing = b'<a href="/mal/1-oct-26">1 Oct 26</a>'
+        detail = b'<iframe src="//docs.google.com/viewer?embedded=true&amp;url=http%3A%2F%2Fwww.moi.gov.mm%2Fmal%2Fsites%2Fdefault%2Ffiles%2Fnewspaper-pdf%2F2026-09%2Fmal%25201.10.26.pdf"></iframe>'
+
+        class S56Fetcher:
+            def __init__(self) -> None:
+                self.calls: list[str] = []
+
+            def __call__(self, url: str, **_kwargs) -> bytes:
+                self.calls.append(url)
+                if url == listing_url:
+                    return listing
+                if url == issue_url:
+                    return detail
+                if url == pdf_url:
+                    raise AssertionError("S56 PDF must be acquired by DOCUMENT_OCR provider, not Bangkok")
+                raise AssertionError(f"unexpected fetch: {url}")
+
+        registry = Registry.load(ROOT)
+        fetcher = S56Fetcher()
+        ocr_capture = ProviderDocumentOCRCapture(
+            provider_request_id="s56-ocr-request",
+            input_sha256="a" * 64,
+            result={
+                "text": (
+                    "The government will implement e-Government and Digital Government under the "
+                    "Digital Development Strategy. A national data center and government network "
+                    "will be developed to deliver secure public services."
+                ),
+                "languages": ["mya", "eng"],
+                "processed_pages": 12,
+                "page_count": 32,
+                "page_limit_truncated": True,
+            },
+            artifact_path="/provider/evidence/s56.pdf",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            with patch(
+                "signalforge.engine.acquire_provider_document_ocr",
+                return_value=ocr_capture,
+            ) as acquire:
+                result = run_source(
+                    "S56",
+                    registry=registry,
+                    now=datetime(2026, 10, 1, 12, 0, tzinfo=UTC),
+                    fetcher=fetcher,
+                    sleeper=lambda _seconds: None,
+                    force=True,
+                    database=base / "signalforge.db",
+                    evidence=base / "evidence",
+                    worker_context={"run_id": "worker-s56-ocr"},
+                )
+            self.assertEqual(result["status"], "SUCCESS")
+            self.assertTrue(result["baseline"])
+            self.assertEqual(result["details_attempted"], 1)
+            self.assertEqual(result["details_succeeded"], 1)
+            self.assertEqual(result["items"], 1)
+            self.assertEqual(result["signals_created"], 0)
+            self.assertEqual(fetcher.calls, [listing_url, issue_url])
+            acquire.assert_called_once()
+            kwargs = acquire.call_args.kwargs
+            self.assertEqual(kwargs["url"], pdf_url)
+            self.assertEqual(kwargs["source_id"], "S56")
+            self.assertEqual(kwargs["target_role"], "OFFICIAL_NEWSPAPER")
+            self.assertEqual(kwargs["allowed_https_hosts"], ("www.moi.gov.mm",))
+            self.assertEqual(
+                kwargs["allowed_path_prefix"],
+                "/mal/sites/default/files/newspaper-pdf/",
+            )
 
 
 class RunDueIsolationTests(unittest.TestCase):

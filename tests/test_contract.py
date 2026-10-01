@@ -25,7 +25,7 @@ class ContractTests(unittest.TestCase):
         )
         self.assertEqual(manifest["verbs"]["signalforge-refresh"]["argument"], "source_id")
         self.assertEqual(manifest["grammar"]["source_id"], "^[A-Z][A-Z0-9]{0,15}$")
-        self.assertEqual(manifest["active_source_ids"], ["S05A", "S07", "S08A", "S10", "S12", "S13", "S16", "S20", "S22", "S23", "S25", "S26", "S28", "S29", "S30", "S31", "S32", "S33", "S34", "S35", "S36", "S37", "S39", "S40", "S41", "S43", "S44", "S45", "S46", "S47", "S48", "S51", "S52", "S53", "S54", "S55", "S15A", "S27", "S38"])
+        self.assertEqual(manifest["active_source_ids"], ["S05A", "S07", "S08A", "S10", "S12", "S13", "S16", "S20", "S22", "S23", "S25", "S26", "S28", "S29", "S30", "S31", "S32", "S33", "S34", "S35", "S36", "S37", "S39", "S40", "S41", "S43", "S44", "S45", "S46", "S47", "S48", "S51", "S52", "S53", "S54", "S55", "S56", "S57", "S15A", "S27", "S38"])
 
         registry = Registry.load(ROOT)
         retired_s21 = registry.raw["sources"]["S21"]
@@ -224,12 +224,12 @@ class ContractTests(unittest.TestCase):
 
         myawady = registry.source("S55")
         self.assertTrue(myawady["enabled"])
-        self.assertEqual(myawady["role"], "ACTIVE_SELECTIVE_TLS_EXCEPTION")
+        self.assertEqual(myawady["role"], "ACTIVE_SELECTIVE_TLS_IGNORED")
         self.assertEqual(myawady["discovery_url"], "https://myawady.net.mm/english_news")
         self.assertTrue(myawady["acquisition_policy"]["enabled"])
-        self.assertEqual(myawady["http_fetch_profile"], "myawady_strict_then_insecure_readonly_v1")
-        self.assertEqual(myawady["source_policy_version"], 2)
-        self.assertEqual(myawady["tls_policy"]["mode"], "STRICT_THEN_INSECURE_READONLY")
+        self.assertEqual(myawady["http_fetch_profile"], "myawady_insecure_readonly_v2")
+        self.assertEqual(myawady["source_policy_version"], 3)
+        self.assertEqual(myawady["tls_policy"]["mode"], "INSECURE_READONLY_ALWAYS")
         self.assertTrue(myawady["tls_policy"]["read_only"])
         self.assertTrue(myawady["tls_policy"]["no_credentials"])
         self.assertTrue(myawady["tls_policy"]["same_origin_redirects_only"])
@@ -237,11 +237,38 @@ class ContractTests(unittest.TestCase):
             myawady["tls_policy"]["allowed_hosts"],
             ["myawady.net.mm", "www.myawady.net.mm"],
         )
-        self.assertTrue(myawady["tls_exception"]["strict_tls_first"])
+        self.assertFalse(myawady["tls_exception"]["strict_tls_first"])
         self.assertEqual(
             myawady["tls_exception"]["evidence_fetch_method"],
-            "DIRECT_HTTP_TLS_INSECURE_READONLY_FALLBACK",
+            "DIRECT_HTTP_TLS_INSECURE_READONLY",
         )
+
+        myanma_alinn = registry.source("S56")
+        self.assertEqual(myanma_alinn["adapter"], "official_media_myanma_alinn")
+        self.assertEqual(myanma_alinn["discovery_url"], "https://www.moi.gov.mm/mal/")
+        self.assertEqual(myanma_alinn["item_kind"], "REGULATORY_NOTICE")
+        self.assertEqual(myanma_alinn["baseline_detail_limit"], 1)
+        self.assertEqual(myanma_alinn["delta_detail_limit"], 1)
+        self.assertEqual(
+            myanma_alinn["attachment_policy"]["mode"],
+            "REQUIRED_DAILY_ISSUE_PDF_DOCUMENT_OCR",
+        )
+        self.assertTrue(myanma_alinn["document_ocr_detail"]["enabled"])
+        self.assertEqual(myanma_alinn["document_ocr_detail"]["provider_id"], "mac-mm-01")
+        self.assertEqual(myanma_alinn["document_ocr_detail"]["capability"], "DOCUMENT_OCR")
+        self.assertEqual(
+            myanma_alinn["document_ocr_detail"]["allowed_path_prefix"],
+            "/mal/sites/default/files/newspaper-pdf/",
+        )
+
+        kyemon = registry.source("S57")
+        self.assertEqual(kyemon["adapter"], "official_media_kyemon")
+        self.assertEqual(kyemon["discovery_url"], "https://www.moi.gov.mm/km/")
+        self.assertEqual(kyemon["item_kind"], "REGULATORY_NOTICE")
+        self.assertEqual(kyemon["baseline_detail_limit"], 1)
+        self.assertEqual(kyemon["delta_detail_limit"], 1)
+        self.assertEqual(kyemon["attachment_policy"]["mode"], "REQUIRED_DAILY_ISSUE_PDF")
+        self.assertTrue(kyemon["attachment_policy"]["fetch_in_primary_pipeline"])
 
         energy = registry.source("S39")
         self.assertEqual(energy["adapter"], "energy_tender")
@@ -282,7 +309,7 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(ddd["actionable_baseline_signal_policy"]["min_remaining_seconds"], 43200)
 
         enabled = registry.enabled_sources()
-        self.assertEqual([sid for sid, _source in enabled[-8:]], ["S51", "S52", "S53", "S54", "S55", "S15A", "S27", "S38"])
+        self.assertEqual([sid for sid, _source in enabled[-10:]], ["S51", "S52", "S53", "S54", "S55", "S56", "S57", "S15A", "S27", "S38"])
         self.assertTrue(all(source["engine"] == "direct_http" for _sid, source in enabled[:-3]))
         self.assertTrue(all(source["engine"] == "provider" for _sid, source in enabled[-3:]))
         self.assertFalse(moi["attachment_policy"]["fetch_in_primary_pipeline"])
@@ -319,6 +346,21 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(s23_doc["max_bytes"], 4000000)
         self.assertFalse(s23_doc["allow_query"])
         self.assertFalse(s23_doc["allow_fragment"])
+
+        s56_ocr = provider_contract["source_policies"]["S56"]
+        self.assertEqual(s56_ocr["allowed_capabilities"], ["DOCUMENT_OCR"])
+        self.assertEqual(s56_ocr["source_policy_version"], 1)
+        s56_doc = s56_ocr["targets"]["OFFICIAL_NEWSPAPER"]
+        self.assertEqual(s56_doc["https_host"], "www.moi.gov.mm")
+        self.assertEqual(
+            s56_doc["path_prefix"],
+            "/mal/sites/default/files/newspaper-pdf/",
+        )
+        self.assertEqual(s56_doc["capabilities"], ["DOCUMENT_OCR"])
+        self.assertEqual(s56_doc["max_bytes"], 8000000)
+        self.assertEqual(s56_doc["max_run_seconds"], 300)
+        self.assertFalse(s56_doc["allow_query"])
+        self.assertFalse(s56_doc["allow_fragment"])
 
         doa = registry.source("S36")
         self.assertEqual(doa["adapter"], "doa_tender")
