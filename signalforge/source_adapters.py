@@ -59,6 +59,15 @@ from .moc import restore_tender_from_payload as restore_moc_tender_from_payload
 from .mte import parse_tender_records as parse_mte_tender_records
 from .mpt import SitemapEntry, parse_sitemap, parse_tender_detail as parse_mpt_tender_detail
 from .mpt_network import parse_network_records as parse_mpt_network_records
+from .official_media import (
+    extract_gnlm_pdf_urls,
+    parse_gnlm_detail_with_attachments,
+    parse_gnlm_listing,
+    parse_mdn_detail,
+    parse_mdn_listing,
+    parse_mitv_detail,
+    parse_mitv_listing,
+)
 from .moi_project_precursor import parse_project_detail as parse_moi_project_detail
 from .moi_project_precursor import parse_project_listing as parse_moi_project_listing
 from .moee_project_precursor import parse_project_detail as parse_moee_project_detail
@@ -193,6 +202,20 @@ def _parse_dwir_detail(payload: bytes, url: str) -> list[object]:
 def _parse_moi_project_detail(payload: bytes, url: str) -> list[object]:
     item = parse_moi_project_detail(payload, url)
     return [item] if item is not None else []
+
+
+def _parse_mitv_official_detail(payload: bytes, url: str) -> list[object]:
+    item = parse_mitv_detail(payload, url)
+    return [item] if item is not None else []
+
+
+def _parse_mdn_official_detail(payload: bytes, url: str) -> list[object]:
+    item = parse_mdn_detail(payload, url)
+    return [item] if item is not None else []
+
+
+def _parse_gnlm_official_without_attachment(_payload: bytes, _url: str) -> list[object]:
+    raise SourceAdapterError("official_media_gnlm requires its reviewed daily PDF attachment")
 
 
 def _parse_moi_detail(payload: bytes, url: str) -> list[object]:
@@ -592,9 +615,9 @@ ADAPTERS = {
     "moi_project_precursor": SourceAdapter(
         name="moi_project_precursor",
         discovery_content_types=("text/html",),
-        discovery_parser_version="moi-news-project-precursor-list-v2",
-        detail_parser_version="moi-news-project-precursor-detail-v2",
-        normalizer_version="moi-project-precursor-normalize-v2",
+        discovery_parser_version="moi-news-project-precursor-list-v3",
+        detail_parser_version="moi-news-project-precursor-detail-v3",
+        normalizer_version="moi-project-precursor-normalize-v3",
         canonicalizer_version="moi-news-node-id-v1",
         parse_discovery=parse_moi_project_listing,
         parse_detail=_parse_moi_project_detail,
@@ -618,6 +641,38 @@ ADAPTERS = {
         canonicalizer_version="moee-content-project-clause-v1",
         parse_discovery=parse_moee_project_listing,
         parse_detail=parse_moee_project_detail,
+    ),
+    "official_media_mitv": SourceAdapter(
+        name="official_media_mitv",
+        discovery_content_types=("text/html",),
+        discovery_parser_version="mitv-news-digital-ict-filter-v1",
+        detail_parser_version="mitv-news-digital-ict-detail-v1",
+        normalizer_version="official-media-digital-ict-v1",
+        canonicalizer_version="mitv-news-slug-v1",
+        parse_discovery=parse_mitv_listing,
+        parse_detail=_parse_mitv_official_detail,
+    ),
+    "official_media_mdn": SourceAdapter(
+        name="official_media_mdn",
+        discovery_content_types=("text/html",),
+        discovery_parser_version="mdn-latest-digital-ict-filter-v1",
+        detail_parser_version="mdn-news-digital-ict-detail-v1",
+        normalizer_version="official-media-digital-ict-v1",
+        canonicalizer_version="mdn-news-slug-v1",
+        parse_discovery=parse_mdn_listing,
+        parse_detail=_parse_mdn_official_detail,
+    ),
+    "official_media_gnlm": SourceAdapter(
+        name="official_media_gnlm",
+        discovery_content_types=("text/html",),
+        discovery_parser_version="gnlm-daily-issue-list-v1",
+        detail_parser_version="gnlm-daily-pdf-digital-ict-v1",
+        normalizer_version="official-media-digital-ict-v1",
+        canonicalizer_version="gnlm-issue-date-v1",
+        parse_discovery=parse_gnlm_listing,
+        parse_detail=_parse_gnlm_official_without_attachment,
+        extract_detail_attachments=extract_gnlm_pdf_urls,
+        parse_detail_with_attachments=parse_gnlm_detail_with_attachments,
     ),
     "ptd_policy_notice": SourceAdapter(
         name="ptd_policy_notice",

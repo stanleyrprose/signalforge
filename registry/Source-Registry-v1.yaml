@@ -2922,9 +2922,9 @@
     "S48": {
       "name": "MOI Official Project Precursor News",
       "adapter": "moi_project_precursor",
-      "enabled": false,
-      "role": "RETIRED_OUT_OF_SCOPE",
-      "audit_status": "RETIRED_PROJECT_PRECURSOR_OUT_OF_CURRENT_GOAL_2026_09_29",
+      "enabled": true,
+      "role": "ACTIVE_SELECTIVE",
+      "audit_status": "GREEN_REACTIVATED_EXPLICIT_USER_GOAL_DIGITAL_ICT_PRECURSOR_2026_10_01",
       "item_kind": "REGULATORY_NOTICE",
       "network_zone": "myanmar-international",
       "engine": "direct_http",
@@ -2944,7 +2944,7 @@
         "outage_status": "DATA_COLLECTION_DELAYED",
         "delivery_during_recovery": "CONTINUE_WITH_DEGRADED_HEALTH"
       },
-      "baseline_lookback_days": 0,
+      "baseline_lookback_days": 14,
       "baseline_detail_limit": 8,
       "delta_detail_limit": 6,
       "request_timeout_seconds": 30,
@@ -2953,8 +2953,7 @@
       "canonical_key": "moi_news_node_id",
       "first_baseline_customer_signal": false,
       "bootstrap_seed_urls": [],
-      "selection_policy_version": 2,
-      "retirement": {"reason": "PROJECT_PRECURSOR_OUT_OF_CURRENT_GOAL", "historical_data_retained": true, "reactivation_gate": "EXPLICIT_USER_GOAL_CHANGE"},
+      "selection_policy_version": 3,
       "health_policy": {
         "freshness_yellow_seconds": 3600,
         "freshness_red_seconds": 5400,
@@ -2967,20 +2966,37 @@
         "parse_probe_interval_seconds": 7200,
         "parse_sample_source": "BUSINESS_PROCESSING"
       },
-      "source_policy_version": 2,
+      "source_policy_version": 3,
       "egress_profile": "mm-intl-datacenter",
       "acquisition_policy": {
-        "enabled": false,
-        "primary": {"method": "DIRECT_HTTP", "target_kind": "HTML"},
+        "enabled": true,
+        "primary": {
+          "method": "DIRECT_HTTP",
+          "target_kind": "HTML"
+        },
         "supplementary": [],
         "escalation": {
-          "DNS_FAILURE": {"action": "RETRY"},
-          "CONNECT_TIMEOUT": {"action": "RETRY"},
-          "HTTP_429": {"action": "RETRY"},
-          "HTTP_403": {"action": "REVIEW"},
-          "TLS_FAILURE": {"action": "FAIL"},
-          "JS_RENDER_REQUIRED": {"action": "REVIEW_CAPABILITY"},
-          "PARSER_DRIFT": {"action": "REAUDIT"}
+          "DNS_FAILURE": {
+            "action": "RETRY"
+          },
+          "CONNECT_TIMEOUT": {
+            "action": "RETRY"
+          },
+          "HTTP_429": {
+            "action": "RETRY"
+          },
+          "HTTP_403": {
+            "action": "REVIEW"
+          },
+          "TLS_FAILURE": {
+            "action": "FAIL"
+          },
+          "JS_RENDER_REQUIRED": {
+            "action": "REVIEW_CAPABILITY"
+          },
+          "PARSER_DRIFT": {
+            "action": "REAUDIT"
+          }
         }
       },
       "attachment_policy": {
@@ -3381,6 +3397,371 @@
           "issuer_reference_scope_deadline_fee_verified": true
         },
         "enable_only_after_gate_pass": true
+      }
+    },
+    "S52": {
+      "name": "Myanmar International TV Government Digital/ICT Signals",
+      "adapter": "official_media_mitv",
+      "enabled": true,
+      "role": "ACTIVE_SELECTIVE",
+      "audit_status": "GREEN_DIRECT_HTTP_STRICT_TLS_OFFICIAL_ENGLISH_NEWS_DIGITAL_ICT_FILTER",
+      "item_kind": "REGULATORY_NOTICE",
+      "network_zone": "myanmar-international",
+      "engine": "direct_http",
+      "landing_url": "https://www.myanmaritv.com/news",
+      "discovery_url": "https://www.myanmaritv.com/news",
+      "listing_complete_business_records": false,
+      "language": "en",
+      "poll_interval_seconds": 1800,
+      "retry_interval_seconds": 300,
+      "priority": 96,
+      "recovery_slo_seconds": 3600,
+      "availability_policy": {
+        "class": "DELAY_TOLERANT_MONITORED",
+        "accepted_collection_outage_seconds": 7200,
+        "collection_rto_seconds": 3600,
+        "business_data_rpo_target_seconds": 1800,
+        "outage_status": "DATA_COLLECTION_DELAYED",
+        "delivery_during_recovery": "CONTINUE_WITH_DEGRADED_HEALTH"
+      },
+      "baseline_lookback_days": 14,
+      "baseline_detail_limit": 10,
+      "delta_detail_limit": 8,
+      "request_timeout_seconds": 30,
+      "request_max_bytes": 1500000,
+      "request_delay_ms": 100,
+      "canonical_key": "official_media_source_record",
+      "first_baseline_customer_signal": false,
+      "bootstrap_seed_urls": [],
+      "selection_policy_version": 1,
+      "health_policy": {
+        "freshness_yellow_seconds": 3600,
+        "freshness_red_seconds": 7200,
+        "fetch_yellow_failures": 1,
+        "fetch_red_failures": 3,
+        "parse_window_runs": 10,
+        "parse_min_attempts": 1,
+        "parse_yellow_ratio": 0.9,
+        "parse_red_ratio": 0.7,
+        "parse_probe_interval_seconds": 7200,
+        "parse_sample_source": "BUSINESS_PROCESSING"
+      },
+      "source_policy_version": 1,
+      "egress_profile": "mm-intl-datacenter",
+      "acquisition_policy": {
+        "enabled": true,
+        "primary": {
+          "method": "DIRECT_HTTP",
+          "target_kind": "HTML"
+        },
+        "supplementary": [],
+        "escalation": {
+          "DNS_FAILURE": {
+            "action": "RETRY"
+          },
+          "CONNECT_TIMEOUT": {
+            "action": "RETRY"
+          },
+          "HTTP_429": {
+            "action": "RETRY"
+          },
+          "HTTP_403": {
+            "action": "REVIEW"
+          },
+          "TLS_FAILURE": {
+            "action": "FAIL"
+          },
+          "JS_RENDER_REQUIRED": {
+            "action": "REVIEW_CAPABILITY"
+          },
+          "PARSER_DRIFT": {
+            "action": "REAUDIT"
+          }
+        }
+      },
+      "attachment_policy": {
+        "mode": "HTML_ONLY_NO_ATTACHMENT_REQUIRED",
+        "current_health": "OFFICIAL_MEDIA_TITLE_DATE_BODY_STRICT_FILTER",
+        "fetch_in_primary_pipeline": false
+      }
+    },
+    "S53": {
+      "name": "Myanmar Digital News Government Digital/ICT Signals",
+      "adapter": "official_media_mdn",
+      "enabled": true,
+      "role": "ACTIVE_SELECTIVE",
+      "audit_status": "GREEN_BANGKOK_DIRECT_HTTP_STRICT_TLS_OFFICIAL_BURMESE_NEWS_DIGITAL_ICT_FILTER",
+      "item_kind": "REGULATORY_NOTICE",
+      "network_zone": "myanmar-international",
+      "engine": "direct_http",
+      "landing_url": "https://mdn.gov.mm/my/latest-news",
+      "discovery_url": "https://mdn.gov.mm/my/latest-news",
+      "listing_complete_business_records": false,
+      "language": "my",
+      "poll_interval_seconds": 1800,
+      "retry_interval_seconds": 300,
+      "priority": 97,
+      "recovery_slo_seconds": 3600,
+      "availability_policy": {
+        "class": "DELAY_TOLERANT_MONITORED",
+        "accepted_collection_outage_seconds": 7200,
+        "collection_rto_seconds": 3600,
+        "business_data_rpo_target_seconds": 1800,
+        "outage_status": "DATA_COLLECTION_DELAYED",
+        "delivery_during_recovery": "CONTINUE_WITH_DEGRADED_HEALTH"
+      },
+      "baseline_lookback_days": 14,
+      "baseline_detail_limit": 10,
+      "delta_detail_limit": 8,
+      "request_timeout_seconds": 30,
+      "request_max_bytes": 2000000,
+      "request_delay_ms": 100,
+      "canonical_key": "official_media_source_record",
+      "first_baseline_customer_signal": false,
+      "bootstrap_seed_urls": [],
+      "selection_policy_version": 1,
+      "health_policy": {
+        "freshness_yellow_seconds": 3600,
+        "freshness_red_seconds": 7200,
+        "fetch_yellow_failures": 1,
+        "fetch_red_failures": 3,
+        "parse_window_runs": 10,
+        "parse_min_attempts": 1,
+        "parse_yellow_ratio": 0.9,
+        "parse_red_ratio": 0.7,
+        "parse_probe_interval_seconds": 7200,
+        "parse_sample_source": "BUSINESS_PROCESSING"
+      },
+      "source_policy_version": 1,
+      "egress_profile": "mm-intl-datacenter",
+      "acquisition_policy": {
+        "enabled": true,
+        "primary": {
+          "method": "DIRECT_HTTP",
+          "target_kind": "HTML"
+        },
+        "supplementary": [],
+        "escalation": {
+          "DNS_FAILURE": {
+            "action": "RETRY"
+          },
+          "CONNECT_TIMEOUT": {
+            "action": "RETRY"
+          },
+          "HTTP_429": {
+            "action": "RETRY"
+          },
+          "HTTP_403": {
+            "action": "REVIEW"
+          },
+          "TLS_FAILURE": {
+            "action": "FAIL"
+          },
+          "JS_RENDER_REQUIRED": {
+            "action": "REVIEW_CAPABILITY"
+          },
+          "PARSER_DRIFT": {
+            "action": "REAUDIT"
+          }
+        }
+      },
+      "attachment_policy": {
+        "mode": "HTML_ONLY_NO_ATTACHMENT_REQUIRED",
+        "current_health": "OFFICIAL_MEDIA_TITLE_DATE_BODY_STRICT_FILTER",
+        "fetch_in_primary_pipeline": false
+      }
+    },
+    "S54": {
+      "name": "Global New Light of Myanmar Official Newspaper Digital/ICT Signals",
+      "adapter": "official_media_gnlm",
+      "enabled": true,
+      "role": "ACTIVE_SELECTIVE",
+      "audit_status": "GREEN_DIRECT_HTTP_STRICT_TLS_DAILY_ISSUE_NATIVE_TEXT_PDF_DIGITAL_ICT_FILTER",
+      "item_kind": "REGULATORY_NOTICE",
+      "network_zone": "myanmar-international",
+      "engine": "direct_http",
+      "landing_url": "https://www.moi.gov.mm/nlm/",
+      "discovery_url": "https://www.moi.gov.mm/nlm/",
+      "listing_complete_business_records": false,
+      "language": "en",
+      "poll_interval_seconds": 3600,
+      "retry_interval_seconds": 300,
+      "priority": 95,
+      "recovery_slo_seconds": 3600,
+      "availability_policy": {
+        "class": "DELAY_TOLERANT_MONITORED",
+        "accepted_collection_outage_seconds": 7200,
+        "collection_rto_seconds": 3600,
+        "business_data_rpo_target_seconds": 1800,
+        "outage_status": "DATA_COLLECTION_DELAYED",
+        "delivery_during_recovery": "CONTINUE_WITH_DEGRADED_HEALTH"
+      },
+      "baseline_lookback_days": 7,
+      "baseline_detail_limit": 7,
+      "delta_detail_limit": 3,
+      "request_timeout_seconds": 30,
+      "request_max_bytes": 6000000,
+      "request_delay_ms": 100,
+      "canonical_key": "official_media_source_record",
+      "first_baseline_customer_signal": false,
+      "bootstrap_seed_urls": [],
+      "selection_policy_version": 1,
+      "health_policy": {
+        "freshness_yellow_seconds": 3600,
+        "freshness_red_seconds": 7200,
+        "fetch_yellow_failures": 1,
+        "fetch_red_failures": 3,
+        "parse_window_runs": 10,
+        "parse_min_attempts": 1,
+        "parse_yellow_ratio": 0.9,
+        "parse_red_ratio": 0.7,
+        "parse_probe_interval_seconds": 7200,
+        "parse_sample_source": "BUSINESS_PROCESSING"
+      },
+      "source_policy_version": 1,
+      "egress_profile": "mm-intl-datacenter",
+      "acquisition_policy": {
+        "enabled": true,
+        "primary": {
+          "method": "DIRECT_HTTP",
+          "target_kind": "HTML"
+        },
+        "supplementary": [
+          {
+            "method": "DIRECT_HTTP",
+            "target_kind": "PDF",
+            "required": true,
+            "max_count": 1,
+            "same_origin_only": true
+          }
+        ],
+        "escalation": {
+          "DNS_FAILURE": {
+            "action": "RETRY"
+          },
+          "CONNECT_TIMEOUT": {
+            "action": "RETRY"
+          },
+          "HTTP_429": {
+            "action": "RETRY"
+          },
+          "HTTP_403": {
+            "action": "REVIEW"
+          },
+          "TLS_FAILURE": {
+            "action": "FAIL"
+          },
+          "JS_RENDER_REQUIRED": {
+            "action": "REVIEW_CAPABILITY"
+          },
+          "PARSER_DRIFT": {
+            "action": "REAUDIT"
+          }
+        }
+      },
+      "attachment_policy": {
+        "mode": "REQUIRED_DAILY_ISSUE_PDF",
+        "current_health": "GREEN_NATIVE_TEXT_PDF_DIGITAL_ICT_PASSAGE_FILTER",
+        "fetch_in_primary_pipeline": true,
+        "required_primary_attachments": 1,
+        "max_primary_attachments": 1,
+        "same_origin_only": true
+      }
+    },
+    "S55": {
+      "name": "Myawady Official English Government Digital/ICT Signals",
+      "adapter": "official_media_myawady",
+      "enabled": false,
+      "role": "BLOCKED_TLS_CERTIFICATE",
+      "audit_status": "BLOCKED_STRICT_TLS_CERTIFICATE_CHAIN_BANGKOK_AND_MAC_2026_10_01",
+      "item_kind": "REGULATORY_NOTICE",
+      "network_zone": "myanmar-international",
+      "engine": "direct_http",
+      "landing_url": "https://myawady.net.mm/english_news",
+      "discovery_url": "https://myawady.net.mm/english_news",
+      "listing_complete_business_records": false,
+      "language": "en",
+      "poll_interval_seconds": 1800,
+      "retry_interval_seconds": 1800,
+      "priority": 94,
+      "recovery_slo_seconds": 86400,
+      "availability_policy": {
+        "class": "BLOCKED_MONITORED",
+        "accepted_collection_outage_seconds": 86400,
+        "collection_rto_seconds": 86400,
+        "business_data_rpo_target_seconds": 86400,
+        "outage_status": "TLS_CERTIFICATE_BLOCKED",
+        "delivery_during_recovery": "NO_COLLECTION_UNTIL_STRICT_TLS_VALID"
+      },
+      "baseline_lookback_days": 7,
+      "baseline_detail_limit": 8,
+      "delta_detail_limit": 6,
+      "request_timeout_seconds": 30,
+      "request_max_bytes": 1500000,
+      "request_delay_ms": 100,
+      "canonical_key": "official_media_source_record",
+      "first_baseline_customer_signal": false,
+      "bootstrap_seed_urls": [
+        "https://myawady.net.mm/vice-president-u-nyo-saw-addresses-e-government-steering-committee-coordination-meeting-12026"
+      ],
+      "selection_policy_version": 1,
+      "health_policy": {
+        "freshness_yellow_seconds": 86400,
+        "freshness_red_seconds": 172800,
+        "fetch_yellow_failures": 1,
+        "fetch_red_failures": 3,
+        "parse_window_runs": 10,
+        "parse_min_attempts": 1,
+        "parse_yellow_ratio": 0.9,
+        "parse_red_ratio": 0.7,
+        "parse_probe_interval_seconds": 7200,
+        "parse_sample_source": "BUSINESS_PROCESSING"
+      },
+      "source_policy_version": 1,
+      "egress_profile": "mm-intl-datacenter",
+      "acquisition_policy": {
+        "enabled": false,
+        "primary": {
+          "method": "DIRECT_HTTP",
+          "target_kind": "HTML"
+        },
+        "supplementary": [],
+        "escalation": {
+          "DNS_FAILURE": {
+            "action": "RETRY"
+          },
+          "CONNECT_TIMEOUT": {
+            "action": "RETRY"
+          },
+          "HTTP_429": {
+            "action": "RETRY"
+          },
+          "HTTP_403": {
+            "action": "REVIEW"
+          },
+          "TLS_FAILURE": {
+            "action": "FAIL"
+          },
+          "JS_RENDER_REQUIRED": {
+            "action": "REVIEW_CAPABILITY"
+          },
+          "PARSER_DRIFT": {
+            "action": "REAUDIT"
+          }
+        }
+      },
+      "attachment_policy": {
+        "mode": "HTML_ONLY_NO_ATTACHMENT_REQUIRED",
+        "current_health": "BLOCKED_STRICT_TLS_CERTIFICATE_CHAIN",
+        "fetch_in_primary_pipeline": false
+      },
+      "block_reason": {
+        "type": "TLS_CERTIFICATE_CHAIN",
+        "verified_at": "2026-10-01",
+        "bangkok_strict_tls": "FAIL",
+        "mac_strict_tls": "FAIL",
+        "insecure_tls_bypass_allowed": false,
+        "reactivation_gate": "STRICT_TLS_VALID_OR_VERIFIED_OFFICIAL_ALTERNATE"
       }
     },
     "S23": {
