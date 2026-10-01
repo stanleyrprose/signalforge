@@ -46,6 +46,7 @@ from .provider_r3 import prepare_r3_gate, r3_gate_status
 from .public_read_telemetry import public_read_telemetry_alert, public_read_telemetry_report
 from .source_scorecard import source_scorecard
 from .telegram_delivery import telegram_deliver
+from .telegram_feedback import telegram_feedback_poll
 from .translation import translation_status
 
 
@@ -436,6 +437,8 @@ def main(argv: list[str] | None = None) -> int:
     pilot_feedback_parser.add_argument("--by", default="operator")
     pilot_report_parser = sub.add_parser("pilot-report")
     pilot_report_parser.add_argument("--profile-id")
+    feedback_poll_parser = sub.add_parser("telegram-feedback-poll")
+    feedback_poll_parser.add_argument("--poll-timeout", type=int, default=0)
     telegram_digest_parser = sub.add_parser("telegram-digest")
     telegram_digest_parser.add_argument("--dry-run", action="store_true")
     telegram_digest_parser.add_argument("--no-network", action="store_true")
@@ -710,6 +713,8 @@ def main(argv: list[str] | None = None) -> int:
             )
         elif args.cmd == "pilot-report":
             result = pilot_validation_report(profile_id=args.profile_id)
+        elif args.cmd == "telegram-feedback-poll":
+            result = telegram_feedback_poll(poll_timeout=int(args.poll_timeout))
         elif args.cmd == "telegram-digest":
             result = telegram_digest(dry_run=bool(args.dry_run), audit_network=not bool(args.no_network))
         else:

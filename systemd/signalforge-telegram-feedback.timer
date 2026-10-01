@@ -1,0 +1,12 @@
+[Unit]
+Description=SignalForge Telegram pilot feedback poll timer
+
+[Timer]
+OnCalendar=*-*-* *:*:20 UTC
+Persistent=false
+RandomizedDelaySec=5s
+AccuracySec=1s
+Unit=signalforge-telegram-feedback.service
+
+[Install]
+WantedBy=timers.target
