@@ -8,6 +8,7 @@ import unittest
 from datetime import UTC, datetime
 from pathlib import Path
 
+from signalforge.http import FetchResult
 from signalforge.acquisition_contract import (
     AcquisitionContractError,
     AcquisitionFailure,
@@ -82,6 +83,63 @@ class AcquisitionContractTests(unittest.TestCase):
         bad["detail_target_kind"] = "BINARY"
         with self.assertRaisesRegex(AcquisitionContractError, "unsupported detail_target_kind"):
             validate_source_acquisition_policy("S51", bad)
+
+    def test_s55_tls_exception_is_source_scoped_and_bounded(self) -> None:
+        registry = Registry.load(ROOT)
+        source = registry.source("S55")
+        validate_source_acquisition_policy("S55", source)
+
+        bad = copy.deepcopy(source)
+        bad["tls_policy"]["read_only"] = False
+        with self.assertRaisesRegex(AcquisitionContractError, "reviewed read-only exception"):
+            validate_source_acquisition_policy("S55", bad)
+
+        other = copy.deepcopy(registry.source("S13"))
+        other["http_fetch_profile"] = "myawady_strict_then_insecure_readonly_v1"
+        other["tls_policy"] = copy.deepcopy(source["tls_policy"])
+        with self.assertRaisesRegex(AcquisitionContractError, "restricted to S55"):
+            validate_source_acquisition_policy("S13", other)
+
+    def test_insecure_tls_fallback_records_strict_failure_and_success_evidence(self) -> None:
+        class FallbackFetcher:
+            def __call__(self, _url: str, **_kwargs) -> FetchResult:
+                return FetchResult(
+                    payload=b"<html>myawady</html>",
+                    fetch_method="DIRECT_HTTP_TLS_INSECURE_READONLY_FALLBACK",
+                    strict_tls_failed=True,
+                )
+
+        registry = Registry.load(ROOT)
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            db = base / "signalforge.db"
+            result = run_source(
+                "S55",
+                registry=registry,
+                now=datetime(2026, 10, 1, 15, 0, tzinfo=UTC),
+                fetcher=FallbackFetcher(),
+                sleeper=lambda _seconds: None,
+                force=True,
+                database=db,
+                evidence=base / "evidence",
+                worker_context={"run_id": "worker-s55-fallback-test"},
+            )
+            self.assertEqual(result["status"], "SUCCESS")
+            with sqlite3.connect(db) as conn:
+                attempts = conn.execute(
+                    "SELECT attempt_number,method,status,acquisition_failure_class FROM acquisition_attempts ORDER BY attempt_number"
+                ).fetchall()
+                evidence = conn.execute(
+                    "SELECT fetch_method,source_id FROM evidence_envelopes"
+                ).fetchall()
+            self.assertEqual(
+                attempts,
+                [
+                    (1, "DIRECT_HTTP", "FAILED", "TLS_FAILURE"),
+                    (2, "DIRECT_HTTP_TLS_INSECURE_READONLY_FALLBACK", "SUCCESS", None),
+                ],
+            )
+            self.assertEqual(evidence, [("DIRECT_HTTP_TLS_INSECURE_READONLY_FALLBACK", "S55")])
 
     def test_acquisition_failure_classification_is_failure_aware(self) -> None:
         self.assertEqual(classify_acquisition_failure(TimeoutError("timed out")), AcquisitionFailure.CONNECT_TIMEOUT)

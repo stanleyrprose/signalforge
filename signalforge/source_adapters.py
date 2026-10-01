@@ -67,6 +67,8 @@ from .official_media import (
     parse_mdn_listing,
     parse_mitv_detail,
     parse_mitv_listing,
+    parse_myawady_detail,
+    parse_myawady_listing,
 )
 from .moi_project_precursor import parse_project_detail as parse_moi_project_detail
 from .moi_project_precursor import parse_project_listing as parse_moi_project_listing
@@ -213,6 +215,12 @@ def _parse_mdn_official_detail(payload: bytes, url: str) -> list[object]:
     item = parse_mdn_detail(payload, url)
     return [item] if item is not None else []
 
+
+
+
+def _parse_myawady_official_detail(payload: bytes, url: str) -> list[object]:
+    item = parse_myawady_detail(payload, url)
+    return [item] if item is not None else []
 
 def _parse_gnlm_official_without_attachment(_payload: bytes, _url: str) -> list[object]:
     raise SourceAdapterError("official_media_gnlm requires its reviewed daily PDF attachment")
@@ -673,6 +681,16 @@ ADAPTERS = {
         parse_detail=_parse_gnlm_official_without_attachment,
         extract_detail_attachments=extract_gnlm_pdf_urls,
         parse_detail_with_attachments=parse_gnlm_detail_with_attachments,
+    ),
+    "official_media_myawady": SourceAdapter(
+        name="official_media_myawady",
+        discovery_content_types=("text/html",),
+        discovery_parser_version="myawady-english-news-digital-ict-filter-v1",
+        detail_parser_version="myawady-english-news-digital-ict-detail-v1",
+        normalizer_version="official-media-digital-ict-v2",
+        canonicalizer_version="myawady-news-slug-v1",
+        parse_discovery=parse_myawady_listing,
+        parse_detail=_parse_myawady_official_detail,
     ),
     "ptd_policy_notice": SourceAdapter(
         name="ptd_policy_notice",

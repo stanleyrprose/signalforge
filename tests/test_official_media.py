@@ -11,6 +11,8 @@ from signalforge.official_media import (
     parse_mdn_listing,
     parse_mitv_detail,
     parse_mitv_listing,
+    parse_myawady_detail,
+    parse_myawady_listing,
 )
 from signalforge.source_adapters import ADAPTERS, SourceAdapterError
 
@@ -198,6 +200,47 @@ class OfficialMediaParserTests(unittest.TestCase):
         assert item is not None
         self.assertEqual(item.precursor_stage_hint, "POLICY_FORMATION")
         self.assertIn("DIGITAL_GOVERNMENT", item.relevance_categories)
+
+    def test_myawady_listing_and_detail_capture_e_government_signal(self) -> None:
+        url = "https://myawady.net.mm/vice-president-u-nyo-saw-addresses-e-government-steering-committee-coordination-meeting-12026"
+        listing = b"""
+        <div class="col-3 col-sm-6 col-md-3">
+          <div class="views-field views-field-title"><span class="field-content">
+            <a href="/vice-president-u-nyo-saw-addresses-e-government-steering-committee-coordination-meeting-12026">
+              Vice President U Nyo Saw addresses e-Government Steering Committee Coordination Meeting (1/2026)
+            </a>
+          </span></div>
+          <div class="views-field views-field-created"><span class="field-content">
+            <time datetime="2026-09-30T14:50:16+06:30">Sep 30, 2026</time>
+          </span></div>
+        </div>
+        """
+        entries = parse_myawady_listing(listing)
+        self.assertEqual([(e.url, e.lastmod) for e in entries], [(url, "2026-09-30T14:50:16+06:30")])
+
+        detail = f"""
+        <html><head>
+          <link rel="canonical" href="{url}">
+          <meta property="og:title" content="Vice President U Nyo Saw addresses e-Government Steering Committee Coordination Meeting (1/2026)">
+        </head><body>
+          <article>
+            <span class="article-date"><time datetime="2026-09-30T14:50:16+06:30">Sep 30, 2026</time></span>
+            <div class="field field--name-body">
+              The government will implement e-Government and transition to Digital Government,
+              develop Public-Private Partnership (PPP) frameworks, Single Window and One-Stop
+              Digital Services platforms, information security and cybersecurity, and enact the
+              National Digital Development Strategy 2030 and Digital Development Law.
+            </div>
+          </article>
+        </body></html>
+        """.encode()
+        item = parse_myawady_detail(detail, url)
+        self.assertIsNotNone(item)
+        assert item is not None
+        self.assertEqual(item.publication_date, "2026-09-30")
+        self.assertEqual(item.precursor_stage_hint, "PPP_FORMATION")
+        self.assertIn("DIGITAL_GOVERNMENT", item.relevance_categories)
+        self.assertIn("CYBERSECURITY", item.relevance_categories)
 
     def test_gnlm_adapter_fails_closed_without_required_pdf(self) -> None:
         adapter = ADAPTERS["official_media_gnlm"]
