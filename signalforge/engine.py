@@ -18,7 +18,7 @@ from .acquisition_runtime import (
 )
 from .config import Registry, db_path, evidence_root
 from .db import connect, migrate
-from .http import fetch_bytes, fetch_bytes_cloudrity_d1n, fetch_bytes_myawady_strict_then_insecure
+from .http import fetch_bytes, fetch_bytes_cloudrity_d1n, fetch_bytes_myawady_insecure_readonly
 from .mpt import SitemapEntry
 from .source_adapters import adapter_for
 from .worker_context import load_worker_context
@@ -632,8 +632,8 @@ def _acquire_source_bytes(
         profile = source.get("http_fetch_profile")
         if profile == "cloudrity_d1n_v1" and fetcher is fetch_bytes:
             effective_fetcher = fetch_bytes_cloudrity_d1n
-        elif profile == "myawady_strict_then_insecure_readonly_v1" and fetcher is fetch_bytes:
-            effective_fetcher = fetch_bytes_myawady_strict_then_insecure
+        elif profile == "myawady_insecure_readonly_v2" and fetcher is fetch_bytes:
+            effective_fetcher = fetch_bytes_myawady_insecure_readonly
         return acquire_local_bytes(**common, fetcher=effective_fetcher)
     if engine == "provider":
         roles = source.get("provider_target_roles") or {}
@@ -1106,6 +1106,7 @@ def run_source(
             processing_capture = detail_capture
             attachment_captures = []
             attachment_payloads: list[tuple[str, bytes]] = []
+            document_ocr_result: dict[str, object] | None = None
             # Preserve the acquired detail before attachment extraction or parsing.
             _write_evidence(
                 source_id,
@@ -1144,41 +1145,80 @@ def run_source(
                     if not same_origin:
                         detail_errors += 1
                         continue
-                try:
-                    for attachment_url in attachment_urls:
-                        attachment_capture = _acquire_source_bytes(
-                            source=source,
-                            database=database,
-                            scheduler_run_id=app_run_id,
-                            source_id=source_id,
-                            reason=request_reason(trigger_kind, health_probe=entry.url == health_probe_url),
-                            target_kind="PDF",
-                            url=attachment_url,
-                            expected_content_types=["application/pdf"],
-                            observed_at=observed_at,
-                            fetcher=fetcher,
-                        )
-                        attachment_captures.append(attachment_capture)
-                        attachment_payloads.append((attachment_url, attachment_capture.payload))
-                        _write_evidence(
-                            source_id,
-                            attachment_capture.payload,
-                            attachment_capture.sha256,
-                            evidence,
-                            suffix=".pdf",
-                        )
-                except Exception:
-                    if required_count > 0:
+                if adapter.parse_detail_with_document_ocr is not None:
+                    ocr_config = source.get("document_ocr_detail") or {}
+                    if (
+                        len(attachment_urls) != 1
+                        or ocr_config.get("enabled") is not True
+                        or not isinstance(ocr_config.get("allowed_https_hosts"), list)
+                        or not isinstance(ocr_config.get("allowed_path_prefix"), str)
+                    ):
                         detail_errors += 1
                         continue
-                    attachment_captures.clear()
-                    attachment_payloads.clear()
-                if len(attachment_captures) == 1:
-                    processing_capture = attachment_captures[0]
-                    evidence_digest = processing_capture.sha256
+                    try:
+                        ocr_capture = acquire_provider_document_ocr(
+                            database=database,
+                            url=attachment_urls[0],
+                            timeout_seconds=int(ocr_config.get("timeout_seconds", 180)),
+                            max_bytes=int(ocr_config.get("max_bytes", 8_000_000)),
+                            request_now=now,
+                            source_id=source_id,
+                            source_policy_version=int(
+                                ocr_config.get("source_policy_version", source["source_policy_version"])
+                            ),
+                            target_role=str(ocr_config.get("target_role", "OFFICIAL_DOCUMENT")),
+                            allowed_https_hosts=tuple(
+                                str(value) for value in ocr_config["allowed_https_hosts"]
+                            ),
+                            allowed_path_prefix=str(ocr_config["allowed_path_prefix"]),
+                        )
+                        document_ocr_result = ocr_capture.result
+                        evidence_digest = ocr_capture.input_sha256
+                    except Exception:
+                        detail_errors += 1
+                        continue
+                else:
+                    try:
+                        for attachment_url in attachment_urls:
+                            attachment_capture = _acquire_source_bytes(
+                                source=source,
+                                database=database,
+                                scheduler_run_id=app_run_id,
+                                source_id=source_id,
+                                reason=request_reason(trigger_kind, health_probe=entry.url == health_probe_url),
+                                target_kind="PDF",
+                                url=attachment_url,
+                                expected_content_types=["application/pdf"],
+                                observed_at=observed_at,
+                                fetcher=fetcher,
+                            )
+                            attachment_captures.append(attachment_capture)
+                            attachment_payloads.append((attachment_url, attachment_capture.payload))
+                            _write_evidence(
+                                source_id,
+                                attachment_capture.payload,
+                                attachment_capture.sha256,
+                                evidence,
+                                suffix=".pdf",
+                            )
+                    except Exception:
+                        if required_count > 0:
+                            detail_errors += 1
+                            continue
+                        attachment_captures.clear()
+                        attachment_payloads.clear()
+                    if len(attachment_captures) == 1:
+                        processing_capture = attachment_captures[0]
+                        evidence_digest = processing_capture.sha256
 
             try:
-                if adapter.parse_detail_with_attachments is not None:
+                if adapter.parse_detail_with_document_ocr is not None:
+                    if document_ocr_result is None:
+                        raise EngineError(f"document OCR result missing: {source_id}")
+                    parsed_tenders = adapter.parse_detail_with_document_ocr(
+                        html, entry.url, document_ocr_result
+                    )
+                elif adapter.parse_detail_with_attachments is not None:
                     parsed_tenders = adapter.parse_detail_with_attachments(html, entry.url, attachment_payloads)
                 else:
                     parsed_tenders = adapter.parse_detail(html, entry.url)
@@ -1197,7 +1237,11 @@ def run_source(
                     signals_created=0,
                     failure=(
                         ProcessingFailure.PDF_PARSE_FAILURE
-                        if adapter.parse_detail_with_attachments is not None or detail_target_kind == "PDF"
+                        if (
+                            adapter.parse_detail_with_attachments is not None
+                            or adapter.parse_detail_with_document_ocr is not None
+                            or detail_target_kind == "PDF"
+                        )
                         else ProcessingFailure.HTML_PARSE_FAILURE
                     ),
                 )
@@ -1213,6 +1257,7 @@ def run_source(
                 suppress_once = bool(discovery and int(discovery["suppress_signal_once"] or 0))
                 evidence_unchanged = bool(
                     not attachment_captures
+                    and document_ocr_result is None
                     and discovery
                     and discovery["content_hash"]
                     and str(discovery["content_hash"]) == detail_capture.sha256

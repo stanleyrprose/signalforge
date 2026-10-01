@@ -95,18 +95,18 @@ class AcquisitionContractTests(unittest.TestCase):
             validate_source_acquisition_policy("S55", bad)
 
         other = copy.deepcopy(registry.source("S13"))
-        other["http_fetch_profile"] = "myawady_strict_then_insecure_readonly_v1"
+        other["http_fetch_profile"] = "myawady_insecure_readonly_v2"
         other["tls_policy"] = copy.deepcopy(source["tls_policy"])
         with self.assertRaisesRegex(AcquisitionContractError, "restricted to S55"):
             validate_source_acquisition_policy("S13", other)
 
-    def test_insecure_tls_fallback_records_strict_failure_and_success_evidence(self) -> None:
-        class FallbackFetcher:
+    def test_insecure_tls_readonly_records_single_successful_attempt(self) -> None:
+        class InsecureReadonlyFetcher:
             def __call__(self, _url: str, **_kwargs) -> FetchResult:
                 return FetchResult(
                     payload=b"<html>myawady</html>",
-                    fetch_method="DIRECT_HTTP_TLS_INSECURE_READONLY_FALLBACK",
-                    strict_tls_failed=True,
+                    fetch_method="DIRECT_HTTP_TLS_INSECURE_READONLY",
+                    strict_tls_failed=False,
                 )
 
         registry = Registry.load(ROOT)
@@ -117,12 +117,12 @@ class AcquisitionContractTests(unittest.TestCase):
                 "S55",
                 registry=registry,
                 now=datetime(2026, 10, 1, 15, 0, tzinfo=UTC),
-                fetcher=FallbackFetcher(),
+                fetcher=InsecureReadonlyFetcher(),
                 sleeper=lambda _seconds: None,
                 force=True,
                 database=db,
                 evidence=base / "evidence",
-                worker_context={"run_id": "worker-s55-fallback-test"},
+                worker_context={"run_id": "worker-s55-insecure-readonly-test"},
             )
             self.assertEqual(result["status"], "SUCCESS")
             with sqlite3.connect(db) as conn:
@@ -134,12 +134,9 @@ class AcquisitionContractTests(unittest.TestCase):
                 ).fetchall()
             self.assertEqual(
                 attempts,
-                [
-                    (1, "DIRECT_HTTP", "FAILED", "TLS_FAILURE"),
-                    (2, "DIRECT_HTTP_TLS_INSECURE_READONLY_FALLBACK", "SUCCESS", None),
-                ],
+                [(1, "DIRECT_HTTP_TLS_INSECURE_READONLY", "SUCCESS", None)],
             )
-            self.assertEqual(evidence, [("DIRECT_HTTP_TLS_INSECURE_READONLY_FALLBACK", "S55")])
+            self.assertEqual(evidence, [("DIRECT_HTTP_TLS_INSECURE_READONLY", "S55")])
 
     def test_acquisition_failure_classification_is_failure_aware(self) -> None:
         self.assertEqual(classify_acquisition_failure(TimeoutError("timed out")), AcquisitionFailure.CONNECT_TIMEOUT)

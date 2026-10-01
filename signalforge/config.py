@@ -108,7 +108,7 @@ class Registry:
             fetch_profile = source.get("http_fetch_profile")
             allowed_fetch_profiles = {
                 "cloudrity_d1n_v1",
-                "myawady_strict_then_insecure_readonly_v1",
+                "myawady_insecure_readonly_v2",
             }
             if fetch_profile is not None and (
                 source.get("engine") != "direct_http" or fetch_profile not in allowed_fetch_profiles

@@ -160,6 +160,31 @@
         }
       }
     },
+    "S56": {
+      "enabled": true,
+      "source_policy_version": 1,
+      "allowed_capabilities": [
+        "DOCUMENT_OCR"
+      ],
+      "targets": {
+        "OFFICIAL_NEWSPAPER": {
+          "https_host": "www.moi.gov.mm",
+          "path_prefix": "/mal/sites/default/files/newspaper-pdf/",
+          "capabilities": [
+            "DOCUMENT_OCR"
+          ],
+          "max_bytes": 8000000,
+          "max_run_seconds": 300,
+          "allow_query": false,
+          "allow_fragment": false,
+          "final_url_policy": {
+            "mode": "APPROVED_HOST_PATH",
+            "https_host": "www.moi.gov.mm",
+            "path_prefix": "/mal/sites/default/files/newspaper-pdf/"
+          }
+        }
+      }
+    },
     "S15A": {
       "enabled": true,
       "source_policy_version": 2,

@@ -3672,8 +3672,8 @@
       "name": "Myawady Official English Government Digital/ICT Signals",
       "adapter": "official_media_myawady",
       "enabled": true,
-      "role": "ACTIVE_SELECTIVE_TLS_EXCEPTION",
-      "audit_status": "GREEN_READONLY_STRICT_THEN_INSECURE_TLS_FALLBACK_USER_APPROVED_2026_10_01",
+      "role": "ACTIVE_SELECTIVE_TLS_IGNORED",
+      "audit_status": "GREEN_READONLY_TLS_VERIFICATION_DISABLED_USER_APPROVED_2026_10_01",
       "item_kind": "REGULATORY_NOTICE",
       "network_zone": "myanmar-international",
       "engine": "direct_http",
@@ -3717,7 +3717,7 @@
         "parse_probe_interval_seconds": 7200,
         "parse_sample_source": "BUSINESS_PROCESSING"
       },
-      "source_policy_version": 2,
+      "source_policy_version": 3,
       "egress_profile": "mm-intl-datacenter",
       "acquisition_policy": {
         "enabled": true,
@@ -3752,15 +3752,12 @@
       },
       "attachment_policy": {
         "mode": "HTML_ONLY_NO_ATTACHMENT_REQUIRED",
-        "current_health": "READONLY_STRICT_THEN_INSECURE_TLS_FALLBACK",
+        "current_health": "READONLY_TLS_VERIFICATION_DISABLED",
         "fetch_in_primary_pipeline": false
       },
-      "http_fetch_profile": "myawady_strict_then_insecure_readonly_v1",
+      "http_fetch_profile": "myawady_insecure_readonly_v2",
       "tls_policy": {
-        "mode": "STRICT_THEN_INSECURE_READONLY",
-        "fallback_on": [
-          "TLS_CERTIFICATE_FAILURE"
-        ],
+        "mode": "INSECURE_READONLY_ALWAYS",
         "allowed_hosts": [
           "myawady.net.mm",
           "www.myawady.net.mm"
@@ -3771,10 +3768,215 @@
       },
       "tls_exception": {
         "approved_at": "2026-10-01",
-        "reason": "OFFICIAL_PUBLIC_READ_SOURCE_CERTIFICATE_CHAIN_FAILURE",
-        "strict_tls_first": true,
-        "fallback_scope": "MYAWADY_HTTPS_GET_ONLY_NO_CREDENTIALS_SAME_ORIGIN",
-        "evidence_fetch_method": "DIRECT_HTTP_TLS_INSECURE_READONLY_FALLBACK"
+        "reason": "USER_APPROVED_OFFICIAL_PUBLIC_READ_DESPITE_ISSUER_CERTIFICATE_CHAIN_FAILURE",
+        "strict_tls_first": false,
+        "scope": "MYAWADY_HTTPS_GET_ONLY_NO_CREDENTIALS_SAME_ORIGIN",
+        "evidence_fetch_method": "DIRECT_HTTP_TLS_INSECURE_READONLY"
+      }
+    },
+    "S56": {
+      "name": "Myanma Alinn Official Newspaper Digital/ICT Signals",
+      "adapter": "official_media_myanma_alinn",
+      "enabled": true,
+      "role": "ACTIVE_SELECTIVE",
+      "audit_status": "READY_GATE_O_STRICT_TLS_HTML_PLUS_MAC_DOCUMENT_OCR",
+      "item_kind": "REGULATORY_NOTICE",
+      "network_zone": "myanmar-international",
+      "engine": "direct_http",
+      "landing_url": "https://www.moi.gov.mm/mal/",
+      "discovery_url": "https://www.moi.gov.mm/mal/",
+      "listing_complete_business_records": false,
+      "language": "my",
+      "poll_interval_seconds": 3600,
+      "retry_interval_seconds": 300,
+      "priority": 93,
+      "recovery_slo_seconds": 3600,
+      "availability_policy": {
+        "class": "DELAY_TOLERANT_MONITORED",
+        "accepted_collection_outage_seconds": 7200,
+        "collection_rto_seconds": 3600,
+        "business_data_rpo_target_seconds": 1800,
+        "outage_status": "DATA_COLLECTION_DELAYED",
+        "delivery_during_recovery": "CONTINUE_WITH_DEGRADED_HEALTH"
+      },
+      "baseline_lookback_days": 1,
+      "baseline_detail_limit": 1,
+      "delta_detail_limit": 1,
+      "request_timeout_seconds": 30,
+      "request_max_bytes": 2000000,
+      "request_delay_ms": 100,
+      "canonical_key": "official_media_source_record",
+      "first_baseline_customer_signal": false,
+      "bootstrap_seed_urls": [
+        "https://www.moi.gov.mm/mal/1-oct-26"
+      ],
+      "selection_policy_version": 2,
+      "health_policy": {
+        "freshness_yellow_seconds": 3600,
+        "freshness_red_seconds": 7200,
+        "fetch_yellow_failures": 1,
+        "fetch_red_failures": 3,
+        "parse_window_runs": 10,
+        "parse_min_attempts": 1,
+        "parse_yellow_ratio": 0.9,
+        "parse_red_ratio": 0.7,
+        "parse_probe_interval_seconds": 7200,
+        "parse_sample_source": "BUSINESS_PROCESSING"
+      },
+      "source_policy_version": 1,
+      "egress_profile": "mm-intl-datacenter",
+      "acquisition_policy": {
+        "enabled": true,
+        "primary": {
+          "method": "DIRECT_HTTP",
+          "target_kind": "HTML"
+        },
+        "supplementary": [],
+        "escalation": {
+          "DNS_FAILURE": {
+            "action": "RETRY"
+          },
+          "CONNECT_TIMEOUT": {
+            "action": "RETRY"
+          },
+          "HTTP_429": {
+            "action": "RETRY"
+          },
+          "HTTP_403": {
+            "action": "REVIEW"
+          },
+          "TLS_FAILURE": {
+            "action": "FAIL"
+          },
+          "JS_RENDER_REQUIRED": {
+            "action": "REVIEW_CAPABILITY"
+          },
+          "PARSER_DRIFT": {
+            "action": "REAUDIT"
+          }
+        }
+      },
+      "attachment_policy": {
+        "mode": "REQUIRED_DAILY_ISSUE_PDF_DOCUMENT_OCR",
+        "current_health": "READY_MAC_DOCUMENT_OCR_REQUIRED_NATIVE_TEXT_UNUSABLE",
+        "fetch_in_primary_pipeline": true,
+        "required_primary_attachments": 1,
+        "max_primary_attachments": 1,
+        "same_origin_only": true
+      },
+      "document_ocr_detail": {
+        "enabled": true,
+        "provider_id": "mac-mm-01",
+        "capability": "DOCUMENT_OCR",
+        "source_policy_version": 1,
+        "target_role": "OFFICIAL_NEWSPAPER",
+        "allowed_https_hosts": [
+          "www.moi.gov.mm"
+        ],
+        "allowed_path_prefix": "/mal/sites/default/files/newspaper-pdf/",
+        "max_bytes": 8000000,
+        "timeout_seconds": 300,
+        "provider_fixed_max_pages": 12,
+        "coverage_policy": "BOUNDED_FIRST_12_PAGES_V1"
+      }
+    },
+    "S57": {
+      "name": "Kyemon (The Mirror) Official Newspaper Digital/ICT Signals",
+      "adapter": "official_media_kyemon",
+      "enabled": true,
+      "role": "ACTIVE_SELECTIVE",
+      "audit_status": "READY_GATE_O_STRICT_TLS_NATIVE_TEXT_PDF",
+      "item_kind": "REGULATORY_NOTICE",
+      "network_zone": "myanmar-international",
+      "engine": "direct_http",
+      "landing_url": "https://www.moi.gov.mm/km/",
+      "discovery_url": "https://www.moi.gov.mm/km/",
+      "listing_complete_business_records": false,
+      "language": "my",
+      "poll_interval_seconds": 3600,
+      "retry_interval_seconds": 300,
+      "priority": 92,
+      "recovery_slo_seconds": 3600,
+      "availability_policy": {
+        "class": "DELAY_TOLERANT_MONITORED",
+        "accepted_collection_outage_seconds": 7200,
+        "collection_rto_seconds": 3600,
+        "business_data_rpo_target_seconds": 1800,
+        "outage_status": "DATA_COLLECTION_DELAYED",
+        "delivery_during_recovery": "CONTINUE_WITH_DEGRADED_HEALTH"
+      },
+      "baseline_lookback_days": 1,
+      "baseline_detail_limit": 1,
+      "delta_detail_limit": 1,
+      "request_timeout_seconds": 60,
+      "request_max_bytes": 8000000,
+      "request_delay_ms": 100,
+      "canonical_key": "official_media_source_record",
+      "first_baseline_customer_signal": false,
+      "bootstrap_seed_urls": [
+        "https://www.moi.gov.mm/km/1-october-26"
+      ],
+      "selection_policy_version": 2,
+      "health_policy": {
+        "freshness_yellow_seconds": 3600,
+        "freshness_red_seconds": 7200,
+        "fetch_yellow_failures": 1,
+        "fetch_red_failures": 3,
+        "parse_window_runs": 10,
+        "parse_min_attempts": 1,
+        "parse_yellow_ratio": 0.9,
+        "parse_red_ratio": 0.7,
+        "parse_probe_interval_seconds": 7200,
+        "parse_sample_source": "BUSINESS_PROCESSING"
+      },
+      "source_policy_version": 1,
+      "egress_profile": "mm-intl-datacenter",
+      "acquisition_policy": {
+        "enabled": true,
+        "primary": {
+          "method": "DIRECT_HTTP",
+          "target_kind": "HTML"
+        },
+        "supplementary": [
+          {
+            "method": "DIRECT_HTTP",
+            "target_kind": "PDF",
+            "required": true,
+            "max_count": 1,
+            "same_origin_only": true
+          }
+        ],
+        "escalation": {
+          "DNS_FAILURE": {
+            "action": "RETRY"
+          },
+          "CONNECT_TIMEOUT": {
+            "action": "RETRY"
+          },
+          "HTTP_429": {
+            "action": "RETRY"
+          },
+          "HTTP_403": {
+            "action": "REVIEW"
+          },
+          "TLS_FAILURE": {
+            "action": "FAIL"
+          },
+          "JS_RENDER_REQUIRED": {
+            "action": "REVIEW_CAPABILITY"
+          },
+          "PARSER_DRIFT": {
+            "action": "REAUDIT"
+          }
+        }
+      },
+      "attachment_policy": {
+        "mode": "REQUIRED_DAILY_ISSUE_PDF",
+        "current_health": "READY_NATIVE_TEXT_PDF_DIGITAL_ICT_PASSAGE_FILTER",
+        "fetch_in_primary_pipeline": true,
+        "required_primary_attachments": 1,
+        "max_primary_attachments": 1,
+        "same_origin_only": true
       }
     },
     "S23": {

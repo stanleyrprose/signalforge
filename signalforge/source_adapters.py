@@ -61,8 +61,14 @@ from .mpt import SitemapEntry, parse_sitemap, parse_tender_detail as parse_mpt_t
 from .mpt_network import parse_network_records as parse_mpt_network_records
 from .official_media import (
     extract_gnlm_pdf_urls,
+    extract_kyemon_pdf_urls,
+    extract_myanma_alinn_pdf_urls,
     parse_gnlm_detail_with_attachments,
     parse_gnlm_listing,
+    parse_kyemon_detail_with_attachments,
+    parse_kyemon_listing,
+    parse_myanma_alinn_detail_with_document_ocr,
+    parse_myanma_alinn_listing,
     parse_mdn_detail,
     parse_mdn_listing,
     parse_mitv_detail,
@@ -98,6 +104,7 @@ DiscoveryRecordParser = Callable[[bytes, str], list[object]]
 DetailParser = Callable[[bytes, str], list[object]]
 DetailAttachmentExtractor = Callable[[bytes, str], list[str]]
 DetailWithAttachmentsParser = Callable[[bytes, str, list[tuple[str, bytes]]], list[object]]
+DetailWithDocumentOCRParser = Callable[[bytes, str, dict[str, object]], list[object]]
 DiscoveryRecordDocumentUrl = Callable[[object], str | None]
 DiscoveryRecordOcrEnricher = Callable[[object, dict[str, object]], object]
 DiscoveryRecordPayloadRestorer = Callable[[object, dict[str, object]], object]
@@ -116,6 +123,7 @@ class SourceAdapter:
     parse_discovery_records: DiscoveryRecordParser | None = None
     extract_detail_attachments: DetailAttachmentExtractor | None = None
     parse_detail_with_attachments: DetailWithAttachmentsParser | None = None
+    parse_detail_with_document_ocr: DetailWithDocumentOCRParser | None = None
     discovery_record_document_url: DiscoveryRecordDocumentUrl | None = None
     enrich_discovery_record_with_ocr: DiscoveryRecordOcrEnricher | None = None
     restore_discovery_record_from_payload: DiscoveryRecordPayloadRestorer | None = None
@@ -224,6 +232,14 @@ def _parse_myawady_official_detail(payload: bytes, url: str) -> list[object]:
 
 def _parse_gnlm_official_without_attachment(_payload: bytes, _url: str) -> list[object]:
     raise SourceAdapterError("official_media_gnlm requires its reviewed daily PDF attachment")
+
+
+def _parse_myanma_alinn_without_ocr(_payload: bytes, _url: str) -> list[object]:
+    raise SourceAdapterError("official_media_myanma_alinn requires its reviewed daily PDF DOCUMENT_OCR result")
+
+
+def _parse_kyemon_without_attachment(_payload: bytes, _url: str) -> list[object]:
+    raise SourceAdapterError("official_media_kyemon requires its reviewed daily PDF attachment")
 
 
 def _parse_moi_detail(payload: bytes, url: str) -> list[object]:
@@ -691,6 +707,30 @@ ADAPTERS = {
         canonicalizer_version="myawady-news-slug-v1",
         parse_discovery=parse_myawady_listing,
         parse_detail=_parse_myawady_official_detail,
+    ),
+    "official_media_myanma_alinn": SourceAdapter(
+        name="official_media_myanma_alinn",
+        discovery_content_types=("text/html",),
+        discovery_parser_version="myanma-alinn-daily-issue-list-v1",
+        detail_parser_version="myanma-alinn-pdf-document-ocr-digital-ict-v1",
+        normalizer_version="official-media-digital-ict-v2",
+        canonicalizer_version="myanma-alinn-issue-signal-v1",
+        parse_discovery=parse_myanma_alinn_listing,
+        parse_detail=_parse_myanma_alinn_without_ocr,
+        extract_detail_attachments=extract_myanma_alinn_pdf_urls,
+        parse_detail_with_document_ocr=parse_myanma_alinn_detail_with_document_ocr,
+    ),
+    "official_media_kyemon": SourceAdapter(
+        name="official_media_kyemon",
+        discovery_content_types=("text/html",),
+        discovery_parser_version="kyemon-daily-issue-list-v1",
+        detail_parser_version="kyemon-daily-pdf-digital-ict-v1",
+        normalizer_version="official-media-digital-ict-v2",
+        canonicalizer_version="kyemon-issue-signal-v1",
+        parse_discovery=parse_kyemon_listing,
+        parse_detail=_parse_kyemon_without_attachment,
+        extract_detail_attachments=extract_kyemon_pdf_urls,
+        parse_detail_with_attachments=parse_kyemon_detail_with_attachments,
     ),
     "ptd_policy_notice": SourceAdapter(
         name="ptd_policy_notice",
