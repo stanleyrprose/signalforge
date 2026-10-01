@@ -55,7 +55,7 @@ signalforge telegram-feedback-poll --poll-timeout 0
 signalforge pilot-report --profile-id pilot-china-telecom-power
 ```
 
-`telegram-feedback-poll` fails closed when the bot has an active Telegram webhook because `getUpdates` and webhook delivery cannot be used together. The release deploy installs the feedback service/timer but does not enable the timer on first installation; enable it only after a live webhook preflight and callback test.
+`telegram-feedback-poll` fails closed when the bot has an active Telegram webhook because `getUpdates` and webhook delivery cannot be used together. The production collector uses bounded 20-second long polling and restarts two seconds after each completed poll so callback acknowledgement is near-real-time without a permanent daemon. A late/expired `answerCallbackQuery` failure is recorded as degraded UX but cannot roll back durable feedback or prevent Telegram update-offset persistence. The release deploy installs the feedback service/timer but does not enable the timer on first installation; enable it only after a live webhook preflight and callback test.
 
 The historical project-precursor and project-to-procurement tooling remains in the repository for provenance and possible future reuse, but S48/S49/S50 are retired from active polling under the current product goal.
 

@@ -11,7 +11,7 @@ Environment=SIGNALFORGE_STATE_ROOT=/srv/signalforge/state
 Environment=SIGNALFORGE_EVIDENCE_ROOT=/srv/signalforge/evidence
 Environment=SIGNALFORGE_DB=/srv/signalforge/state/signalforge.db
 EnvironmentFile=/etc/signalforge/telegram.env
-ExecStart=/srv/signalforge/active/bin/signalforge telegram-feedback-poll --poll-timeout 0
+ExecStart=/srv/signalforge/active/bin/signalforge telegram-feedback-poll --poll-timeout 20
 UMask=0077
 NoNewPrivileges=true
 PrivateTmp=true
