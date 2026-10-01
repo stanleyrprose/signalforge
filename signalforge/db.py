@@ -8,7 +8,7 @@ from typing import Iterator
 from .config import db_path
 
 
-SCHEMA_VERSION = 11
+SCHEMA_VERSION = 12
 
 
 @contextmanager
@@ -158,6 +158,12 @@ def migrate(path: Path | None = None) -> None:
                 ON pilot_feedback_events(profile_id, recorded_at DESC);
             CREATE INDEX IF NOT EXISTS idx_pilot_feedback_type_time
                 ON pilot_feedback_events(event_type, recorded_at DESC);
+
+            CREATE TABLE IF NOT EXISTS telegram_update_state (
+                bot_key TEXT PRIMARY KEY,
+                last_update_id INTEGER NOT NULL,
+                updated_at TEXT NOT NULL
+            );
 
             CREATE TABLE IF NOT EXISTS digest_delivery_receipts (
                 digest_key TEXT PRIMARY KEY,

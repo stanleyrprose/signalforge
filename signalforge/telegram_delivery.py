@@ -14,6 +14,7 @@ from .briefing import business_briefing
 from .business_profile import BusinessProfile, load_business_profile, match_tender
 from .config import db_path
 from .db import connect
+from .telegram_feedback import feedback_reply_markup
 from .translation import contains_myanmar, translate_myanmar_to_zh_hans, translate_tender_fields_to_zh_hans
 
 CHANNEL = "telegram"
@@ -284,16 +285,23 @@ def render_telegram_message(
     return text[:TELEGRAM_MESSAGE_LIMIT]
 
 
-def _send_message(*, bot_token: str, chat_id: str, text: str, timeout: int = 15) -> str:
-    body = json.dumps(
-        {
-            "chat_id": chat_id,
-            "text": text,
-            "parse_mode": "HTML",
-            "link_preview_options": {"is_disabled": True},
-        },
-        ensure_ascii=False,
-    ).encode("utf-8")
+def _send_message(
+    *,
+    bot_token: str,
+    chat_id: str,
+    text: str,
+    reply_markup: dict[str, object] | None = None,
+    timeout: int = 15,
+) -> str:
+    payload: dict[str, object] = {
+        "chat_id": chat_id,
+        "text": text,
+        "parse_mode": "HTML",
+        "link_preview_options": {"is_disabled": True},
+    }
+    if reply_markup is not None:
+        payload["reply_markup"] = reply_markup
+    body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     request = Request(
         f"https://api.telegram.org/bot{bot_token}/sendMessage",
         data=body,
@@ -411,7 +419,16 @@ def telegram_deliver(
                     }
                 )
                 continue
-            pending.append({**delivery_item, "delivery_key": key, "message": text, "payload_sha256": _payload_sha256(text)})
+            reply_markup = feedback_reply_markup(key) if profile is not None else None
+            pending.append(
+                {
+                    **delivery_item,
+                    "delivery_key": key,
+                    "message": text,
+                    "payload_sha256": _payload_sha256(text),
+                    "reply_markup": reply_markup,
+                }
+            )
         for item in manual_rows:
             if not isinstance(item, dict):
                 continue
@@ -453,7 +470,12 @@ def telegram_deliver(
 
     sent: list[dict[str, object]] = []
     for item in pending:
-        message_id = _send_message(bot_token=token, chat_id=target_chat, text=str(item["message"]))
+        message_id = _send_message(
+            bot_token=token,
+            chat_id=target_chat,
+            text=str(item["message"]),
+            reply_markup=item.get("reply_markup") if isinstance(item.get("reply_markup"), dict) else None,
+        )
         sent_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
         with connect(target) as conn, conn:
             profile_id = item.get("business_profile_id")

@@ -38,6 +38,7 @@ OLD=""
 TIMER_WAS_ENABLED=0
 DELIVERY_TIMER_WAS_ENABLED=0
 DIGEST_TIMER_WAS_ENABLED=0
+FEEDBACK_TIMER_WAS_ENABLED=0
 ASSURANCE_TIMER_WAS_ENABLED=0
 ASSURANCE_TIMER_WAS_PRESENT=0
 PUBLIC_READ_TELEMETRY_TIMER_WAS_ENABLED=0
@@ -45,6 +46,7 @@ PUBLIC_READ_TELEMETRY_TIMER_WAS_PRESENT=0
 systemctl is-enabled signalforge-run-due.timer >/dev/null 2>&1 && TIMER_WAS_ENABLED=1 || true
 systemctl is-enabled signalforge-telegram-deliver.timer >/dev/null 2>&1 && DELIVERY_TIMER_WAS_ENABLED=1 || true
 systemctl is-enabled signalforge-telegram-digest.timer >/dev/null 2>&1 && DIGEST_TIMER_WAS_ENABLED=1 || true
+systemctl is-enabled signalforge-telegram-feedback.timer >/dev/null 2>&1 && FEEDBACK_TIMER_WAS_ENABLED=1 || true
 [ -f /etc/systemd/system/signalforge-assurance.timer ] && ASSURANCE_TIMER_WAS_PRESENT=1 || true
 systemctl is-enabled signalforge-assurance.timer >/dev/null 2>&1 && ASSURANCE_TIMER_WAS_ENABLED=1 || true
 [ -f /etc/systemd/system/signalforge-public-read-telemetry.timer ] && PUBLIC_READ_TELEMETRY_TIMER_WAS_PRESENT=1 || true
@@ -71,6 +73,9 @@ cleanup() {
     if [ "$DIGEST_TIMER_WAS_ENABLED" -eq 1 ]; then
       systemctl enable --now signalforge-telegram-digest.timer >/dev/null 2>&1 || true
     fi
+    if [ "$FEEDBACK_TIMER_WAS_ENABLED" -eq 1 ]; then
+      systemctl enable --now signalforge-telegram-feedback.timer >/dev/null 2>&1 || true
+    fi
     if [ "$ASSURANCE_TIMER_WAS_ENABLED" -eq 1 ]; then
       systemctl enable --now signalforge-assurance.timer >/dev/null 2>&1 || true
     else
@@ -89,25 +94,28 @@ trap cleanup EXIT
 systemctl disable --now signalforge-run-due.timer >/dev/null 2>&1 || true
 systemctl disable --now signalforge-telegram-deliver.timer >/dev/null 2>&1 || true
 systemctl disable --now signalforge-telegram-digest.timer >/dev/null 2>&1 || true
+systemctl disable --now signalforge-telegram-feedback.timer >/dev/null 2>&1 || true
 systemctl disable --now signalforge-assurance.timer >/dev/null 2>&1 || true
 systemctl disable --now signalforge-public-read-telemetry.timer >/dev/null 2>&1 || true
 for _i in $(seq 1 30); do
   state="$(systemctl is-active signalforge-run-due.service 2>/dev/null || true)"
   delivery_state="$(systemctl is-active signalforge-telegram-deliver.service 2>/dev/null || true)"
   digest_state="$(systemctl is-active signalforge-telegram-digest.service 2>/dev/null || true)"
+  feedback_state="$(systemctl is-active signalforge-telegram-feedback.service 2>/dev/null || true)"
   assurance_state="$(systemctl is-active signalforge-assurance.service 2>/dev/null || true)"
   public_read_telemetry_state="$(systemctl is-active signalforge-public-read-telemetry.service 2>/dev/null || true)"
   refresh_busy="$(systemctl list-units --type=service --state=active,activating --no-legend --no-pager 'signalforge-refresh@*.service' 2>/dev/null | wc -l | tr -d ' ')"
-  [ "$state" != active ] && [ "$state" != activating ] && [ "$delivery_state" != active ] && [ "$delivery_state" != activating ] && [ "$digest_state" != active ] && [ "$digest_state" != activating ] && [ "$assurance_state" != active ] && [ "$assurance_state" != activating ] && [ "$public_read_telemetry_state" != active ] && [ "$public_read_telemetry_state" != activating ] && [ "$refresh_busy" -eq 0 ] && break
+  [ "$state" != active ] && [ "$state" != activating ] && [ "$delivery_state" != active ] && [ "$delivery_state" != activating ] && [ "$digest_state" != active ] && [ "$digest_state" != activating ] && [ "$feedback_state" != active ] && [ "$feedback_state" != activating ] && [ "$assurance_state" != active ] && [ "$assurance_state" != activating ] && [ "$public_read_telemetry_state" != active ] && [ "$public_read_telemetry_state" != activating ] && [ "$refresh_busy" -eq 0 ] && break
   sleep 1
 done
 state="$(systemctl is-active signalforge-run-due.service 2>/dev/null || true)"
 delivery_state="$(systemctl is-active signalforge-telegram-deliver.service 2>/dev/null || true)"
 digest_state="$(systemctl is-active signalforge-telegram-digest.service 2>/dev/null || true)"
+feedback_state="$(systemctl is-active signalforge-telegram-feedback.service 2>/dev/null || true)"
 assurance_state="$(systemctl is-active signalforge-assurance.service 2>/dev/null || true)"
 public_read_telemetry_state="$(systemctl is-active signalforge-public-read-telemetry.service 2>/dev/null || true)"
 refresh_busy="$(systemctl list-units --type=service --state=active,activating --no-legend --no-pager 'signalforge-refresh@*.service' 2>/dev/null | wc -l | tr -d ' ')"
-[ "$state" != active ] && [ "$state" != activating ] && [ "$delivery_state" != active ] && [ "$delivery_state" != activating ] && [ "$digest_state" != active ] && [ "$digest_state" != activating ] && [ "$assurance_state" != active ] && [ "$assurance_state" != activating ] && [ "$public_read_telemetry_state" != active ] && [ "$public_read_telemetry_state" != activating ] && [ "$refresh_busy" -eq 0 ] || { echo "SignalForge busy; deploy deferred" >&2; exit 75; }
+[ "$state" != active ] && [ "$state" != activating ] && [ "$delivery_state" != active ] && [ "$delivery_state" != activating ] && [ "$digest_state" != active ] && [ "$digest_state" != activating ] && [ "$feedback_state" != active ] && [ "$feedback_state" != activating ] && [ "$assurance_state" != active ] && [ "$assurance_state" != activating ] && [ "$public_read_telemetry_state" != active ] && [ "$public_read_telemetry_state" != activating ] && [ "$refresh_busy" -eq 0 ] || { echo "SignalForge busy; deploy deferred" >&2; exit 75; }
 
 if [ ! -d "$FINAL" ]; then
   install -d -m 0755 -o root -g root "$STAGE"
@@ -160,12 +168,14 @@ install -m 0644 "$FINAL/systemd/signalforge-telegram-deliver.service" /etc/syste
 install -m 0644 "$FINAL/systemd/signalforge-telegram-deliver.timer" /etc/systemd/system/signalforge-telegram-deliver.timer
 install -m 0644 "$FINAL/systemd/signalforge-telegram-digest.service" /etc/systemd/system/signalforge-telegram-digest.service
 install -m 0644 "$FINAL/systemd/signalforge-telegram-digest.timer" /etc/systemd/system/signalforge-telegram-digest.timer
+install -m 0644 "$FINAL/systemd/signalforge-telegram-feedback.service" /etc/systemd/system/signalforge-telegram-feedback.service
+install -m 0644 "$FINAL/systemd/signalforge-telegram-feedback.timer" /etc/systemd/system/signalforge-telegram-feedback.timer
 install -m 0644 "$FINAL/systemd/signalforge-assurance.service" /etc/systemd/system/signalforge-assurance.service
 install -m 0644 "$FINAL/systemd/signalforge-assurance.timer" /etc/systemd/system/signalforge-assurance.timer
 install -m 0644 "$FINAL/systemd/signalforge-public-read-telemetry.service" /etc/systemd/system/signalforge-public-read-telemetry.service
 install -m 0644 "$FINAL/systemd/signalforge-public-read-telemetry.timer" /etc/systemd/system/signalforge-public-read-telemetry.timer
 systemctl daemon-reload
-systemd-analyze verify /etc/systemd/system/signalforge-run-due.service /etc/systemd/system/signalforge-refresh@.service /etc/systemd/system/signalforge-run-due.timer /etc/systemd/system/signalforge-telegram-deliver.service /etc/systemd/system/signalforge-telegram-deliver.timer /etc/systemd/system/signalforge-telegram-digest.service /etc/systemd/system/signalforge-telegram-digest.timer /etc/systemd/system/signalforge-assurance.service /etc/systemd/system/signalforge-assurance.timer /etc/systemd/system/signalforge-public-read-telemetry.service /etc/systemd/system/signalforge-public-read-telemetry.timer >/dev/null
+systemd-analyze verify /etc/systemd/system/signalforge-run-due.service /etc/systemd/system/signalforge-refresh@.service /etc/systemd/system/signalforge-run-due.timer /etc/systemd/system/signalforge-telegram-deliver.service /etc/systemd/system/signalforge-telegram-deliver.timer /etc/systemd/system/signalforge-telegram-digest.service /etc/systemd/system/signalforge-telegram-digest.timer /etc/systemd/system/signalforge-telegram-feedback.service /etc/systemd/system/signalforge-telegram-feedback.timer /etc/systemd/system/signalforge-assurance.service /etc/systemd/system/signalforge-assurance.timer /etc/systemd/system/signalforge-public-read-telemetry.service /etc/systemd/system/signalforge-public-read-telemetry.timer >/dev/null
 
 runuser -u signalforge -- env \
   SIGNALFORGE_STATE_ROOT="$ROOT/state" \
@@ -182,6 +192,9 @@ if [ "$DELIVERY_TIMER_WAS_ENABLED" -eq 1 ]; then
 fi
 if [ "$DIGEST_TIMER_WAS_ENABLED" -eq 1 ]; then
   systemctl enable --now signalforge-telegram-digest.timer >/dev/null
+fi
+if [ "$FEEDBACK_TIMER_WAS_ENABLED" -eq 1 ]; then
+  systemctl enable --now signalforge-telegram-feedback.timer >/dev/null
 fi
 if [ "$ASSURANCE_TIMER_WAS_ENABLED" -eq 1 ] || [ "$ASSURANCE_TIMER_WAS_PRESENT" -eq 0 ]; then
   systemctl enable --now signalforge-assurance.timer >/dev/null

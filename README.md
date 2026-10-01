@@ -44,6 +44,19 @@ A profile may use relevance_categories, product keywords, buyer_keywords, exclud
 
 This is the managed-service pilot layer for customer-specific Telegram feeds. It is intentionally not a public self-service portal, billing system, or public API.
 
+### Pilot Telegram feedback
+
+Profile-attributed Telegram deliveries include three inline actions: `👍 Relevant`, `👎 Not Relevant`, and `🚀 Took Action`. They write directly into the existing `pilot_feedback_events` ledger, so `signalforge pilot-report --profile-id <id>` measures relevance and customer action without a second KPI system.
+
+The callback collector is intentionally gated:
+
+```sh
+signalforge telegram-feedback-poll --poll-timeout 0
+signalforge pilot-report --profile-id pilot-china-telecom-power
+```
+
+`telegram-feedback-poll` fails closed when the bot has an active Telegram webhook because `getUpdates` and webhook delivery cannot be used together. The release deploy installs the feedback service/timer but does not enable the timer on first installation; enable it only after a live webhook preflight and callback test.
+
 The historical project-precursor and project-to-procurement tooling remains in the repository for provenance and possible future reuse, but S48/S49/S50 are retired from active polling under the current product goal.
 
 ## MPA preview tooling

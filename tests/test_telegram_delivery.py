@@ -173,6 +173,13 @@ class TelegramDeliveryTests(unittest.TestCase):
         self.assertGreaterEqual(pending["business_profile_match_score"], 45)
         self.assertIn("🎯 与你业务关联：", pending["message"])
         self.assertIn("ICT", pending["message"])
+        markup = pending["reply_markup"]
+        assert isinstance(markup, dict)
+        buttons = [button for row in markup["inline_keyboard"] for button in row]
+        self.assertEqual(
+            [button["text"] for button in buttons],
+            ["👍 Relevant", "👎 Not Relevant", "🚀 Took Action"],
+        )
 
 
     def test_real_profile_delivery_persists_profile_attribution(self) -> None:
@@ -189,7 +196,7 @@ class TelegramDeliveryTests(unittest.TestCase):
             migrate(database)
             with patch("signalforge.telegram_delivery.business_briefing", return_value=_briefing()), patch(
                 "signalforge.telegram_delivery._send_message", return_value="303"
-            ):
+            ) as send:
                 result = telegram_deliver(
                     database=database,
                     bot_token="secret",
@@ -197,6 +204,7 @@ class TelegramDeliveryTests(unittest.TestCase):
                     business_profile=profile,
                 )
             self.assertEqual(result["sent_count"], 1)
+            self.assertIsInstance(send.call_args.kwargs.get("reply_markup"), dict)
             with connect(database) as conn:
                 row = conn.execute(
                     "SELECT profile_id,profile_match_score FROM pilot_delivery_receipts WHERE canonical_key='mofa:1'"
