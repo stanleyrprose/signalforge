@@ -8,6 +8,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 from urllib.error import HTTPError, URLError
+from zoneinfo import ZoneInfo
 from urllib.request import Request, urlopen
 
 from .briefing import business_briefing
@@ -154,11 +155,60 @@ def _evidence_label(value: object) -> str:
     }.get(str(value or ""), str(value or "已核验官方来源"))
 
 
-def _compact_scope(value: object, limit: int = 240) -> str:
+def _compact_scope(value: object, limit: int = 320) -> str:
     text = " ".join(str(value or "").split())
     if len(text) <= limit:
         return text
     return text[: max(0, limit - 1)].rstrip() + "…"
+
+
+_LOCAL_TZ = ZoneInfo("Asia/Yangon")
+
+
+def _deadline_urgency_text(item: dict[str, object], now: datetime | None) -> str | None:
+    if now is None or str(item.get("deadline_status") or "") != "OPEN":
+        return None
+    deadline = str(item.get("deadline") or "").strip()
+    if not deadline:
+        return None
+    try:
+        deadline_date = datetime.strptime(deadline, "%Y-%m-%d").date()
+    except ValueError:
+        return None
+
+    local_now = now.astimezone(_LOCAL_TZ)
+    deadline_time = str(item.get("deadline_time") or "").strip()
+    if deadline_time:
+        try:
+            deadline_at = datetime.strptime(
+                f"{deadline} {deadline_time[:5]}", "%Y-%m-%d %H:%M"
+            ).replace(tzinfo=_LOCAL_TZ)
+        except ValueError:
+            deadline_at = None
+        if deadline_at is not None:
+            remaining_seconds = int((deadline_at - local_now).total_seconds())
+            if remaining_seconds <= 0:
+                return "⚠️ 时效：按已核验时间已到截止点，请先确认是否延期"
+            if remaining_seconds <= 72 * 3600:
+                remaining_hours = max(1, (remaining_seconds + 3599) // 3600)
+                if remaining_hours < 24:
+                    prefix = "🔴" if remaining_hours <= 12 else "⏳"
+                    return f"{prefix} 时效：约 {remaining_hours} 小时后截止"
+                days, hours = divmod(remaining_hours, 24)
+                suffix = f"{days} 天" + (f" {hours} 小时" if hours else "")
+                return f"⏳ 时效：约 {suffix}后截止"
+            return None
+
+    days_remaining = (deadline_date - local_now.date()).days
+    if days_remaining < 0:
+        return "⚠️ 时效：截止日期已到，请先确认是否延期"
+    if days_remaining == 0:
+        return "🔴 时效：今日截止；具体时间未确认，请立即核实"
+    if days_remaining == 1:
+        return "⏳ 时效：明日截止；具体时间未确认"
+    if days_remaining == 2:
+        return "⏳ 时效：2 天后截止；具体时间未确认"
+    return None
 
 
 def _telegram_business_readiness(item: dict[str, object]) -> list[str]:
@@ -177,9 +227,6 @@ def _telegram_business_readiness(item: dict[str, object]) -> list[str]:
     scope = _compact_scope(item.get("scope_excerpt"), limit=320)
     if len(scope) < 16:
         reasons.append("PROCUREMENT_SCOPE_NOT_ACTIONABLE")
-    quantity = " ".join(str(item.get("quantity_or_lot_summary") or "").split())
-    if not quantity:
-        reasons.append("QUANTITY_OR_SCALE_NOT_EXPLAINED")
     return reasons
 
 
@@ -187,6 +234,7 @@ def render_telegram_message(
     item: dict[str, object],
     *,
     translator: TranslationBatch | None = None,
+    now: datetime | None = None,
 ) -> str:
     raw_title = str(item.get("title") or item.get("canonical_key") or "Tender")
     raw_issuer = str(item.get("issuer") or "Unknown issuer")
@@ -241,12 +289,17 @@ def render_telegram_message(
         "",
         f"🏛 {issuer_label}：{issuer}",
     ]
+    publication_date = str(item.get("publication_date") or "").strip()
+    if publication_date:
+        lines.append(f"📅 发布：{html.escape(publication_date)}")
     if scope:
         lines.append(f"📦 采购内容：{scope}")
     if item.get("quantity_or_lot_summary"):
         lines.append(f"🔢 数量/规模：{quantity}")
+    else:
+        lines.append("🔢 数量/规模：已核验摘要未单列；详见采购内容/官方原文")
     if item.get("price_or_budget_summary"):
-        lines.append(f"💰 金额（原文）：{amount}")
+        lines.append(f"💰 预算/价格（原文）：{amount}")
     if item.get("deadline_status") != "UNKNOWN":
         lines.append(f"⏰ {_deadline_label(item)}：<b>{html.escape(_deadline_text(item))}</b>")
     elif item.get("action_date"):
@@ -254,6 +307,9 @@ def render_telegram_message(
         lines.append(f"🗓 活动日：<b>{html.escape(action_date)}</b>")
     else:
         lines.append(f"⏰ {_deadline_label(item)}：<b>{html.escape(_deadline_text(item))}</b>")
+    urgency_text = _deadline_urgency_text(item, now)
+    if urgency_text:
+        lines.append(urgency_text)
     opening = _opening_text(item)
     if opening:
         lines.append(f"🗓 开标：<b>{html.escape(opening)}</b>")
@@ -410,7 +466,7 @@ def telegram_deliver(
                 ).fetchone()
             if exists is not None:
                 continue
-            text = render_telegram_message(delivery_item, translator=translator)
+            text = render_telegram_message(delivery_item, translator=translator, now=now)
             if (not dry_run or translate_preview) and contains_myanmar(text):
                 quality_filtered.append(
                     {

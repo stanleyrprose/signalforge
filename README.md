@@ -19,6 +19,7 @@ python -m compileall -q signalforge tests
 python -m json.tool registry/Source-Registry-v1.yaml >/dev/null
 sh -n bin/signalforge
 sh -n deploy/deploy-signalforge-release.sh
+sh -n deploy/sync-mac-provider-contract.sh
 ```
 
 ## Primary tender delivery
@@ -29,7 +30,7 @@ signalforge telegram-deliver
 signalforge briefing
 ```
 
-`telegram-deliver` sends each undelivered formal tender Signal once. Sector and priority remain metadata, but no longer suppress a formal `TENDER` from primary Telegram delivery. Notifications prioritize buyer, procurement scope, quantity/lot, explicit monetary amount when present, dates, tender number and official source. Myanmar/English presentation text is translated to Simplified Chinese when the bounded translation provider is available; canonical evidence remains unchanged.
+`telegram-deliver` sends each undelivered formal tender Signal once. Sector and priority remain metadata, but no longer suppress a formal `TENDER` from primary Telegram delivery. Notifications prioritize buyer, publication date, procurement scope, quantity/lot, explicit monetary amount when present, deadline urgency, tender number and official source. A missing normalized quantity field is not a delivery blocker: the card states that the reviewed summary did not separately normalize quantity/scale and points the user to the procurement scope/original source. Closed or unconfirmed deadlines, non-procurement customer exclusions, non-actionable scope, and untranslated Myanmar text remain fail-closed. Myanmar/English presentation text is translated to Simplified Chinese when the bounded translation provider is available; canonical evidence remains unchanged.
 
 ### Pilot business-profile matching
 
@@ -57,18 +58,27 @@ signalforge pilot-report --profile-id pilot-china-telecom-power
 
 `telegram-feedback-poll` fails closed when the bot has an active Telegram webhook because `getUpdates` and webhook delivery cannot be used together. The production collector uses bounded 20-second long polling and restarts two seconds after each completed poll so callback acknowledgement is near-real-time without a permanent daemon. A late/expired `answerCallbackQuery` failure is recorded as degraded UX but cannot roll back durable feedback or prevent Telegram update-offset persistence. The release deploy installs the feedback service/timer but does not enable the timer on first installation; enable it only after a live webhook preflight and callback test.
 
-The historical project-precursor and project-to-procurement tooling remains in the repository for provenance and possible future reuse, but S48/S49/S50 are retired from active polling under the current product goal.
+The historical project-to-procurement tooling remains in the repository for provenance and possible future reuse. S49/S50 are retired from active polling under the current product goal; S48 remains active as a bounded official-media/context source where configured.
 
-## MPA preview tooling
+## MPA provider operations
 
-S15A remains deferred/inactive. The preview tools are operator-only and are not VPS Worker verbs:
+S15A Myanma Port Authority is production-active through the bounded Mac Browser Provider contract for listing, detail and one issuer PDF. The Mac runtime contract must match the repository Provider Invocation Contract exactly.
+
+```sh
+deploy/sync-mac-provider-contract.sh --check
+deploy/sync-mac-provider-contract.sh --sync
+```
+
+`--check` is read-only and exits non-zero on contract drift. `--sync` backs up the current Mac runtime contract, copies the reviewed repository contract, verifies SHA-256 equality and required source policy versions, then restarts the dedicated `com.stanley.mac-browser-provider` LaunchAgent. It is an operator action and is not run automatically by Bangkok deployment.
+
+The MPA preview tools remain available for reviewed evidence inspection:
 
 ```sh
 signalforge mpa-preview --html response.html --limit 30
 signalforge mpa-pdf-preview --pdf tender.pdf
 ```
 
-The PDF preview uses the issuer-original PDF as authoritative business evidence. It returns a deterministic final `TENDER` / `AUCTION_NOTICE` only when decisive procurement/disposal semantics are present; otherwise it returns `REVIEW_REQUIRED`. Deadline extraction is fail-closed when date/time evidence is missing or ambiguous.
+The issuer-original PDF remains authoritative business evidence. Final `TENDER` / `AUCTION_NOTICE` classification stays fail-closed when decisive procurement/disposal or date evidence is missing or ambiguous.
 
 ## Production layout
 

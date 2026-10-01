@@ -12,7 +12,7 @@ INDUSTRY_BASE_URL = "https://www.industrymsme.gov.mm"
 INDUSTRY_LIST_URL = f"{INDUSTRY_BASE_URL}/announcements"
 INDUSTRY_ISSUER = "Ministry of Industry, Myanmar"
 INDUSTRY_HOST = "www.industrymsme.gov.mm"
-SELECTION_POLICY_VERSION = 1
+SELECTION_POLICY_VERSION = 2
 
 _TENDER_TOKENS = (
     "အိတ်ဖွင့်တင်ဒါ",
@@ -34,6 +34,15 @@ _DEADLINE_RE = re.compile(
     r".{0,220}?\(?\s*(?P<day>\d{1,2})\s*[.\-/]\s*(?P<month>\d{1,2})\s*[.\-/]\s*(?P<year>20\d{2})\s*\)?"
     r".{0,100}?\(?\s*(?P<hour>\d{1,2})\s*[:း]\s*(?P<minute>\d{2})\s*\)?",
     re.S,
+)
+_QUANTITY_SCALE_RE = re.compile(
+    r"\(?\s*(?P<amount>\d[\d,]*)\s*\)?\s*"
+    r"(?P<unit>မျိုး|တန်|ပေါင်|စီး|နေရာ|tons?|tonnes?|sets?|pcs?|pieces?)",
+    re.I,
+)
+_WORK_COUNT_RE = re.compile(
+    r"လုပ်ငန်း\s*\(?\s*(?P<amount>\d[\d,]*)\s*\)?\s*ခု",
+    re.I,
 )
 
 
@@ -95,11 +104,34 @@ def _detail_publication_date(value: str) -> str | None:
         return None
 
 
-def _deadline(value: str) -> tuple[str | None, str | None]:
+def _normalized_numeric_text(value: str) -> str:
     text = normalize_text(value).translate(_MYANMAR_DIGITS)
-    # The issuer occasionally types Myanmar letter Wa (ဝ) as numeric zero inside a date year (for example ၂ဝ၂၆).
-    # Normalize only when the glyph is sandwiched by digits so ordinary Burmese words are untouched.
-    text = re.sub(r"(?<=\d)ဝ(?=\d)", "0", text)
+    # The issuer sometimes types Myanmar letter Wa (ဝ) for numeric zero.
+    return re.sub(r"(?<=\d)ဝ(?=\d|[\s,.)]|$)", "0", text)
+
+
+def _quantity_or_lot_summary(*values: str) -> str | None:
+    text = " ".join(_normalized_numeric_text(value) for value in values if value)
+    matches: list[str] = []
+    seen: set[str] = set()
+
+    def add(token: str) -> None:
+        key = token.lower()
+        if key not in seen and len(matches) < 8:
+            seen.add(key)
+            matches.append(token)
+
+    for match in _QUANTITY_SCALE_RE.finditer(text):
+        amount = match.group("amount").replace(",", "")
+        add(f"{amount} {match.group('unit')}")
+    for match in _WORK_COUNT_RE.finditer(text):
+        amount = match.group("amount").replace(",", "")
+        add(f"{amount} လုပ်ငန်း")
+    return "; ".join(matches) if matches else None
+
+
+def _deadline(value: str) -> tuple[str | None, str | None]:
+    text = _normalized_numeric_text(value)
     match = _DEADLINE_RE.search(text)
     if match is None:
         return None, None
@@ -216,6 +248,7 @@ class IndustryTender:
     publication_date: str
     business_unit: str | None
     scope_summary: str
+    quantity_or_lot_summary: str | None
     deadline: str
     deadline_time: str | None
     url: str
@@ -248,6 +281,11 @@ class IndustryTender:
             "publication_date": self.publication_date,
             "publication_date_evidence": "DETAIL_VISIBLE_DD_MM_YYYY",
             "scope_summary": self.scope_summary,
+            "quantity_or_lot_summary": self.quantity_or_lot_summary,
+            "quantity_or_lot_evidence": (
+                "EXPLICIT_HTML_QUANTITY_OR_SCALE" if self.quantity_or_lot_summary else None
+            ),
+            "quantity_or_lot_confidence": "EXPLICIT_TEXT" if self.quantity_or_lot_summary else None,
             "deadline": self.deadline,
             "deadline_time": self.deadline_time,
             "deadline_evidence": "EXPLICIT_HTML_TENDER_CLOSE_DATE_TIME",
@@ -322,6 +360,7 @@ def parse_tender_detail(html_bytes: bytes, page_url: str) -> IndustryTender | No
     business_unit = normalize_text(" ".join(parser.author_parts)) or None
     body = normalize_text(" ".join(parser.body_parts))
     deadline, deadline_time = _deadline(body)
+    quantity_or_lot_summary = _quantity_or_lot_summary(title, body)
     if not title or not _is_tender_title(title) or publication_date is None or not body or deadline is None:
         return None
     return IndustryTender(
@@ -330,6 +369,7 @@ def parse_tender_detail(html_bytes: bytes, page_url: str) -> IndustryTender | No
         publication_date=publication_date,
         business_unit=business_unit,
         scope_summary=body[:3000],
+        quantity_or_lot_summary=quantity_or_lot_summary,
         deadline=deadline,
         deadline_time=deadline_time,
         url=canonical_url,

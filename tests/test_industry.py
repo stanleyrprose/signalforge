@@ -40,6 +40,45 @@ class IndustryTests(unittest.TestCase):
         self.assertEqual(tender.business_unit, "No.1 Heavy Industrial Enterprise")
         self.assertIn("Chemical Reagent", tender.scope_summary)
         self.assertIn("Sample Gas", tender.scope_summary)
+        self.assertEqual(tender.quantity_or_lot_summary, "22 မျိုး; 5 မျိုး")
+        self.assertNotIn("2027", tender.quantity_or_lot_summary or "")
+
+    def test_detail_extracts_explicit_quantity_or_scale_without_inference(self) -> None:
+        cases = [
+            (
+                "1101",
+                "Fluid Control Unit ပစ္စည်း (၁၀) မျိုး ဝယ်ယူရန် အိတ်ဖွင့်တင်ဒါခေါ်ယူခြင်း",
+                "တင်ဒါပိတ်ရက်နှင့်အချိန် - (၁၄.၁၀.၂၀၂၆) ရက်နေ့၊ (၁၆:၀၀)နာရီ",
+                "10 မျိုး",
+            ),
+            (
+                "1102",
+                "အိတ်ဖွင့်တင်ဒါခေါ်ယူခြင်း",
+                "Refractory (၅၀) မျိုး Castable Mortar (၁၀) မျိုး Consumable (၄) မျိုး "
+                "HMS-1 (2000) Tons HMS-2 (1495) Tons "
+                "တင်ဒါပိတ်ရက်နှင့်အချိန် - (၁၄.၁၀.၂၀၂၆) ရက်နေ့၊ (၁၆:၀၀)နာရီ",
+                "50 မျိုး; 10 မျိုး; 4 မျိုး; 2000 Tons; 1495 Tons",
+            ),
+            (
+                "1103",
+                "၁/၇ ပီစီချည်(ရောင်စုံ) ၄၉,၄၆ဝ ပေါင် ဝယ်ယူရန် အိတ်ဖွင့်တင်ဒါခေါ်ယူခြင်း",
+                "တင်ဒါပိတ်ရက်နှင့်အချိန် - (၁၄.၁၀.၂၀၂၆) ရက်နေ့၊ (၁၆:၀၀)နာရီ",
+                "49460 ပေါင်",
+            ),
+        ]
+        for record_id, title, body, expected_quantity in cases:
+            with self.subTest(record_id=record_id):
+                tender = parse_tender_detail(
+                    _detail_html(title=title, date="Thu 01-10-2026", body=body),
+                    f"https://www.industrymsme.gov.mm/announcements/{record_id}",
+                )
+                self.assertIsNotNone(tender)
+                assert tender is not None
+                self.assertEqual(tender.quantity_or_lot_summary, expected_quantity)
+                self.assertEqual(
+                    tender.payload()["quantity_or_lot_evidence"],
+                    "EXPLICIT_HTML_QUANTITY_OR_SCALE",
+                )
 
 
     def test_detail_accepts_live_issuer_close_label_variants(self) -> None:
