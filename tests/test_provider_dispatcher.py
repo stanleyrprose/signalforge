@@ -88,6 +88,9 @@ class ProviderDispatcherTests(unittest.TestCase):
         claimed = dispatch("provider-claim-v1", database=self.db, now=NOW)
         self.assertEqual(claimed["provider_id"], "mac-mm-01")
         self.assertEqual(claimed["provider_request_id"], item["provider_request_id"])
+        # Dispatcher grants a long bounded lease, but request expiry remains
+        # the tighter authority for short-lived work.
+        self.assertEqual(claimed["claim_expires_at"], (NOW + timedelta(seconds=120)).isoformat().replace("+00:00", "Z"))
         status = dispatch("provider-status-v1", database=self.db, now=NOW)
         self.assertEqual(status["provider_id"], "mac-mm-01")
         self.assertEqual(status["counts"]["CLAIMED"], 1)

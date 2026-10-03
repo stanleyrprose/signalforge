@@ -223,6 +223,30 @@ class ProviderInvocationContractTests(unittest.TestCase):
                 max_bytes=1_000_000, max_run_seconds=45, now=NOW, ttl_seconds=90, **ids(),
             )
 
+    def test_production_contract_allows_bounded_s56_ocr_budget(self) -> None:
+        value = json.loads(
+            (Path(__file__).resolve().parents[1] / "registry" / "Provider-Invocation-Contract-v1.json").read_text()
+        )
+        request = build_provider_request(
+            contract=value,
+            source_id="S56",
+            source_policy_version=1,
+            capability="DOCUMENT_OCR",
+            target_role="OFFICIAL_NEWSPAPER",
+            requested_url="https://www.moi.gov.mm/mal/sites/default/files/newspaper-pdf/2026-09/mal%201.10.26.pdf",
+            max_bytes=8_000_000,
+            max_run_seconds=300,
+            now=NOW,
+            ttl_seconds=330,
+            **ids(),
+        )
+        self.assertEqual(request["max_run_seconds"], 300)
+        self.assertEqual(
+            datetime.fromisoformat(request["expires_at"].replace("Z", "+00:00")) - NOW,
+            timedelta(seconds=330),
+        )
+        validate_provider_request(request, contract=value, now=NOW)
+
     def test_production_contract_allows_only_bounded_s15a_pdf_provider_target(self) -> None:
         value = json.loads(
             (Path(__file__).resolve().parents[1] / "registry" / "Provider-Invocation-Contract-v1.json").read_text()

@@ -71,7 +71,7 @@ def dispatch(
             provider_id=PIC_PROVIDER_ID,
             database=target_db,
             now=observed_now,
-            lease_seconds=60,
+            lease_seconds=300,
         )
 
     if command == "provider-status-v1":
