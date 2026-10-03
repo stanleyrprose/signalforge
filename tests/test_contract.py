@@ -343,6 +343,8 @@ class ContractTests(unittest.TestCase):
         self.assertFalse(s23_doc["allow_query"])
         self.assertFalse(s23_doc["allow_fragment"])
 
+        self.assertEqual(provider_contract["limits"]["max_run_seconds"], 300)
+        self.assertEqual(provider_contract["limits"]["max_request_ttl_seconds"], 360)
         s56_ocr = provider_contract["source_policies"]["S56"]
         self.assertEqual(s56_ocr["allowed_capabilities"], ["DOCUMENT_OCR"])
         self.assertEqual(s56_ocr["source_policy_version"], 1)

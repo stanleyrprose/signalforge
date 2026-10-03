@@ -21,8 +21,8 @@
     "PUBLIC_READ_ACQUIRE": "browser_acquire"
   },
   "limits": {
-    "max_run_seconds": 180,
-    "max_request_ttl_seconds": 180,
+    "max_run_seconds": 300,
+    "max_request_ttl_seconds": 360,
     "max_bytes": 16777216
   },
   "security": {
