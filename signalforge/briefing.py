@@ -10,7 +10,7 @@ from .db import connect, migrate
 from .mission_focus import MISSION_POLICY_VERSION, MISSION_STATEMENT, classify_mission_fit
 from .opportunities import current_opportunities
 
-BRIEFING_POLICY_VERSION = 3
+BRIEFING_POLICY_VERSION = 4
 
 
 def _collapse(value: object) -> str:
