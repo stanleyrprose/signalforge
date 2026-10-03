@@ -25,23 +25,19 @@ class ContractTests(unittest.TestCase):
         )
         self.assertEqual(manifest["verbs"]["signalforge-refresh"]["argument"], "source_id")
         self.assertEqual(manifest["grammar"]["source_id"], "^[A-Z][A-Z0-9]{0,15}$")
-        self.assertEqual(manifest["active_source_ids"], ["S05A", "S07", "S08A", "S10", "S12", "S13", "S16", "S20", "S22", "S23", "S25", "S26", "S28", "S29", "S30", "S31", "S32", "S33", "S34", "S35", "S36", "S37", "S39", "S40", "S41", "S43", "S44", "S45", "S46", "S47", "S48", "S51", "S52", "S53", "S54", "S55", "S56", "S57", "S15A", "S27", "S38"])
+        self.assertEqual(manifest["active_source_ids"], ["S05A", "S07", "S08A", "S10", "S12", "S13", "S16", "S20", "S21", "S22", "S23", "S25", "S26", "S28", "S29", "S30", "S31", "S32", "S33", "S34", "S35", "S36", "S37", "S39", "S40", "S41", "S43", "S44", "S45", "S46", "S47", "S48", "S51", "S52", "S53", "S54", "S55", "S56", "S57", "S15A", "S27", "S38"])
 
         registry = Registry.load(ROOT)
-        retired_s21 = registry.raw["sources"]["S21"]
-        self.assertFalse(retired_s21["enabled"])
-        self.assertEqual(retired_s21["role"], "RETIRED_UNAVAILABLE")
-        self.assertEqual(retired_s21["audit_status"], "RETIRED_PERSISTENT_ORIGIN_TIMEOUT_2026_09_27")
-        self.assertFalse(retired_s21["acquisition_policy"]["enabled"])
-        self.assertTrue(retired_s21["retirement"]["historical_data_retained"])
-        self.assertEqual(
-            retired_s21["retirement"]["reactivation_gate"],
-            "OFFICIAL_ORIGIN_RECOVERY_OR_REVIEWED_REPLACEMENT_SURFACE",
-        )
+        railways = registry.raw["sources"]["S21"]
+        self.assertTrue(railways["enabled"])
+        self.assertEqual(railways["role"], "ACTIVE_PRIMARY")
+        self.assertEqual(railways["audit_status"], "GREEN_REACTIVATED_OFFICIAL_SITE_REDESIGN_2026_10_03")
+        self.assertTrue(railways["acquisition_policy"]["enabled"])
+        self.assertTrue(railways["reactivation"]["historical_data_retained"])
+        self.assertEqual(railways["discovery_url"], "https://www.railways.gov.mm/posts?category=tender")
         with self.assertRaisesRegex(ConfigError, "invalid source id"):
             registry.source("../../etc/passwd")
-        with self.assertRaisesRegex(ConfigError, "source is not active"):
-            registry.source("S21")
+        self.assertEqual(registry.source("S21")["adapter"], "railways")
         with self.assertRaisesRegex(ConfigError, "source is not active"):
             registry.source("S99")
 

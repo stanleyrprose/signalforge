@@ -15,7 +15,7 @@ from signalforge.railways import parse_tender_detail, parse_tender_listing
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
-LIST_URL = "https://www.railways.gov.mm/category/tender/"
+LIST_URL = "https://www.railways.gov.mm/posts?category=tender"
 DETAIL_URL = "https://www.railways.gov.mm/%e1%80%95%e1%80%ad%e1%80%af%e1%80%b7%e1%80%86%e1%80%b1%e1%80%ac%e1%80%84%e1%80%ba%e1%80%9b%e1%80%b1%e1%80%b8%e1%81%80%e1%80%94%e1%80%ba%e1%80%80%e1%80%bc%e1%80%ae%e1%80%b8%e1%80%8c%e1%80%ac-22/"
 
 
@@ -37,8 +37,7 @@ class RailwayFetcher:
 def _railway_registry(*, actionable: bool = False) -> Registry:
     raw = json.loads(json.dumps(Registry.load(ROOT).raw))
     source = raw["sources"]["S21"]
-    # Production retires S21, but adapter/engine regression tests keep an
-    # explicit isolated active fixture so the recovery path remains testable.
+    # Keep an isolated single-source registry for deterministic engine tests.
     source["enabled"] = True
     source["role"] = "ACTIVE_PRIMARY"
     source["acquisition_policy"]["enabled"] = True
@@ -69,6 +68,49 @@ class RailwayParserTests(unittest.TestCase):
         self.assertEqual(tenders[0].deadline, "2026-09-14")
         self.assertIn("50KVA Transformer", tenders[0].project_name)
         self.assertEqual(tenders[1].canonical_key, "railways:12(T)30/MR(ML/ISN)")
+
+    def test_redesigned_listing_discovers_post_cards_with_iso_dates(self) -> None:
+        url = "https://www.railways.gov.mm/posts/opaque-current-tender"
+        html = f"""
+        <a href="{url}" class="mr-blog-card">
+          <span class="mr-blog-card__body">
+            <time class="mr-blog-card__date" datetime="2026-10-02T00:00:00+06:30">2 Oct 2026</time>
+            <span class="mr-blog-card__title">အိတ်ဖွင့်တင်ဒါခေါ်ယူခြင်း</span>
+          </span>
+        </a>
+        """.encode()
+        entries = parse_tender_listing(html)
+        self.assertEqual(len(entries), 1)
+        self.assertEqual(entries[0].url, url)
+        self.assertEqual(entries[0].lastmod, "2026-10-02T00:00:00Z")
+
+    def test_redesigned_detail_excludes_related_tender_deadline(self) -> None:
+        url = "https://www.railways.gov.mm/posts/opaque-current-tender"
+        html = """
+        <article class="mr-container mr-post-detail__wrap">
+          <header>
+            <p class="mr-post-meta__line">
+              <span class="mr-post-meta__label">ထုတ်ပြန်သည့်ရက်:</span>
+              2 Oct 2026 <span>(MMT)</span>
+            </p>
+          </header>
+          <div class="mr-post-detail__table">
+            <table>
+              <tr><th>စဉ်</th><th>တင်ဒါအမှတ်</th><th>ပစ္စည်း/လုပ်ငန်း</th></tr>
+              <tr><td>၁</td><td>၃၃၁/မမ/CE</td><td>လုပ်ငန်းသုံး စက်နှင့် စက်ပစ္စည်း (၁၂) မျိုး ဝယ်ယူရန်</td></tr>
+            </table>
+          </div>
+          <section class="mr-post-related">
+            <div>တင်ဒါပိတ်မည့်နေ့/အချိန် – (၁၉.၆.၂၀၂၆)</div>
+          </section>
+        </article>
+        """.encode()
+        tenders = parse_tender_detail(html, url)
+        self.assertEqual(len(tenders), 1)
+        self.assertEqual(tenders[0].canonical_key, "railways:331/မမ/CE")
+        self.assertEqual(tenders[0].publication_date, "2026-10-02")
+        self.assertIsNone(tenders[0].deadline)
+        self.assertIn("(၁၂) မျိုး", tenders[0].project_name)
 
 
 class RailwayEngineTests(unittest.TestCase):

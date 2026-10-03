@@ -256,8 +256,8 @@ class SourceScorecardTests(unittest.TestCase):
 
 
     def test_portfolio_v3_keeps_tiers_while_business_yield_becomes_mission_filtered(self) -> None:
-        self.assertEqual(SCORECARD_VERSION, 7)
-        self.assertEqual(PORTFOLIO_TIERS["S21"], "RETIRED_UNAVAILABLE")
+        self.assertEqual(SCORECARD_VERSION, 8)
+        self.assertEqual(PORTFOLIO_TIERS["S21"], "STRATEGIC_WATCH")
         self.assertEqual(PORTFOLIO_TIERS["S22"], "STRATEGIC_WATCH")
         self.assertEqual(PORTFOLIO_TIERS["S49"], "STRATEGIC_WATCH")
         self.assertEqual(PORTFOLIO_TIERS["S50"], "STRATEGIC_WATCH")

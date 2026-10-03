@@ -66,6 +66,30 @@ class TenderListingParser(HTMLParser):
     def handle_starttag(self, tag: str, attrs) -> None:  # type: ignore[no-untyped-def]
         lowered = tag.lower()
         classes = self._classes(attrs)
+
+        # Current 2026 Myanma Railways site: /posts?category=tender
+        # renders each Tender as an <a class="mr-blog-card"> containing a
+        # <time class="mr-blog-card__date" datetime="..."> element.
+        if lowered == "a" and "mr-blog-card" in classes:
+            href = next((str(value) for key, value in attrs if key == "href" and value), None)
+            if href:
+                parsed = urlparse(href)
+                if (
+                    parsed.scheme == "https"
+                    and parsed.netloc.lower() in {"railways.gov.mm", "www.railways.gov.mm"}
+                    and parsed.path.startswith("/posts/")
+                ):
+                    self._pending_url = href
+            return
+        if lowered == "time" and "mr-blog-card__date" in classes and self._pending_url:
+            raw_datetime = next((str(value) for key, value in attrs if key == "datetime" and value), None)
+            publication_date = _parse_wordpress_date(raw_datetime[:10] if raw_datetime else None)
+            lastmod = f"{publication_date}T00:00:00Z" if publication_date else None
+            self.entries.append(SitemapEntry(self._pending_url, lastmod))
+            self._pending_url = None
+            return
+
+        # Legacy WordPress layout retained for historical fixtures/replay.
         if lowered == "h4" and "entry-title" in classes:
             self._in_title = True
             return
@@ -104,6 +128,11 @@ def _parse_wordpress_date(value: str | None) -> str | None:
     if not value:
         return None
     normalized = normalize_text(value)
+    if re.fullmatch(r"20\d{2}-\d{2}-\d{2}", normalized):
+        try:
+            return datetime.strptime(normalized, "%Y-%m-%d").date().isoformat()
+        except ValueError:
+            return None
     parsed = parse_date(normalized)
     if parsed:
         return parsed
@@ -126,15 +155,55 @@ def parse_tender_listing(html_bytes: bytes) -> list[SitemapEntry]:
 
 def _publication_date(html_bytes: bytes) -> str | None:
     text = html_bytes.decode("utf-8", errors="replace")
-    match = re.search(
+
+    # Current site detail header, e.g.:
+    # "ထုတ်ပြန်သည့်ရက်: 2 Oct 2026 (MMT)".
+    current = re.search(
+        r'<p[^>]*class="[^"]*mr-post-meta__line[^"]*"[^>]*>(.*?)</p>',
+        text,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    if current:
+        value = normalize_text(re.sub(r"<[^>]+>", " ", current.group(1)))
+        date_match = re.search(r"\b(\d{1,2}\s+[A-Za-z]{3,9}\s+20\d{2})\b", value)
+        if date_match:
+            parsed = _parse_wordpress_date(date_match.group(1))
+            if parsed:
+                return parsed
+
+    legacy = re.search(
         r'<span[^>]*class="[^"]*mg-blog-date[^"]*"[^>]*>(.*?)</span>',
         text,
         flags=re.IGNORECASE | re.DOTALL,
     )
-    if not match:
+    if not legacy:
         return None
-    value = re.sub(r"<[^>]+>", " ", match.group(1))
+    value = re.sub(r"<[^>]+>", " ", legacy.group(1))
     return _parse_wordpress_date(value)
+
+
+def _primary_detail_bytes(html_bytes: bytes) -> bytes:
+    """Bound parsing to the current Tender article, excluding related-Tender cards.
+
+    The redesigned site embeds related Tender excerpts below the primary article.
+    Those excerpts can contain other Tender deadlines; parsing the whole page would
+    incorrectly assign a related Tender's deadline to the current notice.
+    """
+
+    text = html_bytes.decode("utf-8", errors="replace")
+    marker = "mr-post-detail__wrap"
+    marker_pos = text.find(marker)
+    if marker_pos < 0:
+        return html_bytes
+    start = text.rfind("<article", 0, marker_pos)
+    if start < 0:
+        return html_bytes
+    end = text.find('<section class="mr-post-related"', marker_pos)
+    if end < 0:
+        end = text.find("</article>", marker_pos)
+    if end < 0:
+        return html_bytes
+    return text[start:end].encode("utf-8")
 
 
 def _deadline(full_text: str) -> str | None:
@@ -155,9 +224,10 @@ def _deadline(full_text: str) -> str | None:
 
 
 def parse_tender_detail(html_bytes: bytes, url: str) -> list[RailwayTender]:
+    primary_bytes = _primary_detail_bytes(html_bytes)
     parser = TableTextParser()
-    parser.feed(html_bytes.decode("utf-8", errors="replace"))
-    publication_date = _publication_date(html_bytes)
+    parser.feed(primary_bytes.decode("utf-8", errors="replace"))
+    publication_date = _publication_date(primary_bytes)
     deadline = _deadline(parser.full_text)
     digest = hashlib.sha256(html_bytes).hexdigest()
 

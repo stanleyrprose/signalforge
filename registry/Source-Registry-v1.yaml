@@ -193,20 +193,21 @@
     "S21": {
       "name": "Myanma Railways Tenders",
       "adapter": "railways",
-      "enabled": false,
-      "role": "RETIRED_UNAVAILABLE",
-      "audit_status": "RETIRED_PERSISTENT_ORIGIN_TIMEOUT_2026_09_27",
-      "retirement": {
-        "retired_at": "2026-09-27",
-        "reason": "PERSISTENT_ORIGIN_CONNECT_TIMEOUT",
+      "enabled": true,
+      "role": "ACTIVE_PRIMARY",
+      "audit_status": "GREEN_REACTIVATED_OFFICIAL_SITE_REDESIGN_2026_10_03",
+      "reactivation": {
+        "reactivated_at": "2026-10-03",
+        "prior_retired_at": "2026-09-27",
+        "prior_reason": "PERSISTENT_ORIGIN_CONNECT_TIMEOUT",
         "historical_data_retained": true,
-        "reactivation_gate": "OFFICIAL_ORIGIN_RECOVERY_OR_REVIEWED_REPLACEMENT_SURFACE"
+        "evidence": "OFFICIAL_ORIGIN_RECOVERED_WITH_NEW_POSTS_TENDER_SURFACE"
       },
       "item_kind": "TENDER",
       "network_zone": "myanmar-international",
       "engine": "direct_http",
-      "landing_url": "https://www.railways.gov.mm/tenders/",
-      "discovery_url": "https://www.railways.gov.mm/category/tender/",
+      "landing_url": "https://www.railways.gov.mm/posts?category=tender",
+      "discovery_url": "https://www.railways.gov.mm/posts?category=tender",
       "discovery_is_tender_only": true,
       "language": "my",
       "poll_interval_seconds": 900,
@@ -234,10 +235,7 @@
         "min_remaining_seconds": 43200,
         "max_signals_per_run": 10
       },
-      "bootstrap_seed_urls": [
-        "https://www.railways.gov.mm/%e1%80%95%e1%80%ad%e1%80%af%e1%80%b7%e1%80%86%e1%80%b1%e1%80%ac%e1%80%84%e1%80%ba%e1%80%9b%e1%80%b1%e1%80%b8%e1%81%80%e1%80%94%e1%80%ba%e1%80%80%e1%80%bc%e1%80%ae%e1%80%b8%e1%80%8c%e1%80%ac-22/",
-        "https://www.railways.gov.mm/%e1%80%95%e1%80%ad%e1%80%af%e1%80%b7%e1%80%86%e1%80%b1%e1%80%ac%e1%80%84%e1%80%ba%e1%80%9b%e1%80%b1%e1%80%b8%e1%81%80%e1%80%94%e1%80%ba%e1%80%80%e1%80%bc%e1%80%ae%e1%80%b8%e1%80%8c%e1%80%ac-21/"
-      ],
+      "bootstrap_seed_urls": [],
       "health_policy": {
         "freshness_yellow_seconds": 1800,
         "freshness_red_seconds": 2700,
@@ -252,7 +250,7 @@
       "source_policy_version": 1,
       "egress_profile": "mm-intl-datacenter",
       "acquisition_policy": {
-        "enabled": false,
+        "enabled": true,
         "primary": {
           "method": "DIRECT_HTTP",
           "target_kind": "HTML"

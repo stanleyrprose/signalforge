@@ -124,7 +124,7 @@ class BriefingTests(unittest.TestCase):
         with patch("signalforge.briefing.current_opportunities", return_value=self._opportunities()):
             result = business_briefing()
 
-        self.assertEqual(result["briefing_policy_version"], 3)
+        self.assertEqual(result["briefing_policy_version"], 4)
         self.assertEqual(result["mission_policy_version"], 1)
         self.assertEqual(result["qualification_policy_version"], 1)
         self.assertEqual(result["tracked_opportunities"], 4)
