@@ -32,7 +32,7 @@ def contract() -> dict:
         "enabled": False,
         "allowed_capabilities": list(CAPABILITY_TOOL_MAP),
         "tool_map": dict(CAPABILITY_TOOL_MAP),
-        "limits": {"max_run_seconds": 180, "max_request_ttl_seconds": 180, "max_bytes": 16 * 1024 * 1024},
+        "limits": {"max_run_seconds": 300, "max_request_ttl_seconds": 360, "max_bytes": 16 * 1024 * 1024},
         "security": {
             "https_only": True,
             "arbitrary_url_allowed": False,
@@ -51,7 +51,7 @@ def contract() -> dict:
                         "capabilities": list(CAPABILITY_TOOL_MAP),
                         "exact_urls": ["https://www.industrymsme.gov.mm/announcements"],
                         "max_bytes": 1_000_000,
-                        "max_run_seconds": 60,
+                        "max_run_seconds": 300,
                     }
                 },
             }
@@ -59,7 +59,14 @@ def contract() -> dict:
     }
 
 
-def new_request(*, now: datetime = NOW, ttl: int = 90, capability: str = "C0_FETCH", retry_safe: bool = False) -> dict:
+def new_request(
+    *,
+    now: datetime = NOW,
+    ttl: int = 90,
+    capability: str = "C0_FETCH",
+    retry_safe: bool = False,
+    max_run_seconds: int = 60,
+) -> dict:
     interaction = None
     if capability == "C3_BROWSER_USE":
         interaction = {
@@ -78,7 +85,7 @@ def new_request(*, now: datetime = NOW, ttl: int = 90, capability: str = "C0_FET
         acquisition_request_id=str(uuid.uuid4()),
         acquisition_attempt_id=str(uuid.uuid4()),
         max_bytes=1_000_000,
-        max_run_seconds=60,
+        max_run_seconds=max_run_seconds,
         interaction_plan=interaction,
         now=now,
         ttl_seconds=ttl,
@@ -118,6 +125,38 @@ class ProviderQueueTests(unittest.TestCase):
         self.assertEqual(second["provider_request_id"], low["provider_request_id"])
         third = claim_next_provider_request(provider_id="mac-mm-01", database=self.db, now=NOW, lease_seconds=60)
         self.assertEqual(third["status"], "NO_WORK")
+
+    def test_document_ocr_claim_lease_tracks_long_run_budget(self) -> None:
+        request = new_request(
+            ttl=330,
+            capability="DOCUMENT_OCR",
+            max_run_seconds=300,
+        )
+        enqueue_provider_request(request, contract=contract(), database=self.db, now=NOW)
+        claimed = claim_next_provider_request(
+            provider_id="mac-mm-01",
+            database=self.db,
+            now=NOW,
+            lease_seconds=60,
+        )
+        self.assertEqual(
+            claimed["claim_expires_at"],
+            (NOW + timedelta(seconds=300)).isoformat().replace("+00:00", "Z"),
+        )
+
+    def test_non_ocr_claim_keeps_short_default_lease(self) -> None:
+        request = new_request(ttl=330, capability="C0_FETCH", max_run_seconds=60)
+        enqueue_provider_request(request, contract=contract(), database=self.db, now=NOW)
+        claimed = claim_next_provider_request(
+            provider_id="mac-mm-01",
+            database=self.db,
+            now=NOW,
+            lease_seconds=60,
+        )
+        self.assertEqual(
+            claimed["claim_expires_at"],
+            (NOW + timedelta(seconds=60)).isoformat().replace("+00:00", "Z"),
+        )
 
     def test_claim_token_is_only_stored_hashed(self) -> None:
         request = new_request()

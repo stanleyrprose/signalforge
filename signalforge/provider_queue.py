@@ -270,8 +270,18 @@ def claim_next_provider_request(
 
         attempt_id = str(uuid.uuid4())
         claim_token = secrets.token_urlsafe(32)
+        effective_lease_seconds = lease_seconds
+        if str(row["capability"]) == "DOCUMENT_OCR":
+            try:
+                request_body = json.loads(str(row["request_json"]))
+            except json.JSONDecodeError:
+                request_body = {}
+            requested_max_run = request_body.get("max_run_seconds")
+            if isinstance(requested_max_run, int):
+                effective_lease_seconds = min(300, max(lease_seconds, requested_max_run))
+
         claim_expires_at = min(
-            observed_now + timedelta(seconds=lease_seconds),
+            observed_now + timedelta(seconds=effective_lease_seconds),
             _parse_time(str(row["expires_at"])),
         )
         claim_expires_text = _iso(claim_expires_at)
