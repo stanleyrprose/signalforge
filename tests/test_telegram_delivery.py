@@ -350,6 +350,23 @@ class TelegramDeliveryTests(unittest.TestCase):
         self.assertLessEqual(scope_line.count("x"), 320)
         self.assertNotIn("<Foreign>", text)
 
+    def test_local_windows_source_path_is_removed_from_customer_presentation_only(self) -> None:
+        item = _briefing()["attention"][0]
+        assert isinstance(item, dict)
+        noisy_scope = (
+            r"Open Tender | C:\Users\User\Downloads\Newpaper Update (DDG 2 Revised).docx "
+            "| Service Provider for worker support"
+        )
+        item["scope_excerpt"] = noisy_scope
+        text = render_telegram_message(item, translator=lambda values: (values, False))
+        self.assertNotIn(r"C:\Users\User\Downloads", text)
+        self.assertNotIn("Newpaper Update (DDG 2 Revised).docx", text)
+        self.assertIn(
+            "📦 采购内容：Open Tender | Service Provider for worker support",
+            text,
+        )
+        self.assertEqual(item["scope_excerpt"], noisy_scope)
+
     def test_explicit_money_is_rendered_without_inference(self) -> None:
         item = _briefing()["attention"][0]
         assert isinstance(item, dict)

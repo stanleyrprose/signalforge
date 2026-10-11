@@ -4,6 +4,7 @@ import hashlib
 import html
 import json
 import os
+import re
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
@@ -98,8 +99,24 @@ def _evidence_label(value: object) -> str:
     }.get(str(value or ""), str(value or "已核验官方来源"))
 
 
-def _compact_scope(value: object, limit: int = 320) -> str:
+_WINDOWS_LOCAL_FILE_RE = re.compile(
+    r"\b[A-Za-z]:\\[^|\r\n]+?\.(?:docx?|xlsx?|pptx?|pdf|txt)\b",
+    re.I,
+)
+
+
+def _presentation_scope(value: object) -> str:
     text = " ".join(str(value or "").split())
+    # Some issuer PDFs/HTML expose the author's local Windows source-file path
+    # as visible text. Keep canonical evidence untouched, but suppress that
+    # presentation noise from the Telegram card.
+    text = _WINDOWS_LOCAL_FILE_RE.sub("", text)
+    segments = [segment.strip(" \t,;-") for segment in text.split("|")]
+    return " | ".join(segment for segment in segments if segment).strip()
+
+
+def _compact_scope(value: object, limit: int = 320) -> str:
+    text = _presentation_scope(value)
     if len(text) <= limit:
         return text
     return text[: max(0, limit - 1)].rstrip() + "…"
