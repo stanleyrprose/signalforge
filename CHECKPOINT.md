@@ -32,7 +32,9 @@ Reliability layers retained: source health, Assurance, missed-signal review, noi
 
 ## Implementation status
 
-Core-only refactor is in implementation review. Per `AGENTS.md`, no tests, CI, PR, merge, deployment or production Telegram send is authorized during this phase.
+Implementation and static review are complete on `refactor/tender-core-only`. Current reviewed head: `e714762` (`refactor: align assurance with tender-only scope`).
+
+Per `AGENTS.md`, tests, CI, PR, merge, deployment and production Telegram sends remain unauthorized until the next explicit gate.
 
 Current implementation facts:
 
@@ -41,7 +43,10 @@ Current implementation facts:
 - due-source scheduling is every 5 minutes; Telegram delivery is every 5 minutes at the :45 second offset;
 - Telegram's internal current-tender read is unbounded and no longer has the 500-row read-view cap;
 - source scorecard/business KPI yield is not mission-filtered; mission classification is analytical metadata only;
-- business KPI now measures recent Signal-created-to-Telegram success latency from existing receipts;
-- precursor, project-link/lead-time, customer profile, pilot feedback, standalone digest, non-tender news/policy sources and their dedicated runtime modules are retired from the active tree.
+- business KPI measures recent Signal-created-to-Telegram success latency from existing receipts;
+- Assurance uses `tender_coverage` for bounded independent MPT/MYTEL reconciliation; the retired ATOM surface trigger is removed;
+- precursor, project-link/lead-time, customer profile, pilot feedback, standalone digest, non-tender news/policy sources, manual provider bridge and generic C2/C3 browser escalation are retired from the active tree;
+- static consistency audit found no missing relative imports, no missing adapters for active sources, and no invalid provider capability references;
+- both Mac worktrees are clean: the original worktree tracks `main@69cc691`; the refactor worktree tracks the GitHub feature branch. GitHub remains the sole SOT.
 
-The next gate after static review is explicit authorization to run affected-path verification.
+The next gate is explicit authorization to run affected-path verification.
