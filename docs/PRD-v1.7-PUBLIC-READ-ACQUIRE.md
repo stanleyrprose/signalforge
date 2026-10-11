@@ -31,7 +31,7 @@ v1.7 changes only the normal HTML acquisition policy for:
 
 Both move from source policy version 1 to version 2. Their normal provider capability becomes `PUBLIC_READ_ACQUIRE`. `C0_FETCH` remains authorized for bounded diagnostic/backward-compatible use, but is no longer the normal source acquisition choice.
 
-Historical R3 evidence-only and manual-provider-v0 contracts remain unchanged.
+Historical R3 evidence-only and manual-provider-v0 paths are retired from the active SignalForge tree; Git history remains the archive.
 
 ## Security boundary
 
@@ -68,7 +68,7 @@ The Provider result wire schema is intentionally unchanged. The manifest still i
 - no C2/C3 authorization through this composite capability;
 - no engine selector in the Provider request;
 - no change to Artifact OCR authorization;
-- no change to manual-provider-v0 or historical R3 evidence-only behavior.
+- no manual-provider-v0 or historical R3 evidence-only runtime remains in active SignalForge.
 
 ## Verification gates
 

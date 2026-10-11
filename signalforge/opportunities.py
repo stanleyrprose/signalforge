@@ -195,11 +195,11 @@ def current_opportunities(
     now: datetime | None = None,
     source_id: str | None = None,
     include_expired: bool = False,
-    limit: int = 50,
+    limit: int | None = 50,
     registry: Registry | None = None,
 ) -> dict[str, object]:
-    if limit < 1 or limit > 500:
-        raise ValueError("opportunities limit must be between 1 and 500")
+    if limit is not None and (limit < 1 or limit > 500):
+        raise ValueError("opportunities limit must be between 1 and 500, or None for an internal unbounded read")
     now = (now or datetime.now(UTC)).astimezone(UTC)
     target = database or db_path()
     registry = registry or Registry.load()
@@ -447,7 +447,7 @@ def current_opportunities(
         )
 
     rows.sort(key=sort_key)
-    returned = rows[:limit]
+    returned = rows if limit is None else rows[:limit]
     counts = {
         "OPEN": sum(1 for item in rows if item["opportunity_status"] == "OPEN"),
         "UNKNOWN": sum(1 for item in rows if item["opportunity_status"] == "UNKNOWN"),

@@ -55,7 +55,8 @@ class ContractTests(unittest.TestCase):
 
         enabled = registry.enabled_sources()
         self.assertTrue(enabled)
-        self.assertTrue(all(source.get("item_kind", "TENDER") == "TENDER" for _sid, source in enabled))
+        self.assertTrue(all(source.get("item_kind") == "TENDER" for _sid, source in enabled))
+        self.assertTrue(all(0 < int(source["poll_interval_seconds"]) <= 1800 for _sid, source in enabled))
         provider_sources = {sid for sid, source in enabled if source["engine"] == "provider"}
         self.assertEqual(provider_sources, {"S15A", "S27", "S38"})
 
@@ -127,6 +128,7 @@ class ContractTests(unittest.TestCase):
         self.assertIn("PUBLIC_READ_TELEMETRY_TIMER_WAS_ENABLED", deploy)
         self.assertIn("/etc/signalforge", deploy)
         service = (ROOT / "systemd" / "signalforge-telegram-deliver.service").read_text(encoding="utf-8")
+        run_due_timer = (ROOT / "systemd" / "signalforge-run-due.timer").read_text(encoding="utf-8")
         timer = (ROOT / "systemd" / "signalforge-telegram-deliver.timer").read_text(encoding="utf-8")
         assurance_service = (ROOT / "systemd" / "signalforge-assurance.service").read_text(encoding="utf-8")
         assurance_timer = (ROOT / "systemd" / "signalforge-assurance.timer").read_text(encoding="utf-8")
@@ -135,6 +137,7 @@ class ContractTests(unittest.TestCase):
         self.assertIn("EnvironmentFile=/etc/signalforge/telegram.env", service)
         self.assertIn("ExecStart=/srv/signalforge/active/bin/signalforge telegram-deliver", service)
         self.assertIn("User=signalforge", service)
+        self.assertIn("OnCalendar=*-*-* *:0/5:00 UTC", run_due_timer)
         self.assertIn("OnCalendar=*-*-* *:0/5:45 UTC", timer)
         self.assertIn("ExecStart=/srv/signalforge/active/bin/signalforge assurance-run", assurance_service)
         self.assertNotIn("telegram.env", assurance_service)

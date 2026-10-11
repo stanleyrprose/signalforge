@@ -121,7 +121,8 @@ Retired systemd digest/feedback units should be disabled/stopped/removed during 
 Primary:
 
 - formal tender discovery/delivery coverage;
-- observation-to-Telegram latency;
+- Signal-created-to-Telegram success latency: target <= 300 seconds; report recent median/P95 and within-target rate;
+- source-publication-to-Telegram normal-path objective: <= 35 minutes for the current 15/30-minute source polling policy, excluding issuer/network/provider degradation and only where publication timing is observable;
 - notice field completeness;
 - duplicate-free delivery;
 - reviewed missed-signal count / false-negative rate;

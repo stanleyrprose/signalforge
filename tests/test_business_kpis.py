@@ -6,8 +6,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import patch
 
-from signalforge.business_kpis import business_kpi_report, summarize_opportunity_quality
-from signalforge.db import migrate
+from signalforge.business_kpis import business_kpi_report, summarize_delivery_timeliness, summarize_opportunity_quality
+from signalforge.db import connect, migrate
 
 
 class BusinessKpiTests(unittest.TestCase):
@@ -106,7 +106,7 @@ class BusinessKpiTests(unittest.TestCase):
             }
             with patch(
                 "signalforge.business_kpis.current_opportunities",
-                return_value={"opportunities": []},
+                return_value={"opportunities": [{"url": "https://example.test/stationery", "item_kind": "TENDER", "title": "Office stationery tender"}]},
             ), patch(
                 "signalforge.business_kpis.verified_external_opportunities",
                 return_value=[],
@@ -121,11 +121,55 @@ class BusinessKpiTests(unittest.TestCase):
                 )
 
             self.assertEqual(report["metric"], "SIGNALFORGE_CORE_BUSINESS_KPIS")
-            self.assertEqual(report["opportunity_output_quality"]["business_current_opportunities"], 0)
+            self.assertEqual(report["opportunity_output_quality"]["business_current_opportunities"], 1)
+            self.assertEqual(report["opportunity_output_quality"]["canonical_current_opportunities"], 1)
+            self.assertEqual(report["delivery_timeliness"]["sample_count"], 0)
             self.assertNotIn("project_precursor_pipeline", report)
             self.assertNotIn("project_procurement_link_review", report)
             self.assertNotIn("project_to_procurement_lead_time", report)
 
+    def test_delivery_timeliness_uses_signal_to_success_receipt_latency(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            database = Path(tmp) / "signalforge.db"
+            migrate(database)
+            with connect(database) as conn, conn:
+                conn.execute(
+                    "INSERT INTO signals(signal_id,source_id,canonical_key,signal_type,created_at,payload_json) VALUES (?,?,?,?,?,?)",
+                    ("sig-1", "S38", "item:1", "NEW", "2026-09-27T10:00:00Z", "{}"),
+                )
+                conn.execute(
+                    "INSERT INTO signals(signal_id,source_id,canonical_key,signal_type,created_at,payload_json) VALUES (?,?,?,?,?,?)",
+                    ("sig-2", "S38", "item:2", "NEW", "2026-09-27T11:00:00Z", "{}"),
+                )
+                conn.execute(
+                    """
+                    INSERT INTO delivery_receipts(
+                        delivery_key,channel,canonical_key,signal_id,attention_action,priority_band,
+                        payload_sha256,provider_message_id,sent_at
+                    ) VALUES (?,?,?,?,?,?,?,?,?)
+                    """,
+                    ("d1", "telegram", "item:1", "sig-1", "PRIORITIZE", "HIGH", "a", "101", "2026-09-27T10:02:00Z"),
+                )
+                conn.execute(
+                    """
+                    INSERT INTO delivery_receipts(
+                        delivery_key,channel,canonical_key,signal_id,attention_action,priority_band,
+                        payload_sha256,provider_message_id,sent_at
+                    ) VALUES (?,?,?,?,?,?,?,?,?)
+                    """,
+                    ("d2", "telegram", "item:2", "sig-2", "PRIORITIZE", "HIGH", "b", "102", "2026-09-27T11:06:00Z"),
+                )
+
+            report = summarize_delivery_timeliness(
+                database=database,
+                now=datetime(2026, 9, 27, 12, 0, tzinfo=UTC),
+            )
+            self.assertEqual(report["sample_count"], 2)
+            self.assertEqual(report["within_target_count"], 1)
+            self.assertEqual(report["within_target_rate"], 0.5)
+            self.assertEqual(report["median_seconds"], 240.0)
+            self.assertEqual(report["p95_seconds"], 360.0)
+            self.assertEqual(report["max_seconds"], 360)
 
 
 if __name__ == "__main__":

@@ -326,7 +326,8 @@ def telegram_deliver(
 ) -> dict[str, object]:
     target = database or db_path()
     now = (now or datetime.now(UTC)).astimezone(UTC)
-    briefing = business_briefing(database=target, now=now)
+    # Delivery must not silently truncate the current formal-tender queue.
+    briefing = business_briefing(database=target, now=now, limit=None)
     rows = briefing.get("attention") or []
     assert isinstance(rows, list)
     pending: list[dict[str, object]] = []

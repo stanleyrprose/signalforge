@@ -24,8 +24,6 @@
         "public_read_acquisition_router": true,
         "c1_render": true,
         "c1_generic_interaction": false,
-        "c2_readonly_inspect": true,
-        "c3_browser_agent": false,
         "persistent_profile": true,
         "screenshot": true,
         "binary_artifact": true,
@@ -36,52 +34,6 @@
         "tls_verification_required": true,
         "cdp_loopback_only": true,
         "personal_chrome_profile_allowed": false
-      }
-    }
-  },
-  "manual_provider_bridge": {
-    "schema_version": 1,
-    "bridge_name": "manual-provider-v0",
-    "provider_id": "mac-mm-01",
-    "provider_baseline_version": 1,
-    "candidates": {
-      "S15A": {
-        "url": "https://www.mpa.gov.mm/tenders-and-announcement/",
-        "task_type": "fetch",
-        "target_kind": "HTML",
-        "expected_content_types": [
-          "text/html",
-          "application/xhtml+xml"
-        ],
-        "egress": "direct",
-        "egress_profile": "mac-direct",
-        "profile": "public-research",
-        "profile_mode": "ephemeral",
-        "queue_timeout_sec": 60,
-        "max_run_sec": 30,
-        "source_policy_version": 2,
-        "manual_targets": {
-          "DETAIL": {
-            "target_kind": "HTML",
-            "expected_content_types": [
-              "text/html",
-              "application/xhtml+xml"
-            ],
-            "https_host": "www.mpa.gov.mm",
-            "path_prefix": "/announcements/",
-            "path_suffix": "/"
-          },
-          "PDF": {
-            "target_kind": "PDF",
-            "expected_content_types": [
-              "application/pdf"
-            ],
-            "https_host": "www.mpa.gov.mm",
-            "path_prefix": "/wp-content/uploads/",
-            "path_suffix": ".pdf"
-          }
-        },
-        "allow_active_fallback": true
       }
     }
   },
@@ -188,7 +140,8 @@
             "action": "REAUDIT"
           }
         }
-      }
+      },
+      "item_kind": "TENDER"
     },
     "S21": {
       "name": "Myanma Railways Tenders",
@@ -457,7 +410,8 @@
         "mode": "METADATA_ONLY_NON_BLOCKING",
         "current_health": "DEGRADED_HTTP_404",
         "fetch_in_primary_pipeline": false
-      }
+      },
+      "item_kind": "TENDER"
     },
     "S25": {
       "name": "MONPIFER Ministry Tenders",

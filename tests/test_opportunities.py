@@ -852,6 +852,16 @@ class OpportunityViewTests(unittest.TestCase):
             assert isinstance(rows, list)
             self.assertEqual([row["canonical_key"] for row in rows], ["item:1", "item:2"])
 
+            unbounded = current_opportunities(
+                database=database,
+                now=datetime(2026, 9, 9, 4, 0, tzinfo=UTC),
+                source_id="S38",
+                include_expired=True,
+                limit=None,
+            )
+            self.assertEqual(unbounded["count"], 3)
+            self.assertEqual(unbounded["total_matching"], 3)
+
     def test_cli_command_is_read_only_surface_not_worker_verb(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             database = Path(tmp) / "signalforge.db"

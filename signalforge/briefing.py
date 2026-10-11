@@ -151,8 +151,9 @@ def business_briefing(
     database: Path | None = None,
     now: datetime | None = None,
     registry: Registry | None = None,
+    limit: int | None = 500,
 ) -> dict[str, object]:
-    opportunities = current_opportunities(database=database, now=now, registry=registry, limit=500)
+    opportunities = current_opportunities(database=database, now=now, registry=registry, limit=limit)
     tracked_rows = opportunities.get("opportunities") or []
     assert isinstance(tracked_rows, list)
 

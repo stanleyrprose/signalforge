@@ -29,7 +29,7 @@ def contract() -> dict:
         "provider_id": "mac-mm-01",
         "transport": "pull_ssh_v1",
         "enabled": False,
-        "allowed_capabilities": ["PUBLIC_READ_ACQUIRE", "C0_FETCH", "C1_RENDER", "C2_INSPECT", "C3_BROWSER_USE", "DOCUMENT_OCR"],
+        "allowed_capabilities": ["PUBLIC_READ_ACQUIRE", "C0_FETCH", "C1_RENDER", "DOCUMENT_OCR"],
         "tool_map": dict(CAPABILITY_TOOL_MAP),
         "limits": {
             "max_run_seconds": 180,
@@ -48,16 +48,16 @@ def contract() -> dict:
             "S38": {
                 "enabled": True,
                 "source_policy_version": 2,
-                "allowed_capabilities": ["PUBLIC_READ_ACQUIRE", "C0_FETCH", "C1_RENDER", "C2_INSPECT", "C3_BROWSER_USE"],
+                "allowed_capabilities": ["PUBLIC_READ_ACQUIRE", "C0_FETCH", "C1_RENDER"],
                 "targets": {
                     "LISTING": {
-                        "capabilities": ["PUBLIC_READ_ACQUIRE", "C0_FETCH", "C1_RENDER", "C2_INSPECT", "C3_BROWSER_USE"],
+                        "capabilities": ["PUBLIC_READ_ACQUIRE", "C0_FETCH", "C1_RENDER"],
                         "exact_urls": ["https://www.industrymsme.gov.mm/announcements"],
                         "max_bytes": 1_000_000,
                         "max_run_seconds": 45,
                     },
                     "DETAIL": {
-                        "capabilities": ["PUBLIC_READ_ACQUIRE", "C0_FETCH", "C1_RENDER", "C2_INSPECT", "C3_BROWSER_USE"],
+                        "capabilities": ["PUBLIC_READ_ACQUIRE", "C0_FETCH", "C1_RENDER"],
                         "https_host": "www.industrymsme.gov.mm",
                         "path_prefix": "/announcements/",
                         "allow_query": False,
@@ -125,63 +125,18 @@ class ProviderInvocationContractTests(unittest.TestCase):
         self.assertEqual(value["tool_map"]["PUBLIC_READ_ACQUIRE"], "browser_acquire")
         self.assertEqual(value["tool_map"]["C0_FETCH"], "browser_fetch")
         self.assertEqual(value["tool_map"]["C1_RENDER"], "browser_render")
-        self.assertEqual(value["tool_map"]["C2_INSPECT"], "browser_inspect")
-        self.assertEqual(value["tool_map"]["C3_BROWSER_USE"], "browser_use")
         self.assertEqual(value["tool_map"]["DOCUMENT_OCR"], "document_ocr")
 
-    def test_builds_valid_readonly_requests_for_c0_c1_c2(self) -> None:
+    def test_builds_valid_readonly_requests_for_c0_c1(self) -> None:
         for capability in (
             ProviderCapability.PUBLIC_READ_ACQUIRE.value,
             ProviderCapability.C0_FETCH.value,
             ProviderCapability.C1_RENDER.value,
-            ProviderCapability.C2_INSPECT.value,
         ):
             request = build(capability)
             self.assertEqual(request["mcp_tool"], CAPABILITY_TOOL_MAP[capability])
-            self.assertIsNone(request["interaction_plan"])
             self.assertEqual(request["request_sha256"], request_sha256(request))
 
-    def test_builds_valid_c3_readonly_navigation_request(self) -> None:
-        plan = {
-            "side_effect_class": "READ_ONLY_NAVIGATION",
-            "retry_safe": False,
-            "steps": [
-                {"action": "snapshot"},
-                {"action": "click", "selector": "a.next"},
-                {"action": "wait", "selector": "body"},
-                {"action": "screenshot"},
-            ],
-        }
-        request = build("C3_BROWSER_USE", interaction_plan=plan)
-        self.assertEqual(request["mcp_tool"], "browser_use")
-        self.assertEqual(request["interaction_plan"], plan)
-
-    def test_c3_requires_explicit_readonly_plan(self) -> None:
-        with self.assertRaisesRegex(ProviderInvocationError, "requires interaction_plan"):
-            build("C3_BROWSER_USE")
-        with self.assertRaisesRegex(ProviderInvocationError, "READ_ONLY_NAVIGATION"):
-            build(
-                "C3_BROWSER_USE",
-                interaction_plan={"side_effect_class": "WRITE", "retry_safe": False, "steps": [{"action": "click"}]},
-            )
-
-    def test_c3_action_subset_matches_mac_mcp_pic_boundary(self) -> None:
-        plan = {
-            "side_effect_class": "READ_ONLY_NAVIGATION",
-            "retry_safe": False,
-            "steps": [{"action": "press", "key": "Escape"}],
-        }
-        request = build("C3_BROWSER_USE", interaction_plan=plan)
-        self.assertEqual(request["interaction_plan"]["steps"][0]["action"], "press")
-        with self.assertRaisesRegex(ProviderInvocationError, "not authorized"):
-            build(
-                "C3_BROWSER_USE",
-                interaction_plan={
-                    "side_effect_class": "READ_ONLY_NAVIGATION",
-                    "retry_safe": False,
-                    "steps": [{"action": "scroll"}],
-                },
-            )
 
     def test_document_ocr_is_s01_only_and_portal_documents_only(self) -> None:
         args = ids()
@@ -199,7 +154,7 @@ class ProviderInvocationContractTests(unittest.TestCase):
             **args,
         )
         self.assertEqual(request["mcp_tool"], "document_ocr")
-        self.assertIsNone(request["interaction_plan"])
+        self.assertNotIn("interaction_plan", request)
         self.assertEqual(request["final_url_policy"]["https_host"], "myanmar.gov.mm")
         validate_provider_request(request, contract=contract(), now=NOW)
 
@@ -295,16 +250,6 @@ class ProviderInvocationContractTests(unittest.TestCase):
         with self.assertRaisesRegex(ProviderInvocationError, "host"):
             validate_final_url_policy(request["final_url_policy"], "https://example.com/announcements/123")
 
-    def test_c3_rejects_arbitrary_execution_fields(self) -> None:
-        with self.assertRaisesRegex(ProviderInvocationError, "arbitrary execution"):
-            build(
-                "C3_BROWSER_USE",
-                interaction_plan={
-                    "side_effect_class": "READ_ONLY_NAVIGATION",
-                    "retry_safe": False,
-                    "steps": [{"action": "click", "javascript": "alert(1)"}],
-                },
-            )
 
     def test_rejects_arbitrary_host_http_credentials_and_path_traversal(self) -> None:
         invalid = [

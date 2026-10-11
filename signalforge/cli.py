@@ -23,10 +23,7 @@ from .config import Registry, SOURCE_ID_PATTERN, db_path
 from .db import connect, migrate
 from .engine import run_due, run_source
 from .harness import default_checkpoint_path, evaluate_harness, persist_checkpoint
-from .mpa import build_manual_bundle_preview, parse_listing_records, parse_pdf_business_fields, preview_summary
-from .mpa_manual import commit_manual_provider_bundle
 from .opportunities import current_opportunities
-from .provider_bridge import build_provider_request, import_provider_result, load_imported_provider_artifact, write_provider_request
 from .public_read_telemetry import public_read_telemetry_alert, public_read_telemetry_report
 from .source_scorecard import source_scorecard
 from .telegram_delivery import telegram_deliver
@@ -253,35 +250,6 @@ def main(argv: list[str] | None = None) -> int:
     run_source_parser.add_argument("--force", action="store_true")
     refresh_source_parser = sub.add_parser("refresh-source")
     refresh_source_parser.add_argument("source_id")
-    provider_request_parser = sub.add_parser("provider-request")
-    provider_request_parser.add_argument("source_id")
-    provider_request_parser.add_argument("--output")
-    provider_request_parser.add_argument("--url")
-    provider_request_parser.add_argument("--target-role", choices=("LISTING", "DETAIL", "PDF"), default="LISTING")
-    provider_import_parser = sub.add_parser("provider-import")
-    provider_import_parser.add_argument("--request", required=True)
-    provider_import_parser.add_argument("--result", required=True)
-    provider_import_parser.add_argument("--artifact")
-    provider_import_parser.add_argument("--database")
-    provider_import_parser.add_argument("--evidence-root")
-    mpa_preview_parser = sub.add_parser("mpa-preview")
-    mpa_preview_parser.add_argument("--html", required=True)
-    mpa_preview_parser.add_argument("--limit", type=int, default=30)
-    mpa_pdf_preview_parser = sub.add_parser("mpa-pdf-preview")
-    mpa_pdf_preview_parser.add_argument("--pdf", required=True)
-    mpa_bundle_preview_parser = sub.add_parser("mpa-provider-bundle-preview")
-    mpa_bundle_preview_parser.add_argument("--listing-provider-request-id", required=True)
-    mpa_bundle_preview_parser.add_argument("--detail-provider-request-id", required=True)
-    mpa_bundle_preview_parser.add_argument("--pdf-provider-request-id", required=True)
-    mpa_bundle_preview_parser.add_argument("--database")
-    mpa_bundle_preview_parser.add_argument("--evidence-root")
-    mpa_bundle_commit_parser = sub.add_parser("mpa-provider-bundle-commit")
-    mpa_bundle_commit_parser.add_argument("--listing-provider-request-id", required=True)
-    mpa_bundle_commit_parser.add_argument("--detail-provider-request-id", required=True)
-    mpa_bundle_commit_parser.add_argument("--pdf-provider-request-id", required=True)
-    mpa_bundle_commit_parser.add_argument("--emit-signal", action="store_true")
-    mpa_bundle_commit_parser.add_argument("--database")
-    mpa_bundle_commit_parser.add_argument("--evidence-root")
     opportunities_parser = sub.add_parser("opportunities")
     opportunities_parser.add_argument("--source-id")
     opportunities_parser.add_argument("--include-expired", action="store_true")
@@ -348,78 +316,6 @@ def main(argv: list[str] | None = None) -> int:
             result = run_source(args.source_id, force=args.force)
         elif args.cmd == "refresh-source":
             result = run_source(args.source_id, force=True, trigger_kind_override="MANUAL")
-        elif args.cmd == "provider-request":
-            if args.output:
-                result = write_provider_request(
-                    args.source_id,
-                    Path(args.output).expanduser(),
-                    url=args.url,
-                    target_role=args.target_role,
-                )
-            else:
-                result = build_provider_request(args.source_id, url=args.url, target_role=args.target_role)
-        elif args.cmd == "provider-import":
-            result = import_provider_result(
-                request_path=Path(args.request).expanduser(),
-                result_path=Path(args.result).expanduser(),
-                artifact_path=Path(args.artifact).expanduser() if args.artifact else None,
-                database=Path(args.database).expanduser() if args.database else None,
-                evidence_directory=Path(args.evidence_root).expanduser() if args.evidence_root else None,
-            )
-        elif args.cmd == "mpa-preview":
-            if args.limit < 0:
-                raise ValueError("mpa-preview --limit must be >= 0")
-            html_path = Path(args.html).expanduser()
-            result = preview_summary(parse_listing_records(html_path.read_bytes()))
-            records = result["records"]
-            assert isinstance(records, list)
-            result["records_returned"] = min(args.limit, len(records))
-            result["records_truncated"] = len(records) > args.limit
-            result["records"] = records[: args.limit]
-        elif args.cmd == "mpa-pdf-preview":
-            pdf_path = Path(args.pdf).expanduser()
-            result = {
-                "status": "PREVIEW_ONLY",
-                "source_id": "S15A",
-                **parse_pdf_business_fields(pdf_path.read_bytes()).payload(),
-            }
-        elif args.cmd == "mpa-provider-bundle-preview":
-            database = Path(args.database).expanduser() if args.database else None
-            evidence_directory = Path(args.evidence_root).expanduser() if args.evidence_root else None
-            listing = load_imported_provider_artifact(
-                args.listing_provider_request_id, database=database, evidence_directory=evidence_directory
-            )
-            detail = load_imported_provider_artifact(
-                args.detail_provider_request_id, database=database, evidence_directory=evidence_directory
-            )
-            pdf = load_imported_provider_artifact(
-                args.pdf_provider_request_id, database=database, evidence_directory=evidence_directory
-            )
-            if (listing.source_id, detail.source_id, pdf.source_id) != ("S15A", "S15A", "S15A"):
-                raise ValueError("MPA provider bundle must contain S15A evidence only")
-            if (listing.target_role, detail.target_role, pdf.target_role) != ("LISTING", "DETAIL", "PDF"):
-                raise ValueError("MPA provider bundle roles must be LISTING / DETAIL / PDF")
-            result = build_manual_bundle_preview(
-                listing.payload,
-                detail.payload,
-                pdf.payload,
-                detail_url=detail.requested_url,
-                pdf_url=pdf.requested_url,
-            )
-            result["provider_evidence"] = {
-                "listing": {"provider_request_id": listing.provider_request_id, "evidence_id": listing.evidence_id, "sha256": listing.sha256},
-                "detail": {"provider_request_id": detail.provider_request_id, "evidence_id": detail.evidence_id, "sha256": detail.sha256},
-                "pdf": {"provider_request_id": pdf.provider_request_id, "evidence_id": pdf.evidence_id, "sha256": pdf.sha256},
-            }
-        elif args.cmd == "mpa-provider-bundle-commit":
-            result = commit_manual_provider_bundle(
-                listing_provider_request_id=args.listing_provider_request_id,
-                detail_provider_request_id=args.detail_provider_request_id,
-                pdf_provider_request_id=args.pdf_provider_request_id,
-                emit_signal=bool(args.emit_signal),
-                database=Path(args.database).expanduser() if args.database else None,
-                evidence_directory=Path(args.evidence_root).expanduser() if args.evidence_root else None,
-            )
         elif args.cmd == "opportunities":
             if args.source_id is not None and not SOURCE_ID_PATTERN.fullmatch(args.source_id):
                 raise ValueError("invalid source id")

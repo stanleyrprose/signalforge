@@ -8,15 +8,11 @@
     "PUBLIC_READ_ACQUIRE",
     "C0_FETCH",
     "C1_RENDER",
-    "C2_INSPECT",
-    "C3_BROWSER_USE",
     "DOCUMENT_OCR"
   ],
   "tool_map": {
     "C0_FETCH": "browser_fetch",
     "C1_RENDER": "browser_render",
-    "C2_INSPECT": "browser_inspect",
-    "C3_BROWSER_USE": "browser_use",
     "DOCUMENT_OCR": "document_ocr",
     "PUBLIC_READ_ACQUIRE": "browser_acquire"
   },

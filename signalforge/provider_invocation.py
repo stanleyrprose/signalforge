@@ -24,8 +24,6 @@ class ProviderCapability(str, Enum):
     PUBLIC_READ_ACQUIRE = "PUBLIC_READ_ACQUIRE"
     C0_FETCH = "C0_FETCH"
     C1_RENDER = "C1_RENDER"
-    C2_INSPECT = "C2_INSPECT"
-    C3_BROWSER_USE = "C3_BROWSER_USE"
     DOCUMENT_OCR = "DOCUMENT_OCR"
 
 
@@ -33,37 +31,17 @@ CAPABILITY_TOOL_MAP = {
     ProviderCapability.PUBLIC_READ_ACQUIRE.value: "browser_acquire",
     ProviderCapability.C0_FETCH.value: "browser_fetch",
     ProviderCapability.C1_RENDER.value: "browser_render",
-    ProviderCapability.C2_INSPECT.value: "browser_inspect",
-    ProviderCapability.C3_BROWSER_USE.value: "browser_use",
     ProviderCapability.DOCUMENT_OCR.value: "document_ocr",
 }
 
-LEGACY_R3_EVIDENCE_ONLY_TOOL_MAP = {
-    ProviderCapability.C0_FETCH.value: "browser_fetch",
-    ProviderCapability.C1_RENDER.value: "browser_render",
-    ProviderCapability.C2_INSPECT.value: "browser_inspect",
-    ProviderCapability.C3_BROWSER_USE.value: "browser_use",
-}
 
 READ_ONLY_CAPABILITIES = {
     ProviderCapability.PUBLIC_READ_ACQUIRE.value,
     ProviderCapability.C0_FETCH.value,
     ProviderCapability.C1_RENDER.value,
-    ProviderCapability.C2_INSPECT.value,
     ProviderCapability.DOCUMENT_OCR.value,
 }
 
-C3_SIDE_EFFECT_CLASS = "READ_ONLY_NAVIGATION"
-C3_ALLOWED_ACTIONS = {
-    "snapshot",
-    "navigate",
-    "click",
-    "wait",
-    "type",
-    "select",
-    "press",
-    "screenshot",
-}
 
 _SOURCE_ID = re.compile(r"^[A-Z][A-Z0-9]{0,15}$")
 
@@ -118,14 +96,12 @@ def validate_contract_projection(contract: dict[str, Any]) -> dict[str, Any]:
     if contract.get("transport") != PIC_TRANSPORT:
         raise ProviderInvocationError("provider invocation transport mismatch")
 
-    historical_r3 = contract.get("enabled") is False and contract.get("verification_mode") == "EVIDENCE_ONLY"
-    projection = LEGACY_R3_EVIDENCE_ONLY_TOOL_MAP if historical_r3 else CAPABILITY_TOOL_MAP
     capabilities = contract.get("allowed_capabilities")
-    if not isinstance(capabilities, list) or set(capabilities) != set(projection):
+    if not isinstance(capabilities, list) or set(capabilities) != set(CAPABILITY_TOOL_MAP):
         raise ProviderInvocationError("PIC v1 capability projection mismatch")
 
     tool_map = contract.get("tool_map")
-    if tool_map != projection:
+    if tool_map != CAPABILITY_TOOL_MAP:
         raise ProviderInvocationError("provider MCP tool map mismatch")
 
     limits = contract.get("limits")
@@ -267,28 +243,6 @@ def validate_final_url_policy(policy: object, final_url: str) -> None:
         raise ProviderInvocationError("provider final URL fragment is not approved")
 
 
-def _validate_interaction_plan(capability: str, plan: object) -> None:
-    if capability != ProviderCapability.C3_BROWSER_USE.value:
-        if plan is not None:
-            raise ProviderInvocationError("interaction_plan is only valid for C3_BROWSER_USE")
-        return
-
-    if not isinstance(plan, dict):
-        raise ProviderInvocationError("C3_BROWSER_USE requires interaction_plan")
-    if plan.get("side_effect_class") != C3_SIDE_EFFECT_CLASS:
-        raise ProviderInvocationError("C3 side_effect_class must be READ_ONLY_NAVIGATION")
-    retry_safe = plan.get("retry_safe")
-    if not isinstance(retry_safe, bool):
-        raise ProviderInvocationError("C3 retry_safe must be explicit boolean")
-    steps = plan.get("steps")
-    if not isinstance(steps, list) or not steps or len(steps) > 64:
-        raise ProviderInvocationError("C3 interaction steps must contain 1..64 entries")
-    for step in steps:
-        if not isinstance(step, dict) or step.get("action") not in C3_ALLOWED_ACTIONS:
-            raise ProviderInvocationError("C3 interaction action is not authorized")
-        if any(key in step for key in ("shell", "javascript", "script", "command")):
-            raise ProviderInvocationError("C3 arbitrary execution fields are forbidden")
-
 
 def validate_provider_request(
     request: dict[str, Any],
@@ -370,8 +324,6 @@ def validate_provider_request(
     provider_request_id = request["provider_request_id"]
     if request.get("idempotency_key") != f"sf-provider:{provider_request_id}":
         raise ProviderInvocationError("provider request idempotency key mismatch")
-    _validate_interaction_plan(capability, request.get("interaction_plan"))
-
     supplied_hash = request.get("request_sha256")
     if not isinstance(supplied_hash, str) or supplied_hash != request_sha256(request):
         raise ProviderInvocationError("provider request SHA-256 mismatch")
@@ -391,7 +343,6 @@ def build_provider_request(
     acquisition_attempt_id: str,
     max_bytes: int,
     max_run_seconds: int,
-    interaction_plan: dict[str, Any] | None = None,
     now: datetime | None = None,
     ttl_seconds: int = 90,
 ) -> dict[str, Any]:
@@ -422,7 +373,6 @@ def build_provider_request(
         "requested_at": observed_now.isoformat().replace("+00:00", "Z"),
         "expires_at": (observed_now + timedelta(seconds=ttl_seconds)).isoformat().replace("+00:00", "Z"),
         "idempotency_key": f"sf-provider:{provider_request_id}",
-        "interaction_plan": interaction_plan,
     }
     request["request_sha256"] = request_sha256(request)
     return validate_provider_request(request, contract=contract, now=observed_now)
