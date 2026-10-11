@@ -21,7 +21,6 @@ from .acquisition_contract import (
 )
 from .config import repo_root
 from .db import connect
-from .http import FetchResult
 from .provider_invocation import ProviderCapability, build_provider_request, validate_contract_projection
 from .provider_queue import enqueue_provider_request, initialize_provider_queue
 
@@ -154,47 +153,7 @@ def acquire_local_bytes(
         raise
 
     fetch_method = "DIRECT_HTTP"
-    if isinstance(fetched, FetchResult):
-        payload = fetched.payload
-        fetch_method = fetched.fetch_method
-        if fetched.strict_tls_failed:
-            fallback_attempt_id = str(uuid.uuid4())
-            with connect(database) as conn, conn:
-                conn.execute(
-                    "UPDATE acquisition_attempts SET finished_at=?,status='FAILED',acquisition_failure_class=? WHERE attempt_id=?",
-                    (observed_at, "TLS_FAILURE", attempt_id),
-                )
-                conn.execute(
-                    """
-                    INSERT INTO acquisition_attempts(
-                        attempt_id,schema_version,request_id,attempt_number,source_id,source_policy_version,method,egress_profile,
-                        started_at,finished_at,status,acquisition_failure_class
-                    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
-                    """,
-                    (
-                        fallback_attempt_id,
-                        ACQUISITION_SCHEMA_VERSION,
-                        request_id,
-                        2,
-                        source_id,
-                        source_policy_version,
-                        fetch_method,
-                        egress_profile,
-                        observed_at,
-                        observed_at,
-                        "SUCCESS",
-                        None,
-                    ),
-                )
-            attempt_id = fallback_attempt_id
-        else:
-            with connect(database) as conn, conn:
-                conn.execute(
-                    "UPDATE acquisition_attempts SET method=? WHERE attempt_id=?",
-                    (fetch_method, attempt_id),
-                )
-    else:
-        payload = fetched
+    payload = fetched
 
     digest = hashlib.sha256(payload).hexdigest()
     evidence_id = str(uuid.uuid4())

@@ -209,7 +209,6 @@ def business_briefing(
         excluded_reason_counts[reason] = excluded_reason_counts.get(reason, 0) + 1
 
     target = database or db_path()
-    manual_promotions: list[dict[str, object]] = []
     open_misses = 0
     open_red_misses = 0
     oldest_open_miss = None
@@ -220,12 +219,6 @@ def business_briefing(
     if target.exists():
         migrate(target)
         with connect(target) as conn:
-            manual_promotions = [
-                dict(row)
-                for row in conn.execute(
-                    "SELECT * FROM manual_promotions WHERE status='ACTIVE' ORDER BY created_at DESC LIMIT 10"
-                )
-            ]
             open_misses = int(conn.execute("SELECT COUNT(*) FROM missed_signals WHERE status='OPEN'").fetchone()[0])
             open_red_misses = int(
                 conn.execute("SELECT COUNT(*) FROM missed_signals WHERE status='OPEN' AND severity='RED'").fetchone()[0]
@@ -270,11 +263,6 @@ def business_briefing(
             "primary_relevance_counts": dict(sorted(watch_relevance.items())),
             "canonical_keys": [item.get("canonical_key") for item in watch_rows],
             "items": [_attention_item(item) for item in watch_rows],
-        },
-        "manual_promotions": {
-            "count": len(manual_promotions),
-            "items": manual_promotions,
-            "semantics": "HUMAN_PROMOTED_NONSTANDARD_NOT_CANONICAL_SIGNAL",
         },
         "assurance": {
             "open_misses": open_misses,

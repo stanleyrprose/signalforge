@@ -4,7 +4,6 @@ import unittest
 from datetime import UTC, datetime
 from unittest.mock import patch
 
-from signalforge.business_digest import render_business_digest
 from signalforge.coverage_gaps import reviewed_coverage_gaps, verified_external_opportunities
 
 
@@ -148,74 +147,6 @@ class CoverageGapTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "tender-board-only"):
                 verified_external_opportunities(now=datetime(2026, 9, 20, 13, 30, tzinfo=UTC))
 
-    def test_business_digest_renders_verified_external_separately_from_unresolved_gaps(self) -> None:
-        now = datetime(2026, 9, 16, tzinfo=UTC)
-        gaps = reviewed_coverage_gaps(now=now)
-        verified = verified_external_opportunities(now=now)
-        digest = {
-            "digest_date": "2026-09-16",
-            "sources": {"monitored": 31, "green": 29, "non_green": 2, "changed_24h": 0},
-            "activity_24h": {"scheduler_runs": 0, "records_changed": 0, "evidence_fetched": 0, "items_parsed": 0, "signals": 0, "new_signals": 0, "updated_signals": 0},
-            "pipeline_totals": {"telegram_alerts_24h": 0, "telegram_alerts": 0},
-            "source_yield": {"yield_states": {}, "active_sources": 31},
-            "business": {
-                "current_opportunities": 9,
-                "canonical_current_opportunities": 8,
-                "verified_external_opportunity_count": 1,
-                "verified_external_opportunities": verified,
-                "tracked_opportunities": 17,
-                "priority_counts": {"HIGH": 2, "MEDIUM": 3, "REVIEW": 4},
-                "qualification_counts": {},
-                "attention": [],
-                "watchlist_count": 0,
-                "coverage_gap_count": len(gaps),
-                "coverage_gaps": gaps,
-            },
-            "auditor": {},
-        }
-        text = render_business_digest(digest)
-        assert "✅ 外部官方文件核验：1 条" in text
-        assert "Pobbathiri Exchange Office" in text
-        assert "[S13 ← S01]" in text
-        assert "已计入目标机会" in text
-        assert "⚠️ 人工核验机会（尚未形成可计入的官方覆盖）" in text
-        assert "Ayeyarwady 桥梁工程" in text
-        assert "Yangon–Mandalay Expressway" in text
-        assert "仍属 coverage gap，不计入目标机会数" in text
-        assert "业务概览</b>：目标内 <b>9</b> 个机会（canonical 8 + 外部官方核验 1）" in text
-
-    def test_business_digest_counts_s23_verified_external_and_links_official_pdf_after_resolution(self) -> None:
-        now = datetime(2026, 9, 18, tzinfo=UTC)
-        verified = verified_external_opportunities(now=now)
-        digest = {
-            "digest_date": "2026-09-18",
-            "sources": {"monitored": 32, "green": 31, "non_green": 1, "changed_24h": 0},
-            "activity_24h": {"scheduler_runs": 0, "records_changed": 0, "evidence_fetched": 0, "items_parsed": 0, "signals": 0, "new_signals": 0, "updated_signals": 0},
-            "pipeline_totals": {"telegram_alerts_24h": 0, "telegram_alerts": 0},
-            "source_yield": {"yield_states": {}, "active_sources": 32},
-            "business": {
-                "current_opportunities": 10,
-                "canonical_current_opportunities": 8,
-                "verified_external_opportunity_count": 2,
-                "verified_external_opportunities": verified,
-                "tracked_opportunities": 18,
-                "priority_counts": {"HIGH": 2, "MEDIUM": 7, "REVIEW": 1},
-                "qualification_counts": {},
-                "attention": [],
-                "watchlist_count": 0,
-                "coverage_gap_count": 0,
-                "coverage_gaps": [],
-            },
-            "auditor": {},
-        }
-        text = render_business_digest(digest)
-        assert "✅ 外部官方文件核验：2 条" in text
-        assert "Yangon–Mandalay Expressway" in text
-        assert "[S23 ← S23_REVIEW]" in text
-        assert "https://construction.gov.mm/letter-download/18be5b60-accb-11f1-b41f-3517e3a380a0" in text
-        assert "官方PDF" in text
-        assert "⚠️ 人工核验机会（尚未形成可计入的官方覆盖）" not in text
-        assert "业务概览</b>：目标内 <b>10</b> 个机会（canonical 8 + 外部官方核验 2）" in text
 
 
 if __name__ == "__main__":

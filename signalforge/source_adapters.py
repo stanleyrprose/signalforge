@@ -3,21 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable
 
-from .atom_network import parse_network_records as parse_atom_network_records
-from .commerce import parse_notification_detail as parse_commerce_notification_detail
-from .commerce import parse_notification_listing as parse_commerce_notification_listing
-from .construction_project_precursor import parse_project_detail as parse_construction_project_detail
-from .construction_project_precursor import parse_project_listing as parse_construction_project_listing
-from .customs import parse_notification_records as parse_customs_notification_records
-from .customs_announcements import parse_auction_records as parse_customs_auction_records
 from .dast import parse_tender_detail as parse_dast_tender_detail
 from .dast import parse_tender_listing as parse_dast_tender_listing
 from .digital_development import (
     parse_digital_development_listing,
     parse_digital_development_pdf,
 )
-from .dica import parse_announcement_detail as parse_dica_announcement_detail
-from .dica import parse_announcement_listing as parse_dica_announcement_listing
 from .doa import parse_tender_records as parse_doa_tender_records
 from .doms import parse_tender_detail as parse_doms_tender_detail
 from .doms import parse_tender_listing as parse_doms_tender_listing
@@ -28,8 +19,6 @@ from .energy import extract_tender_pdf_urls as extract_energy_tender_pdf_urls
 from .energy import parse_tender_detail_with_attachments as parse_energy_tender_detail_with_attachments
 from .energy import parse_tender_listing as parse_energy_tender_listing
 from .iwt import parse_tender_detail as parse_iwt_tender_detail
-from .ird import parse_announcement_detail as parse_ird_announcement_detail
-from .ird import parse_announcement_listing as parse_ird_announcement_listing
 from .industry import parse_tender_detail as parse_industry_tender_detail
 from .industry import parse_tender_listing as parse_industry_tender_listing
 from .iwt import parse_tender_listing as parse_iwt_tender_listing
@@ -58,34 +47,11 @@ from .moc import parse_tender_records as parse_moc_tender_records
 from .moc import restore_tender_from_payload as restore_moc_tender_from_payload
 from .mte import parse_tender_records as parse_mte_tender_records
 from .mpt import SitemapEntry, parse_sitemap, parse_tender_detail as parse_mpt_tender_detail
-from .mpt_network import parse_network_records as parse_mpt_network_records
-from .official_media import (
-    extract_gnlm_pdf_urls,
-    extract_kyemon_pdf_urls,
-    extract_myanma_alinn_pdf_urls,
-    parse_gnlm_detail_with_attachments,
-    parse_gnlm_listing,
-    parse_kyemon_detail_with_attachments,
-    parse_kyemon_listing,
-    parse_myanma_alinn_detail_with_document_ocr,
-    parse_myanma_alinn_listing,
-    parse_mdn_detail,
-    parse_mdn_listing,
-    parse_mitv_detail,
-    parse_mitv_listing,
-    parse_myawady_detail,
-    parse_myawady_listing,
-)
-from .moi_project_precursor import parse_project_detail as parse_moi_project_detail
-from .moi_project_precursor import parse_project_listing as parse_moi_project_listing
-from .moee_project_precursor import parse_project_detail as parse_moee_project_detail
-from .moee_project_precursor import parse_project_listing as parse_moee_project_listing
 from .mytel import parse_tender_records as parse_mytel_tender_records
 from .ptd import extract_tender_pdf_urls as extract_ptd_tender_pdf_urls
 from .ptd import parse_tender_detail as parse_ptd_tender_detail
 from .ptd import parse_tender_detail_with_attachments as parse_ptd_tender_detail_with_attachments
 from .ptd import parse_tender_listing as parse_ptd_tender_listing
-from .ptd_policy import parse_policy_records as parse_ptd_policy_records
 from .railways import parse_tender_detail as parse_railways_tender_detail
 from .railways import parse_tender_listing
 from .yangon_construction import parse_tender_detail as parse_yangon_construction_detail
@@ -104,7 +70,6 @@ DiscoveryRecordParser = Callable[[bytes, str], list[object]]
 DetailParser = Callable[[bytes, str], list[object]]
 DetailAttachmentExtractor = Callable[[bytes, str], list[str]]
 DetailWithAttachmentsParser = Callable[[bytes, str, list[tuple[str, bytes]]], list[object]]
-DetailWithDocumentOCRParser = Callable[[bytes, str, dict[str, object]], list[object]]
 DiscoveryRecordDocumentUrl = Callable[[object], str | None]
 DiscoveryRecordOcrEnricher = Callable[[object, dict[str, object]], object]
 DiscoveryRecordPayloadRestorer = Callable[[object, dict[str, object]], object]
@@ -123,7 +88,6 @@ class SourceAdapter:
     parse_discovery_records: DiscoveryRecordParser | None = None
     extract_detail_attachments: DetailAttachmentExtractor | None = None
     parse_detail_with_attachments: DetailWithAttachmentsParser | None = None
-    parse_detail_with_document_ocr: DetailWithDocumentOCRParser | None = None
     discovery_record_document_url: DiscoveryRecordDocumentUrl | None = None
     enrich_discovery_record_with_ocr: DiscoveryRecordOcrEnricher | None = None
     restore_discovery_record_from_payload: DiscoveryRecordPayloadRestorer | None = None
@@ -141,11 +105,6 @@ def _parse_mpt_detail(payload: bytes, url: str) -> list[object]:
 def _parse_yangon_construction_detail(payload: bytes, url: str) -> list[object]:
     tender = parse_yangon_construction_detail(payload, url)
     return [tender] if tender is not None else []
-
-
-def _parse_construction_project_detail(payload: bytes, url: str) -> list[object]:
-    item = parse_construction_project_detail(payload, url)
-    return [item] if item is not None else []
 
 
 def _parse_yangon_ycdc_mission_detail(payload: bytes, url: str) -> list[object]:
@@ -183,21 +142,6 @@ def _parse_moep_detail(payload: bytes, url: str) -> list[object]:
     return [tender] if tender is not None else []
 
 
-def _parse_commerce_detail(payload: bytes, url: str) -> list[object]:
-    notice = parse_commerce_notification_detail(payload, url)
-    return [notice] if notice is not None else []
-
-
-def _parse_ird_detail(payload: bytes, url: str) -> list[object]:
-    notice = parse_ird_announcement_detail(payload, url)
-    return [notice] if notice is not None else []
-
-
-def _parse_dica_detail(payload: bytes, url: str) -> list[object]:
-    notice = parse_dica_announcement_detail(payload, url)
-    return [notice] if notice is not None else []
-
-
 def _parse_doms_detail(payload: bytes, url: str) -> list[object]:
     tender = parse_doms_tender_detail(payload, url)
     return [tender] if tender is not None else []
@@ -207,39 +151,6 @@ def _parse_dwir_detail(payload: bytes, url: str) -> list[object]:
     tender = parse_dwir_tender_detail(payload, url)
     return [tender] if tender is not None else []
 
-
-
-def _parse_moi_project_detail(payload: bytes, url: str) -> list[object]:
-    item = parse_moi_project_detail(payload, url)
-    return [item] if item is not None else []
-
-
-def _parse_mitv_official_detail(payload: bytes, url: str) -> list[object]:
-    item = parse_mitv_detail(payload, url)
-    return [item] if item is not None else []
-
-
-def _parse_mdn_official_detail(payload: bytes, url: str) -> list[object]:
-    item = parse_mdn_detail(payload, url)
-    return [item] if item is not None else []
-
-
-
-
-def _parse_myawady_official_detail(payload: bytes, url: str) -> list[object]:
-    item = parse_myawady_detail(payload, url)
-    return [item] if item is not None else []
-
-def _parse_gnlm_official_without_attachment(_payload: bytes, _url: str) -> list[object]:
-    raise SourceAdapterError("official_media_gnlm requires its reviewed daily PDF attachment")
-
-
-def _parse_myanma_alinn_without_ocr(_payload: bytes, _url: str) -> list[object]:
-    raise SourceAdapterError("official_media_myanma_alinn requires its reviewed daily PDF DOCUMENT_OCR result")
-
-
-def _parse_kyemon_without_attachment(_payload: bytes, _url: str) -> list[object]:
-    raise SourceAdapterError("official_media_kyemon requires its reviewed daily PDF attachment")
 
 
 def _parse_moi_detail(payload: bytes, url: str) -> list[object]:
@@ -409,58 +320,6 @@ ADAPTERS = {
         parse_discovery=parse_moep_tender_listing,
         parse_detail=_parse_moep_detail,
     ),
-    "commerce_notice": SourceAdapter(
-        name="commerce_notice",
-        discovery_content_types=("text/html",),
-        discovery_parser_version="commerce-notification-block-v1",
-        detail_parser_version="commerce-notice-html-v1",
-        normalizer_version="commerce-notice-normalize-v1",
-        canonicalizer_version="commerce-notice-node-date-v1",
-        parse_discovery=parse_commerce_notification_listing,
-        parse_detail=_parse_commerce_detail,
-    ),
-    "ird_notice": SourceAdapter(
-        name="ird_notice",
-        discovery_content_types=("text/html",),
-        discovery_parser_version="ird-announcement-list-v1",
-        detail_parser_version="ird-announcement-detail-v1",
-        normalizer_version="ird-notice-normalize-v1",
-        canonicalizer_version="ird-notice-record-date-v1",
-        parse_discovery=parse_ird_announcement_listing,
-        parse_detail=_parse_ird_detail,
-    ),
-    "dica_notice": SourceAdapter(
-        name="dica_notice",
-        discovery_content_types=("text/html",),
-        discovery_parser_version="dica-announcement-category-v1",
-        detail_parser_version="dica-announcement-detail-v1",
-        normalizer_version="dica-notice-normalize-v1",
-        canonicalizer_version="dica-notice-post-date-v1",
-        parse_discovery=parse_dica_announcement_listing,
-        parse_detail=_parse_dica_detail,
-    ),
-    "customs_notice": SourceAdapter(
-        name="customs_notice",
-        discovery_content_types=("text/html",),
-        discovery_parser_version="customs-notification-table-v1",
-        detail_parser_version="not-applicable",
-        normalizer_version="customs-notice-normalize-v1",
-        canonicalizer_version="customs-notice-reference-v1",
-        parse_discovery=_empty_discovery,
-        parse_detail=lambda _payload, _url: [],
-        parse_discovery_records=parse_customs_notification_records,
-    ),
-    "customs_auction": SourceAdapter(
-        name="customs_auction",
-        discovery_content_types=("text/html",),
-        discovery_parser_version="customs-announcements-auction-v1",
-        detail_parser_version="not-applicable",
-        normalizer_version="customs-auction-normalize-v1",
-        canonicalizer_version="customs-auction-fingerprint-v1",
-        parse_discovery=_empty_discovery,
-        parse_detail=lambda _payload, _url: [],
-        parse_discovery_records=parse_customs_auction_records,
-    ),
     "monpifer_tender": SourceAdapter(
         name="monpifer_tender",
         discovery_content_types=("text/html",),
@@ -613,135 +472,6 @@ ADAPTERS = {
         canonicalizer_version="yangon-ycdc-wordpress-post-id-v1",
         parse_discovery=parse_yangon_ycdc_mission_listing,
         parse_detail=_parse_yangon_ycdc_mission_detail,
-    ),
-    "atom_network_notice": SourceAdapter(
-        name="atom_network_notice",
-        discovery_content_types=("application/json",),
-        discovery_parser_version="atom-media-api-network-filter-v1",
-        detail_parser_version="not-applicable",
-        normalizer_version="atom-network-normalize-v1",
-        canonicalizer_version="atom-media-id-v1",
-        parse_discovery=_empty_discovery,
-        parse_detail=lambda _payload, _url: [],
-        parse_discovery_records=parse_atom_network_records,
-    ),
-    "mpt_network_notice": SourceAdapter(
-        name="mpt_network_notice",
-        discovery_content_types=("text/html",),
-        discovery_parser_version="mpt-latest-news-network-filter-v1",
-        detail_parser_version="not-applicable",
-        normalizer_version="mpt-network-normalize-v1",
-        canonicalizer_version="mpt-press-release-slug-v1",
-        parse_discovery=_empty_discovery,
-        parse_detail=lambda _payload, _url: [],
-        parse_discovery_records=parse_mpt_network_records,
-    ),
-    "moi_project_precursor": SourceAdapter(
-        name="moi_project_precursor",
-        discovery_content_types=("text/html",),
-        discovery_parser_version="moi-news-project-precursor-list-v3",
-        detail_parser_version="moi-news-project-precursor-detail-v3",
-        normalizer_version="moi-project-precursor-normalize-v3",
-        canonicalizer_version="moi-news-node-id-v1",
-        parse_discovery=parse_moi_project_listing,
-        parse_detail=_parse_moi_project_detail,
-    ),
-    "construction_project_precursor": SourceAdapter(
-        name="construction_project_precursor",
-        discovery_content_types=("text/html",),
-        discovery_parser_version="construction-news-project-precursor-list-v1",
-        detail_parser_version="construction-news-project-precursor-detail-v1",
-        normalizer_version="construction-project-precursor-normalize-v1",
-        canonicalizer_version="construction-news-uuid-v1",
-        parse_discovery=parse_construction_project_listing,
-        parse_detail=_parse_construction_project_detail,
-    ),
-    "moee_project_precursor": SourceAdapter(
-        name="moee_project_precursor",
-        discovery_content_types=("text/html",),
-        discovery_parser_version="moee-latest-news-project-precursor-list-v1",
-        detail_parser_version="moee-news-project-precursor-detail-v1",
-        normalizer_version="moee-project-precursor-normalize-v1",
-        canonicalizer_version="moee-content-project-clause-v1",
-        parse_discovery=parse_moee_project_listing,
-        parse_detail=parse_moee_project_detail,
-    ),
-    "official_media_mitv": SourceAdapter(
-        name="official_media_mitv",
-        discovery_content_types=("text/html",),
-        discovery_parser_version="mitv-news-digital-ict-filter-v2",
-        detail_parser_version="mitv-news-digital-ict-detail-v2",
-        normalizer_version="official-media-digital-ict-v2",
-        canonicalizer_version="mitv-news-slug-v1",
-        parse_discovery=parse_mitv_listing,
-        parse_detail=_parse_mitv_official_detail,
-    ),
-    "official_media_mdn": SourceAdapter(
-        name="official_media_mdn",
-        discovery_content_types=("text/html",),
-        discovery_parser_version="mdn-latest-digital-ict-filter-v2",
-        detail_parser_version="mdn-news-digital-ict-detail-v2",
-        normalizer_version="official-media-digital-ict-v2",
-        canonicalizer_version="mdn-news-slug-v1",
-        parse_discovery=parse_mdn_listing,
-        parse_detail=_parse_mdn_official_detail,
-    ),
-    "official_media_gnlm": SourceAdapter(
-        name="official_media_gnlm",
-        discovery_content_types=("text/html",),
-        discovery_parser_version="gnlm-daily-issue-list-v1",
-        detail_parser_version="gnlm-daily-pdf-digital-ict-v2",
-        normalizer_version="official-media-digital-ict-v2",
-        canonicalizer_version="gnlm-issue-date-v1",
-        parse_discovery=parse_gnlm_listing,
-        parse_detail=_parse_gnlm_official_without_attachment,
-        extract_detail_attachments=extract_gnlm_pdf_urls,
-        parse_detail_with_attachments=parse_gnlm_detail_with_attachments,
-    ),
-    "official_media_myawady": SourceAdapter(
-        name="official_media_myawady",
-        discovery_content_types=("text/html",),
-        discovery_parser_version="myawady-english-news-digital-ict-filter-v1",
-        detail_parser_version="myawady-english-news-digital-ict-detail-v1",
-        normalizer_version="official-media-digital-ict-v2",
-        canonicalizer_version="myawady-news-slug-v1",
-        parse_discovery=parse_myawady_listing,
-        parse_detail=_parse_myawady_official_detail,
-    ),
-    "official_media_myanma_alinn": SourceAdapter(
-        name="official_media_myanma_alinn",
-        discovery_content_types=("text/html",),
-        discovery_parser_version="myanma-alinn-daily-issue-list-v1",
-        detail_parser_version="myanma-alinn-pdf-document-ocr-digital-ict-v1",
-        normalizer_version="official-media-digital-ict-v2",
-        canonicalizer_version="myanma-alinn-issue-signal-v1",
-        parse_discovery=parse_myanma_alinn_listing,
-        parse_detail=_parse_myanma_alinn_without_ocr,
-        extract_detail_attachments=extract_myanma_alinn_pdf_urls,
-        parse_detail_with_document_ocr=parse_myanma_alinn_detail_with_document_ocr,
-    ),
-    "official_media_kyemon": SourceAdapter(
-        name="official_media_kyemon",
-        discovery_content_types=("text/html",),
-        discovery_parser_version="kyemon-daily-issue-list-v1",
-        detail_parser_version="kyemon-daily-pdf-digital-ict-v1",
-        normalizer_version="official-media-digital-ict-v2",
-        canonicalizer_version="kyemon-issue-signal-v1",
-        parse_discovery=parse_kyemon_listing,
-        parse_detail=_parse_kyemon_without_attachment,
-        extract_detail_attachments=extract_kyemon_pdf_urls,
-        parse_detail_with_attachments=parse_kyemon_detail_with_attachments,
-    ),
-    "ptd_policy_notice": SourceAdapter(
-        name="ptd_policy_notice",
-        discovery_content_types=("text/html",),
-        discovery_parser_version="ptd-policy-table-strategic-v1",
-        detail_parser_version="not-applicable",
-        normalizer_version="ptd-policy-normalize-v1",
-        canonicalizer_version="ptd-policy-title-date-v1",
-        parse_discovery=_empty_discovery,
-        parse_detail=lambda _payload, _url: [],
-        parse_discovery_records=parse_ptd_policy_records,
     ),
 }
 

@@ -32,8 +32,6 @@ COVERAGE_STATUSES = {"PASS", "GAP", "PARTIAL", "UNPROVEN", "CHECK_FAILED"}
 MISS_STATUSES = {"OPEN", "RESOLVED", "FALSE_POSITIVE"}
 MISS_SEVERITIES = {"RED", "YELLOW"}
 NOISE_REVIEW_STATUSES = {"PENDING", "CONFIRMED_NOISE", "FALSE_NEGATIVE", "INCONCLUSIVE"}
-PROMOTION_STATUSES = {"ACTIVE", "RESOLVED"}
-PROMOTION_PRIORITIES = {"HIGH", "REVIEW"}
 # Exact Bangkok production activation of the release that moved evidence writes
 # ahead of parsing (68f1989). Older zero-item rows can legitimately lack replay
 # artifacts; they are legacy audit debt, not evidence of a current retention bug.
@@ -401,75 +399,6 @@ def resolve_missed_signal(
         )
         updated = conn.execute("SELECT * FROM missed_signals WHERE miss_id=?", (miss_id,)).fetchone()
     return {"status": "PASS", "miss": dict(updated)}
-
-
-def record_manual_promotion(
-    *,
-    source_id: str,
-    title: str,
-    summary: str,
-    reason: str,
-    priority_band: str = "HIGH",
-    url: str | None = None,
-    deadline: str | None = None,
-    location: str | None = None,
-    created_by: str = "operator",
-    database: Path | None = None,
-    now: datetime | None = None,
-) -> dict[str, object]:
-    priority_band = priority_band.upper()
-    if priority_band not in PROMOTION_PRIORITIES:
-        raise ValueError("priority_band must be HIGH or REVIEW")
-    if not title.strip() or not summary.strip() or not reason.strip():
-        raise ValueError("title, summary and reason are required")
-    target = database or db_path()
-    migrate(target)
-    observed = (now or datetime.now(UTC)).astimezone(UTC)
-    promotion_id = str(uuid.uuid4())
-    with connect(target) as conn, conn:
-        conn.execute(
-            """
-            INSERT INTO manual_promotions(
-                promotion_id,source_id,created_at,created_by,title,summary,url,reason,priority_band,deadline,location,status
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,'ACTIVE')
-            """,
-            (promotion_id, source_id, _iso(observed), created_by, title.strip(), summary.strip(), url, reason.strip(), priority_band, deadline, location),
-        )
-        row = conn.execute("SELECT * FROM manual_promotions WHERE promotion_id=?", (promotion_id,)).fetchone()
-    return {"status": "PASS", "promotion": dict(row)}
-
-
-def list_manual_promotions(*, database: Path | None = None, status: str = "ACTIVE", limit: int = 100) -> dict[str, object]:
-    if status not in PROMOTION_STATUSES:
-        raise ValueError("invalid promotion status")
-    target = database or db_path()
-    migrate(target)
-    with connect(target) as conn:
-        rows = conn.execute("SELECT * FROM manual_promotions WHERE status=? ORDER BY created_at DESC LIMIT ?", (status, limit)).fetchall()
-    return {"status": "PASS", "count": len(rows), "promotions": [dict(row) for row in rows]}
-
-
-def resolve_manual_promotion(
-    promotion_id: str,
-    *,
-    note: str,
-    resolved_by: str = "operator",
-    database: Path | None = None,
-    now: datetime | None = None,
-) -> dict[str, object]:
-    target = database or db_path()
-    migrate(target)
-    observed = (now or datetime.now(UTC)).astimezone(UTC)
-    with connect(target) as conn, conn:
-        row = conn.execute("SELECT 1 FROM manual_promotions WHERE promotion_id=?", (promotion_id,)).fetchone()
-        if row is None:
-            raise ValueError("promotion not found")
-        conn.execute(
-            "UPDATE manual_promotions SET status='RESOLVED',resolved_at=?,resolved_by=?,resolution_note=? WHERE promotion_id=?",
-            (_iso(observed), resolved_by, note, promotion_id),
-        )
-        updated = conn.execute("SELECT * FROM manual_promotions WHERE promotion_id=?", (promotion_id,)).fetchone()
-    return {"status": "PASS", "promotion": dict(updated)}
 
 
 def _coverage_from_existing_audit(audit_result: dict[str, object], source_id: str) -> dict[str, object]:
@@ -1169,7 +1098,6 @@ def _metric_review(
     )
     false_negative_untracked = false_negatives - false_negative_open - false_negative_closed
     replayability = _zero_item_replayability(conn, cutoff=cutoff)
-    active_manual = int(conn.execute("SELECT COUNT(*) FROM manual_promotions WHERE status='ACTIVE'").fetchone()[0])
     high_value_recent_yield = 0
     source_by_id = {str(row.get("source_id")): row for row in source_rows if isinstance(row, dict)}
     for sid in MANDATORY_COVERAGE_SOURCES:
@@ -1218,7 +1146,6 @@ def _metric_review(
         "known_noise_signals": int(summary.get("known_noise_signals") or 0),
         "effective_signals": int(summary.get("effective_signals") or 0),
         "telegram_alerts": int(summary.get("telegram_alerts") or 0),
-        "active_manual_promotions": active_manual,
         "high_value_sources_with_recent_business_yield": high_value_recent_yield,
         "high_value_sources_total": mandatory_total,
         "window_days": window_days,
@@ -1717,7 +1644,6 @@ def assurance_status(
             "open_red_misses": int(conn.execute("SELECT COUNT(*) FROM missed_signals WHERE status='OPEN' AND severity='RED'").fetchone()[0]),
             "pending_noise_reviews": int(conn.execute("SELECT COUNT(*) FROM noise_review_samples WHERE review_status='PENDING'").fetchone()[0]),
             "false_negative_noise_reviews": int(conn.execute("SELECT COUNT(*) FROM noise_review_samples WHERE review_status='FALSE_NEGATIVE'").fetchone()[0]),
-            "active_manual_promotions": int(conn.execute("SELECT COUNT(*) FROM manual_promotions WHERE status='ACTIVE'").fetchone()[0]),
         }
         coverage = []
         coverage_risks: list[dict[str, object]] = []

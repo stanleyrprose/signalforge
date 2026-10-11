@@ -7,7 +7,6 @@ from pathlib import Path
 
 from .config import Registry, db_path
 from .db import connect
-from .customs_reviewed_enrichment import apply_reviewed_customs_overlay
 from .doms_reviewed_enrichment import apply_reviewed_doms_overlay
 from .energy_reviewed_enrichment import apply_reviewed_energy_overlay
 from .iwt_reviewed_enrichment import apply_reviewed_iwt_overlay
@@ -231,7 +230,7 @@ def current_opportunities(
             FROM signals
             GROUP BY source_id,canonical_key
         ) ss ON ss.source_id=c.source_id AND ss.canonical_key=c.canonical_key
-        WHERE c.item_kind IN ('TENDER','AUCTION_NOTICE')
+        WHERE c.item_kind='TENDER'
     """
     params: list[object] = []
     if source_id is not None:
@@ -251,19 +250,10 @@ def current_opportunities(
             source_policy = source_policies.get(source_id_value) if isinstance(source_policies, dict) else None
             canonical_key_value = str(row["canonical_key"])
             reference_no_value = str(row["reference_no"] or payload.get("reference_no") or "")
-            payload = apply_reviewed_customs_overlay(
-                payload,
-                canonical_key=canonical_key_value,
-                source_id=source_id_value,
-                item_kind=str(row["item_kind"]),
-                reference_no=reference_no_value,
-            )
-            # S20 is an issuer tender-only surface. Older canonical rows predate the
-            # business-stage field even when they already have a real Signal. Keep
-            # this as a read-model compatibility rule instead of rewriting history.
-            if source_id_value == "S20" and str(row["item_kind"]) == "TENDER":
+            # S20 is an issuer tender-only surface. Older canonical rows may lack
+            # scope_summary even though they are already formal tenders with Signals.
+            if source_id_value == "S20":
                 payload = dict(payload)
-                payload.setdefault("business_stage", "OPPORTUNITY")
                 if not payload.get("scope_summary"):
                     payload["scope_summary"] = payload.get("project_name") or row["project_name"]
                 payload = apply_reviewed_moep_overlay(
@@ -296,17 +286,6 @@ def current_opportunities(
                 item_kind=str(row["item_kind"]),
                 reference_no=reference_no_value,
             )
-            stage = str(payload.get("business_stage") or "").upper()
-            legacy_actionable_tender = (
-                stage == ""
-                and str(row["item_kind"]) == "TENDER"
-                and isinstance(source_policy, dict)
-                and isinstance(source_policy.get("actionable_baseline_signal_policy"), dict)
-                and source_policy["actionable_baseline_signal_policy"].get("enabled") is True
-            )
-            if stage != "OPPORTUNITY" and not legacy_actionable_tender:
-                continue
-
             payload = apply_reviewed_mte_overlay(
                 payload,
                 canonical_key=canonical_key_value,

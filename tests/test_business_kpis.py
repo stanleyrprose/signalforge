@@ -95,25 +95,10 @@ class BusinessKpiTests(unittest.TestCase):
         self.assertTrue(report["semantics"]["no_opaque_composite_score"])
         self.assertTrue(report["semantics"]["signal_quality_is_not_false_positive_precision"])
 
-    def test_business_kpi_report_exposes_review_only_procurement_link_queue(self) -> None:
+    def test_business_kpi_report_is_tender_output_and_assurance_only(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             database = Path(tmp) / "signalforge.db"
             migrate(database)
-            link_queue = {
-                "metric": "PROJECT_PROCUREMENT_LINK_REVIEW_QUEUE",
-                "summary": {
-                    "tracked_projects": 1,
-                    "already_linked_projects": 0,
-                    "unlinked_projects": 1,
-                    "projects_with_suggestions": 1,
-                    "suggestions": 1,
-                    "returned_suggestions": 1,
-                },
-                "suggestions": [{"project_key": "pinpet-steel-factory-power"}],
-                "semantics": {"review_only": True, "no_link_write": True},
-            }
-            precursor_queue = {"summary": {"candidates": 0, "tracked": 1}}
-            leadtime = {"summary": {"linked_projects": 0, "median_lead_days": None}}
             assurance = {
                 "latest_metric_review": {"status": "PASS", "metrics": {}},
                 "counts": {},
@@ -128,27 +113,18 @@ class BusinessKpiTests(unittest.TestCase):
             ), patch(
                 "signalforge.business_kpis.assurance_status",
                 return_value=assurance,
-            ), patch(
-                "signalforge.business_kpis.precursor_candidates",
-                return_value=precursor_queue,
-            ), patch(
-                "signalforge.business_kpis.procurement_link_suggestions",
-                return_value=link_queue,
-            ), patch(
-                "signalforge.business_kpis.leadtime_report",
-                return_value=leadtime,
             ):
                 report = business_kpi_report(
                     database=database,
                     now=datetime(2026, 9, 27, 12, 0, tzinfo=UTC),
                     registry=object(),  # type: ignore[arg-type]
-                    lead_limit=20,
                 )
 
-            self.assertIs(report["project_procurement_link_review"], link_queue)
-            self.assertIs(report["project_precursor_pipeline"], precursor_queue)
-            self.assertIs(report["project_to_procurement_lead_time"], leadtime)
+            self.assertEqual(report["metric"], "SIGNALFORGE_CORE_BUSINESS_KPIS")
             self.assertEqual(report["opportunity_output_quality"]["business_current_opportunities"], 0)
+            self.assertNotIn("project_precursor_pipeline", report)
+            self.assertNotIn("project_procurement_link_review", report)
+            self.assertNotIn("project_to_procurement_lead_time", report)
 
 
 

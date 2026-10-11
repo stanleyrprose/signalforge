@@ -436,58 +436,45 @@ class OpportunityViewTests(unittest.TestCase):
             self.assertEqual(row["deadline_at"], "2026-09-29T12:00:00+06:30")
 
 
-    def test_commercial_auction_notice_uses_action_date_without_fake_deadline(self) -> None:
+    def test_formal_tender_does_not_require_business_stage(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             database = Path(tmp) / "signalforge.db"
             migrate(database)
-            payload = {
-                "item_kind": "AUCTION_NOTICE",
-                "business_stage": "OPPORTUNITY",
-                "title": "Local Marketing and Milling Department, Open Tender No (6/2026-2027)(15.9.2026)",
-                "reference_no": "MTE-LOCAL-6/2026-2027",
-                "deadline": None,
-                "deadline_evidence": "UNKNOWN_IN_IMAGE_SUPPLEMENT_NOT_PARSED",
-                "action_date": "2026-09-15",
-                "action_date_kind": "TENDER_EVENT_DATE",
-                "action_date_evidence": "EXPLICIT_OFFICIAL_TITLE_DATE",
-                "commercial_event_type": "SELLER_OPEN_TENDER_SALE",
-                "commercial_direction": "BUY_FROM_ISSUER",
-                "issuer": "Myanma Timber Enterprise",
-                "scope_summary": "Local Marketing and Milling Department open tender sale; official image carries supplementary lot details.",
-                "detail_completeness": "HTML_EVENT_SCOPE_REFERENCE_IMAGE_SUPPLEMENT_UNPARSED",
-                "url": "https://mte.gov.mm/index.php/en/annoucements/17-tenders/local-milling-marketing-dept-tender/1605-392026",
-            }
             with connect(database) as conn, conn:
-                _insert_canonical(conn, key="mte:1605", source_id="S32", payload=payload)
-                _insert_signal(conn, signal_id="sig-mte-1605", source_id="S32", key="mte:1605", created_at="2026-09-11T02:00:00Z")
-            result = current_opportunities(database=database, now=datetime(2026, 9, 11, 2, 0, tzinfo=UTC), source_id="S32")
+                _insert_canonical(
+                    conn,
+                    key="formal:no-stage",
+                    source_id="S38",
+                    payload={
+                        "item_kind": "TENDER",
+                        "title": "Formal tender without legacy business stage",
+                        "reference_no": "FORMAL-1",
+                        "publication_date": "2026-09-08",
+                        "deadline": "2026-09-18",
+                        "deadline_time": "16:30",
+                        "scope_summary": "Government procurement of network equipment and installation services.",
+                        "deadline_evidence": "EXPLICIT_HTML_TENDER_CLOSE_DATE_TIME",
+                        "url": "https://example.test/formal/no-stage",
+                    },
+                )
+                _insert_signal(
+                    conn,
+                    signal_id="sig-formal-no-stage",
+                    source_id="S38",
+                    key="formal:no-stage",
+                    created_at="2026-09-09T01:00:00Z",
+                )
+
+            result = current_opportunities(
+                database=database,
+                now=datetime(2026, 9, 9, 4, 0, tzinfo=UTC),
+                source_id="S38",
+            )
             self.assertEqual(result["count"], 1)
-            self.assertEqual(result["counts"], {"OPEN": 1, "UNKNOWN": 0, "EXPIRED": 0})
             row = result["opportunities"][0]
-            self.assertEqual(row["item_kind"], "AUCTION_NOTICE")
-            self.assertEqual(row["deadline_status"], "UNKNOWN")
-            self.assertIsNone(row["deadline_at"])
-            self.assertEqual(row["action_date"], "2026-09-15")
-            self.assertEqual(row["action_date_kind"], "TENDER_EVENT_DATE")
-            self.assertEqual(row["action_time"], "08:30")
-            self.assertEqual(row["action_at"], "2026-09-15T08:30:00+06:30")
-            self.assertEqual(row["location"], "Myanma Timber Enterprise, Gyogon Forest Compound, Insein Township, Yangon")
-            self.assertEqual(row["quantity_or_lot_confidence"], "HIGH")
-            self.assertEqual(row["quantity_or_lot_summary"], "Approximately 6,243 tons of teak/hardwood logs and sawn timber")
-            self.assertIn("Earnest Money", row["next_action_summary"])
-            self.assertEqual(row["reviewed_image_sha256"], "6a6c2452cf8ae18bf4985c3bd77f63bbd77ec710ad5b37ae3db51409854348e1")
-            self.assertTrue(row["reviewed_enrichment_read_only"])
+            self.assertEqual(row["canonical_key"], "formal:no-stage")
+            self.assertEqual(row["item_kind"], "TENDER")
             self.assertEqual(row["opportunity_status"], "OPEN")
-            self.assertEqual(row["actionability"], "OPEN")
-            self.assertEqual(row["trust_grade"], "B")
-            self.assertEqual(row["priority_band"], "REVIEW")
-            self.assertEqual(row["signal_quality_score"], 86)
-            self.assertEqual(row["signal_quality_band"], "VERY_HIGH")
-            self.assertIn("REVIEWED_QUANTIFIED_SCOPE", row["signal_quality_strengths"])
-            self.assertNotIn("QUANTITY_DETAIL_REVIEW_CONFIDENCE_MEDIUM", row["signal_quality_gaps"])
-            self.assertIn("EXPLICIT_ACTION_DATE", row["qualification_reasons"])
-            self.assertNotIn("DEADLINE_UNKNOWN", row["qualification_reasons"])
-            self.assertEqual(row["commercial_direction"], "BUY_FROM_ISSUER")
 
     def test_default_view_is_signal_backed_deduped_and_active_only(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -600,53 +587,6 @@ class OpportunityViewTests(unittest.TestCase):
             )
             self.assertEqual(rows[1]["reference_count"], 3)
             self.assertEqual(rows[1]["reference_numbers_evidence"], "HTML_TITLE")
-
-    def test_reviewed_customs_event_enters_current_view_but_unreviewed_legacy_auction_stays_hidden(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            database = Path(tmp) / "signalforge.db"
-            migrate(database)
-            with connect(database) as conn, conn:
-                _insert_canonical(
-                    conn,
-                    key="customs-auction:2026-09-08:de1e5fca89686a1f",
-                    source_id="S08A",
-                    payload={
-                        "item_kind": "AUCTION_NOTICE",
-                        "title": "Customs auction",
-                        "reference_no": "CUSTOMS-AUCTION-20260908-de1e5fca",
-                        "publication_date": "2026-09-08",
-                        "attachment_url": "https://customs.gov.mm/admin/storage/files/Announcement-1.pdf",
-                        "url": "https://customs.gov.mm/Announcements",
-                    },
-                )
-                _insert_signal(conn, signal_id="sig-customs-current", source_id="S08A", key="customs-auction:2026-09-08:de1e5fca89686a1f", created_at="2026-09-09T09:05:09Z")
-                _insert_canonical(
-                    conn,
-                    key="customs-auction:2026-08-21:old",
-                    source_id="S08A",
-                    payload={
-                        "item_kind": "AUCTION_NOTICE",
-                        "title": "Old Customs auction",
-                        "reference_no": "CUSTOMS-AUCTION-OLD",
-                        "publication_date": "2026-08-21",
-                        "attachment_url": "https://customs.gov.mm/admin/storage/files/old.pdf",
-                        "url": "https://customs.gov.mm/Announcements",
-                    },
-                )
-                _insert_signal(conn, signal_id="sig-customs-old", source_id="S08A", key="customs-auction:2026-08-21:old", created_at="2026-08-21T09:00:00Z")
-
-            result = current_opportunities(database=database, now=datetime(2026, 9, 16, 4, 0, tzinfo=UTC), source_id="S08A")
-            self.assertEqual(result["count"], 1)
-            row = result["opportunities"][0]
-            self.assertEqual(row["canonical_key"], "customs-auction:2026-09-08:de1e5fca89686a1f")
-            self.assertEqual(row["deadline_status"], "UNKNOWN")
-            self.assertEqual(row["opportunity_status"], "OPEN")
-            self.assertEqual(row["action_date"], "2026-09-28")
-            self.assertEqual(row["action_time"], "10:00")
-            self.assertEqual(row["commercial_direction"], "BUY_FROM_ISSUER")
-            self.assertIn("钢铁/塑料原料", row["scope_summary"])
-            self.assertIn("9/16–18买表格", row["next_action_summary"])
-            self.assertEqual(row["reviewed_enrichment_status"], "REVIEWED_TEXT_PDF_CURRENT_EVENT")
 
     def test_moep_signal_backed_legacy_tender_enters_current_view_with_bounded_unknown_freshness(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

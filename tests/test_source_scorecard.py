@@ -259,8 +259,8 @@ class SourceScorecardTests(unittest.TestCase):
         self.assertEqual(SCORECARD_VERSION, 8)
         self.assertEqual(PORTFOLIO_TIERS["S21"], "STRATEGIC_WATCH")
         self.assertEqual(PORTFOLIO_TIERS["S22"], "STRATEGIC_WATCH")
-        self.assertEqual(PORTFOLIO_TIERS["S49"], "STRATEGIC_WATCH")
-        self.assertEqual(PORTFOLIO_TIERS["S50"], "STRATEGIC_WATCH")
+        self.assertNotIn("S49", PORTFOLIO_TIERS)
+        self.assertNotIn("S50", PORTFOLIO_TIERS)
         self.assertEqual(PORTFOLIO_TIERS["S32"], "OBSERVATION")
 
     def test_window_days_is_bounded(self) -> None:

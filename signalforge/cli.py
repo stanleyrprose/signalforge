@@ -9,44 +9,27 @@ from pathlib import Path
 from . import VERB_MANIFEST_VERSION
 from .assurance import (
     assurance_status,
-    list_manual_promotions,
     list_missed_signals,
     list_noise_samples,
-    record_manual_promotion,
     record_missed_signal,
-    resolve_manual_promotion,
     resolve_missed_signal,
     review_noise_sample,
     run_assurance,
 )
 from .auditor import audit
 from .briefing import business_briefing
-from .browser_escalation import browser_escalation_candidates
-from .business_digest import business_digest, telegram_digest
 from .business_kpis import business_kpi_report
 from .config import Registry, SOURCE_ID_PATTERN, db_path
 from .db import connect, migrate
 from .engine import run_due, run_source
 from .harness import default_checkpoint_path, evaluate_harness, persist_checkpoint
-from .jev_noise_shadow import (
-    DEFAULT_MODEL as JEV_NOISE_DEFAULT_MODEL,
-    DEFAULT_OPEN_THRESHOLD as JEV_NOISE_DEFAULT_OPEN_THRESHOLD,
-    DEFAULT_SECTOR_THRESHOLD as JEV_NOISE_DEFAULT_SECTOR_THRESHOLD,
-    jev_noise_shadow_report,
-)
-from .jev_noise_triage import jev_noise_triage_report
-from .jev_shadow import DEFAULT_MODEL as JEV_DEFAULT_MODEL, DEFAULT_THRESHOLD as JEV_DEFAULT_THRESHOLD, jev_shadow_report
-from .leadtime import leadtime_report, link_procurement, precursor_candidates, procurement_link_suggestions, promote_precursor_from_canonical, record_project_event
 from .mpa import build_manual_bundle_preview, parse_listing_records, parse_pdf_business_fields, preview_summary
 from .mpa_manual import commit_manual_provider_bundle
 from .opportunities import current_opportunities
-from .pilot_validation import EVENT_TYPES as PILOT_EVENT_TYPES, pilot_validation_report, record_pilot_feedback
 from .provider_bridge import build_provider_request, import_provider_result, load_imported_provider_artifact, write_provider_request
-from .provider_r3 import prepare_r3_gate, r3_gate_status
 from .public_read_telemetry import public_read_telemetry_alert, public_read_telemetry_report
 from .source_scorecard import source_scorecard
 from .telegram_delivery import telegram_deliver
-from .telegram_feedback import telegram_feedback_poll
 from .translation import translation_status
 
 
@@ -74,7 +57,6 @@ def verb_manifest() -> dict[str, object]:
             "signalforge-assurance-status": {"helper_command": "assurance-status", "argument": None},
             "signalforge-harness-verify": {"helper_command": "harness-verify", "argument": None},
             "signalforge-misses": {"helper_command": "misses", "argument": None},
-            "signalforge-manual-promotions": {"helper_command": "manual-promotions", "argument": None},
             "signalforge-run-due": {"helper_command": "run-due", "argument": None},
             "signalforge-refresh": {"helper_command": "refresh-source", "argument": "source_id"},
             "signalforge-pause": {"helper_command": None, "argument": None},
@@ -282,12 +264,6 @@ def main(argv: list[str] | None = None) -> int:
     provider_import_parser.add_argument("--artifact")
     provider_import_parser.add_argument("--database")
     provider_import_parser.add_argument("--evidence-root")
-    provider_r3_prepare_parser = sub.add_parser("provider-r3-prepare")
-    provider_r3_prepare_parser.add_argument("--database")
-    provider_r3_prepare_parser.add_argument("--contract")
-    provider_r3_status_parser = sub.add_parser("provider-r3-status")
-    provider_r3_status_parser.add_argument("gate_id")
-    provider_r3_status_parser.add_argument("--database")
     mpa_preview_parser = sub.add_parser("mpa-preview")
     mpa_preview_parser.add_argument("--html", required=True)
     mpa_preview_parser.add_argument("--limit", type=int, default=30)
@@ -310,64 +286,12 @@ def main(argv: list[str] | None = None) -> int:
     opportunities_parser.add_argument("--source-id")
     opportunities_parser.add_argument("--include-expired", action="store_true")
     opportunities_parser.add_argument("--limit", type=int, default=50)
-    lifecycle_event_parser = sub.add_parser("project-event")
-    lifecycle_event_parser.add_argument("--project-key", required=True)
-    lifecycle_event_parser.add_argument("--source-id", required=True)
-    lifecycle_event_parser.add_argument("--stage", required=True)
-    lifecycle_event_parser.add_argument("--title", required=True)
-    lifecycle_event_parser.add_argument("--url")
-    lifecycle_link_parser = sub.add_parser("project-link-procurement")
-    lifecycle_link_parser.add_argument("--project-key", required=True)
-    lifecycle_link_parser.add_argument("--canonical-key", required=True)
-    lifecycle_link_parser.add_argument("--basis", required=True)
-    lifecycle_link_parser.add_argument("--by", default="operator")
-    precursor_parser = sub.add_parser("project-precursors")
-    precursor_parser.add_argument("--limit", type=int, default=50)
-    precursor_promote_parser = sub.add_parser("project-promote-precursor")
-    precursor_promote_parser.add_argument("--canonical-key", required=True)
-    precursor_promote_parser.add_argument("--project-key", required=True)
-    precursor_promote_parser.add_argument("--stage", required=True)
-    precursor_promote_parser.add_argument("--basis", required=True)
-    precursor_promote_parser.add_argument("--by", default="operator")
-    link_suggestion_parser = sub.add_parser("project-link-suggestions")
-    link_suggestion_parser.add_argument("--limit", type=int, default=50)
-    link_suggestion_parser.add_argument("--per-project", type=int, default=3)
-    lifecycle_report_parser = sub.add_parser("project-leadtime")
-    lifecycle_report_parser.add_argument("--limit", type=int, default=100)
-    business_kpi_parser = sub.add_parser("business-kpis")
-    business_kpi_parser.add_argument("--lead-limit", type=int, default=100)
+    sub.add_parser("business-kpis")
     sub.add_parser("briefing")
     audit_parser = sub.add_parser("audit")
     audit_parser.add_argument("--no-network", action="store_true")
-    digest_parser = sub.add_parser("business-digest")
-    digest_parser.add_argument("--no-network", action="store_true")
     scorecard_parser = sub.add_parser("source-scorecard")
     scorecard_parser.add_argument("--window-days", type=int, default=30)
-    jev_shadow_parser = sub.add_parser("jev-shadow")
-    jev_shadow_parser.add_argument("--threshold", type=float, default=JEV_DEFAULT_THRESHOLD)
-    jev_shadow_parser.add_argument("--model", default=JEV_DEFAULT_MODEL)
-    jev_shadow_parser.add_argument("--limit", type=int, default=50)
-    jev_shadow_parser.add_argument("--include-expired", action="store_true")
-    jev_noise_shadow_parser = sub.add_parser("jev-noise-shadow")
-    jev_noise_shadow_parser.add_argument("--status", choices=("PENDING", "CONFIRMED_NOISE", "FALSE_NEGATIVE", "INCONCLUSIVE", "ALL"), default="PENDING")
-    jev_noise_shadow_parser.add_argument("--limit", type=int, default=50)
-    jev_noise_shadow_parser.add_argument("--open-threshold", type=float, default=JEV_NOISE_DEFAULT_OPEN_THRESHOLD)
-    jev_noise_shadow_parser.add_argument("--sector-threshold", type=float, default=JEV_NOISE_DEFAULT_SECTOR_THRESHOLD)
-    jev_noise_shadow_parser.add_argument("--model", default=JEV_NOISE_DEFAULT_MODEL)
-    jev_noise_shadow_parser.add_argument("--database")
-    jev_noise_shadow_parser.add_argument("--evidence-root")
-    jev_noise_triage_parser = sub.add_parser("jev-noise-triage")
-    jev_noise_triage_parser.add_argument("--candidate-limit", type=int, default=30)
-    jev_noise_triage_parser.add_argument("--per-source-cap", type=int, default=5)
-    jev_noise_triage_parser.add_argument("--top", type=int, default=10)
-    jev_noise_triage_parser.add_argument("--open-threshold", type=float, default=JEV_NOISE_DEFAULT_OPEN_THRESHOLD)
-    jev_noise_triage_parser.add_argument("--sector-threshold", type=float, default=JEV_NOISE_DEFAULT_SECTOR_THRESHOLD)
-    jev_noise_triage_parser.add_argument("--model", default=JEV_NOISE_DEFAULT_MODEL)
-    jev_noise_triage_parser.add_argument("--database")
-    jev_noise_triage_parser.add_argument("--evidence-root")
-    browser_escalation_parser = sub.add_parser("browser-escalation-candidates")
-    browser_escalation_parser.add_argument("--window-days", type=int, default=7)
-    browser_escalation_parser.add_argument("--limit", type=int, default=20)
     assurance_run_parser = sub.add_parser("assurance-run")
     assurance_run_parser.add_argument("--no-network", action="store_true")
     assurance_run_parser.add_argument("--noise-sample-size", type=int, default=5)
@@ -407,41 +331,9 @@ def main(argv: list[str] | None = None) -> int:
     noise_review_parser.add_argument("--note", required=True)
     noise_review_parser.add_argument("--by", default="operator")
     noise_review_parser.add_argument("--miss-title")
-    manual_promote_parser = sub.add_parser("manual-promote")
-    manual_promote_parser.add_argument("--source-id", required=True)
-    manual_promote_parser.add_argument("--title", required=True)
-    manual_promote_parser.add_argument("--summary", required=True)
-    manual_promote_parser.add_argument("--reason", required=True)
-    manual_promote_parser.add_argument("--priority", choices=("HIGH", "REVIEW"), default="HIGH")
-    manual_promote_parser.add_argument("--url")
-    manual_promote_parser.add_argument("--deadline")
-    manual_promote_parser.add_argument("--location")
-    manual_promote_parser.add_argument("--by", default="operator")
-    manual_list_parser = sub.add_parser("manual-promotions")
-    manual_list_parser.add_argument("--status", choices=("ACTIVE", "RESOLVED"), default="ACTIVE")
-    manual_list_parser.add_argument("--limit", type=int, default=100)
-    manual_resolve_parser = sub.add_parser("manual-resolve")
-    manual_resolve_parser.add_argument("promotion_id")
-    manual_resolve_parser.add_argument("--note", required=True)
-    manual_resolve_parser.add_argument("--by", default="operator")
     telegram_parser = sub.add_parser("telegram-deliver")
     telegram_parser.add_argument("--dry-run", action="store_true")
     telegram_parser.add_argument("--translate-preview", action="store_true")
-    telegram_parser.add_argument("--profile")
-    pilot_feedback_parser = sub.add_parser("pilot-feedback")
-    pilot_feedback_parser.add_argument("--profile-id", required=True)
-    pilot_feedback_parser.add_argument("--canonical-key", required=True)
-    pilot_feedback_parser.add_argument("--signal-id")
-    pilot_feedback_parser.add_argument("--event", required=True, choices=PILOT_EVENT_TYPES)
-    pilot_feedback_parser.add_argument("--note")
-    pilot_feedback_parser.add_argument("--by", default="operator")
-    pilot_report_parser = sub.add_parser("pilot-report")
-    pilot_report_parser.add_argument("--profile-id")
-    feedback_poll_parser = sub.add_parser("telegram-feedback-poll")
-    feedback_poll_parser.add_argument("--poll-timeout", type=int, default=0)
-    telegram_digest_parser = sub.add_parser("telegram-digest")
-    telegram_digest_parser.add_argument("--dry-run", action="store_true")
-    telegram_digest_parser.add_argument("--no-network", action="store_true")
     sub.add_parser("status")
     args = parser.parse_args(argv)
     try:
@@ -473,16 +365,6 @@ def main(argv: list[str] | None = None) -> int:
                 artifact_path=Path(args.artifact).expanduser() if args.artifact else None,
                 database=Path(args.database).expanduser() if args.database else None,
                 evidence_directory=Path(args.evidence_root).expanduser() if args.evidence_root else None,
-            )
-        elif args.cmd == "provider-r3-prepare":
-            result = prepare_r3_gate(
-                database=Path(args.database).expanduser() if args.database else None,
-                contract_path=Path(args.contract).expanduser() if args.contract else None,
-            )
-        elif args.cmd == "provider-r3-status":
-            result = r3_gate_status(
-                args.gate_id,
-                database=Path(args.database).expanduser() if args.database else None,
             )
         elif args.cmd == "mpa-preview":
             if args.limit < 0:
@@ -546,80 +428,14 @@ def main(argv: list[str] | None = None) -> int:
                 include_expired=bool(args.include_expired),
                 limit=int(args.limit),
             )
-        elif args.cmd == "project-event":
-            if not SOURCE_ID_PATTERN.fullmatch(args.source_id):
-                raise ValueError("invalid source id")
-            result = record_project_event(
-                project_key=args.project_key,
-                source_id=args.source_id,
-                stage=args.stage,
-                title=args.title,
-                url=args.url,
-            )
-        elif args.cmd == "project-link-procurement":
-            result = link_procurement(
-                project_key=args.project_key,
-                canonical_key=args.canonical_key,
-                link_basis=args.basis,
-                linked_by=args.by,
-            )
-        elif args.cmd == "project-precursors":
-            result = precursor_candidates(limit=int(args.limit))
-        elif args.cmd == "project-promote-precursor":
-            result = promote_precursor_from_canonical(
-                canonical_key=args.canonical_key,
-                project_key=args.project_key,
-                stage=args.stage,
-                review_basis=args.basis,
-                reviewed_by=args.by,
-            )
-        elif args.cmd == "project-link-suggestions":
-            result = procurement_link_suggestions(
-                limit=int(args.limit),
-                per_project=int(args.per_project),
-            )
-        elif args.cmd == "project-leadtime":
-            result = leadtime_report(limit=int(args.limit))
         elif args.cmd == "business-kpis":
-            result = business_kpi_report(lead_limit=int(args.lead_limit))
+            result = business_kpi_report()
         elif args.cmd == "briefing":
             result = business_briefing()
         elif args.cmd == "audit":
             result = audit(network=not bool(args.no_network))
-        elif args.cmd == "business-digest":
-            result = business_digest(audit_network=not bool(args.no_network))
         elif args.cmd == "source-scorecard":
             result = source_scorecard(window_days=int(args.window_days))
-        elif args.cmd == "jev-shadow":
-            result = jev_shadow_report(
-                threshold=float(args.threshold),
-                model=str(args.model),
-                limit=int(args.limit),
-                include_expired=bool(args.include_expired),
-            )
-        elif args.cmd == "jev-noise-shadow":
-            result = jev_noise_shadow_report(
-                database=Path(args.database).expanduser() if args.database else None,
-                evidence_directory=Path(args.evidence_root).expanduser() if args.evidence_root else None,
-                status=None if args.status == "ALL" else args.status,
-                limit=int(args.limit),
-                open_threshold=float(args.open_threshold),
-                sector_threshold=float(args.sector_threshold),
-                model=str(args.model),
-            )
-        elif args.cmd == "jev-noise-triage":
-            result = jev_noise_triage_report(
-                database=Path(args.database).expanduser() if args.database else None,
-                evidence_directory=Path(args.evidence_root).expanduser() if args.evidence_root else None,
-                candidate_limit=int(args.candidate_limit),
-                per_source_cap=int(args.per_source_cap),
-                top=int(args.top),
-                open_threshold=float(args.open_threshold),
-                sector_threshold=float(args.sector_threshold),
-                model=str(args.model),
-            )
-        elif args.cmd == "browser-escalation-candidates":
-            result = browser_escalation_candidates(window_days=int(args.window_days), limit=int(args.limit))
         elif args.cmd == "assurance-run":
             result = run_assurance(network=not bool(args.no_network), noise_sample_size=int(args.noise_sample_size))
         elif args.cmd == "assurance-status":
@@ -678,45 +494,13 @@ def main(argv: list[str] | None = None) -> int:
                 reviewed_by=args.by,
                 miss_title=args.miss_title,
             )
-        elif args.cmd == "manual-promote":
-            result = record_manual_promotion(
-                source_id=args.source_id,
-                title=args.title,
-                summary=args.summary,
-                reason=args.reason,
-                priority_band=args.priority,
-                url=args.url,
-                deadline=args.deadline,
-                location=args.location,
-                created_by=args.by,
-            )
-        elif args.cmd == "manual-promotions":
-            result = list_manual_promotions(status=args.status, limit=int(args.limit))
-        elif args.cmd == "manual-resolve":
-            result = resolve_manual_promotion(args.promotion_id, note=args.note, resolved_by=args.by)
         elif args.cmd == "telegram-deliver":
             if bool(args.translate_preview) and not bool(args.dry_run):
                 raise ValueError("--translate-preview requires --dry-run")
             result = telegram_deliver(
                 dry_run=bool(args.dry_run),
                 translate_preview=bool(args.translate_preview),
-                profile_path=Path(args.profile).expanduser() if args.profile else None,
             )
-        elif args.cmd == "pilot-feedback":
-            result = record_pilot_feedback(
-                profile_id=args.profile_id,
-                canonical_key=args.canonical_key,
-                signal_id=args.signal_id,
-                event_type=args.event,
-                note=args.note,
-                recorded_by=args.by,
-            )
-        elif args.cmd == "pilot-report":
-            result = pilot_validation_report(profile_id=args.profile_id)
-        elif args.cmd == "telegram-feedback-poll":
-            result = telegram_feedback_poll(poll_timeout=int(args.poll_timeout))
-        elif args.cmd == "telegram-digest":
-            result = telegram_digest(dry_run=bool(args.dry_run), audit_network=not bool(args.no_network))
         else:
             result = status()
         print(json.dumps(result, ensure_ascii=False, sort_keys=True))

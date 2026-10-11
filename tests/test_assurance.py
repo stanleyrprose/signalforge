@@ -22,18 +22,14 @@ from signalforge.assurance import (
     coverage_has_reviewed_external_recovery,
     list_missed_signals,
     list_noise_samples,
-    record_manual_promotion,
     record_missed_signal,
-    resolve_manual_promotion,
     resolve_missed_signal,
     review_noise_sample,
     run_assurance,
 )
 from signalforge.briefing import business_briefing
-from signalforge.business_digest import business_digest, render_business_digest
 from signalforge.config import Registry
 from signalforge.db import SCHEMA_VERSION, connect, migrate
-from signalforge.telegram_delivery import telegram_deliver
 
 FIXTURES = Path(__file__).parent / "fixtures"
 KNOWN_NOISE_SIGNAL_ID = "67f9c7a2-b930-439c-84cc-d05cdecbe695"
@@ -100,8 +96,7 @@ class AssuranceTests(unittest.TestCase):
         self.assertTrue(
             {
                 "assurance_runs", "coverage_audit_results", "noise_review_samples", "missed_signals",
-                "manual_promotions", "manual_delivery_receipts", "metric_reviews",
-                "pilot_delivery_receipts", "pilot_feedback_events",
+                "metric_reviews",
             }
             <= tables
         )
@@ -346,39 +341,6 @@ class AssuranceTests(unittest.TestCase):
                 "RECENT_UNTRACKED_NOISE_FALSE_NEGATIVE_EXISTS",
                 untracked_review["conclusions"]["review_reasons"],
             )
-
-    def test_manual_promotion_is_visible_and_uses_separate_delivery_receipt(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            database = self._db(tmp)
-            promoted = record_manual_promotion(
-                source_id="SXX",
-                title="重要但非标准采购线索",
-                summary="客户正在准备未正式发布的传输设备采购。",
-                reason="高商业价值但缺少标准 tender identity",
-                priority_band="HIGH",
-                url="https://example.com/source",
-                deadline="2026-09-20",
-                database=database,
-            )
-            briefing = business_briefing(database=database)
-            self.assertEqual(briefing["manual_promotions"]["count"], 1)
-            digest = business_digest(database=database, audit_network=False)
-            text = render_business_digest(digest)
-            self.assertIn("🧑 人工升级", text)
-            self.assertIn("重要但非标准采购线索", text)
-            dry = telegram_deliver(database=database, dry_run=True)
-            self.assertEqual(dry["manual_pending_count"], 0)
-            self.assertEqual(dry["manual_suppressed_count"], 1)
-            with patch("signalforge.telegram_delivery._send_message", return_value="9001") as send_message:
-                sent = telegram_deliver(database=database, bot_token="secret", chat_id="42")
-            self.assertEqual(sent["manual_sent_count"], 0)
-            self.assertEqual(sent["manual_suppressed_count"], 1)
-            send_message.assert_not_called()
-            with connect(database) as conn:
-                self.assertEqual(conn.execute("SELECT COUNT(*) FROM manual_delivery_receipts").fetchone()[0], 0)
-                self.assertEqual(conn.execute("SELECT COUNT(*) FROM delivery_receipts").fetchone()[0], 0)
-            resolved = resolve_manual_promotion(str(promoted["promotion"]["promotion_id"]), note="closed", database=database)
-            self.assertEqual(resolved["promotion"]["status"], "RESOLVED")
 
     def test_zero_item_replayability_separates_legacy_from_retention_era_debt(self) -> None:
         class FakeConn:
