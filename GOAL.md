@@ -53,7 +53,7 @@ Git history is the archive for retired capabilities. They are not retained in th
 ## Business-success metrics
 
 1. **Tender delivery coverage** — official new/materially-updated tenders successfully delivered.
-2. **Delivery timeliness** — observation/signal-to-Telegram latency where timestamps are available.
+2. **Delivery timeliness** — Signal-created-to-Telegram success target <= 300 seconds; with current 15/30-minute source polling, normal source-publication-to-Telegram objective <= 35 minutes when publication timing is observable and issuer/network/provider paths are healthy.
 3. **Notice completeness** — buyer, scope, quantity/lot, explicit amount, deadline/opening date, reference and official link when present in source evidence.
 4. **Reliability** — duplicate prevention, source health, reviewed misses, false-negative noise sampling and delivery receipt integrity.
 

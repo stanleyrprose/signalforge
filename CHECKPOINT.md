@@ -34,4 +34,14 @@ Reliability layers retained: source health, Assurance, missed-signal review, noi
 
 Core-only refactor is in implementation review. Per `AGENTS.md`, no tests, CI, PR, merge, deployment or production Telegram send is authorized during this phase.
 
+Current implementation facts:
+
+- 27 enabled sources, all explicitly `item_kind=TENDER`;
+- source polling is 15 or 30 minutes and runtime validation rejects enabled sources slower than 30 minutes;
+- due-source scheduling is every 5 minutes; Telegram delivery is every 5 minutes at the :45 second offset;
+- Telegram's internal current-tender read is unbounded and no longer has the 500-row read-view cap;
+- source scorecard/business KPI yield is not mission-filtered; mission classification is analytical metadata only;
+- business KPI now measures recent Signal-created-to-Telegram success latency from existing receipts;
+- precursor, project-link/lead-time, customer profile, pilot feedback, standalone digest, non-tender news/policy sources and their dedicated runtime modules are retired from the active tree.
+
 The next gate after static review is explicit authorization to run affected-path verification.
