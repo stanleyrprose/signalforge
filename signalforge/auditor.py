@@ -25,7 +25,6 @@ DEFAULT_MPT_LOOKBACK_DAYS = 7
 DEFAULT_MPT_PAGE_LIMIT = 30
 DEFAULT_MPT_SEARCH_LIMIT = 20
 MPT_SEARCH_URL = "https://mpt.com.mm/wp-admin/admin-ajax.php"
-ATOM_SITEMAP_URL = "https://www.atom.com.mm/sitemap.xml"
 
 Fetcher = Callable[..., bytes]
 
@@ -544,47 +543,6 @@ def _coverage_findings(
     return findings, summary
 
 
-def _atom_surface_findings(fetcher: Fetcher) -> tuple[list[dict[str, object]], dict[str, object]]:
-    """Detect an official sitemap trigger without claiming it is a tender."""
-
-    try:
-        payload = fetcher(ATOM_SITEMAP_URL, timeout=30, max_bytes=2_000_000)
-        root = ElementTree.fromstring(payload)
-        terms = re.compile(r"(?:^|[-_/])(tender|procurement|rfp|rfq)(?:$|[-_/])", re.I)
-        candidates: list[str] = []
-        for node in root.iter():
-            if not str(node.tag).endswith("loc") or not node.text:
-                continue
-            url = node.text.strip()
-            parsed = urlparse(url)
-            if parsed.hostname not in {"atom.com.mm", "www.atom.com.mm", "business.atom.com.mm"}:
-                continue
-            if terms.search(parsed.path):
-                candidates.append(url)
-        candidates = sorted(set(candidates))
-        if not candidates:
-            return [], {"status": "NO_TRIGGER", "sitemap_url": ATOM_SITEMAP_URL, "candidate_urls": []}
-        finding = {
-            "type": "SURFACE_TRIGGER",
-            "severity": "YELLOW",
-            "source_id": "S42",
-            "code": "ATOM_PUBLIC_PROCUREMENT_SURFACE_CANDIDATE",
-            "summary": "ATOM official sitemap now contains procurement-like public URLs; reopen the deferred source audit",
-            "urls": candidates[:20],
-        }
-        return [finding], {"status": "REVIEW", "sitemap_url": ATOM_SITEMAP_URL, "candidate_urls": candidates[:20]}
-    except Exception as exc:
-        finding = {
-            "type": "HEALTH_ALERT",
-            "severity": "YELLOW",
-            "source_id": "S42",
-            "code": "AUDITOR_ATOM_SURFACE_CHECK_FAILED",
-            "summary": "Auditor could not inspect the deferred ATOM official sitemap",
-            "error": f"{type(exc).__name__}: {exc}",
-        }
-        return [finding], {"status": "CHECK_FAILED", "sitemap_url": ATOM_SITEMAP_URL}
-
-
 
 def _reviewed_mte_evidence_findings(fetcher: Fetcher) -> tuple[list[dict[str, object]], dict[str, object]]:
     findings: list[dict[str, object]] = []
@@ -822,10 +780,7 @@ def audit(
                 mpt_search_limit=mpt_search_limit,
             )
             findings.extend(coverage_findings)
-            checks["strategic_coverage"] = coverage_summary
-            atom_findings, atom_summary = _atom_surface_findings(fetcher)
-            findings.extend(atom_findings)
-            checks["atom_surface_trigger"] = atom_summary
+            checks["tender_coverage"] = coverage_summary
             source_map = registry.raw.get("sources") or {}
             s32_policy = source_map.get("S32") if isinstance(source_map, dict) else None
             if isinstance(s32_policy, dict) and s32_policy.get("enabled") is True:
@@ -835,8 +790,7 @@ def audit(
             else:
                 checks["reviewed_mte_image_evidence"] = {"status": "SKIPPED", "reason": "S32_DISABLED"}
         else:
-            checks["strategic_coverage"] = {"status": "SKIPPED", "reason": "NETWORK_DISABLED"}
-            checks["atom_surface_trigger"] = {"status": "SKIPPED", "reason": "NETWORK_DISABLED"}
+            checks["tender_coverage"] = {"status": "SKIPPED", "reason": "NETWORK_DISABLED"}
             checks["reviewed_mte_image_evidence"] = {"status": "SKIPPED", "reason": "NETWORK_DISABLED"}
 
         deadline_findings, deadline_summary = _deadline_findings(conn)
@@ -882,19 +836,18 @@ def audit(
                 "duplicated_push": "RECEIPT_INTEGRITY_CHECKED_PROVIDER_SIDE_NOT_OBSERVABLE",
                 "persistent_non_green_source": "CHECKED",
                 "missed_new_mpt_or_mytel_procurement": "BOUNDED_INDEPENDENT_RECONCILIATION",
-                "new_atom_public_procurement_surface": "OFFICIAL_SITEMAP_TRIGGER_CHECKED" if network else "NOT_CHECKED",
             },
         },
         "contract": {
             "read_only": True,
             "does_not_mutate_canonical_or_signals": True,
-            "does_not_emit_customer_signals": True,
+            "does_not_emit_delivery_signals": True,
             "does_not_send_telegram": True,
             "coverage_check_implementation_independent": True,
             "coverage_semantic_independence": "PARTIAL",
             "coverage_semantic_independence_limit": "MPT still uses the same Reference No + Project Name tender predicate; MYTEL reconciliation independently re-extracts official reference identity but does not prove all procurement semantics",
             "external_completeness_proven": False,
-            "coverage_scope": "bounded recent MPT pages, bounded MYTEL feed, and ATOM sitemap trigger only",
+            "coverage_scope": "bounded recent MPT pages and bounded MYTEL feed",
             "false_signal_proof_complete": False,
             "false_signal_limit": "canonical version history is required to prove parser-only historical UPDATED automatically",
         },

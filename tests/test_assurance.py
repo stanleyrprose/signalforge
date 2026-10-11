@@ -461,7 +461,7 @@ class AssuranceTests(unittest.TestCase):
         partial = _coverage_from_existing_audit(
             {
                 "checks": {
-                    "strategic_coverage": {
+                    "tender_coverage": {
                         "S13": {
                             "status": "PARTIAL",
                             "tender_like_pages": 0,
@@ -482,7 +482,7 @@ class AssuranceTests(unittest.TestCase):
         unproven = _coverage_from_existing_audit(
             {
                 "checks": {
-                    "strategic_coverage": {
+                    "tender_coverage": {
                         "S13": {"status": "UNPROVEN", "tender_like_pages": 0, "missing": 0}
                     }
                 },

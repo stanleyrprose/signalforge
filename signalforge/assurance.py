@@ -403,8 +403,8 @@ def resolve_missed_signal(
 
 def _coverage_from_existing_audit(audit_result: dict[str, object], source_id: str) -> dict[str, object]:
     checks = audit_result.get("checks") or {}
-    strategic = checks.get("strategic_coverage") if isinstance(checks, dict) else {}
-    summary = strategic.get(source_id) if isinstance(strategic, dict) else None
+    coverage = checks.get("tender_coverage") if isinstance(checks, dict) else {}
+    summary = coverage.get(source_id) if isinstance(coverage, dict) else None
     if not isinstance(summary, dict):
         return {"source_id": source_id, "method": "existing-independent-auditor", "status": "UNPROVEN", "official": 0, "covered": 0, "missing": [], "details": {"reason": "NO_AUDIT_RESULT"}}
     raw_status = str(summary.get("status") or "CHECK_FAILED")
