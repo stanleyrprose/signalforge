@@ -2696,7 +2696,6 @@
   },
   "deferred_sources": {
     "S01": "Myanmar National Portal Tenders — CANONICAL STILL DEFERRED; Assurance-only Mission Radar v2 scans at most 6 recent pagination pages and stops after 3 consecutive pages without mission leads. Selection is limited to government/SOE engineering, construction, telecom/ICT infrastructure and energy with off-mission vetoes. Closing Date remains hint-only; a bounded 14-day hint lookback prevents false-negative discovery when Portal metadata is not the issuer deadline; strict cross-surface equivalence may prove existing issuer coverage, and S01 never overrides issuer truth.",
-    "S04": "Myanmar National Trade Portal Legal Documents — DEFER canonical onboarding; official multi-agency aggregator overlaps issuer-original S05A/S07/S12 and requires cross-source issuer-resolution/dedup contract",
     "S15B": "MPA legacy Tender URL — DEFER; canonical production monitoring now uses S15A modern tender category via bounded Mac Provider LISTING/DETAIL/PDF targets",
     "S17": "MCDC — DEFER; current issuer-original tender posts are stable but business details are scan-only PDFs (0 extracted text in fresh audit), so onboarding requires a separately approved Burmese image/OCR capability",
     "S18": "NPTDC — DEFER; correct legacy PHP board path is Direct-HTTP reachable when literal parentheses are preserved, but tender specifics are image-based and the mixed 3MB board still requires classifier + image/OCR capability",

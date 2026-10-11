@@ -2,7 +2,7 @@
 
 ## Development lifecycle (Agent Development Policy v1.0)
 
-- Read this repository's current branch, approved PRD, actual workflow triggers and project operational constraints before code changes.
+- Read this repository's current branch, **`docs/PRD-v2.0-TENDER-CORE.md` (the approved current product PRD)**, actual workflow triggers and project operational constraints before code changes. Older PRDs are lower-level historical/technical references and cannot expand product scope.
 - Work on a **development branch**. During implementation **only write code and inspect static diffs**; do not run tests or acceptance commands.
 - Commit locally and Push the development branch to GitHub as work-in-progress SOT only after verifying that the Push **will not trigger GitHub CI, an open PR synchronize event, or an external auto-deployment**. If uncertain or unsafe, stop before Push.
 - **No PR, CI, Merge or deployment while code or required human review is unfinished.**
