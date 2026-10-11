@@ -134,7 +134,7 @@ def verified_external_opportunities(
     """Official issuer-document opportunities recovered outside canonical acquisition.
 
     These records are deliberately not canonical Signals. They are accepted for
-    customer-facing business coverage only when issuer identity, business scope
+    primary tender coverage only when issuer identity, business scope
     and deadline are all independently reviewed from an allowlisted official
     document.
     """

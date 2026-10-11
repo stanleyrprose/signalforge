@@ -175,7 +175,7 @@ def _telegram_business_readiness(item: dict[str, object]) -> list[str]:
     reasons: list[str] = []
     if str(item.get("item_kind") or "") != "TENDER":
         reasons.append("ITEM_KIND_NOT_TENDER")
-    excluded_reason = str(item.get("customer_readiness_excluded_reason") or "")
+    excluded_reason = str(item.get("primary_delivery_excluded_reason") or "")
     if excluded_reason:
         reasons.append(f"PRIMARY_DELIVERY_EXCLUDED:{excluded_reason}")
     if str(item.get("deadline_status") or "") == "EXPIRED":

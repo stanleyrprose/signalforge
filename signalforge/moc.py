@@ -111,7 +111,7 @@ class MocTender:
     document_ocr_input_sha256: str | None = None
     document_ocr_provider_request_id: str | None = None
     document_ocr_mean_confidence: float | None = None
-    customer_readiness_excluded_reason: str | None = None
+    primary_delivery_excluded_reason: str | None = None
 
     item_kind = "TENDER"
     publication_date = None
@@ -164,7 +164,7 @@ class MocTender:
             "document_ocr_input_sha256": self.document_ocr_input_sha256,
             "document_ocr_provider_request_id": self.document_ocr_provider_request_id,
             "document_ocr_mean_confidence": self.document_ocr_mean_confidence,
-            "customer_readiness_excluded_reason": self.customer_readiness_excluded_reason,
+            "primary_delivery_excluded_reason": self.primary_delivery_excluded_reason,
             "url": self.url,
         }
 
@@ -256,7 +256,7 @@ def enrich_tender_with_document_ocr(record: object, ocr: dict[str, object]) -> o
     deadline_time = _deadline_time_from_ocr(text, record.deadline)
     if deadline_time is None:
         # Listing/PDF date agreement is mandatory before OCR may enrich
-        # customer-facing business fields.
+        # primary-delivery business fields.
         return record
     scope, quantity, excluded_reason = _business_fields_from_ocr(text)
     if not scope or not quantity:
@@ -270,7 +270,7 @@ def enrich_tender_with_document_ocr(record: object, ocr: dict[str, object]) -> o
         document_ocr_input_sha256=input_sha256,
         document_ocr_provider_request_id=provider_request_id,
         document_ocr_mean_confidence=round(float(confidence), 2),
-        customer_readiness_excluded_reason=excluded_reason,
+        primary_delivery_excluded_reason=excluded_reason,
     )
 
 
@@ -296,8 +296,13 @@ def restore_tender_from_payload(record: object, payload: dict[str, object]) -> o
             float(payload["document_ocr_mean_confidence"])
             if isinstance(payload.get("document_ocr_mean_confidence"), (int, float)) else None
         ),
-        customer_readiness_excluded_reason=(
-            str(payload.get("customer_readiness_excluded_reason") or "") or None
+        primary_delivery_excluded_reason=(
+            str(
+                payload.get("primary_delivery_excluded_reason")
+                or payload.get("customer_readiness_excluded_reason")  # legacy payload read only
+                or ""
+            )
+            or None
         ),
     )
 

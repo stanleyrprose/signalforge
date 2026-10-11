@@ -61,7 +61,7 @@ class TelegramDeliveryTests(unittest.TestCase):
 
     def test_explicit_non_procurement_exclusion_blocks_primary_tender_feed(self) -> None:
         briefing = _briefing()
-        briefing["attention"][0]["customer_readiness_excluded_reason"] = "NON_PROCUREMENT_SERVICE_CONCESSION"
+        briefing["attention"][0]["primary_delivery_excluded_reason"] = "NON_PROCUREMENT_SERVICE_CONCESSION"
         with tempfile.TemporaryDirectory() as tmp:
             database = Path(tmp) / "signalforge.db"
             migrate(database)

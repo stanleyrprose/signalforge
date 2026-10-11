@@ -726,7 +726,7 @@ def _enrich_discovery_records_with_document_ocr(
                 errors += 1
             enriched_records.append(enriched)
         except Exception:
-            # Acquisition/OCR enrichment is fail-closed for customer readiness,
+            # Acquisition/OCR enrichment is fail-closed for primary tender delivery,
             # not a reason to discard issuer-original listing discovery.
             errors += 1
             enriched_records.append(record)

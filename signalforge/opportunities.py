@@ -392,7 +392,10 @@ def current_opportunities(
                 "price_or_budget_summary": payload.get("price_or_budget_summary"),
                 "evidence_level": payload.get("evidence_level"),
                 "document_authority": payload.get("document_authority"),
-                "customer_readiness_excluded_reason": payload.get("customer_readiness_excluded_reason"),
+                "primary_delivery_excluded_reason": (
+                    payload.get("primary_delivery_excluded_reason")
+                    or payload.get("customer_readiness_excluded_reason")  # legacy payload read only
+                ),
                 "next_action_summary": payload.get("next_action_summary"),
                 "next_action_evidence": payload.get("next_action_evidence"),
                 "action_time_evidence": payload.get("action_time_evidence"),
