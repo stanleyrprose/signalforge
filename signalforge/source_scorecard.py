@@ -11,7 +11,7 @@ from .db import connect
 from .mission_focus import MISSION_POLICY_VERSION, classify_mission_fit
 from .opportunities import current_opportunities
 
-SCORECARD_VERSION = 8
+SCORECARD_VERSION = 9
 DEFAULT_WINDOW_DAYS = 30
 
 # Provisional portfolio tiers frozen by the 2026-09-10 business-yield audit.
@@ -94,7 +94,7 @@ def source_scorecard(
     cutoff_iso = cutoff.isoformat().replace("+00:00", "Z")
     registry = registry or Registry.load()
 
-    opportunities_result = current_opportunities(database=target, now=now, registry=registry, limit=500)
+    opportunities_result = current_opportunities(database=target, now=now, registry=registry, limit=None)
     opportunity_rows = opportunities_result.get("opportunities") or []
     assert isinstance(opportunity_rows, list)
     tracked_opportunity_by_source: dict[str, list[dict[str, object]]] = {}
@@ -105,8 +105,7 @@ def source_scorecard(
         source_id = str(item.get("source_id") or "")
         tracked_opportunity_by_source.setdefault(source_id, []).append(item)
         classification = classify_mission_fit(item)
-        if classification["mission_fit"]:
-            opportunity_by_source.setdefault(source_id, []).append({**item, **classification})
+        opportunity_by_source.setdefault(source_id, []).append({**item, **classification})
 
     audit_result = audit(database=target, registry=registry, now=now, network=False)
     checks = audit_result.get("checks") or {}
@@ -175,9 +174,6 @@ def source_scorecard(
                 continue
             if not isinstance(payload, dict):
                 continue
-            mission = classify_mission_fit({**payload, "source_id": source_id, "item_kind": str(row["item_kind"] or "")})
-            if not mission["mission_fit"]:
-                continue
             bucket = delivery_rows.setdefault(source_id, {"n": 0, "latest_sent": None})
             bucket["n"] = int(bucket["n"]) + 1
             sent_at = str(row["sent_at"] or "")
@@ -211,8 +207,6 @@ def source_scorecard(
             "item_kind": str(raw.get("item_kind") or "TENDER"),
             "scope_summary": raw.get("business_summary"),
         })
-        if not mission["mission_fit"]:
-            continue
         verified_external_by_source.setdefault(source_id, []).append({**raw, **mission})
 
     rows: list[dict[str, object]] = []
@@ -228,6 +222,7 @@ def source_scorecard(
         verified_external = verified_external_by_source.get(source_id, [])
         opps = [*canonical_opps, *verified_external]
         tracked_opps = tracked_opportunity_by_source.get(source_id, [])
+        non_mission_opportunities = sum(1 for item in canonical_opps if item.get("mission_fit") is not True)
         priority_counts = {band: sum(1 for item in opps if item.get("priority_band") == band) for band in ("HIGH", "MEDIUM", "REVIEW", "LOW")}
         strategic_opportunities = sum(
             1
@@ -278,7 +273,7 @@ def source_scorecard(
                 "canonical_current_opportunities": len(canonical_opps),
                 "verified_external_opportunities": len(verified_external),
                 "tracked_current_opportunities": len(tracked_opps),
-                "mission_excluded_current_opportunities": max(0, len(tracked_opps) - len(canonical_opps)),
+                "non_mission_current_opportunities": non_mission_opportunities,
                 "current_priority_counts": priority_counts,
                 "current_ict_telecom_opportunities": strategic_opportunities,
                 "telegram_alerts_total": tg_count,
@@ -327,7 +322,7 @@ def source_scorecard(
         "verified_external_opportunities": verified_external_total,
         "verified_external_non_active_source_opportunities": verified_external_non_active,
         "tracked_current_opportunities": sum(int(row["tracked_current_opportunities"]) for row in rows),
-        "mission_excluded_current_opportunities": sum(int(row["mission_excluded_current_opportunities"]) for row in rows),
+        "non_mission_current_opportunities": sum(int(row["non_mission_current_opportunities"]) for row in rows),
         "current_ict_telecom_opportunities": sum(int(row["current_ict_telecom_opportunities"]) for row in rows),
         "telegram_alerts": sum(int(row["telegram_alerts_total"]) for row in rows),
         "tracked_telegram_alerts": sum(int(row["tracked_telegram_alerts_total"]) for row in rows),
@@ -353,7 +348,8 @@ def source_scorecard(
         "policy": {
             "portfolio_tier_is_analytical_only": True,
             "observed_yield_is_not_strategic_value": True,
-            "business_yield_is_mission_filtered": True,
+            "business_yield_is_mission_filtered": False,
+            "mission_fit_is_analytical_only": True,
             "known_historical_noise_is_accounting_only": True,
             "no_runtime_role_priority_polling_changes": True,
             "pruning_before_30d_requires_concrete_failure_or_noise_evidence": True,
