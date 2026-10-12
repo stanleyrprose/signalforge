@@ -87,6 +87,7 @@
         "delivery_during_recovery": "CONTINUE_WITH_DEGRADED_HEALTH"
       },
       "baseline_lookback_days": 45,
+      "baseline_include_undated": true,
       "baseline_detail_limit": 4,
       "delta_detail_limit": 4,
       "request_timeout_seconds": 30,

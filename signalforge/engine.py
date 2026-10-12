@@ -189,7 +189,10 @@ def _baseline_candidates(entries: list[SitemapEntry], *, now: datetime, source: 
         entry
         for entry in entries
         if entry.url not in seed_urls
-        and (_parse_iso(entry.lastmod) or datetime.min.replace(tzinfo=UTC)) >= cutoff
+        and (
+            (_parse_iso(entry.lastmod) or datetime.min.replace(tzinfo=UTC)) >= cutoff
+            or (entry.lastmod is None and source.get("baseline_include_undated") is True)
+        )
     ]
     recent.sort(key=lambda entry: entry.lastmod or "", reverse=True)
     return (seeds + recent)[:limit]
