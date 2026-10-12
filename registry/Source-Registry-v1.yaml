@@ -37,7 +37,28 @@
       }
     }
   },
-  "assurance_surfaces": {},
+  "assurance_surfaces": {
+    "S01": {
+      "name": "Myanmar National Portal Tenders",
+      "enabled": true,
+      "role": "DISCOVERY_AGGREGATOR_ONLY",
+      "landing_url": "https://myanmar.gov.mm/tenders",
+      "discovery_url": "https://myanmar.gov.mm/tenders",
+      "network_zone": "myanmar-international",
+      "engine": "direct_http",
+      "current_page_only": false,
+      "bounded_page_scan": true,
+      "max_pages": 6,
+      "stop_after_empty_mission_pages": 3,
+      "canonical_truth": false,
+      "closing_date_is_hint_only": true,
+      "closing_date_hint_lookback_days": 14,
+      "request_timeout_seconds": 30,
+      "request_max_bytes": 500000,
+      "selection_policy_version": 2,
+      "source_policy_version": 2
+    }
+  },
   "sources": {
     "S01": {
       "name": "Myanmar National Portal Official Tender Documents",

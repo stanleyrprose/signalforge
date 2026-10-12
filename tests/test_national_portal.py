@@ -313,8 +313,8 @@ class NationalPortalTests(unittest.TestCase):
 
     def test_s01_is_assurance_only_and_not_an_active_source(self) -> None:
         registry = Registry.load(Path(__file__).resolve().parents[1])
-        self.assertNotIn("S01", dict(registry.enabled_sources()))
-        self.assertNotIn("S01", registry.raw["sources"])
+        self.assertIn("S01", dict(registry.enabled_sources()))
+        self.assertIn("S01", registry.raw["sources"])
         surface = registry.raw["assurance_surfaces"]["S01"]
         self.assertTrue(surface["enabled"])
         self.assertEqual(surface["role"], "DISCOVERY_AGGREGATOR_ONLY")

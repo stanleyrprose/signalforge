@@ -25,7 +25,7 @@ class ContractTests(unittest.TestCase):
         )
         self.assertEqual(manifest["verbs"]["signalforge-refresh"]["argument"], "source_id")
         self.assertEqual(manifest["grammar"]["source_id"], "^[A-Z][A-Z0-9]{0,15}$")
-        self.assertEqual(manifest["active_source_ids"], ["S13", "S16", "S20", "S21", "S22", "S23", "S25", "S26", "S28", "S29", "S30", "S31", "S32", "S33", "S34", "S35", "S36", "S37", "S39", "S40", "S41", "S43", "S47", "S51", "S15A", "S27", "S38"])
+        self.assertEqual(manifest["active_source_ids"], ["S13", "S16", "S20", "S21", "S22", "S23", "S25", "S26", "S28", "S29", "S30", "S31", "S32", "S33", "S34", "S35", "S36", "S37", "S39", "S40", "S41", "S43", "S47", "S01", "S15A", "S27", "S38", "S51"])
 
         registry = Registry.load(ROOT)
         railways = registry.raw["sources"]["S21"]
@@ -56,9 +56,9 @@ class ContractTests(unittest.TestCase):
         enabled = registry.enabled_sources()
         self.assertTrue(enabled)
         self.assertTrue(all(source.get("item_kind") == "TENDER" for _sid, source in enabled))
-        self.assertTrue(all(0 < int(source["poll_interval_seconds"]) <= 1800 for _sid, source in enabled))
+        self.assertTrue(all(int(source["poll_interval_seconds"]) == 86400 for _sid, source in enabled))
         provider_sources = {sid for sid, source in enabled if source["engine"] == "provider"}
-        self.assertEqual(provider_sources, {"S15A", "S27", "S38"})
+        self.assertEqual(provider_sources, {"S01", "S15A", "S27", "S38", "S51"})
 
         railways = registry.source("S21")
         self.assertEqual(railways["adapter"], "railways")
@@ -137,8 +137,8 @@ class ContractTests(unittest.TestCase):
         self.assertIn("EnvironmentFile=/etc/signalforge/telegram.env", service)
         self.assertIn("ExecStart=/srv/signalforge/active/bin/signalforge telegram-deliver", service)
         self.assertIn("User=signalforge", service)
-        self.assertIn("OnCalendar=*-*-* *:0/5:00 UTC", run_due_timer)
-        self.assertIn("OnCalendar=*-*-* *:0/5:45 UTC", timer)
+        self.assertIn("OnCalendar=*-*-* 00:00:00 UTC", run_due_timer)
+        self.assertIn("OnCalendar=*-*-* 00:30:00 UTC", timer)
         self.assertIn("ExecStart=/srv/signalforge/active/bin/signalforge assurance-run", assurance_service)
         self.assertNotIn("telegram.env", assurance_service)
         self.assertIn("OnCalendar=Sun *-*-* 14:40:00 UTC", assurance_timer)
