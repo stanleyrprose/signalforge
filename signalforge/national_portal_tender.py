@@ -15,11 +15,13 @@ from urllib.parse import urlparse
 from pypdf import PdfReader
 
 from .mpt import SitemapEntry, normalize_text
+
+_MYANMAR_DIGITS = str.maketrans("၀၁၂၃၄၅၆၇၈၉", "0123456789")
 from .digital_development import _DDD_TITLE_TOKEN
 from .national_portal import NATIONAL_PORTAL_HOSTS, _TenderCardParser, _canonical_url
 
 _DATE = re.compile(r"(?<!\d)(\d{1,2})[./-](\d{1,2})[./-](20\d{2})(?!\d)")
-_QTY = re.compile(r"\b\d[\d,]*\s*(?:units?|sets?|lots?|pieces?|pcs?|nos?|ခု|လုံး|စုံ|မျိုး)\b", re.I)
+_QTY = re.compile(r"(?<![\w/])\d[\d,]*\s*(?:units?|sets?|lots?|pieces?|pcs?|nos?|ခု|လုံး|စုံ|မျိုး)(?![A-Za-z0-9])", re.I)
 _DEADLINE = re.compile(r"(?:submission\s+(?:deadline|date)|bid\s+closing|tender\s+closing|တင်ဒါ\s*ပိတ်|တင်သွင်းရမည့်)[^\n]{0,140}", re.I)
 _ISSUER = re.compile(r"(?:ministry|department|government|enterprise|authority|committee|ဌာန|ဝန်ကြီးဌာန|ကော်မတီ)[^\n]{0,120}", re.I)
 
@@ -50,7 +52,7 @@ class PortalTender:
     url: str
     issuer: str
     scope_summary: str
-    quantity_or_lot_summary: str
+    quantity_or_lot_summary: str | None
     deadline: str
     title: str
     document_sha256: str
@@ -73,6 +75,7 @@ class PortalTender:
         return {'item_kind': 'TENDER', 'issuer': self.issuer, 'title': self.title,
                 'project_name': self.project_name, 'scope_summary': self.scope_summary,
                 'quantity_or_lot_summary': self.quantity_or_lot_summary,
+                'quantity_disclosure_status': 'EXPLICIT' if self.quantity_or_lot_summary else 'NOT_EXTRACTED',
                 'deadline': self.deadline, 'deadline_kind': 'BID_SUBMISSION_DEADLINE',
                 'deadline_evidence': 'ISSUER_DOCUMENT_TEXT', 'url': self.url,
                 'document_authority': 'ISSUER_TEXT_PDF_VIA_NATIONAL_PORTAL',
@@ -83,14 +86,14 @@ def parse_national_portal_document(payload: bytes, url: str) -> list[PortalTende
     if not payload.startswith(b'%PDF-'):
         return []
     text = '\n'.join(page.extract_text() or '' for page in PdfReader(io.BytesIO(payload)).pages)
-    text = '\n'.join(normalize_text(line) for line in text.splitlines() if normalize_text(line))
+    text = '\n'.join(normalize_text(line).translate(_MYANMAR_DIGITS) for line in text.splitlines() if normalize_text(line))
     if len(text) < 100:
         return []  # Scanned PDFs require OCR and independent issuer review.
     issuer = _ISSUER.search(text)
     quantity = _QTY.search(text)
     deadline_line = _DEADLINE.search(text)
     date_match = _DATE.search(deadline_line.group(0)) if deadline_line else None
-    if not (issuer and quantity and date_match):
+    if not (issuer and date_match):
         return []
     day, month, year = map(int, date_match.groups())
     try:
@@ -98,4 +101,4 @@ def parse_national_portal_document(payload: bytes, url: str) -> list[PortalTende
     except ValueError:
         return []
     title = text[:180]
-    return [PortalTender(url, issuer.group(0), title, quantity.group(0), deadline, title, hashlib.sha256(payload).hexdigest())]
+    return [PortalTender(url, issuer.group(0), title, quantity.group(0) if quantity else None, deadline, title, hashlib.sha256(payload).hexdigest())]
