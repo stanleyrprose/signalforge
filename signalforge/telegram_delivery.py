@@ -265,7 +265,10 @@ def render_telegram_message(
         lines.append(f"📦 采购内容：{scope}")
     else:
         lines.append("📦 采购内容：已识别为正式招标，但自动摘要尚未提取；请查看官方原文")
-    if item.get("quantity_or_lot_summary"):
+    if item.get("quantity_or_lot_summary") and not any(
+        marker in raw_quantity.lower()
+        for marker in ("not disclosed", "not specified", "unknown", "未披露", "未说明", "详见官方原文")
+    ):
         lines.append(f"🔢 数量/规模：{quantity}")
     else:
         lines.append("🔢 数量/规模：未提取到明确数量（不代表官方未披露），请核对原文/附件")
