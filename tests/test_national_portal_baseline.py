@@ -2,7 +2,7 @@
 import sqlite3
 import unittest
 from datetime import UTC, datetime
-from signalforge.engine import _baseline_candidates, _schedule_undated_discovery_recovery
+from signalforge.engine import _baseline_candidates, _schedule_undated_discovery_recovery, _upsert_discovery_snapshot
 from signalforge.mpt import SitemapEntry
 
 class NationalPortalBaselineTests(unittest.TestCase):
@@ -28,3 +28,18 @@ class NationalPortalBaselineTests(unittest.TestCase):
         self.assertEqual(_schedule_undated_discovery_recovery(conn, "S01", source, entries, "2026-10-12"), 0)
         self.assertIsNotNone(conn.execute("SELECT pending_since_at FROM discovery_items WHERE url LIKE '%/a'").fetchone()[0])
         self.assertIsNone(conn.execute("SELECT pending_since_at FROM discovery_items WHERE url LIKE '%/b'").fetchone()[0])
+
+    def test_undated_pending_survives_next_discovery_snapshot(self):
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        conn.execute("""CREATE TABLE discovery_items(source_id TEXT,url TEXT,lastmod TEXT,
+            fetched_lastmod TEXT,last_fetched_at TEXT,canonical_key TEXT,
+            pending_since_at TEXT,suppress_signal_once INTEGER DEFAULT 0,
+            first_seen_at TEXT,last_seen_at TEXT)""")
+        entry = SitemapEntry("https://myanmar.gov.mm/documents/unfetched", None)
+        _upsert_discovery_snapshot(conn, "S01", [entry], "2026-10-12", baseline=False)
+        _upsert_discovery_snapshot(conn, "S01", [entry], "2026-10-13", baseline=False)
+        self.assertEqual(conn.execute("SELECT pending_since_at FROM discovery_items").fetchone()[0], "2026-10-12")
+        conn.execute("UPDATE discovery_items SET last_fetched_at='2026-10-13',pending_since_at=NULL")
+        _upsert_discovery_snapshot(conn, "S01", [entry], "2026-10-14", baseline=False)
+        self.assertIsNone(conn.execute("SELECT pending_since_at FROM discovery_items").fetchone()[0])

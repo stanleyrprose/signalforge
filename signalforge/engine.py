@@ -208,7 +208,7 @@ def _upsert_discovery_snapshot(
 ) -> None:
     for entry in entries:
         existing = conn.execute(
-            "SELECT fetched_lastmod,pending_since_at,suppress_signal_once FROM discovery_items WHERE source_id=? AND url=?",
+            "SELECT fetched_lastmod,last_fetched_at,pending_since_at,suppress_signal_once FROM discovery_items WHERE source_id=? AND url=?",
             (source_id, entry.url),
         ).fetchone()
         if existing is None:
@@ -235,7 +235,10 @@ def _upsert_discovery_snapshot(
         fetched_lastmod = existing["fetched_lastmod"]
         pending_since = existing["pending_since_at"]
         suppress_once = int(existing["suppress_signal_once"] or 0)
-        if fetched_lastmod != entry.lastmod:
+        if fetched_lastmod != entry.lastmod or (
+            entry.lastmod is None and existing["last_fetched_at"] is None
+        ):
+            # NULL == NULL is not evidence that an undated document was fetched.
             pending_since = pending_since or observed_at
         else:
             pending_since = None
