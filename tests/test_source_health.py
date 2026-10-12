@@ -38,8 +38,8 @@ class SourceHealthTests(unittest.TestCase):
     def test_registry_freezes_source_health_thresholds(self) -> None:
         source = Registry.load(ROOT).source("S13")
         health = source["health_policy"]
-        self.assertEqual(health["freshness_yellow_seconds"], 1800)
-        self.assertEqual(health["freshness_red_seconds"], 2700)
+        self.assertEqual(health["freshness_yellow_seconds"], 129600)
+        self.assertEqual(health["freshness_red_seconds"], 172800)
         self.assertEqual(health["parse_window_runs"], 10)
         self.assertEqual(health["parse_min_attempts"], 3)
         self.assertEqual(health["parse_yellow_ratio"], 0.9)
@@ -92,7 +92,7 @@ class SourceHealthTests(unittest.TestCase):
     def test_freshness_and_fetch_health_degrade_independently(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             db = Path(tmp) / "signalforge.db"
-            self._seed(db, last_success="2026-09-03T10:00:00Z")
+            self._seed(db, last_success="2026-09-01T10:00:00Z")
             stale = self._run(db, now=datetime(2026, 9, 3, 12, 0, tzinfo=UTC))
             health = stale["sources"][0]["health"]
             self.assertEqual(health["freshness_health"], "RED")

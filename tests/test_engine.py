@@ -364,6 +364,8 @@ class EngineTests(unittest.TestCase):
         source["baseline_lookback_days"] = 365
         source["baseline_detail_limit"] = 10
         source["delta_detail_limit"] = 2
+        # This test exercises bounded recovery, not the production daily scheduler.
+        source["poll_interval_seconds"] = 60
         source["request_delay_ms"] = 0
         source["bootstrap_seed_urls"] = []
         raw["sources"] = {"S13": source}
@@ -479,7 +481,9 @@ class EngineTests(unittest.TestCase):
                 evidence=evidence,
                 worker_context={"run_id": "worker-steady"},
             )
-            self.assertFalse(steady["recovery"])
+            # With the fixture's short poll cadence, the 15-minute gap is
+            # legitimately a recovery run; it must still be deduplicated.
+            self.assertTrue(steady["recovery"])
             self.assertEqual(steady["candidates"], 0)
             self.assertEqual(steady["signals_created"], 0)
 
@@ -493,9 +497,9 @@ class EngineTests(unittest.TestCase):
                 state = conn.execute(
                     "SELECT recovery_window_start,recovery_window_end,last_successful_reconciliation_at FROM source_state WHERE source_id='S13'"
                 ).fetchone()
-            self.assertEqual([row[2] for row in recovery_runs], [3, 1, 0])
+            self.assertEqual([row[2] for row in recovery_runs], [3, 1, 0, 0])
             self.assertTrue(all(row[0] == "RECONCILIATION" and row[1] == 1 for row in recovery_runs))
-            self.assertTrue(all(row[3] == recovery_runs[0][3] and row[4] == recovery_runs[0][4] for row in recovery_runs))
+            self.assertTrue(all(row[3] == recovery_runs[0][3] and row[4] == recovery_runs[0][4] for row in recovery_runs[:3]))
             self.assertEqual(state[0:2], (None, None))
             self.assertEqual(state[2], "2026-09-02T13:25:00Z")
 

@@ -26,6 +26,7 @@ from .harness import default_checkpoint_path, evaluate_harness, persist_checkpoi
 from .opportunities import current_opportunities
 from .public_read_telemetry import public_read_telemetry_alert, public_read_telemetry_report
 from .source_scorecard import source_scorecard
+from .tender_quality import tender_quality
 from .telegram_delivery import telegram_deliver
 from .translation import translation_status
 
@@ -245,6 +246,7 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("manifest")
     sub.add_parser("migrate")
     sub.add_parser("run-due")
+    sub.add_parser("daily-cycle")
     run_source_parser = sub.add_parser("run-source")
     run_source_parser.add_argument("source_id")
     run_source_parser.add_argument("--force", action="store_true")
@@ -258,6 +260,8 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("briefing")
     audit_parser = sub.add_parser("audit")
     audit_parser.add_argument("--no-network", action="store_true")
+    quality_parser = sub.add_parser("tender-quality")
+    quality_parser.add_argument("--database")
     scorecard_parser = sub.add_parser("source-scorecard")
     scorecard_parser.add_argument("--window-days", type=int, default=30)
     assurance_run_parser = sub.add_parser("assurance-run")
@@ -312,6 +316,11 @@ def main(argv: list[str] | None = None) -> int:
             result = {"status": "PASS"}
         elif args.cmd == "run-due":
             result = run_due()
+        elif args.cmd == "daily-cycle":
+            # A single synchronous barrier: all enabled source attempts finish
+            # before Telegram delivery begins, including partial failures.
+            from .daily_cycle import daily_cycle
+            result = daily_cycle()
         elif args.cmd == "run-source":
             result = run_source(args.source_id, force=args.force)
         elif args.cmd == "refresh-source":
@@ -330,6 +339,8 @@ def main(argv: list[str] | None = None) -> int:
             result = business_briefing()
         elif args.cmd == "audit":
             result = audit(network=not bool(args.no_network))
+        elif args.cmd == "tender-quality":
+            result = tender_quality(database=Path(args.database).expanduser() if args.database else None)
         elif args.cmd == "source-scorecard":
             result = source_scorecard(window_days=int(args.window_days))
         elif args.cmd == "assurance-run":
@@ -402,6 +413,9 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(result, ensure_ascii=False, sort_keys=True))
         if args.cmd == "harness-verify" and isinstance(result, dict) and result.get("phase") != "DONE":
             return 2
+        if args.cmd == "daily-cycle" and isinstance(result, dict):
+            if result.get("status") not in {"COMPLETE", "COMPLETE_WITH_SOURCE_FAILURES", "ALREADY_COMPLETE"}:
+                return 1
         return 0
     except Exception as exc:
         print(json.dumps({"status": "FAILED", "error": f"{type(exc).__name__}: {exc}"}, ensure_ascii=False), file=sys.stderr)

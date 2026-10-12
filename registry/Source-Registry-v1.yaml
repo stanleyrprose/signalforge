@@ -60,6 +60,147 @@
     }
   },
   "sources": {
+    "S01": {
+      "name": "Myanmar National Portal Official Tender Documents",
+      "adapter": "national_portal_tender",
+      "enabled": true,
+      "role": "ACTIVE_SELECTIVE",
+      "audit_status": "UNVERIFIED_PENDING_LIVE_EVIDENCE",
+      "item_kind": "TENDER",
+      "network_zone": "mac-direct",
+      "engine": "provider",
+      "landing_url": "https://myanmar.gov.mm/tenders",
+      "discovery_url": "https://myanmar.gov.mm/tenders",
+      "discovery_is_tender_only": false,
+      "listing_complete_business_records": false,
+      "language": "my",
+      "poll_interval_seconds": 86400,
+      "retry_interval_seconds": 300,
+      "priority": 80,
+      "recovery_slo_seconds": 3600,
+      "availability_policy": {
+        "class": "DELAY_TOLERANT_MONITORED",
+        "accepted_collection_outage_seconds": 7200,
+        "collection_rto_seconds": 3600,
+        "business_data_rpo_target_seconds": 86400,
+        "outage_status": "DATA_COLLECTION_DELAYED",
+        "delivery_during_recovery": "CONTINUE_WITH_DEGRADED_HEALTH"
+      },
+      "baseline_lookback_days": 45,
+      "baseline_detail_limit": 4,
+      "delta_detail_limit": 4,
+      "request_timeout_seconds": 30,
+      "request_max_bytes": 2000000,
+      "request_delay_ms": 100,
+      "canonical_key": "portal_document_url",
+      "first_baseline_customer_signal": false,
+      "bootstrap_seed_urls": [],
+      "selection_policy_version": 1,
+      "health_policy": {
+        "freshness_yellow_seconds": 129600,
+        "freshness_red_seconds": 172800,
+        "fetch_yellow_failures": 1,
+        "fetch_red_failures": 3,
+        "parse_window_runs": 10,
+        "parse_min_attempts": 1,
+        "parse_yellow_ratio": 0.9,
+        "parse_red_ratio": 0.7,
+        "parse_probe_interval_seconds": 7200,
+        "parse_sample_source": "BUSINESS_PROCESSING"
+      },
+      "source_policy_version": 2,
+      "egress_profile": "mac-direct",
+      "detail_target_kind": "PDF",
+      "acquisition_policy": {
+        "enabled": true,
+        "primary": {
+          "method": "MAC_BROWSER_PROVIDER",
+          "target_kind": "HTML",
+          "provider_id": "mac-mm-01",
+          "capability": "PUBLIC_READ_ACQUIRE"
+        },
+        "supplementary": [
+          {
+            "method": "MAC_BROWSER_PROVIDER",
+            "target_kind": "PDF",
+            "required": true,
+            "max_count": 1,
+            "same_origin_only": true
+          }
+        ],
+        "escalation": {
+          "DNS_FAILURE": {
+            "action": "RETRY"
+          },
+          "CONNECT_TIMEOUT": {
+            "action": "RETRY"
+          },
+          "HTTP_429": {
+            "action": "RETRY"
+          },
+          "HTTP_403": {
+            "action": "REVIEW"
+          },
+          "TLS_FAILURE": {
+            "action": "FAIL"
+          },
+          "JS_RENDER_REQUIRED": {
+            "action": "REVIEW_CAPABILITY"
+          },
+          "PDF_PARSE_FAILURE": {
+            "action": "REAUDIT"
+          },
+          "PARSER_DRIFT": {
+            "action": "REAUDIT"
+          }
+        }
+      },
+      "attachment_policy": {
+        "mode": "DETAIL_IS_ISSUER_TEXT_PDF",
+        "current_health": "GREEN_TEXT_NATIVE_PDF_SCOPE_ITEM_SCHEDULE_FEE_LOCATION",
+        "fetch_in_primary_pipeline": true,
+        "customer_readiness": "ISSUER_PDF_REQUIRED"
+      },
+      "actionable_baseline_signal_policy": {
+        "enabled": true,
+        "min_remaining_seconds": 43200,
+        "max_signals_per_run": 3
+      },
+      "activation_gate": {
+        "type": "STRICT_TLS_HTTPS_PLUS_ISSUER_TEXT_PDF",
+        "status": "PASS",
+        "verified_at": "2026-09-30",
+        "requirements": {
+          "tls_verification_required": true,
+          "expected_http_status": 200,
+          "national_portal_discovery_verified": true,
+          "issuer_pdf_text_layer_verified": true,
+          "issuer_reference_scope_deadline_fee_verified": true
+        },
+        "enable_only_after_gate_pass": true
+      },
+      "provider_id": "mac-mm-01",
+      "provider_capability": "PUBLIC_READ_ACQUIRE",
+      "provider_target_roles": {
+        "DISCOVERY": "LISTING",
+        "HTML": "DETAIL",
+        "PDF": "PDF"
+      },
+      "provider_target_limits": {
+        "DISCOVERY": {
+          "max_bytes": 2000000,
+          "timeout_seconds": 90
+        },
+        "HTML": {
+          "max_bytes": 2000000,
+          "timeout_seconds": 90
+        },
+        "PDF": {
+          "max_bytes": 10485760,
+          "timeout_seconds": 120
+        }
+      }
+    },
     "S13": {
       "name": "MPT Tender Information",
       "adapter": "mpt",
@@ -71,7 +212,7 @@
       "landing_url": "https://mpt.com.mm/en/about-home/tenders/",
       "discovery_url": "https://mpt.com.mm/page-sitemap.xml",
       "language": "en",
-      "poll_interval_seconds": 900,
+      "poll_interval_seconds": 86400,
       "retry_interval_seconds": 300,
       "priority": 100,
       "recovery_slo_seconds": 1800,
@@ -79,7 +220,7 @@
         "class": "DELAY_TOLERANT_MONITORED",
         "accepted_collection_outage_seconds": 3600,
         "collection_rto_seconds": 1800,
-        "business_data_rpo_target_seconds": 900,
+        "business_data_rpo_target_seconds": 86400,
         "outage_status": "DATA_COLLECTION_DELAYED",
         "delivery_during_recovery": "CONTINUE_WITH_DEGRADED_HEALTH"
       },
@@ -98,8 +239,8 @@
         "https://mpt.com.mm/en/core-and-important-site-dg-maintenance-project-fy26-2/"
       ],
       "health_policy": {
-        "freshness_yellow_seconds": 1800,
-        "freshness_red_seconds": 2700,
+        "freshness_yellow_seconds": 129600,
+        "freshness_red_seconds": 172800,
         "fetch_yellow_failures": 1,
         "fetch_red_failures": 3,
         "parse_window_runs": 10,
@@ -163,7 +304,7 @@
       "discovery_url": "https://www.railways.gov.mm/posts?category=tender",
       "discovery_is_tender_only": true,
       "language": "my",
-      "poll_interval_seconds": 900,
+      "poll_interval_seconds": 86400,
       "retry_interval_seconds": 300,
       "priority": 95,
       "recovery_slo_seconds": 1800,
@@ -171,7 +312,7 @@
         "class": "DELAY_TOLERANT_MONITORED",
         "accepted_collection_outage_seconds": 3600,
         "collection_rto_seconds": 1800,
-        "business_data_rpo_target_seconds": 900,
+        "business_data_rpo_target_seconds": 86400,
         "outage_status": "DATA_COLLECTION_DELAYED",
         "delivery_during_recovery": "CONTINUE_WITH_DEGRADED_HEALTH"
       },
@@ -190,8 +331,8 @@
       },
       "bootstrap_seed_urls": [],
       "health_policy": {
-        "freshness_yellow_seconds": 1800,
-        "freshness_red_seconds": 2700,
+        "freshness_yellow_seconds": 129600,
+        "freshness_red_seconds": 172800,
         "fetch_yellow_failures": 1,
         "fetch_red_failures": 3,
         "parse_window_runs": 10,
@@ -247,7 +388,7 @@
       "discovery_url": "https://iwt.gov.mm/tenders",
       "discovery_is_tender_only": true,
       "language": "my",
-      "poll_interval_seconds": 900,
+      "poll_interval_seconds": 86400,
       "retry_interval_seconds": 300,
       "priority": 90,
       "recovery_slo_seconds": 1800,
@@ -255,7 +396,7 @@
         "class": "DELAY_TOLERANT_MONITORED",
         "accepted_collection_outage_seconds": 3600,
         "collection_rto_seconds": 1800,
-        "business_data_rpo_target_seconds": 900,
+        "business_data_rpo_target_seconds": 86400,
         "outage_status": "DATA_COLLECTION_DELAYED",
         "delivery_during_recovery": "CONTINUE_WITH_DEGRADED_HEALTH"
       },
@@ -279,8 +420,8 @@
         "https://iwt.gov.mm/my/node/1035"
       ],
       "health_policy": {
-        "freshness_yellow_seconds": 1800,
-        "freshness_red_seconds": 2700,
+        "freshness_yellow_seconds": 129600,
+        "freshness_red_seconds": 172800,
         "fetch_yellow_failures": 1,
         "fetch_red_failures": 3,
         "parse_window_runs": 10,
@@ -335,7 +476,7 @@
       "discovery_url": "https://moep.gov.mm/mm/ignite/page/62",
       "discovery_is_tender_only": true,
       "language": "my",
-      "poll_interval_seconds": 900,
+      "poll_interval_seconds": 86400,
       "retry_interval_seconds": 300,
       "priority": 85,
       "recovery_slo_seconds": 1800,
@@ -343,7 +484,7 @@
         "class": "DELAY_TOLERANT_MONITORED",
         "accepted_collection_outage_seconds": 3600,
         "collection_rto_seconds": 1800,
-        "business_data_rpo_target_seconds": 900,
+        "business_data_rpo_target_seconds": 86400,
         "outage_status": "DATA_COLLECTION_DELAYED",
         "delivery_during_recovery": "CONTINUE_WITH_DEGRADED_HEALTH"
       },
@@ -363,8 +504,8 @@
         "https://moep.gov.mm/mm/ignite/contentView/7103"
       ],
       "health_policy": {
-        "freshness_yellow_seconds": 1800,
-        "freshness_red_seconds": 2700,
+        "freshness_yellow_seconds": 129600,
+        "freshness_red_seconds": 172800,
         "fetch_yellow_failures": 1,
         "fetch_red_failures": 3,
         "parse_window_runs": 10,
@@ -426,7 +567,7 @@
       "discovery_url": "https://www.monpifer.gov.mm/my/ministry-tenders",
       "listing_complete_business_records": true,
       "language": "my-en",
-      "poll_interval_seconds": 1800,
+      "poll_interval_seconds": 86400,
       "retry_interval_seconds": 300,
       "priority": 70,
       "recovery_slo_seconds": 3600,
@@ -434,7 +575,7 @@
         "class": "DELAY_TOLERANT_MONITORED",
         "accepted_collection_outage_seconds": 7200,
         "collection_rto_seconds": 3600,
-        "business_data_rpo_target_seconds": 1800,
+        "business_data_rpo_target_seconds": 86400,
         "outage_status": "DATA_COLLECTION_DELAYED",
         "delivery_during_recovery": "CONTINUE_WITH_DEGRADED_HEALTH"
       },
@@ -448,8 +589,8 @@
       "first_baseline_customer_signal": false,
       "bootstrap_seed_urls": [],
       "health_policy": {
-        "freshness_yellow_seconds": 3600,
-        "freshness_red_seconds": 5400,
+        "freshness_yellow_seconds": 129600,
+        "freshness_red_seconds": 172800,
         "fetch_yellow_failures": 1,
         "fetch_red_failures": 3,
         "parse_window_runs": 10,
@@ -511,7 +652,7 @@
       "discovery_url": "https://www.doms.gov.mm/category/tender/",
       "discovery_is_tender_only": true,
       "language": "my-en",
-      "poll_interval_seconds": 1800,
+      "poll_interval_seconds": 86400,
       "retry_interval_seconds": 300,
       "priority": 82,
       "recovery_slo_seconds": 3600,
@@ -519,7 +660,7 @@
         "class": "DELAY_TOLERANT_MONITORED",
         "accepted_collection_outage_seconds": 7200,
         "collection_rto_seconds": 3600,
-        "business_data_rpo_target_seconds": 1800,
+        "business_data_rpo_target_seconds": 86400,
         "outage_status": "DATA_COLLECTION_DELAYED",
         "delivery_during_recovery": "CONTINUE_WITH_DEGRADED_HEALTH"
       },
@@ -534,8 +675,8 @@
       "bootstrap_seed_urls": [],
       "selection_policy_version": 1,
       "health_policy": {
-        "freshness_yellow_seconds": 3600,
-        "freshness_red_seconds": 5400,
+        "freshness_yellow_seconds": 129600,
+        "freshness_red_seconds": 172800,
         "fetch_yellow_failures": 1,
         "fetch_red_failures": 3,
         "parse_window_runs": 10,
@@ -597,7 +738,7 @@
       "discovery_is_tender_only": true,
       "listing_complete_business_records": true,
       "language": "my-en",
-      "poll_interval_seconds": 1800,
+      "poll_interval_seconds": 86400,
       "retry_interval_seconds": 300,
       "priority": 76,
       "recovery_slo_seconds": 3600,
@@ -605,7 +746,7 @@
         "class": "DELAY_TOLERANT_MONITORED",
         "accepted_collection_outage_seconds": 7200,
         "collection_rto_seconds": 3600,
-        "business_data_rpo_target_seconds": 1800,
+        "business_data_rpo_target_seconds": 86400,
         "outage_status": "DATA_COLLECTION_DELAYED",
         "delivery_during_recovery": "CONTINUE_WITH_DEGRADED_HEALTH"
       },
@@ -619,8 +760,8 @@
       "first_baseline_customer_signal": false,
       "bootstrap_seed_urls": [],
       "health_policy": {
-        "freshness_yellow_seconds": 3600,
-        "freshness_red_seconds": 5400,
+        "freshness_yellow_seconds": 129600,
+        "freshness_red_seconds": 172800,
         "fetch_yellow_failures": 1,
         "fetch_red_failures": 3,
         "parse_window_runs": 10,
@@ -682,7 +823,7 @@
       "discovery_url": "https://www.dwir.gov.mm/",
       "discovery_is_tender_only": true,
       "language": "my-en",
-      "poll_interval_seconds": 1800,
+      "poll_interval_seconds": 86400,
       "retry_interval_seconds": 300,
       "priority": 84,
       "recovery_slo_seconds": 3600,
@@ -690,7 +831,7 @@
         "class": "DELAY_TOLERANT_MONITORED",
         "accepted_collection_outage_seconds": 7200,
         "collection_rto_seconds": 3600,
-        "business_data_rpo_target_seconds": 1800,
+        "business_data_rpo_target_seconds": 86400,
         "outage_status": "DATA_COLLECTION_DELAYED",
         "delivery_during_recovery": "CONTINUE_WITH_DEGRADED_HEALTH"
       },
@@ -704,8 +845,8 @@
       "first_baseline_customer_signal": false,
       "bootstrap_seed_urls": [],
       "health_policy": {
-        "freshness_yellow_seconds": 3600,
-        "freshness_red_seconds": 5400,
+        "freshness_yellow_seconds": 129600,
+        "freshness_red_seconds": 172800,
         "fetch_yellow_failures": 1,
         "fetch_red_failures": 3,
         "parse_window_runs": 10,
@@ -766,7 +907,7 @@
       "discovery_url": "https://www.mofa.gov.mm/category/announcement/",
       "discovery_is_tender_only": true,
       "language": "my-en",
-      "poll_interval_seconds": 1800,
+      "poll_interval_seconds": 86400,
       "retry_interval_seconds": 300,
       "priority": 83,
       "recovery_slo_seconds": 3600,
@@ -774,7 +915,7 @@
         "class": "DELAY_TOLERANT_MONITORED",
         "accepted_collection_outage_seconds": 7200,
         "collection_rto_seconds": 3600,
-        "business_data_rpo_target_seconds": 1800,
+        "business_data_rpo_target_seconds": 86400,
         "outage_status": "DATA_COLLECTION_DELAYED",
         "delivery_during_recovery": "CONTINUE_WITH_DEGRADED_HEALTH"
       },
@@ -789,8 +930,8 @@
       "bootstrap_seed_urls": [],
       "selection_policy_version": 1,
       "health_policy": {
-        "freshness_yellow_seconds": 3600,
-        "freshness_red_seconds": 5400,
+        "freshness_yellow_seconds": 129600,
+        "freshness_red_seconds": 172800,
         "fetch_yellow_failures": 1,
         "fetch_red_failures": 3,
         "parse_window_runs": 10,
@@ -866,7 +1007,7 @@
       "discovery_is_tender_only": true,
       "listing_complete_business_records": true,
       "language": "my-en",
-      "poll_interval_seconds": 1800,
+      "poll_interval_seconds": 86400,
       "retry_interval_seconds": 300,
       "priority": 80,
       "recovery_slo_seconds": 3600,
@@ -874,7 +1015,7 @@
         "class": "DELAY_TOLERANT_MONITORED",
         "accepted_collection_outage_seconds": 7200,
         "collection_rto_seconds": 3600,
-        "business_data_rpo_target_seconds": 1800,
+        "business_data_rpo_target_seconds": 86400,
         "outage_status": "DATA_COLLECTION_DELAYED",
         "delivery_during_recovery": "CONTINUE_WITH_DEGRADED_HEALTH"
       },
@@ -894,8 +1035,8 @@
         "suppress_signal": true
       },
       "health_policy": {
-        "freshness_yellow_seconds": 3600,
-        "freshness_red_seconds": 5400,
+        "freshness_yellow_seconds": 129600,
+        "freshness_red_seconds": 172800,
         "fetch_yellow_failures": 1,
         "fetch_red_failures": 3,
         "parse_window_runs": 10,
@@ -958,7 +1099,7 @@
       "discovery_is_tender_only": true,
       "listing_complete_business_records": true,
       "language": "my-en",
-      "poll_interval_seconds": 1800,
+      "poll_interval_seconds": 86400,
       "retry_interval_seconds": 300,
       "priority": 79,
       "recovery_slo_seconds": 3600,
@@ -966,7 +1107,7 @@
         "class": "DELAY_TOLERANT_MONITORED",
         "accepted_collection_outage_seconds": 7200,
         "collection_rto_seconds": 3600,
-        "business_data_rpo_target_seconds": 1800,
+        "business_data_rpo_target_seconds": 86400,
         "outage_status": "DATA_COLLECTION_DELAYED",
         "delivery_during_recovery": "CONTINUE_WITH_DEGRADED_HEALTH"
       },
@@ -981,8 +1122,8 @@
       "bootstrap_seed_urls": [],
       "selection_policy_version": 2,
       "health_policy": {
-        "freshness_yellow_seconds": 3600,
-        "freshness_red_seconds": 5400,
+        "freshness_yellow_seconds": 129600,
+        "freshness_red_seconds": 172800,
         "fetch_yellow_failures": 1,
         "fetch_red_failures": 3,
         "parse_window_runs": 10,
@@ -1045,7 +1186,7 @@
       "discovery_is_tender_only": true,
       "listing_complete_business_records": true,
       "language": "my",
-      "poll_interval_seconds": 1800,
+      "poll_interval_seconds": 86400,
       "retry_interval_seconds": 300,
       "priority": 78,
       "recovery_slo_seconds": 3600,
@@ -1053,7 +1194,7 @@
         "class": "DELAY_TOLERANT_MONITORED",
         "accepted_collection_outage_seconds": 7200,
         "collection_rto_seconds": 3600,
-        "business_data_rpo_target_seconds": 1800,
+        "business_data_rpo_target_seconds": 86400,
         "outage_status": "DATA_COLLECTION_DELAYED",
         "delivery_during_recovery": "CONTINUE_WITH_DEGRADED_HEALTH"
       },
@@ -1068,8 +1209,8 @@
       "bootstrap_seed_urls": [],
       "selection_policy_version": 1,
       "health_policy": {
-        "freshness_yellow_seconds": 3600,
-        "freshness_red_seconds": 5400,
+        "freshness_yellow_seconds": 129600,
+        "freshness_red_seconds": 172800,
         "fetch_yellow_failures": 1,
         "fetch_red_failures": 3,
         "parse_window_runs": 10,
@@ -1131,7 +1272,7 @@
       "discovery_url": "https://www.ycdc.gov.mm/frontend_engineering_building_detail/1",
       "listing_complete_business_records": true,
       "language": "my",
-      "poll_interval_seconds": 1800,
+      "poll_interval_seconds": 86400,
       "retry_interval_seconds": 300,
       "priority": 88,
       "recovery_slo_seconds": 3600,
@@ -1139,7 +1280,7 @@
         "class": "DELAY_TOLERANT_MONITORED",
         "accepted_collection_outage_seconds": 7200,
         "collection_rto_seconds": 3600,
-        "business_data_rpo_target_seconds": 1800,
+        "business_data_rpo_target_seconds": 86400,
         "outage_status": "DATA_COLLECTION_DELAYED",
         "delivery_during_recovery": "CONTINUE_WITH_DEGRADED_HEALTH"
       },
@@ -1154,8 +1295,8 @@
       "bootstrap_seed_urls": [],
       "selection_policy_version": 1,
       "health_policy": {
-        "freshness_yellow_seconds": 3600,
-        "freshness_red_seconds": 5400,
+        "freshness_yellow_seconds": 129600,
+        "freshness_red_seconds": 172800,
         "fetch_yellow_failures": 1,
         "fetch_red_failures": 3,
         "parse_window_runs": 10,
@@ -1217,7 +1358,7 @@
       "discovery_url": "https://www.ptd.gov.mm/Announcement.aspx?id=jOhwNsVnnrHGITOdpDNvsw%3D%3D",
       "discovery_is_tender_only": true,
       "language": "my",
-      "poll_interval_seconds": 900,
+      "poll_interval_seconds": 86400,
       "retry_interval_seconds": 300,
       "priority": 98,
       "recovery_slo_seconds": 1800,
@@ -1225,7 +1366,7 @@
         "class": "DELAY_TOLERANT_MONITORED",
         "accepted_collection_outage_seconds": 3600,
         "collection_rto_seconds": 1800,
-        "business_data_rpo_target_seconds": 900,
+        "business_data_rpo_target_seconds": 86400,
         "outage_status": "DATA_COLLECTION_DELAYED",
         "delivery_during_recovery": "CONTINUE_WITH_DEGRADED_HEALTH"
       },
@@ -1240,8 +1381,8 @@
       "bootstrap_seed_urls": [],
       "selection_policy_version": 1,
       "health_policy": {
-        "freshness_yellow_seconds": 1800,
-        "freshness_red_seconds": 2700,
+        "freshness_yellow_seconds": 129600,
+        "freshness_red_seconds": 172800,
         "fetch_yellow_failures": 1,
         "fetch_red_failures": 3,
         "parse_window_runs": 10,
@@ -1318,7 +1459,7 @@
       "discovery_url": "https://www.dast.gov.mm/category/tender/",
       "discovery_is_tender_only": true,
       "language": "my",
-      "poll_interval_seconds": 1800,
+      "poll_interval_seconds": 86400,
       "retry_interval_seconds": 300,
       "priority": 84,
       "recovery_slo_seconds": 3600,
@@ -1326,7 +1467,7 @@
         "class": "DELAY_TOLERANT_MONITORED",
         "accepted_collection_outage_seconds": 7200,
         "collection_rto_seconds": 3600,
-        "business_data_rpo_target_seconds": 1800,
+        "business_data_rpo_target_seconds": 86400,
         "outage_status": "DATA_COLLECTION_DELAYED",
         "delivery_during_recovery": "CONTINUE_WITH_DEGRADED_HEALTH"
       },
@@ -1341,8 +1482,8 @@
       "bootstrap_seed_urls": [],
       "selection_policy_version": 1,
       "health_policy": {
-        "freshness_yellow_seconds": 3600,
-        "freshness_red_seconds": 5400,
+        "freshness_yellow_seconds": 129600,
+        "freshness_red_seconds": 172800,
         "fetch_yellow_failures": 1,
         "fetch_red_failures": 3,
         "parse_window_runs": 10,
@@ -1405,7 +1546,7 @@
       "discovery_is_tender_only": false,
       "listing_complete_business_records": true,
       "language": "my",
-      "poll_interval_seconds": 1800,
+      "poll_interval_seconds": 86400,
       "retry_interval_seconds": 300,
       "priority": 82,
       "recovery_slo_seconds": 3600,
@@ -1413,7 +1554,7 @@
         "class": "DELAY_TOLERANT_MONITORED",
         "accepted_collection_outage_seconds": 7200,
         "collection_rto_seconds": 3600,
-        "business_data_rpo_target_seconds": 1800,
+        "business_data_rpo_target_seconds": 86400,
         "outage_status": "DATA_COLLECTION_DELAYED",
         "delivery_during_recovery": "CONTINUE_WITH_DEGRADED_HEALTH"
       },
@@ -1428,8 +1569,8 @@
       "bootstrap_seed_urls": [],
       "selection_policy_version": 1,
       "health_policy": {
-        "freshness_yellow_seconds": 3600,
-        "freshness_red_seconds": 5400,
+        "freshness_yellow_seconds": 129600,
+        "freshness_red_seconds": 172800,
         "fetch_yellow_failures": 1,
         "fetch_red_failures": 3,
         "parse_window_runs": 10,
@@ -1491,7 +1632,7 @@
       "discovery_url": "https://www.moi.gov.mm/department-announcement",
       "discovery_is_tender_only": true,
       "language": "my",
-      "poll_interval_seconds": 1800,
+      "poll_interval_seconds": 86400,
       "retry_interval_seconds": 300,
       "priority": 83,
       "recovery_slo_seconds": 3600,
@@ -1499,7 +1640,7 @@
         "class": "DELAY_TOLERANT_MONITORED",
         "accepted_collection_outage_seconds": 7200,
         "collection_rto_seconds": 3600,
-        "business_data_rpo_target_seconds": 1800,
+        "business_data_rpo_target_seconds": 86400,
         "outage_status": "DATA_COLLECTION_DELAYED",
         "delivery_during_recovery": "CONTINUE_WITH_DEGRADED_HEALTH"
       },
@@ -1514,8 +1655,8 @@
       "bootstrap_seed_urls": [],
       "selection_policy_version": 1,
       "health_policy": {
-        "freshness_yellow_seconds": 3600,
-        "freshness_red_seconds": 5400,
+        "freshness_yellow_seconds": 129600,
+        "freshness_red_seconds": 172800,
         "fetch_yellow_failures": 1,
         "fetch_red_failures": 3,
         "parse_window_runs": 10,
@@ -1583,7 +1724,7 @@
       "discovery_url": "https://www.industrymsme.gov.mm/announcements",
       "discovery_is_tender_only": true,
       "language": "my",
-      "poll_interval_seconds": 1800,
+      "poll_interval_seconds": 86400,
       "retry_interval_seconds": 300,
       "priority": 90,
       "recovery_slo_seconds": 3600,
@@ -1591,7 +1732,7 @@
         "class": "DELAY_TOLERANT_MONITORED",
         "accepted_collection_outage_seconds": 7200,
         "collection_rto_seconds": 3600,
-        "business_data_rpo_target_seconds": 1800,
+        "business_data_rpo_target_seconds": 86400,
         "outage_status": "DATA_COLLECTION_DELAYED",
         "delivery_during_recovery": "CONTINUE_WITH_DEGRADED_HEALTH"
       },
@@ -1612,8 +1753,8 @@
         "suppress_signal_once": true
       },
       "health_policy": {
-        "freshness_yellow_seconds": 3600,
-        "freshness_red_seconds": 5400,
+        "freshness_yellow_seconds": 129600,
+        "freshness_red_seconds": 172800,
         "fetch_yellow_failures": 1,
         "fetch_red_failures": 3,
         "parse_window_runs": 10,
@@ -1700,7 +1841,7 @@
       "discovery_url": "https://moba.gov.mm/my/tender",
       "discovery_is_tender_only": true,
       "language": "my",
-      "poll_interval_seconds": 1800,
+      "poll_interval_seconds": 86400,
       "retry_interval_seconds": 300,
       "priority": 85,
       "recovery_slo_seconds": 3600,
@@ -1708,7 +1849,7 @@
         "class": "DELAY_TOLERANT_MONITORED",
         "accepted_collection_outage_seconds": 7200,
         "collection_rto_seconds": 3600,
-        "business_data_rpo_target_seconds": 1800,
+        "business_data_rpo_target_seconds": 86400,
         "outage_status": "DATA_COLLECTION_DELAYED",
         "delivery_during_recovery": "CONTINUE_WITH_DEGRADED_HEALTH"
       },
@@ -1723,8 +1864,8 @@
       "bootstrap_seed_urls": [],
       "selection_policy_version": 1,
       "health_policy": {
-        "freshness_yellow_seconds": 3600,
-        "freshness_red_seconds": 5400,
+        "freshness_yellow_seconds": 129600,
+        "freshness_red_seconds": 172800,
         "fetch_yellow_failures": 1,
         "fetch_red_failures": 3,
         "parse_window_runs": 10,
@@ -1800,7 +1941,7 @@
       "discovery_url": "https://energy.gov.mm/tenders",
       "discovery_is_tender_only": true,
       "language": "my",
-      "poll_interval_seconds": 1800,
+      "poll_interval_seconds": 86400,
       "retry_interval_seconds": 300,
       "priority": 88,
       "recovery_slo_seconds": 3600,
@@ -1808,7 +1949,7 @@
         "class": "DELAY_TOLERANT_MONITORED",
         "accepted_collection_outage_seconds": 7200,
         "collection_rto_seconds": 3600,
-        "business_data_rpo_target_seconds": 1800,
+        "business_data_rpo_target_seconds": 86400,
         "outage_status": "DATA_COLLECTION_DELAYED",
         "delivery_during_recovery": "CONTINUE_WITH_DEGRADED_HEALTH"
       },
@@ -1823,8 +1964,8 @@
       "bootstrap_seed_urls": [],
       "selection_policy_version": 1,
       "health_policy": {
-        "freshness_yellow_seconds": 3600,
-        "freshness_red_seconds": 5400,
+        "freshness_yellow_seconds": 129600,
+        "freshness_red_seconds": 172800,
         "fetch_yellow_failures": 1,
         "fetch_red_failures": 3,
         "parse_window_runs": 10,
@@ -1905,7 +2046,7 @@
       "discovery_url": "https://www.mol.gov.mm/tender/",
       "discovery_is_tender_only": true,
       "language": "my",
-      "poll_interval_seconds": 1800,
+      "poll_interval_seconds": 86400,
       "retry_interval_seconds": 300,
       "priority": 87,
       "recovery_slo_seconds": 3600,
@@ -1913,7 +2054,7 @@
         "class": "DELAY_TOLERANT_MONITORED",
         "accepted_collection_outage_seconds": 7200,
         "collection_rto_seconds": 3600,
-        "business_data_rpo_target_seconds": 1800,
+        "business_data_rpo_target_seconds": 86400,
         "outage_status": "DATA_COLLECTION_DELAYED",
         "delivery_during_recovery": "CONTINUE_WITH_DEGRADED_HEALTH"
       },
@@ -1928,8 +2069,8 @@
       "bootstrap_seed_urls": [],
       "selection_policy_version": 1,
       "health_policy": {
-        "freshness_yellow_seconds": 3600,
-        "freshness_red_seconds": 5400,
+        "freshness_yellow_seconds": 129600,
+        "freshness_red_seconds": 172800,
         "fetch_yellow_failures": 1,
         "fetch_red_failures": 3,
         "parse_window_runs": 10,
@@ -2007,7 +2148,7 @@
       "listing_complete_business_records": true,
       "http_fetch_profile": "cloudrity_d1n_v1",
       "language": "en",
-      "poll_interval_seconds": 1800,
+      "poll_interval_seconds": 86400,
       "retry_interval_seconds": 300,
       "priority": 99,
       "recovery_slo_seconds": 3600,
@@ -2015,7 +2156,7 @@
         "class": "DELAY_TOLERANT_MONITORED",
         "accepted_collection_outage_seconds": 7200,
         "collection_rto_seconds": 3600,
-        "business_data_rpo_target_seconds": 1800,
+        "business_data_rpo_target_seconds": 86400,
         "outage_status": "DATA_COLLECTION_DELAYED",
         "delivery_during_recovery": "CONTINUE_WITH_DEGRADED_HEALTH"
       },
@@ -2030,8 +2171,8 @@
       "bootstrap_seed_urls": [],
       "selection_policy_version": 1,
       "health_policy": {
-        "freshness_yellow_seconds": 3600,
-        "freshness_red_seconds": 5400,
+        "freshness_yellow_seconds": 129600,
+        "freshness_red_seconds": 172800,
         "fetch_yellow_failures": 1,
         "fetch_red_failures": 3,
         "parse_window_runs": 10,
@@ -2099,7 +2240,7 @@
       "discovery_is_tender_only": true,
       "listing_complete_business_records": false,
       "language": "my",
-      "poll_interval_seconds": 1800,
+      "poll_interval_seconds": 86400,
       "retry_interval_seconds": 300,
       "priority": 92,
       "recovery_slo_seconds": 3600,
@@ -2107,7 +2248,7 @@
         "class": "DELAY_TOLERANT_MONITORED",
         "accepted_collection_outage_seconds": 7200,
         "collection_rto_seconds": 3600,
-        "business_data_rpo_target_seconds": 1800,
+        "business_data_rpo_target_seconds": 86400,
         "outage_status": "DATA_COLLECTION_DELAYED",
         "delivery_during_recovery": "CONTINUE_WITH_DEGRADED_HEALTH"
       },
@@ -2122,8 +2263,8 @@
       "bootstrap_seed_urls": [],
       "selection_policy_version": 1,
       "health_policy": {
-        "freshness_yellow_seconds": 3600,
-        "freshness_red_seconds": 5400,
+        "freshness_yellow_seconds": 129600,
+        "freshness_red_seconds": 172800,
         "fetch_yellow_failures": 1,
         "fetch_red_failures": 3,
         "parse_window_runs": 10,
@@ -2191,7 +2332,7 @@
       "discovery_is_tender_only": true,
       "listing_complete_business_records": false,
       "language": "my",
-      "poll_interval_seconds": 1800,
+      "poll_interval_seconds": 86400,
       "retry_interval_seconds": 300,
       "priority": 93,
       "recovery_slo_seconds": 3600,
@@ -2199,7 +2340,7 @@
         "class": "DELAY_TOLERANT_MONITORED",
         "accepted_collection_outage_seconds": 7200,
         "collection_rto_seconds": 3600,
-        "business_data_rpo_target_seconds": 1800,
+        "business_data_rpo_target_seconds": 86400,
         "outage_status": "DATA_COLLECTION_DELAYED",
         "delivery_during_recovery": "CONTINUE_WITH_DEGRADED_HEALTH"
       },
@@ -2219,8 +2360,8 @@
       "bootstrap_seed_urls": [],
       "selection_policy_version": 1,
       "health_policy": {
-        "freshness_yellow_seconds": 3600,
-        "freshness_red_seconds": 5400,
+        "freshness_yellow_seconds": 129600,
+        "freshness_red_seconds": 172800,
         "fetch_yellow_failures": 1,
         "fetch_red_failures": 3,
         "parse_window_runs": 10,
@@ -2290,7 +2431,7 @@
       "discovery_is_tender_only": false,
       "listing_complete_business_records": false,
       "language": "my/en",
-      "poll_interval_seconds": 1800,
+      "poll_interval_seconds": 86400,
       "retry_interval_seconds": 300,
       "priority": 96,
       "recovery_slo_seconds": 3600,
@@ -2298,7 +2439,7 @@
         "class": "DELAY_TOLERANT_MONITORED",
         "accepted_collection_outage_seconds": 7200,
         "collection_rto_seconds": 3600,
-        "business_data_rpo_target_seconds": 1800,
+        "business_data_rpo_target_seconds": 86400,
         "outage_status": "DATA_COLLECTION_DELAYED",
         "delivery_during_recovery": "CONTINUE_WITH_DEGRADED_HEALTH"
       },
@@ -2313,8 +2454,8 @@
       "bootstrap_seed_urls": [],
       "selection_policy_version": 2,
       "health_policy": {
-        "freshness_yellow_seconds": 3600,
-        "freshness_red_seconds": 7200,
+        "freshness_yellow_seconds": 129600,
+        "freshness_red_seconds": 172800,
         "fetch_yellow_failures": 1,
         "fetch_red_failures": 3,
         "parse_window_runs": 10,
@@ -2420,14 +2561,14 @@
       "role": "ACTIVE_PRIMARY",
       "audit_status": "GREEN_DIRECT_HTTP_NATIONAL_PORTAL_ISSUER_TEXT_PDF",
       "item_kind": "TENDER",
-      "network_zone": "myanmar-international",
-      "engine": "direct_http",
+      "network_zone": "mac-direct",
+      "engine": "provider",
       "landing_url": "https://myanmar.gov.mm/tenders",
       "discovery_url": "https://myanmar.gov.mm/tenders",
       "discovery_is_tender_only": false,
       "listing_complete_business_records": false,
       "language": "my",
-      "poll_interval_seconds": 1800,
+      "poll_interval_seconds": 86400,
       "retry_interval_seconds": 300,
       "priority": 100,
       "recovery_slo_seconds": 3600,
@@ -2435,7 +2576,7 @@
         "class": "DELAY_TOLERANT_MONITORED",
         "accepted_collection_outage_seconds": 7200,
         "collection_rto_seconds": 3600,
-        "business_data_rpo_target_seconds": 1800,
+        "business_data_rpo_target_seconds": 86400,
         "outage_status": "DATA_COLLECTION_DELAYED",
         "delivery_during_recovery": "CONTINUE_WITH_DEGRADED_HEALTH"
       },
@@ -2450,8 +2591,8 @@
       "bootstrap_seed_urls": [],
       "selection_policy_version": 1,
       "health_policy": {
-        "freshness_yellow_seconds": 3600,
-        "freshness_red_seconds": 7200,
+        "freshness_yellow_seconds": 129600,
+        "freshness_red_seconds": 172800,
         "fetch_yellow_failures": 1,
         "fetch_red_failures": 3,
         "parse_window_runs": 10,
@@ -2461,16 +2602,26 @@
         "parse_probe_interval_seconds": 7200,
         "parse_sample_source": "BUSINESS_PROCESSING"
       },
-      "source_policy_version": 1,
-      "egress_profile": "mm-intl-datacenter",
+      "source_policy_version": 2,
+      "egress_profile": "mac-direct",
       "detail_target_kind": "PDF",
       "acquisition_policy": {
         "enabled": true,
         "primary": {
-          "method": "DIRECT_HTTP",
-          "target_kind": "HTML"
+          "method": "MAC_BROWSER_PROVIDER",
+          "target_kind": "HTML",
+          "provider_id": "mac-mm-01",
+          "capability": "PUBLIC_READ_ACQUIRE"
         },
-        "supplementary": [],
+        "supplementary": [
+          {
+            "method": "MAC_BROWSER_PROVIDER",
+            "target_kind": "PDF",
+            "required": true,
+            "max_count": 1,
+            "same_origin_only": true
+          }
+        ],
         "escalation": {
           "DNS_FAILURE": {
             "action": "RETRY"
@@ -2521,6 +2672,27 @@
           "issuer_reference_scope_deadline_fee_verified": true
         },
         "enable_only_after_gate_pass": true
+      },
+      "provider_id": "mac-mm-01",
+      "provider_capability": "PUBLIC_READ_ACQUIRE",
+      "provider_target_roles": {
+        "DISCOVERY": "LISTING",
+        "HTML": "DETAIL",
+        "PDF": "PDF"
+      },
+      "provider_target_limits": {
+        "DISCOVERY": {
+          "max_bytes": 2000000,
+          "timeout_seconds": 90
+        },
+        "HTML": {
+          "max_bytes": 2000000,
+          "timeout_seconds": 90
+        },
+        "PDF": {
+          "max_bytes": 10485760,
+          "timeout_seconds": 120
+        }
       }
     },
     "S23": {
@@ -2537,7 +2709,7 @@
       "discovery_is_tender_only": true,
       "listing_complete_business_records": true,
       "language": "my",
-      "poll_interval_seconds": 1800,
+      "poll_interval_seconds": 86400,
       "retry_interval_seconds": 300,
       "priority": 90,
       "recovery_slo_seconds": 3600,
@@ -2545,7 +2717,7 @@
         "class": "DELAY_TOLERANT_MONITORED",
         "accepted_collection_outage_seconds": 7200,
         "collection_rto_seconds": 3600,
-        "business_data_rpo_target_seconds": 1800,
+        "business_data_rpo_target_seconds": 86400,
         "outage_status": "DATA_COLLECTION_DELAYED",
         "delivery_during_recovery": "CONTINUE_WITH_DEGRADED_HEALTH"
       },
@@ -2565,8 +2737,8 @@
       "bootstrap_seed_urls": [],
       "selection_policy_version": 1,
       "health_policy": {
-        "freshness_yellow_seconds": 3600,
-        "freshness_red_seconds": 7200,
+        "freshness_yellow_seconds": 129600,
+        "freshness_red_seconds": 172800,
         "fetch_yellow_failures": 1,
         "fetch_red_failures": 3,
         "parse_window_runs": 10,
@@ -2649,7 +2821,6 @@
     }
   },
   "deferred_sources": {
-    "S01": "Myanmar National Portal Tenders — CANONICAL STILL DEFERRED; Assurance-only Mission Radar v2 scans at most 6 recent pagination pages and stops after 3 consecutive pages without mission leads. Selection is limited to government/SOE engineering, construction, telecom/ICT infrastructure and energy with off-mission vetoes. Closing Date remains hint-only; a bounded 14-day hint lookback prevents false-negative discovery when Portal metadata is not the issuer deadline; strict cross-surface equivalence may prove existing issuer coverage, and S01 never overrides issuer truth.",
     "S15B": "MPA legacy Tender URL — DEFER; canonical production monitoring now uses S15A modern tender category via bounded Mac Provider LISTING/DETAIL/PDF targets",
     "S17": "MCDC — DEFER; current issuer-original tender posts are stable but business details are scan-only PDFs (0 extracted text in fresh audit), so onboarding requires a separately approved Burmese image/OCR capability",
     "S18": "NPTDC — DEFER; correct legacy PHP board path is Direct-HTTP reachable when literal parentheses are preserved, but tender specifics are image-based and the mixed 3MB board still requires classifier + image/OCR capability",

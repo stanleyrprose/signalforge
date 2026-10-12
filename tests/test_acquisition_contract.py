@@ -73,9 +73,10 @@ class AcquisitionContractTests(unittest.TestCase):
     def test_s51_uses_html_discovery_with_direct_pdf_detail(self) -> None:
         registry = Registry.load(ROOT)
         source = registry.source("S51")
-        self.assertEqual(source["acquisition_policy"]["primary"], {"method": "DIRECT_HTTP", "target_kind": "HTML"})
+        self.assertEqual(source["acquisition_policy"]["primary"]["method"], "MAC_BROWSER_PROVIDER")
+        self.assertEqual(source["acquisition_policy"]["primary"]["capability"], "PUBLIC_READ_ACQUIRE")
         self.assertEqual(source["detail_target_kind"], "PDF")
-        self.assertEqual(source["acquisition_policy"]["supplementary"], [])
+        self.assertEqual(source["acquisition_policy"]["supplementary"][0]["target_kind"], "PDF")
         validate_source_acquisition_policy("S51", source)
 
         bad = copy.deepcopy(source)

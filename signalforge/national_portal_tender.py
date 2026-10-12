@@ -1,0 +1,101 @@
+"""Conservative issuer-document acquisition for National Portal tenders.
+
+Portal cards are discovery hints only; a document with unverified issuer or
+submission deadline is never promoted to a canonical tender.
+"""
+from __future__ import annotations
+
+import hashlib
+import io
+import re
+from dataclasses import dataclass
+from datetime import date
+from urllib.parse import urlparse
+
+from pypdf import PdfReader
+
+from .mpt import SitemapEntry, normalize_text
+from .digital_development import _DDD_TITLE_TOKEN
+from .national_portal import NATIONAL_PORTAL_HOSTS, _TenderCardParser, _canonical_url
+
+_DATE = re.compile(r"(?<!\d)(\d{1,2})[./-](\d{1,2})[./-](20\d{2})(?!\d)")
+_QTY = re.compile(r"\b\d[\d,]*\s*(?:units?|sets?|lots?|pieces?|pcs?|nos?|ခု|လုံး|စုံ|မျိုး)\b", re.I)
+_DEADLINE = re.compile(r"(?:submission\s+(?:deadline|date)|bid\s+closing|tender\s+closing|တင်ဒါ\s*ပိတ်|တင်သွင်းရမည့်)[^\n]{0,140}", re.I)
+_ISSUER = re.compile(r"(?:ministry|department|government|enterprise|authority|committee|ဌာန|ဝန်ကြီးဌာန|ကော်မတီ)[^\n]{0,120}", re.I)
+
+
+def parse_national_portal_listing(payload: bytes) -> list[SitemapEntry]:
+    parser = _TenderCardParser()
+    parser.feed(payload.decode('utf-8', errors='replace'))
+    if not parser.rows:
+        raise ValueError('National Portal tender cards not found')
+    found: dict[str, SitemapEntry] = {}
+    for row in parser.rows:
+        url = _canonical_url(row['href'], 'https://myanmar.gov.mm/tenders')
+        if not url:
+            continue
+        parsed = urlparse(url)
+        if parsed.hostname not in NATIONAL_PORTAL_HOSTS or not parsed.path.startswith('/documents/'):
+            continue
+        # S51's Digital Development issuer documents are owned by its dedicated adapter.
+        if ('digital development' in row['agency'].lower() or 'ဒစ်ဂျစ်တယ်' in row['agency']
+                or _DDD_TITLE_TOKEN in re.sub(r'\s+', '', normalize_text(row['title']))):
+            continue
+        found[url] = SitemapEntry(url=url, lastmod=None)
+    return list(found.values())
+
+
+@dataclass(frozen=True)
+class PortalTender:
+    url: str
+    issuer: str
+    scope_summary: str
+    quantity_or_lot_summary: str
+    deadline: str
+    title: str
+    document_sha256: str
+
+    item_kind = 'TENDER'
+    publication_date = None
+    location = None
+    reference_no = None
+
+    @property
+    def project_name(self) -> str:
+        return self.title
+
+    @property
+    def canonical_key(self) -> str:
+        # Stable document identity across source pages; S51 is excluded in discovery.
+        return 'national-portal-document:' + hashlib.sha256(self.url.encode()).hexdigest()[:24]
+
+    def payload(self) -> dict[str, object]:
+        return {'item_kind': 'TENDER', 'issuer': self.issuer, 'title': self.title,
+                'project_name': self.project_name, 'scope_summary': self.scope_summary,
+                'quantity_or_lot_summary': self.quantity_or_lot_summary,
+                'deadline': self.deadline, 'deadline_kind': 'BID_SUBMISSION_DEADLINE',
+                'deadline_evidence': 'ISSUER_DOCUMENT_TEXT', 'url': self.url,
+                'document_authority': 'ISSUER_TEXT_PDF_VIA_NATIONAL_PORTAL',
+                'source_document_sha256': self.document_sha256}
+
+
+def parse_national_portal_document(payload: bytes, url: str) -> list[PortalTender]:
+    if not payload.startswith(b'%PDF-'):
+        return []
+    text = '\n'.join(page.extract_text() or '' for page in PdfReader(io.BytesIO(payload)).pages)
+    text = '\n'.join(normalize_text(line) for line in text.splitlines() if normalize_text(line))
+    if len(text) < 100:
+        return []  # Scanned PDFs require OCR and independent issuer review.
+    issuer = _ISSUER.search(text)
+    quantity = _QTY.search(text)
+    deadline_line = _DEADLINE.search(text)
+    date_match = _DATE.search(deadline_line.group(0)) if deadline_line else None
+    if not (issuer and quantity and date_match):
+        return []
+    day, month, year = map(int, date_match.groups())
+    try:
+        deadline = date(year, month, day).isoformat()
+    except ValueError:
+        return []
+    title = text[:180]
+    return [PortalTender(url, issuer.group(0), title, quantity.group(0), deadline, title, hashlib.sha256(payload).hexdigest())]

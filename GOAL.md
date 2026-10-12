@@ -34,7 +34,7 @@ Myanmar/Burmese presentation text may be translated to Simplified Chinese. Canon
 - presentation translation;
 - qualification/readiness rules that prevent incorrect or unusable alerts;
 - source health, missed-signal/noise review and Assurance;
-- immediate Telegram delivery and delivery receipts;
+- once-daily Telegram delivery after the daily acquisition cycle and delivery receipts;
 - KPIs for tender coverage, timeliness and notice completeness.
 
 ## Explicitly out of scope
@@ -53,7 +53,7 @@ Git history is the archive for retired capabilities. They are not retained in th
 ## Business-success metrics
 
 1. **Tender delivery coverage** — official new/materially-updated tenders successfully delivered.
-2. **Delivery timeliness** — Signal-created-to-Telegram success target <= 300 seconds; with current 15/30-minute source polling, normal source-publication-to-Telegram objective <= 35 minutes when publication timing is observable and issuer/network/provider paths are healthy.
+2. **Delivery timeliness** — Source acquisition, due scheduling and Telegram delivery run once per day; source-publication-to-Telegram latency may exceed 24 hours if collection fails or overruns. Daily cadence supersedes the former 300-second/35-minute objectives; receipts must record actual latency.
 3. **Notice completeness** — buyer, scope, quantity/lot, explicit amount, deadline/opening date, reference and official link when present in source evidence.
 4. **Reliability** — duplicate prevention, source health, reviewed misses, false-negative noise sampling and delivery receipt integrity.
 

@@ -92,8 +92,8 @@ class Registry:
             if source.get("item_kind") != "TENDER":
                 raise ConfigError(f"active source must be a formal TENDER source: {source_id}")
             poll_interval = source.get("poll_interval_seconds")
-            if not isinstance(poll_interval, int) or not 300 <= poll_interval <= 1800:
-                raise ConfigError(f"active tender poll interval must be 300..1800 seconds: {source_id}")
+            if type(poll_interval) is not int or poll_interval != 86400:
+                raise ConfigError(f"active tender poll interval must be 86400 seconds: {source_id}")
             activation_gate = source.get("activation_gate")
             if (
                 isinstance(activation_gate, dict)

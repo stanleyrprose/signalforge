@@ -509,6 +509,17 @@ def _upsert_tender(
     suppress_signal: bool,
     evidence_digest: str,
 ) -> tuple[bool, int]:
+    # National Portal is a secondary discovery surface. Never create a second
+    # canonical item/signal for an identical issuer document already owned by
+    # a dedicated source. Exact URL comparison is conservative; broader fuzzy
+    # equivalence requires issuer reference evidence, not title similarity.
+    if source_id == "S01":
+        owner = conn.execute(
+            "SELECT source_id FROM canonical_items WHERE url=? AND source_id<>? LIMIT 1",
+            (tender.url, source_id),
+        ).fetchone()
+        if owner is not None:
+            return False, 0
     payload = tender.payload()
     payload_json = _json(payload)
     content_hash = _material_hash(payload)

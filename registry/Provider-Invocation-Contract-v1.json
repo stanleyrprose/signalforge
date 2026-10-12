@@ -110,7 +110,9 @@
       "enabled": true,
       "source_policy_version": 2,
       "allowed_capabilities": [
-        "DOCUMENT_OCR"
+        "DOCUMENT_OCR",
+        "PUBLIC_READ_ACQUIRE",
+        "C0_FETCH"
       ],
       "targets": {
         "OFFICIAL_DOCUMENT": {
@@ -122,6 +124,51 @@
           "max_bytes": 8000000,
           "max_run_seconds": 150,
           "allow_query": false,
+          "allow_fragment": false,
+          "final_url_policy": {
+            "mode": "APPROVED_HOST_PATH",
+            "https_host": "myanmar.gov.mm",
+            "path_prefix": "/documents/"
+          }
+        },
+        "LISTING": {
+          "capabilities": [
+            "PUBLIC_READ_ACQUIRE",
+            "C0_FETCH"
+          ],
+          "max_bytes": 2000000,
+          "max_run_seconds": 90,
+          "exact_urls": [
+            "https://myanmar.gov.mm/tenders"
+          ]
+        },
+        "DETAIL": {
+          "https_host": "myanmar.gov.mm",
+          "path_prefix": "/tenders",
+          "capabilities": [
+            "PUBLIC_READ_ACQUIRE",
+            "C0_FETCH"
+          ],
+          "max_bytes": 2000000,
+          "max_run_seconds": 90,
+          "allow_query": true,
+          "allow_fragment": false,
+          "final_url_policy": {
+            "mode": "APPROVED_HOST_PATH",
+            "https_host": "myanmar.gov.mm",
+            "path_prefix": "/tenders"
+          }
+        },
+        "PDF": {
+          "https_host": "myanmar.gov.mm",
+          "path_prefix": "/documents/",
+          "capabilities": [
+            "PUBLIC_READ_ACQUIRE",
+            "C0_FETCH"
+          ],
+          "max_bytes": 10485760,
+          "max_run_seconds": 120,
+          "allow_query": true,
           "allow_fragment": false,
           "final_url_policy": {
             "mode": "APPROVED_HOST_PATH",
@@ -209,6 +256,61 @@
             "mode": "APPROVED_HOST_PATH",
             "https_host": "www.mpa.gov.mm",
             "path_prefix": "/wp-content/uploads/"
+          }
+        }
+      }
+    },
+    "S51": {
+      "enabled": true,
+      "source_policy_version": 2,
+      "allowed_capabilities": [
+        "PUBLIC_READ_ACQUIRE",
+        "C0_FETCH"
+      ],
+      "targets": {
+        "LISTING": {
+          "capabilities": [
+            "PUBLIC_READ_ACQUIRE",
+            "C0_FETCH"
+          ],
+          "max_bytes": 2000000,
+          "max_run_seconds": 90,
+          "exact_urls": [
+            "https://myanmar.gov.mm/tenders"
+          ]
+        },
+        "DETAIL": {
+          "https_host": "myanmar.gov.mm",
+          "path_prefix": "/tenders",
+          "capabilities": [
+            "PUBLIC_READ_ACQUIRE",
+            "C0_FETCH"
+          ],
+          "max_bytes": 2000000,
+          "max_run_seconds": 90,
+          "allow_query": true,
+          "allow_fragment": false,
+          "final_url_policy": {
+            "mode": "APPROVED_HOST_PATH",
+            "https_host": "myanmar.gov.mm",
+            "path_prefix": "/tenders"
+          }
+        },
+        "PDF": {
+          "https_host": "myanmar.gov.mm",
+          "path_prefix": "/documents/",
+          "capabilities": [
+            "PUBLIC_READ_ACQUIRE",
+            "C0_FETCH"
+          ],
+          "max_bytes": 10485760,
+          "max_run_seconds": 120,
+          "allow_query": true,
+          "allow_fragment": false,
+          "final_url_policy": {
+            "mode": "APPROVED_HOST_PATH",
+            "https_host": "myanmar.gov.mm",
+            "path_prefix": "/documents/"
           }
         }
       }

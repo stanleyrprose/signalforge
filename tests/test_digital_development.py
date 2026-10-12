@@ -88,7 +88,7 @@ class DigitalDevelopmentTests(unittest.TestCase):
         self.assertTrue(source["enabled"])
         self.assertEqual(source["adapter"], "digital_development_tender")
         self.assertEqual(source["detail_target_kind"], "PDF")
-        self.assertEqual(source["engine"], "direct_http")
+        self.assertEqual(source["engine"], "provider")
         self.assertNotIn("S51", registry.raw.get("deferred_sources", {}))
         adapter = ADAPTERS["digital_development_tender"]
         self.assertEqual(adapter.detail_parser_version, "ddd-issuer-text-pdf-v1")

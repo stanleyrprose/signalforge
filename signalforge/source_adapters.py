@@ -5,6 +5,7 @@ from typing import Callable
 
 from .dast import parse_tender_detail as parse_dast_tender_detail
 from .dast import parse_tender_listing as parse_dast_tender_listing
+from .national_portal_tender import parse_national_portal_listing, parse_national_portal_document
 from .digital_development import (
     parse_digital_development_listing,
     parse_digital_development_pdf,
@@ -200,6 +201,16 @@ ADAPTERS = {
         canonicalizer_version="dast-wordpress-post-id-v1",
         parse_discovery=parse_dast_tender_listing,
         parse_detail=_parse_dast_detail,
+    ),
+    "national_portal_tender": SourceAdapter(
+        name="national_portal_tender",
+        discovery_content_types=("text/html",),
+        discovery_parser_version="national-portal-issuer-document-v1",
+        detail_parser_version="national-portal-issuer-pdf-v1",
+        normalizer_version="national-portal-strict-evidence-v1",
+        canonicalizer_version="national-portal-document-url-v1",
+        parse_discovery=parse_national_portal_listing,
+        parse_detail=parse_national_portal_document,
     ),
     "digital_development_tender": SourceAdapter(
         name="digital_development_tender",

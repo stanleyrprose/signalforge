@@ -147,3 +147,17 @@ GitHub `stanleyrprose/signalforge` is the sole SOT.
 This PRD controls current product scope. Older acquisition/provider PRDs may remain as lower-level technical contract references only where their code paths are still retained.
 
 Any older document that describes precursor, multi-tenant/pilot, standalone digest, non-tender strategic feeds or removed generic escalation capability is historical and must not override this PRD.
+
+
+## 2026-10-12 user-approved daily cadence amendment (implementation in progress)
+
+- Source polling interval: 86400 seconds for every active source.
+- Due scheduler: once daily, with Telegram delivery no more than once per day and only after that day's acquisition cycle finishes. A fixed 30-minute offset alone does not establish this guarantee.
+- This replaces the earlier 15/30-minute polling and 300-second/35-minute latency targets.
+- Meaningful tender extraction audit: item + quantity/lot + issuer-evidenced bid submission deadline must be present within the same canonical tender; a portal card closing-date hint is not an issuer deadline. Missing recent tenders and network/parse failures must be reported separately.
+- S01 National Portal promotion must retain issuer-authored evidence and avoid duplicate S51 and other issuer-source signals. Do not mark source GREEN from HTTP success alone.
+- Production deployment and live audit are separately gated; this amendment does not claim production verification.
+
+## 2026-10-12 S01/S51 Mac Browser Plane routing amendment
+
+S01 and S51 use the existing mac-mm-01 PUBLIC_READ_ACQUIRE provider for discovery HTML, detail HTML and same-origin PDF; they no longer use Bangkok direct_http. This is a targeted routing change, not a global disabling of TLS validation. Mac Browser Plane must fetch and retain original document bytes and evidence provenance. If browser acquisition fails, record TLS/browser failure rather than manufacturing a tender. S01 remains a separate issuer-PDF parser, while S51 retains its Digital Development parser; exact URL deduplication is applied before S01 canonical insertion. Production verification requires real portal HTML and issuer PDF evidence.
