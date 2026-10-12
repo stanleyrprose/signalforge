@@ -102,7 +102,7 @@ _ITEM_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
 )
 _QUANTITY_RE = re.compile(
     r"(?<!\d)[(（]?\s*(?P<count>\d[\d,]*)\s*[)）]?\s*"
-    r"(?P<unit>lots?|units?|sets?|nos?|items?|pcs?|pieces?|ခု|လုံး|စုံ|မျိုး)\b",
+    r"(?P<unit>lots?|units?|sets?|nos?|items?|pcs?|pieces?|ခု|လုံး|စုံ|မျိုး)(?![A-Za-z0-9])",
     re.I,
 )
 _FEE_RE = re.compile(

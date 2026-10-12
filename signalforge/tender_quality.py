@@ -57,7 +57,7 @@ def tender_quality(*, database: Path | None = None, registry: Registry | None = 
     }
     with connect(database or db_path()) as conn:
         for row in conn.execute(
-            "SELECT source_id,canonical_key,url,payload_json,deadline FROM canonical_items WHERE item_kind='TENDER'"
+            "SELECT source_id,canonical_key,url,reference_no,publication_date,payload_json,deadline FROM canonical_items WHERE item_kind='TENDER'"
         ):
             sid = str(row["source_id"])
             if sid not in results:
@@ -74,11 +74,11 @@ def tender_quality(*, database: Path | None = None, registry: Registry | None = 
             if sid == "S20":
                 original = payload
                 payload = apply_reviewed_moep_overlay(
-                    payload,
+                    {**payload, "publication_date": payload.get("publication_date") or row["publication_date"], "url": payload.get("url") or row["url"]},
                     canonical_key=str(row["canonical_key"]),
                     source_id=sid,
                     item_kind="TENDER",
-                    reference_no=str(payload.get("reference_no") or ""),
+                    reference_no=str(payload.get("reference_no") or row["reference_no"] or ""),
                 )
                 reviewed_overlay_applied = payload is not original and bool(
                     payload.get("reviewed_attachment_status") or payload.get("reviewed_enrichment_status")
