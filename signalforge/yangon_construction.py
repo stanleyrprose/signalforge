@@ -157,8 +157,9 @@ def _deadline(value: str) -> str | None:
             found = _dates(normalized[idx : idx + 500])
             if found:
                 return max(found)
-    found = _dates(normalized)
-    return max(found) if found else None
+    # Other dates may describe publication, meetings or construction milestones.
+    # They are not evidence of a bid submission deadline.
+    return None
 
 
 def _reference(title: str, post_id: str) -> str:
