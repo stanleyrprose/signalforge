@@ -223,6 +223,19 @@ def _deadline(full_text: str) -> str | None:
         return None
 
 
+_ROW_QUANTITY_RE = re.compile(
+    r"(?<![\w/])(?P<count>\d[\d,]*)\s*(?P<unit>စီး|စုံ|ခု|တန်|sets?|units?|pcs?|pieces?|tons?)(?![A-Za-z0-9])",
+    re.IGNORECASE,
+)
+
+
+def _row_quantity(project: str) -> str | None:
+    """Extract only explicit quantities from this tender row, never from sibling rows."""
+    normalized = normalize_text(project).translate(MYANMAR_DIGITS)
+    matches = [f"{m.group('count')} {m.group('unit')}" for m in _ROW_QUANTITY_RE.finditer(normalized)]
+    return "; ".join(dict.fromkeys(matches[:5])) or None
+
+
 def parse_tender_detail(html_bytes: bytes, url: str) -> list[RailwayTender]:
     primary_bytes = _primary_detail_bytes(html_bytes)
     parser = TableTextParser()
@@ -252,7 +265,7 @@ def parse_tender_detail(html_bytes: bytes, url: str) -> list[RailwayTender]:
             location=None,
             remarks=None,
             company_size=None,
-            required_quantity=None,
+            required_quantity=_row_quantity(project),
             url=url,
             content_hash=digest,
         )
