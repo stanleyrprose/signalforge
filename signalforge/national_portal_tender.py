@@ -53,6 +53,7 @@ class PortalTender:
     quantity_or_lot_summary: str
     deadline: str
     title: str
+    document_sha256: str
 
     item_kind = 'TENDER'
     publication_date = None
@@ -75,7 +76,7 @@ class PortalTender:
                 'deadline': self.deadline, 'deadline_kind': 'BID_SUBMISSION_DEADLINE',
                 'deadline_evidence': 'ISSUER_DOCUMENT_TEXT', 'url': self.url,
                 'document_authority': 'ISSUER_TEXT_PDF_VIA_NATIONAL_PORTAL',
-                'source_document_sha256': hashlib.sha256(self.url.encode()).hexdigest()}
+                'source_document_sha256': self.document_sha256}
 
 
 def parse_national_portal_document(payload: bytes, url: str) -> list[PortalTender]:
@@ -97,4 +98,4 @@ def parse_national_portal_document(payload: bytes, url: str) -> list[PortalTende
     except ValueError:
         return []
     title = text[:180]
-    return [PortalTender(url, issuer.group(0), title, quantity.group(0), deadline, title)]
+    return [PortalTender(url, issuer.group(0), title, quantity.group(0), deadline, title, hashlib.sha256(payload).hexdigest())]

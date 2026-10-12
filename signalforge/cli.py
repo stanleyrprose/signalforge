@@ -413,6 +413,9 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(result, ensure_ascii=False, sort_keys=True))
         if args.cmd == "harness-verify" and isinstance(result, dict) and result.get("phase") != "DONE":
             return 2
+        if args.cmd == "daily-cycle" and isinstance(result, dict):
+            if result.get("status") not in {"COMPLETE", "COMPLETE_WITH_SOURCE_FAILURES", "ALREADY_COMPLETE"}:
+                return 1
         return 0
     except Exception as exc:
         print(json.dumps({"status": "FAILED", "error": f"{type(exc).__name__}: {exc}"}, ensure_ascii=False), file=sys.stderr)
