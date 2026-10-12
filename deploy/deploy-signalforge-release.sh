@@ -151,6 +151,8 @@ runuser -u signalforge -- env \
   "$ROOT/active/bin/signalforge" migrate >/dev/null
 
 install -m 0644 /srv/worker/current-release/generated/applications/signalforge/signalforge-run-due.service /etc/systemd/system/signalforge-run-due.service
+install -d -m 0755 /etc/systemd/system/signalforge-run-due.service.d
+install -m 0644 "$FINAL/systemd/signalforge-run-due.service.d/telegram-after-acquisition.conf" /etc/systemd/system/signalforge-run-due.service.d/telegram-after-acquisition.conf
 install -m 0644 /srv/worker/current-release/generated/applications/signalforge/signalforge-refresh@.service /etc/systemd/system/signalforge-refresh@.service
 install -m 0644 "$FINAL/systemd/signalforge-run-due.timer" /etc/systemd/system/signalforge-run-due.timer
 install -m 0644 "$FINAL/systemd/signalforge-telegram-deliver.service" /etc/systemd/system/signalforge-telegram-deliver.service
@@ -177,9 +179,8 @@ runuser -u signalforge -- env \
 if [ "$TIMER_WAS_ENABLED" -eq 1 ]; then
   systemctl enable --now signalforge-run-due.timer >/dev/null
 fi
-if [ "$DELIVERY_TIMER_WAS_ENABLED" -eq 1 ]; then
-  systemctl enable --now signalforge-telegram-deliver.timer >/dev/null
-fi
+# The independent delivery timer must stay disabled: delivery is now chained to
+# completion of the once-daily due-source service (ExecStartPost).
 if [ "$ASSURANCE_TIMER_WAS_ENABLED" -eq 1 ] || [ "$ASSURANCE_TIMER_WAS_PRESENT" -eq 0 ]; then
   systemctl enable --now signalforge-assurance.timer >/dev/null
 fi

@@ -1,0 +1,266 @@
+{
+  "timestamp": "2026-10-12T11:41:33.543368+00:00",
+  "method": "Mac read-only live HTTP GET discovery URL, 250k byte cap, no production DB writes",
+  "sources": [
+    {
+      "source": "S01",
+      "status": "FETCH_FAILED",
+      "error": "<urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1000)>",
+      "elapsed_s": 0.96
+    },
+    {
+      "source": "S13",
+      "status": "FETCH_OK",
+      "http_status": 200,
+      "content_type": "text/xml; charset=UTF-8",
+      "bytes_sampled": 185173,
+      "final_url": "https://mpt.com.mm/page-sitemap.xml",
+      "elapsed_s": 1.82,
+      "body_hint": "<?xml version=\"1.0\" encoding=\"UTF-8\"?><?xml-stylesheet type=\"text/xsl\" href=\"//mpt.com.mm/wp-content/plugins/wordpress-s"
+    },
+    {
+      "source": "S21",
+      "status": "FETCH_OK",
+      "http_status": 200,
+      "content_type": "text/html; charset=utf-8",
+      "bytes_sampled": 29405,
+      "final_url": "https://www.railways.gov.mm/posts?category=tender",
+      "elapsed_s": 4.15,
+      "body_hint": "<!DOCTYPE html>\n<html lang=\"my\" translate=\"no\" class=\"notranslate\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"vi"
+    },
+    {
+      "source": "S22",
+      "status": "FETCH_OK",
+      "http_status": 200,
+      "content_type": "text/html; charset=UTF-8",
+      "bytes_sampled": 97221,
+      "final_url": "https://iwt.gov.mm/tenders",
+      "elapsed_s": 1.34,
+      "body_hint": "<!DOCTYPE html>\n<html lang=\"my\" dir=\"ltr\" class=\"no-js adaptivetheme\">\n  <head>\n    <link href=\"https://iwt.gov.mm/theme"
+    },
+    {
+      "source": "S20",
+      "status": "FETCH_OK",
+      "http_status": 200,
+      "content_type": "text/html; charset=UTF-8",
+      "bytes_sampled": 184437,
+      "final_url": "https://moep.gov.mm/mm/ignite/page/62",
+      "elapsed_s": 1.5,
+      "body_hint": "<!DOCTYPE html>\n<html lang=\"my\">\n<head>\n\t<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">\n\t<title>MOE"
+    },
+    {
+      "source": "S25",
+      "status": "FETCH_OK",
+      "http_status": 200,
+      "content_type": "text/html;charset=UTF-8",
+      "bytes_sampled": 65493,
+      "final_url": "https://www.monpifer.gov.mm/my/ministry-tenders",
+      "elapsed_s": 1.33,
+      "body_hint": "<!DOCTYPE html>\n<html lang=\"my\" dir=\"ltr\" class=\"no-js adaptivetheme\"><head><meta charset=\"utf-8\"><script async src=\"htt"
+    },
+    {
+      "source": "S26",
+      "status": "FETCH_OK",
+      "http_status": 200,
+      "content_type": "text/html; charset=UTF-8",
+      "bytes_sampled": 205223,
+      "final_url": "https://www.doms.gov.mm/category/tender/",
+      "elapsed_s": 4.87,
+      "body_hint": "<!DOCTYPE html>\n<html lang=\"en-US\">\n<head>\n<meta charset=\"UTF-8\">\n<meta name=\"viewport\" content=\"width=device-width, ini"
+    },
+    {
+      "source": "S28",
+      "status": "FETCH_OK",
+      "http_status": 200,
+      "content_type": "text/html; charset=UTF-8",
+      "bytes_sampled": 69508,
+      "final_url": "https://www.dof.gov.mm/index.php/my/tender",
+      "elapsed_s": 1.55,
+      "body_hint": "\n\n<!-- THEME DEBUG -->\n<!-- THEME HOOK: 'html' -->\n<!-- FILE NAME SUGGESTIONS:\n   * html--tender.html.twig\n   x html.htm"
+    },
+    {
+      "source": "S29",
+      "status": "FETCH_FAILED",
+      "error": "The read operation timed out",
+      "elapsed_s": 15.01
+    },
+    {
+      "source": "S30",
+      "status": "FETCH_OK",
+      "http_status": 200,
+      "content_type": "text/html; charset=UTF-8",
+      "bytes_sampled": 117250,
+      "final_url": "https://www.mofa.gov.mm/category/announcement/",
+      "elapsed_s": 1.56,
+      "body_hint": "<!doctype html>\r\n<html lang=\"my-MM\">\r\n<head>  \r\n\t<meta charset=\"UTF-8\">\r\n\t<meta name=\"viewport\" content=\"width=device-wi"
+    },
+    {
+      "source": "S31",
+      "status": "FETCH_OK",
+      "http_status": 200,
+      "content_type": "text/html; charset=UTF-8",
+      "bytes_sampled": 90396,
+      "final_url": "https://portal.moea.gov.mm/index.php?page=ORwuBwpT",
+      "elapsed_s": 1.06,
+      "body_hint": "\r\n<!DOCTYPE html>\r\n<html lang=\"en\">\r\n<head>\r\n\t<meta charset=\"UTF-8\">\r\n\t<title>MOEA || Ministry of Ethnic Affairs</title>"
+    },
+    {
+      "source": "S32",
+      "status": "FETCH_OK",
+      "http_status": 200,
+      "content_type": "text/html; charset=UTF-8",
+      "bytes_sampled": 45709,
+      "final_url": "https://mte.gov.mm/index.php/en/annoucements",
+      "elapsed_s": 1.14,
+      "body_hint": "<script>\n  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){\n  (i[r].q=i[r].q||[]).push(argum"
+    },
+    {
+      "source": "S33",
+      "status": "FETCH_OK",
+      "http_status": 200,
+      "content_type": "text/html; charset=UTF-8",
+      "bytes_sampled": 52757,
+      "final_url": "https://www.mcrd.gov.mm/index.php?page=dGluZGEmbW8%3D",
+      "elapsed_s": 0.66,
+      "body_hint": "<!DOCTYPE html>\n<html lang=\"en\">\n   <head>\n      <meta charset=\"utf-8\">\n      <meta http-equiv=\"X-UA-Compatible\" content"
+    },
+    {
+      "source": "S16",
+      "status": "FETCH_OK",
+      "http_status": 200,
+      "content_type": "text/html; charset=UTF-8",
+      "bytes_sampled": 60673,
+      "final_url": "https://www.ycdc.gov.mm/frontend_engineering_building_detail/1",
+      "elapsed_s": 1.18,
+      "body_hint": "<!DOCTYPE html>\n<html lang=\"en\" style=\"height: 100%;\" class=\"js no-touch history cssanimations svg inlinesvg svgclippath"
+    },
+    {
+      "source": "S34",
+      "status": "FETCH_OK",
+      "http_status": 200,
+      "content_type": "text/html; charset=utf-8",
+      "bytes_sampled": 84189,
+      "final_url": "https://www.ptd.gov.mm/Announcement.aspx?id=jOhwNsVnnrHGITOdpDNvsw%3D%3D",
+      "elapsed_s": 2.65,
+      "body_hint": "\r\n\r\n<!DOCTYPE html>\r\n\r\n<html xmlns=\"http://www.w3.org/1999/xhtml\">\r\n<head><meta charset=\"utf-8\" /><meta name=\"viewport\" "
+    },
+    {
+      "source": "S35",
+      "status": "FETCH_OK",
+      "http_status": 200,
+      "content_type": "text/html; charset=UTF-8",
+      "bytes_sampled": 116041,
+      "final_url": "https://www.dast.gov.mm/category/tender/",
+      "elapsed_s": 3.28,
+      "body_hint": "<!DOCTYPE html>\n<html lang=\"en-US\">\n<head>\n\t<meta charset=\"UTF-8\" />\n\t<meta name=\"viewport\" content=\"width=device-width,"
+    },
+    {
+      "source": "S36",
+      "status": "FETCH_OK",
+      "http_status": 200,
+      "content_type": "text/html; charset=utf-8",
+      "bytes_sampled": 78597,
+      "final_url": "https://www.doa.gov.mm/doa/index.php?route=cms/category&path=22",
+      "elapsed_s": 2.26,
+      "body_hint": "<!DOCTYPE html>\n<!--[if IE]><![endif]-->\n<!--[if IE 8 ]><html dir=\"ltr\" lang=\"mm-mm\" class=\"ie8\"><![endif]-->\n<!--[if IE"
+    },
+    {
+      "source": "S37",
+      "status": "FETCH_OK",
+      "http_status": 200,
+      "content_type": "text/html; charset=UTF-8",
+      "bytes_sampled": 45939,
+      "final_url": "https://www.moi.gov.mm/department-announcement",
+      "elapsed_s": 1.19,
+      "body_hint": "<!DOCTYPE html>\n<html lang=\"en\" dir=\"ltr\" prefix=\"content: http://purl.org/rss/1.0/modules/content/  dc: http://purl.org"
+    },
+    {
+      "source": "S38",
+      "status": "FETCH_OK",
+      "http_status": 200,
+      "content_type": "text/html; charset=utf-8",
+      "bytes_sampled": 88374,
+      "final_url": "https://www.industrymsme.gov.mm/announcements",
+      "elapsed_s": 0.76,
+      "body_hint": "<!doctype html>\n<html class=\"no-js\" lang=\"zxx\">\n\n<head>\n    <title>    Announcement News of Ministry Of Industry\n |  MOI"
+    },
+    {
+      "source": "S27",
+      "status": "FETCH_OK",
+      "http_status": 200,
+      "content_type": "text/html; charset=UTF-8",
+      "bytes_sampled": 84244,
+      "final_url": "https://moba.gov.mm/my/tender",
+      "elapsed_s": 0.59,
+      "body_hint": "<!DOCTYPE html>\n<html lang=\"my\" dir=\"ltr\" prefix=\"content: http://purl.org/rss/1.0/modules/content/  dc: http://purl.org"
+    },
+    {
+      "source": "S39",
+      "status": "FETCH_OK",
+      "http_status": 200,
+      "content_type": "text/html; charset=utf-8",
+      "bytes_sampled": 42789,
+      "final_url": "https://energy.gov.mm/tenders",
+      "elapsed_s": 1.28,
+      "body_hint": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width"
+    },
+    {
+      "source": "S40",
+      "status": "FETCH_OK",
+      "http_status": 200,
+      "content_type": "text/html; charset=UTF-8",
+      "bytes_sampled": 85457,
+      "final_url": "https://www.mol.gov.mm/tender/",
+      "elapsed_s": 4.55,
+      "body_hint": "<!DOCTYPE html>\n<html lang=\"my-MM\">\n<head>\n<meta charset=\"UTF-8\">\n<meta name=\"viewport\" content=\"width=device-width, ini"
+    },
+    {
+      "source": "S41",
+      "status": "FETCH_FAILED",
+      "error": "<urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: certificate has expired (_ssl.c:1000)>",
+      "elapsed_s": 0.63
+    },
+    {
+      "source": "S43",
+      "status": "FETCH_OK",
+      "http_status": 200,
+      "content_type": "text/html; charset=UTF-8",
+      "bytes_sampled": 214268,
+      "final_url": "https://www.yangon.gov.mm/category/ministry-of-construction/",
+      "elapsed_s": 3.48,
+      "body_hint": "<!DOCTYPE html>\n<html lang=\"en-US\">\n<head>\n    <meta charset=\"utf-8\">\n    <!--[if IE]><meta http-equiv='X-UA-Compatible'"
+    },
+    {
+      "source": "S47",
+      "status": "FETCH_OK",
+      "http_status": 200,
+      "content_type": "text/html; charset=UTF-8",
+      "bytes_sampled": 198443,
+      "final_url": "https://www.yangon.gov.mm/category/tenders/",
+      "elapsed_s": 3.31,
+      "body_hint": "<!DOCTYPE html>\n<html lang=\"en-US\">\n<head>\n    <meta charset=\"utf-8\">\n    <!--[if IE]><meta http-equiv='X-UA-Compatible'"
+    },
+    {
+      "source": "S15A",
+      "status": "FETCH_FAILED",
+      "error": "<urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1000)>",
+      "elapsed_s": 0.12
+    },
+    {
+      "source": "S51",
+      "status": "FETCH_FAILED",
+      "error": "<urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed: unable to get local issuer certificate (_ssl.c:1000)>",
+      "elapsed_s": 0.2
+    },
+    {
+      "source": "S23",
+      "status": "FETCH_OK",
+      "http_status": 200,
+      "content_type": "text/html; charset=UTF-8",
+      "bytes_sampled": 145614,
+      "final_url": "https://construction.gov.mm/tindar-show/f878a520-d396-11ec-957c-cb8c3b494625?state_name=all",
+      "elapsed_s": 1.02,
+      "body_hint": "<!doctype html>\n<html lang=\"en\">\n<head>\n    \n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-"
+    }
+  ]
+}
