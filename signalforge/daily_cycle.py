@@ -34,10 +34,12 @@ def _coverage_report(day: str, acquisition: dict[str, object], delivery: dict[st
     if not isinstance(results, list):
         raise ValueError("daily acquisition results must be a list")
     failed = [r for r in results if isinstance(r, dict) and r.get("status") == "FAILED"]
-    succeeded = [r for r in results if isinstance(r, dict) and r.get("status") != "FAILED"]
+    succeeded = [r for r in results if isinstance(r, dict) and r.get("status") == "SUCCESS"]
+    not_due = [r for r in results if isinstance(r, dict) and r.get("status") == "NOT_DUE"]
+    unknown = [r for r in results if not isinstance(r, dict) or r.get("status") not in {"FAILED", "SUCCESS", "NOT_DUE"}]
     lines = [
         f"📋 SignalForge 政府/国企招标日报 · {day}（仰光）",
-        f"采集覆盖：{len(results)} 源；完成 {len(succeeded)}；失败 {len(failed)}。",
+        f"调度覆盖：{len(results)} 源；实际采集成功 {len(succeeded)}；失败 {len(failed)}；未到期 {len(not_due)}；其他 {len(unknown)}。",
         f"有效招标通知：{delivery.get('sent_count', 0)} 条；"
         f"质量过滤：{delivery.get('quality_filtered_count', 0)} 条。",
     ]
@@ -77,7 +79,9 @@ def daily_cycle() -> dict[str, object]:
             acquisition = json.loads(acquisition_path.read_text(encoding="utf-8"))
         else:
             try:
-                acquisition = run_due()
+                # Daily coverage requires a real attempt for every enabled source;
+                # the per-source scheduler's NOT_DUE gate would otherwise skip them.
+                acquisition = run_due(force=True)
                 if not isinstance(acquisition, dict) or not isinstance(acquisition.get("results"), list):
                     raise ValueError("run_due returned incomplete source results")
             except Exception as exc:
