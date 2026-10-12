@@ -107,8 +107,10 @@ def validate_source_acquisition_policy(source_id: str, source: dict[str, Any]) -
     detail_target_kind = str(source.get("detail_target_kind") or "HTML").upper()
     if detail_target_kind not in {"HTML", "PDF"}:
         raise AcquisitionContractError(f"unsupported detail_target_kind: {source_id}")
-    if detail_target_kind == "PDF" and engine != "direct_http":
-        raise AcquisitionContractError(f"PDF detail target requires Direct HTTP: {source_id}")
+    if detail_target_kind == "PDF" and engine == "provider":
+        roles = source.get("provider_target_roles") or {}
+        if roles.get("PDF") != "PDF" or source.get("provider_capability") != "PUBLIC_READ_ACQUIRE":
+            raise AcquisitionContractError(f"Provider PDF detail requires authorized PDF role: {source_id}")
 
     supplementary = policy.get("supplementary")
     if not isinstance(supplementary, list):
