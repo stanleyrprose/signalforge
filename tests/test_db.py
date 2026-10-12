@@ -92,55 +92,26 @@ class DatabaseMigrationTests(unittest.TestCase):
             self.assertTrue({"acquisition_requests", "acquisition_attempts", "evidence_envelopes", "processing_records"} <= tables)
 
 
-    def test_v9_delivery_receipts_upgrade_adds_profile_columns_before_index(self) -> None:
+    def test_fresh_schema_keeps_single_feed_delivery_receipts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            db = Path(tmp) / "signalforge-v9.db"
+            db = Path(tmp) / "signalforge.db"
             migrate(db)
-            with sqlite3.connect(db) as conn:
-                conn.executescript(
-                    """
-                    DROP INDEX IF EXISTS idx_delivery_receipts_profile_sent;
-                    DROP TABLE delivery_receipts;
-                    CREATE TABLE delivery_receipts (
-                        delivery_key TEXT PRIMARY KEY,
-                        channel TEXT NOT NULL,
-                        canonical_key TEXT NOT NULL,
-                        signal_id TEXT NOT NULL,
-                        attention_action TEXT NOT NULL,
-                        priority_band TEXT NOT NULL,
-                        payload_sha256 TEXT NOT NULL,
-                        provider_message_id TEXT,
-                        sent_at TEXT NOT NULL,
-                        UNIQUE(channel, canonical_key, signal_id, attention_action)
-                    );
-                    CREATE INDEX idx_delivery_receipts_channel_sent
-                        ON delivery_receipts(channel, sent_at DESC);
-                    INSERT INTO delivery_receipts(
-                        delivery_key,channel,canonical_key,signal_id,attention_action,priority_band,
-                        payload_sha256,provider_message_id,sent_at
-                    ) VALUES (
-                        'legacy-delivery','telegram','mpt:legacy','sig-legacy','PRIORITIZE','HIGH',
-                        'payload','100','2026-09-29T00:00:00Z'
-                    );
-                    DELETE FROM schema_meta WHERE version>=10;
-                    """
-                )
-
-            migrate(db)
-
             with sqlite3.connect(db) as conn:
                 columns = {row[1] for row in conn.execute("PRAGMA table_info(delivery_receipts)")}
-                indexes = {row[1] for row in conn.execute("PRAGMA index_list(delivery_receipts)")}
-                row = conn.execute(
-                    "SELECT canonical_key,profile_id,profile_match_score FROM delivery_receipts WHERE delivery_key='legacy-delivery'"
-                ).fetchone()
+                tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
                 version = conn.execute("SELECT MAX(version) FROM schema_meta").fetchone()[0]
 
-            self.assertTrue({"profile_id", "profile_match_score"} <= columns)
-            self.assertIn("idx_delivery_receipts_profile_sent", indexes)
-            self.assertEqual(row, ("mpt:legacy", None, None))
+            self.assertNotIn("profile_id", columns)
+            self.assertNotIn("profile_match_score", columns)
+            self.assertNotIn("pilot_delivery_receipts", tables)
+            self.assertNotIn("pilot_feedback_events", tables)
+            self.assertNotIn("telegram_update_state", tables)
+            self.assertNotIn("digest_delivery_receipts", tables)
+            self.assertNotIn("project_lifecycle_events", tables)
+            self.assertNotIn("project_procurement_links", tables)
+            self.assertNotIn("manual_promotions", tables)
+            self.assertNotIn("manual_delivery_receipts", tables)
             self.assertEqual(version, 12)
-
 
     def test_v4_scheduler_history_backfills_items_parsed_from_tenders(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

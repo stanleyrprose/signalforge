@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from .assurance import assurance_status
 from .config import Registry, db_path
 from .coverage_gaps import verified_external_opportunities
 from .db import connect
-from .leadtime import leadtime_report, precursor_candidates, procurement_link_suggestions
 from .mission_focus import classify_mission_fit
 from .opportunities import current_opportunities
 
@@ -25,6 +24,76 @@ def _median(values: list[int]) -> float | None:
     n = len(ordered)
     value = ordered[n // 2] if n % 2 else (ordered[n // 2 - 1] + ordered[n // 2]) / 2
     return round(float(value), 1)
+
+
+def _parse_timestamp(value: object) -> datetime | None:
+    raw = str(value or "").strip()
+    if not raw:
+        return None
+    try:
+        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
+
+
+def _percentile_nearest_rank(values: list[int], percentile: int) -> float | None:
+    if not values:
+        return None
+    ordered = sorted(values)
+    rank = max(1, (percentile * len(ordered) + 99) // 100)
+    return round(float(ordered[min(rank - 1, len(ordered) - 1)]), 1)
+
+
+def summarize_delivery_timeliness(
+    *,
+    database: Path,
+    now: datetime,
+    window_days: int = 30,
+    target_seconds: int = 300,
+) -> dict[str, object]:
+    cutoff = now.astimezone(UTC) - timedelta(days=window_days)
+    durations: list[int] = []
+    invalid_rows = 0
+    with connect(database) as conn:
+        rows = conn.execute(
+            """
+            SELECT s.created_at,d.sent_at
+            FROM delivery_receipts d
+            JOIN signals s ON s.signal_id=d.signal_id
+            WHERE d.channel='telegram'
+            """
+        ).fetchall()
+    for row in rows:
+        created_at = _parse_timestamp(row["created_at"])
+        sent_at = _parse_timestamp(row["sent_at"])
+        if created_at is None or sent_at is None:
+            invalid_rows += 1
+            continue
+        if sent_at < cutoff:
+            continue
+        latency = int((sent_at - created_at).total_seconds())
+        if latency < 0:
+            invalid_rows += 1
+            continue
+        durations.append(latency)
+
+    within_target = sum(1 for value in durations if value <= target_seconds)
+    return {
+        "window_days": window_days,
+        "sample_count": len(durations),
+        "invalid_row_count": invalid_rows,
+        "target_seconds": target_seconds,
+        "within_target_count": within_target,
+        "within_target_rate": _rate(within_target, len(durations)),
+        "median_seconds": _median(durations),
+        "p95_seconds": _percentile_nearest_rank(durations, 95),
+        "max_seconds": max(durations) if durations else None,
+        "semantics": "SIGNAL_CREATED_TO_TELEGRAM_SUCCESS_RECEIPT",
+        "does_not_measure": "SOURCE_PUBLICATION_TO_DISCOVERY",
+    }
 
 
 def _dimension_score(item: dict[str, object], name: str) -> int:
@@ -146,7 +215,6 @@ def business_kpi_report(
     database: Path | None = None,
     now: datetime | None = None,
     registry: Registry | None = None,
-    lead_limit: int = 100,
 ) -> dict[str, object]:
     observed = (now or datetime.now(UTC)).astimezone(UTC)
     target = database or db_path()
@@ -156,7 +224,7 @@ def business_kpi_report(
         database=target,
         now=observed,
         registry=registry,
-        limit=500,
+        limit=None,
     )
     raw_rows = current.get("opportunities") or []
     canonical_rows: list[dict[str, object]] = []
@@ -170,8 +238,7 @@ def business_kpi_report(
         if not isinstance(raw, dict):
             continue
         mission = classify_mission_fit(raw)
-        if mission["mission_fit"]:
-            canonical_rows.append({**raw, **mission})
+        canonical_rows.append({**raw, **mission})
 
     external_rows: list[dict[str, object]] = []
     for raw in verified_external_opportunities(now=observed):
@@ -186,8 +253,7 @@ def business_kpi_report(
                 "scope_summary": raw.get("business_summary"),
             }
         )
-        if mission["mission_fit"]:
-            external_rows.append({**raw, **mission})
+        external_rows.append({**raw, **mission})
 
     assurance = assurance_status(database=target, registry=registry)
     return {
@@ -198,11 +264,5 @@ def business_kpi_report(
             verified_external_rows=external_rows,
             assurance=assurance,
         ),
-        "project_precursor_pipeline": precursor_candidates(database=target, limit=lead_limit),
-        "project_procurement_link_review": procurement_link_suggestions(
-            database=target,
-            limit=lead_limit,
-            per_project=3,
-        ),
-        "project_to_procurement_lead_time": leadtime_report(database=target, limit=lead_limit),
+        "delivery_timeliness": summarize_delivery_timeliness(database=target, now=observed),
     }

@@ -4,7 +4,6 @@ import ssl
 import urllib.error
 import urllib.request
 import re
-from dataclasses import dataclass
 from urllib.parse import urlencode, urlparse
 
 
@@ -15,14 +14,6 @@ class FetchError(RuntimeError):
     pass
 
 
-@dataclass(frozen=True)
-class FetchResult:
-    payload: bytes
-    fetch_method: str
-    strict_tls_failed: bool = False
-
-
-_MYAWADY_HOSTS = {"myawady.net.mm", "www.myawady.net.mm"}
 
 
 def _walk_exception(exc: BaseException):
@@ -160,41 +151,3 @@ def fetch_bytes_cloudrity_d1n(url: str, *, timeout: int = 30, max_bytes: int = 2
     if _D1N_CHALLENGE_RE.search(second) is not None:
         raise FetchError(f"Cloudrity D1N challenge persisted after one retry: {url}")
     return second
-
-def fetch_bytes_myawady_insecure_readonly(
-    url: str,
-    *,
-    timeout: int = 30,
-    max_bytes: int = 2_000_000,
-) -> FetchResult:
-    parsed = urlparse(url)
-    host = (parsed.hostname or "").lower()
-    if (
-        parsed.scheme != "https"
-        or host not in _MYAWADY_HOSTS
-        or parsed.username is not None
-        or parsed.password is not None
-        or parsed.port not in (None, 443)
-    ):
-        raise FetchError(f"Myawady insecure read-only profile not authorized for URL: {url}")
-
-    headers = {
-        "User-Agent": USER_AGENT,
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-    }
-    insecure_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-    insecure_context.check_hostname = False
-    insecure_context.verify_mode = ssl.CERT_NONE
-    payload = _fetch_bytes_with_context(
-        url,
-        timeout=timeout,
-        max_bytes=max_bytes,
-        headers=headers,
-        context=insecure_context,
-        allowed_redirect_hosts=_MYAWADY_HOSTS,
-    )
-    return FetchResult(
-        payload=payload,
-        fetch_method="DIRECT_HTTP_TLS_INSECURE_READONLY",
-        strict_tls_failed=False,
-    )

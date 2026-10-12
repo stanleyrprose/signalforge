@@ -123,7 +123,7 @@ def _attention_item(item: dict[str, object]) -> dict[str, object]:
         "quantity_or_lot_summary": item.get("quantity_or_lot_summary"),
         "quantity_or_lot_evidence": item.get("quantity_or_lot_evidence"),
         "quantity_or_lot_confidence": item.get("quantity_or_lot_confidence"),
-        "customer_readiness_excluded_reason": item.get("customer_readiness_excluded_reason"),
+        "primary_delivery_excluded_reason": item.get("primary_delivery_excluded_reason"),
         "price_or_budget_summary": item.get("price_or_budget_summary") or _money_excerpt(
             item.get("focus_scope_summary"),
             item.get("scope_summary"),
@@ -151,8 +151,9 @@ def business_briefing(
     database: Path | None = None,
     now: datetime | None = None,
     registry: Registry | None = None,
+    limit: int | None = 500,
 ) -> dict[str, object]:
-    opportunities = current_opportunities(database=database, now=now, registry=registry, limit=500)
+    opportunities = current_opportunities(database=database, now=now, registry=registry, limit=limit)
     tracked_rows = opportunities.get("opportunities") or []
     assert isinstance(tracked_rows, list)
 
@@ -209,7 +210,6 @@ def business_briefing(
         excluded_reason_counts[reason] = excluded_reason_counts.get(reason, 0) + 1
 
     target = database or db_path()
-    manual_promotions: list[dict[str, object]] = []
     open_misses = 0
     open_red_misses = 0
     oldest_open_miss = None
@@ -220,12 +220,6 @@ def business_briefing(
     if target.exists():
         migrate(target)
         with connect(target) as conn:
-            manual_promotions = [
-                dict(row)
-                for row in conn.execute(
-                    "SELECT * FROM manual_promotions WHERE status='ACTIVE' ORDER BY created_at DESC LIMIT 10"
-                )
-            ]
             open_misses = int(conn.execute("SELECT COUNT(*) FROM missed_signals WHERE status='OPEN'").fetchone()[0])
             open_red_misses = int(
                 conn.execute("SELECT COUNT(*) FROM missed_signals WHERE status='OPEN' AND severity='RED'").fetchone()[0]
@@ -270,11 +264,6 @@ def business_briefing(
             "primary_relevance_counts": dict(sorted(watch_relevance.items())),
             "canonical_keys": [item.get("canonical_key") for item in watch_rows],
             "items": [_attention_item(item) for item in watch_rows],
-        },
-        "manual_promotions": {
-            "count": len(manual_promotions),
-            "items": manual_promotions,
-            "semantics": "HUMAN_PROMOTED_NONSTANDARD_NOT_CANONICAL_SIGNAL",
         },
         "assurance": {
             "open_misses": open_misses,

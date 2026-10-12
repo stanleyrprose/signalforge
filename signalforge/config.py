@@ -72,8 +72,6 @@ class Registry:
             "public_read_acquisition_router": True,
             "c1_render": True,
             "c1_generic_interaction": False,
-            "c2_readonly_inspect": True,
-            "c3_browser_agent": False,
             "persistent_profile": True,
             "screenshot": True,
             "binary_artifact": True,
@@ -91,6 +89,11 @@ class Registry:
         for source_id, source in sources.items():
             if not isinstance(source, dict) or source.get("enabled") is not True:
                 continue
+            if source.get("item_kind") != "TENDER":
+                raise ConfigError(f"active source must be a formal TENDER source: {source_id}")
+            poll_interval = source.get("poll_interval_seconds")
+            if not isinstance(poll_interval, int) or not 300 <= poll_interval <= 1800:
+                raise ConfigError(f"active tender poll interval must be 300..1800 seconds: {source_id}")
             activation_gate = source.get("activation_gate")
             if (
                 isinstance(activation_gate, dict)
@@ -108,7 +111,6 @@ class Registry:
             fetch_profile = source.get("http_fetch_profile")
             allowed_fetch_profiles = {
                 "cloudrity_d1n_v1",
-                "myawady_insecure_readonly_v2",
             }
             if fetch_profile is not None and (
                 source.get("engine") != "direct_http" or fetch_profile not in allowed_fetch_profiles

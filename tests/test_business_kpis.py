@@ -6,8 +6,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import patch
 
-from signalforge.business_kpis import business_kpi_report, summarize_opportunity_quality
-from signalforge.db import migrate
+from signalforge.business_kpis import business_kpi_report, summarize_delivery_timeliness, summarize_opportunity_quality
+from signalforge.db import connect, migrate
 
 
 class BusinessKpiTests(unittest.TestCase):
@@ -95,25 +95,10 @@ class BusinessKpiTests(unittest.TestCase):
         self.assertTrue(report["semantics"]["no_opaque_composite_score"])
         self.assertTrue(report["semantics"]["signal_quality_is_not_false_positive_precision"])
 
-    def test_business_kpi_report_exposes_review_only_procurement_link_queue(self) -> None:
+    def test_business_kpi_report_is_tender_output_and_assurance_only(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             database = Path(tmp) / "signalforge.db"
             migrate(database)
-            link_queue = {
-                "metric": "PROJECT_PROCUREMENT_LINK_REVIEW_QUEUE",
-                "summary": {
-                    "tracked_projects": 1,
-                    "already_linked_projects": 0,
-                    "unlinked_projects": 1,
-                    "projects_with_suggestions": 1,
-                    "suggestions": 1,
-                    "returned_suggestions": 1,
-                },
-                "suggestions": [{"project_key": "pinpet-steel-factory-power"}],
-                "semantics": {"review_only": True, "no_link_write": True},
-            }
-            precursor_queue = {"summary": {"candidates": 0, "tracked": 1}}
-            leadtime = {"summary": {"linked_projects": 0, "median_lead_days": None}}
             assurance = {
                 "latest_metric_review": {"status": "PASS", "metrics": {}},
                 "counts": {},
@@ -121,35 +106,70 @@ class BusinessKpiTests(unittest.TestCase):
             }
             with patch(
                 "signalforge.business_kpis.current_opportunities",
-                return_value={"opportunities": []},
+                return_value={"opportunities": [{"url": "https://example.test/stationery", "item_kind": "TENDER", "title": "Office stationery tender"}]},
             ), patch(
                 "signalforge.business_kpis.verified_external_opportunities",
                 return_value=[],
             ), patch(
                 "signalforge.business_kpis.assurance_status",
                 return_value=assurance,
-            ), patch(
-                "signalforge.business_kpis.precursor_candidates",
-                return_value=precursor_queue,
-            ), patch(
-                "signalforge.business_kpis.procurement_link_suggestions",
-                return_value=link_queue,
-            ), patch(
-                "signalforge.business_kpis.leadtime_report",
-                return_value=leadtime,
             ):
                 report = business_kpi_report(
                     database=database,
                     now=datetime(2026, 9, 27, 12, 0, tzinfo=UTC),
                     registry=object(),  # type: ignore[arg-type]
-                    lead_limit=20,
                 )
 
-            self.assertIs(report["project_procurement_link_review"], link_queue)
-            self.assertIs(report["project_precursor_pipeline"], precursor_queue)
-            self.assertIs(report["project_to_procurement_lead_time"], leadtime)
-            self.assertEqual(report["opportunity_output_quality"]["business_current_opportunities"], 0)
+            self.assertEqual(report["metric"], "SIGNALFORGE_CORE_BUSINESS_KPIS")
+            self.assertEqual(report["opportunity_output_quality"]["business_current_opportunities"], 1)
+            self.assertEqual(report["opportunity_output_quality"]["canonical_current_opportunities"], 1)
+            self.assertEqual(report["delivery_timeliness"]["sample_count"], 0)
+            self.assertNotIn("project_precursor_pipeline", report)
+            self.assertNotIn("project_procurement_link_review", report)
+            self.assertNotIn("project_to_procurement_lead_time", report)
 
+    def test_delivery_timeliness_uses_signal_to_success_receipt_latency(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            database = Path(tmp) / "signalforge.db"
+            migrate(database)
+            with connect(database) as conn, conn:
+                conn.execute(
+                    "INSERT INTO signals(signal_id,source_id,canonical_key,signal_type,created_at,payload_json) VALUES (?,?,?,?,?,?)",
+                    ("sig-1", "S38", "item:1", "NEW", "2026-09-27T10:00:00Z", "{}"),
+                )
+                conn.execute(
+                    "INSERT INTO signals(signal_id,source_id,canonical_key,signal_type,created_at,payload_json) VALUES (?,?,?,?,?,?)",
+                    ("sig-2", "S38", "item:2", "NEW", "2026-09-27T11:00:00Z", "{}"),
+                )
+                conn.execute(
+                    """
+                    INSERT INTO delivery_receipts(
+                        delivery_key,channel,canonical_key,signal_id,attention_action,priority_band,
+                        payload_sha256,provider_message_id,sent_at
+                    ) VALUES (?,?,?,?,?,?,?,?,?)
+                    """,
+                    ("d1", "telegram", "item:1", "sig-1", "PRIORITIZE", "HIGH", "a", "101", "2026-09-27T10:02:00Z"),
+                )
+                conn.execute(
+                    """
+                    INSERT INTO delivery_receipts(
+                        delivery_key,channel,canonical_key,signal_id,attention_action,priority_band,
+                        payload_sha256,provider_message_id,sent_at
+                    ) VALUES (?,?,?,?,?,?,?,?,?)
+                    """,
+                    ("d2", "telegram", "item:2", "sig-2", "PRIORITIZE", "HIGH", "b", "102", "2026-09-27T11:06:00Z"),
+                )
+
+            report = summarize_delivery_timeliness(
+                database=database,
+                now=datetime(2026, 9, 27, 12, 0, tzinfo=UTC),
+            )
+            self.assertEqual(report["sample_count"], 2)
+            self.assertEqual(report["within_target_count"], 1)
+            self.assertEqual(report["within_target_rate"], 0.5)
+            self.assertEqual(report["median_seconds"], 240.0)
+            self.assertEqual(report["p95_seconds"], 360.0)
+            self.assertEqual(report["max_seconds"], 360)
 
 
 if __name__ == "__main__":

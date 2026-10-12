@@ -176,7 +176,7 @@ class MinistryOfConstructionTests(unittest.TestCase):
         self.assertEqual(enriched.deadline_time, "16:00")
         self.assertIn("5", str(enriched.quantity_or_lot_summary))
         self.assertEqual(
-            enriched.customer_readiness_excluded_reason,
+            enriched.primary_delivery_excluded_reason,
             "NON_PROCUREMENT_SERVICE_CONCESSION",
         )
 
@@ -243,7 +243,7 @@ class MinistryOfConstructionTests(unittest.TestCase):
         self.assertEqual(restored[0].document_ocr_status, "CROSSCHECKED")
         self.assertEqual(restored[0].document_ocr_input_sha256, "b" * 64)
         self.assertEqual(
-            restored[0].customer_readiness_excluded_reason,
+            restored[0].primary_delivery_excluded_reason,
             "NON_PROCUREMENT_SERVICE_CONCESSION",
         )
         acquire.assert_not_called()

@@ -127,7 +127,7 @@ class AuditorTests(unittest.TestCase):
                 (key, source_id, "TENDER", "Test procurement", key, "Test procurement", "2026-09-10", "2026-09-20", None, url, f"hash-{key}", f"evidence-{key}", json.dumps(payload), "2026-09-10T10:00:00Z", "2026-09-10T10:00:00Z"),
             )
 
-    def test_pass_when_health_and_strategic_coverage_agree(self) -> None:
+    def test_pass_when_health_and_tender_coverage_agree(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             database = self._db(tmp)
             mpt_url = "https://mpt.com.mm/en/test-procurement/"
@@ -145,8 +145,8 @@ class AuditorTests(unittest.TestCase):
             result = audit(database=database, registry=_registry(), now=datetime(2026,9,10,10,30,tzinfo=UTC), fetcher=fetch, mytel_fetcher=lambda *_a, **_k: _mytel_feed())
             self.assertEqual(result["status"], "PASS")
             self.assertEqual(result["finding_count"], 0)
-            self.assertEqual(result["checks"]["strategic_coverage"]["S41"]["missing"], [])
-            self.assertEqual(result["checks"]["strategic_coverage"]["S13"]["missing"], 0)
+            self.assertEqual(result["checks"]["tender_coverage"]["S41"]["missing"], [])
+            self.assertEqual(result["checks"]["tender_coverage"]["S13"]["missing"], 0)
             self.assertTrue(result["contract"]["read_only"])
             self.assertTrue(result["contract"]["coverage_check_implementation_independent"])
             self.assertEqual(result["contract"]["coverage_semantic_independence"], "PARTIAL")
@@ -175,7 +175,7 @@ class AuditorTests(unittest.TestCase):
                     fetcher=fetch,
                     mytel_fetcher=lambda *_a, **_k: _mytel_feed(),
                 )
-            s13 = result["checks"]["strategic_coverage"]["S13"]
+            s13 = result["checks"]["tender_coverage"]["S13"]
             self.assertEqual(s13["status"], "UNPROVEN")
             self.assertEqual(s13["tender_like_pages"], 0)
             self.assertEqual(s13["verified_external_recovery_count"], 0)
@@ -204,7 +204,7 @@ class AuditorTests(unittest.TestCase):
                     fetcher=fetch,
                     mytel_fetcher=lambda *_a, **_k: _mytel_feed(),
                 )
-            s13 = result["checks"]["strategic_coverage"]["S13"]
+            s13 = result["checks"]["tender_coverage"]["S13"]
             self.assertEqual(s13["status"], "PARTIAL")
             self.assertEqual(s13["verified_external_recovery_count"], 1)
             self.assertTrue(s13["issuer_page_coverage_debt_retained"])
@@ -244,7 +244,7 @@ class AuditorTests(unittest.TestCase):
                     mpt_search_fetcher=lambda *_a, **_k: _mpt_search(mm_url),
                 )
 
-            s13 = result["checks"]["strategic_coverage"]["S13"]
+            s13 = result["checks"]["tender_coverage"]["S13"]
             self.assertEqual(s13["status"], "GAP")
             self.assertEqual(s13["official_search_relevant"], 1)
             self.assertEqual(s13["official_search_missing"], 1)
@@ -281,7 +281,7 @@ class AuditorTests(unittest.TestCase):
                     mpt_search_fetcher=lambda *_a, **_k: _mpt_search(mm_url),
                 )
 
-            s13 = result["checks"]["strategic_coverage"]["S13"]
+            s13 = result["checks"]["tender_coverage"]["S13"]
             self.assertEqual(s13["status"], "PASS")
             self.assertEqual(s13["official_search_relevant"], 1)
             self.assertEqual(s13["official_search_missing"], 0)
@@ -315,26 +315,6 @@ class AuditorTests(unittest.TestCase):
             health = [item for item in result["findings"] if item["type"] == "HEALTH_ALERT"]
             self.assertTrue(any(item["source_id"] == "S13" and item["severity"] == "RED" for item in health))
 
-    def test_atom_official_sitemap_procurement_url_reopens_deferred_audit(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            database = self._db(tmp)
-
-            def fetch(url: str, **_kwargs) -> bytes:
-                if "atom.com.mm" in url:
-                    return _sitemap("https://www.atom.com.mm/en/supplier/rfp-2026")
-                return _sitemap("https://mpt.com.mm/en/about/")
-
-            result = audit(
-                database=database,
-                registry=_registry(),
-                now=datetime(2026, 9, 10, 10, 30, tzinfo=UTC),
-                fetcher=fetch,
-                mytel_fetcher=lambda *_a, **_k: _mytel_feed(),
-            )
-            trigger = next(item for item in result["findings"] if item["type"] == "SURFACE_TRIGGER")
-            self.assertEqual(trigger["code"], "ATOM_PUBLIC_PROCUREMENT_SURFACE_CANDIDATE")
-            self.assertEqual(trigger["severity"], "YELLOW")
-            self.assertEqual(result["checks"]["atom_surface_trigger"]["status"], "REVIEW")
 
     def test_deadline_without_evidence_is_counted_but_not_claimed_wrong(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

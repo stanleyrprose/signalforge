@@ -117,67 +117,11 @@ def migrate(path: Path | None = None) -> None:
                 payload_sha256 TEXT NOT NULL,
                 provider_message_id TEXT,
                 sent_at TEXT NOT NULL,
-                profile_id TEXT,
-                profile_match_score INTEGER,
                 UNIQUE(channel, canonical_key, signal_id, attention_action)
             );
             CREATE INDEX IF NOT EXISTS idx_delivery_receipts_channel_sent
                 ON delivery_receipts(channel, sent_at DESC);
 
-            CREATE TABLE IF NOT EXISTS pilot_delivery_receipts (
-                delivery_key TEXT PRIMARY KEY,
-                channel TEXT NOT NULL,
-                profile_id TEXT NOT NULL,
-                canonical_key TEXT NOT NULL,
-                signal_id TEXT NOT NULL,
-                attention_action TEXT NOT NULL,
-                priority_band TEXT NOT NULL,
-                profile_match_score INTEGER NOT NULL,
-                payload_sha256 TEXT NOT NULL,
-                provider_message_id TEXT,
-                sent_at TEXT NOT NULL,
-                UNIQUE(channel, profile_id, canonical_key, signal_id)
-            );
-            CREATE INDEX IF NOT EXISTS idx_pilot_delivery_profile_sent
-                ON pilot_delivery_receipts(profile_id, sent_at DESC);
-            CREATE INDEX IF NOT EXISTS idx_pilot_delivery_channel_sent
-                ON pilot_delivery_receipts(channel, sent_at DESC);
-
-            CREATE TABLE IF NOT EXISTS pilot_feedback_events (
-                event_id TEXT PRIMARY KEY,
-                profile_id TEXT NOT NULL,
-                canonical_key TEXT NOT NULL,
-                signal_id TEXT,
-                event_type TEXT NOT NULL,
-                note TEXT,
-                recorded_by TEXT NOT NULL,
-                recorded_at TEXT NOT NULL,
-                UNIQUE(profile_id, canonical_key, signal_id, event_type)
-            );
-            CREATE INDEX IF NOT EXISTS idx_pilot_feedback_profile_time
-                ON pilot_feedback_events(profile_id, recorded_at DESC);
-            CREATE INDEX IF NOT EXISTS idx_pilot_feedback_type_time
-                ON pilot_feedback_events(event_type, recorded_at DESC);
-
-            CREATE TABLE IF NOT EXISTS telegram_update_state (
-                bot_key TEXT PRIMARY KEY,
-                last_update_id INTEGER NOT NULL,
-                updated_at TEXT NOT NULL
-            );
-
-            CREATE TABLE IF NOT EXISTS digest_delivery_receipts (
-                digest_key TEXT PRIMARY KEY,
-                channel TEXT NOT NULL,
-                digest_date TEXT NOT NULL,
-                window_start TEXT NOT NULL,
-                window_end TEXT NOT NULL,
-                payload_sha256 TEXT NOT NULL,
-                provider_message_id TEXT,
-                sent_at TEXT NOT NULL,
-                UNIQUE(channel, digest_date)
-            );
-            CREATE INDEX IF NOT EXISTS idx_digest_delivery_channel_sent
-                ON digest_delivery_receipts(channel, sent_at DESC);
             CREATE TABLE IF NOT EXISTS scheduler_runs (
                 app_run_id TEXT PRIMARY KEY,
                 trigger_id TEXT NOT NULL,
@@ -368,39 +312,6 @@ def migrate(path: Path | None = None) -> None:
             CREATE INDEX IF NOT EXISTS idx_missed_signals_source_status
                 ON missed_signals(source_id, status);
 
-            CREATE TABLE IF NOT EXISTS manual_promotions (
-                promotion_id TEXT PRIMARY KEY,
-                source_id TEXT NOT NULL,
-                created_at TEXT NOT NULL,
-                created_by TEXT NOT NULL,
-                title TEXT NOT NULL,
-                summary TEXT NOT NULL,
-                url TEXT,
-                reason TEXT NOT NULL,
-                priority_band TEXT NOT NULL,
-                deadline TEXT,
-                location TEXT,
-                status TEXT NOT NULL DEFAULT 'ACTIVE',
-                resolved_at TEXT,
-                resolved_by TEXT,
-                resolution_note TEXT
-            );
-            CREATE INDEX IF NOT EXISTS idx_manual_promotions_status_created
-                ON manual_promotions(status, created_at DESC);
-
-            CREATE TABLE IF NOT EXISTS manual_delivery_receipts (
-                delivery_key TEXT PRIMARY KEY,
-                channel TEXT NOT NULL,
-                promotion_id TEXT NOT NULL,
-                payload_sha256 TEXT NOT NULL,
-                provider_message_id TEXT,
-                sent_at TEXT NOT NULL,
-                UNIQUE(channel, promotion_id),
-                FOREIGN KEY(promotion_id) REFERENCES manual_promotions(promotion_id)
-            );
-            CREATE INDEX IF NOT EXISTS idx_manual_delivery_channel_sent
-                ON manual_delivery_receipts(channel, sent_at DESC);
-
             CREATE TABLE IF NOT EXISTS metric_reviews (
                 metric_review_id TEXT PRIMARY KEY,
                 assurance_run_id TEXT NOT NULL,
@@ -414,29 +325,6 @@ def migrate(path: Path | None = None) -> None:
             CREATE INDEX IF NOT EXISTS idx_metric_reviews_observed
                 ON metric_reviews(observed_at DESC);
 
-            CREATE TABLE IF NOT EXISTS project_lifecycle_events (
-                event_id TEXT PRIMARY KEY,
-                project_key TEXT NOT NULL,
-                source_id TEXT NOT NULL,
-                stage TEXT NOT NULL,
-                detected_at TEXT NOT NULL,
-                title TEXT NOT NULL,
-                url TEXT,
-                evidence_kind TEXT NOT NULL,
-                metadata_json TEXT NOT NULL DEFAULT '{}',
-                UNIQUE(project_key, source_id, stage, url)
-            );
-            CREATE INDEX IF NOT EXISTS idx_project_lifecycle_project_detected
-                ON project_lifecycle_events(project_key, detected_at);
-
-            CREATE TABLE IF NOT EXISTS project_procurement_links (
-                project_key TEXT PRIMARY KEY,
-                canonical_key TEXT NOT NULL UNIQUE,
-                linked_at TEXT NOT NULL,
-                linked_by TEXT NOT NULL,
-                link_basis TEXT NOT NULL,
-                FOREIGN KEY(canonical_key) REFERENCES canonical_items(canonical_key)
-            );
             """
         )
 
@@ -472,9 +360,6 @@ def migrate(path: Path | None = None) -> None:
 
         _add_column(conn, "canonical_items", "item_kind TEXT NOT NULL DEFAULT 'TENDER'")
         _add_column(conn, "canonical_items", "title TEXT")
-        _add_column(conn, "delivery_receipts", "profile_id TEXT")
-        _add_column(conn, "delivery_receipts", "profile_match_score INTEGER")
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_delivery_receipts_profile_sent ON delivery_receipts(profile_id, sent_at DESC)")
         conn.execute("UPDATE canonical_items SET item_kind='TENDER' WHERE item_kind IS NULL OR item_kind=''")
         conn.execute("UPDATE canonical_items SET title=project_name WHERE title IS NULL OR title=''")
 

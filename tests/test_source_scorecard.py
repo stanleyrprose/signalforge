@@ -128,7 +128,7 @@ class SourceScorecardTests(unittest.TestCase):
         self.assertEqual(row["tracked_current_opportunities"], 1)
         self.assertEqual(row["tracked_telegram_alerts_total"], 1)
 
-    def test_off_mission_current_opportunity_does_not_count_as_business_yield(self) -> None:
+    def test_off_mission_formal_tender_still_counts_as_business_yield(self) -> None:
         off_mission = {
             "opportunities": [{
                 "source_id": "S40",
@@ -151,10 +151,12 @@ class SourceScorecardTests(unittest.TestCase):
             )
         row = next(row for row in result["sources"] if row["source_id"] == "S40")
         self.assertEqual(row["tracked_current_opportunities"], 1)
-        self.assertEqual(row["current_opportunities"], 0)
-        self.assertEqual(row["mission_excluded_current_opportunities"], 1)
+        self.assertEqual(row["current_opportunities"], 1)
+        self.assertEqual(row["non_mission_current_opportunities"], 1)
         self.assertEqual(result["summary"]["tracked_current_opportunities"], 1)
-        self.assertEqual(result["summary"]["current_opportunities"], 0)
+        self.assertEqual(result["summary"]["current_opportunities"], 1)
+        self.assertFalse(result["policy"]["business_yield_is_mission_filtered"])
+        self.assertTrue(result["policy"]["mission_fit_is_analytical_only"])
 
     def test_verified_external_official_opportunity_counts_as_business_yield_without_becoming_canonical(self) -> None:
         with tempfile.TemporaryDirectory() as tmp, patch("signalforge.source_scorecard.audit", return_value=_audit()), patch(
@@ -255,12 +257,12 @@ class SourceScorecardTests(unittest.TestCase):
         self.assertEqual(row["observed_yield"], "SIGNAL_PROVEN")
 
 
-    def test_portfolio_v3_keeps_tiers_while_business_yield_becomes_mission_filtered(self) -> None:
-        self.assertEqual(SCORECARD_VERSION, 8)
+    def test_portfolio_tiers_remain_analytical_after_tender_core_reset(self) -> None:
+        self.assertEqual(SCORECARD_VERSION, 9)
         self.assertEqual(PORTFOLIO_TIERS["S21"], "STRATEGIC_WATCH")
         self.assertEqual(PORTFOLIO_TIERS["S22"], "STRATEGIC_WATCH")
-        self.assertEqual(PORTFOLIO_TIERS["S49"], "STRATEGIC_WATCH")
-        self.assertEqual(PORTFOLIO_TIERS["S50"], "STRATEGIC_WATCH")
+        self.assertNotIn("S49", PORTFOLIO_TIERS)
+        self.assertNotIn("S50", PORTFOLIO_TIERS)
         self.assertEqual(PORTFOLIO_TIERS["S32"], "OBSERVATION")
 
     def test_window_days_is_bounded(self) -> None:

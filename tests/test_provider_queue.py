@@ -59,14 +59,7 @@ def contract() -> dict:
     }
 
 
-def new_request(*, now: datetime = NOW, ttl: int = 90, capability: str = "C0_FETCH", retry_safe: bool = False) -> dict:
-    interaction = None
-    if capability == "C3_BROWSER_USE":
-        interaction = {
-            "side_effect_class": "READ_ONLY_NAVIGATION",
-            "retry_safe": retry_safe,
-            "steps": [{"action": "snapshot"}, {"action": "screenshot"}],
-        }
+def new_request(*, now: datetime = NOW, ttl: int = 90, capability: str = "C0_FETCH") -> dict:
     return build_provider_request(
         contract=contract(),
         source_id="S38",
@@ -79,7 +72,6 @@ def new_request(*, now: datetime = NOW, ttl: int = 90, capability: str = "C0_FET
         acquisition_attempt_id=str(uuid.uuid4()),
         max_bytes=1_000_000,
         max_run_seconds=60,
-        interaction_plan=interaction,
         now=now,
         ttl_seconds=ttl,
     )
@@ -139,25 +131,7 @@ class ProviderQueueTests(unittest.TestCase):
             state = conn.execute("SELECT state FROM provider_attempts WHERE provider_attempt_id=?", (first["provider_attempt_id"],)).fetchone()[0]
         self.assertEqual(state, "LEASE_EXPIRED")
 
-    def test_c3_non_retry_safe_lease_expiry_fails_without_requeue(self) -> None:
-        request = new_request(ttl=180, capability="C3_BROWSER_USE", retry_safe=False)
-        enqueue_provider_request(request, contract=contract(), database=self.db, now=NOW)
-        claimed = claim_next_provider_request(provider_id="mac-mm-01", database=self.db, now=NOW, lease_seconds=30)
-        next_claim = claim_next_provider_request(provider_id="mac-mm-01", database=self.db, now=NOW + timedelta(seconds=31), lease_seconds=30)
-        self.assertEqual(next_claim["status"], "NO_WORK")
-        with sqlite3.connect(self.db) as conn:
-            request_state = conn.execute("SELECT state,failure_class FROM provider_requests WHERE provider_request_id=?", (request["provider_request_id"],)).fetchone()
-            attempt_state = conn.execute("SELECT state,failure_class FROM provider_attempts WHERE provider_attempt_id=?", (claimed["provider_attempt_id"],)).fetchone()
-        self.assertEqual(request_state, ("FAILED", "PROVIDER_LEASE_EXPIRED_NO_RETRY"))
-        self.assertEqual(attempt_state, ("FAILED", "PROVIDER_LEASE_EXPIRED_NO_RETRY"))
 
-    def test_c3_explicit_retry_safe_lease_can_be_reclaimed(self) -> None:
-        request = new_request(ttl=180, capability="C3_BROWSER_USE", retry_safe=True)
-        enqueue_provider_request(request, contract=contract(), database=self.db, now=NOW)
-        first = claim_next_provider_request(provider_id="mac-mm-01", database=self.db, now=NOW, lease_seconds=30)
-        second = claim_next_provider_request(provider_id="mac-mm-01", database=self.db, now=NOW + timedelta(seconds=31), lease_seconds=30)
-        self.assertEqual(second["provider_request_id"], request["provider_request_id"])
-        self.assertNotEqual(first["provider_attempt_id"], second["provider_attempt_id"])
 
     def test_request_expiry_removes_work_from_claim_queue(self) -> None:
         request = new_request(ttl=30)
@@ -306,16 +280,6 @@ class ProviderQueueTests(unittest.TestCase):
         status = provider_queue_status(provider_id="mac-mm-01", database=self.db, now=NOW + timedelta(seconds=2))
         self.assertEqual(status["counts"]["FAILED"], 1)
 
-    def test_queue_accepts_c3_requests_without_treating_them_as_worker_runs(self) -> None:
-        request = new_request(capability="C3_BROWSER_USE")
-        enqueue_provider_request(request, contract=contract(), database=self.db, now=NOW)
-        claimed = claim_next_provider_request(provider_id="mac-mm-01", database=self.db, now=NOW)
-        self.assertEqual(claimed["request"]["capability"], "C3_BROWSER_USE")
-        with sqlite3.connect(self.db) as conn:
-            tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-        self.assertIn("provider_requests", tables)
-        self.assertIn("provider_attempts", tables)
-        self.assertNotIn("runs", tables)
 
 
 if __name__ == "__main__":
