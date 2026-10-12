@@ -1,7 +1,8 @@
 """S01 undated document cards must be eligible for first baseline acquisition."""
+import sqlite3
 import unittest
 from datetime import UTC, datetime
-from signalforge.engine import _baseline_candidates
+from signalforge.engine import _baseline_candidates, _schedule_undated_discovery_recovery
 from signalforge.mpt import SitemapEntry
 
 class NationalPortalBaselineTests(unittest.TestCase):
@@ -12,3 +13,18 @@ class NationalPortalBaselineTests(unittest.TestCase):
         self.assertEqual(_baseline_candidates(entries, now=datetime(2026, 10, 12, tzinfo=UTC), source=source), entries)
         source["baseline_include_undated"] = False
         self.assertEqual(_baseline_candidates(entries, now=datetime(2026, 10, 12, tzinfo=UTC), source=source), [])
+
+    def test_recover_only_never_fetched_undated_documents(self):
+        conn = sqlite3.connect(":memory:")
+        conn.execute("""CREATE TABLE discovery_items(source_id TEXT,url TEXT,lastmod TEXT,
+            fetched_lastmod TEXT,last_fetched_at TEXT,canonical_key TEXT,
+            pending_since_at TEXT,suppress_signal_once INTEGER DEFAULT 0)""")
+        for suffix, fetched in (("a", None), ("b", "2026-10-10")):
+            conn.execute("INSERT INTO discovery_items(source_id,url,last_fetched_at) VALUES(?,?,?)",
+                         ("S01", "https://myanmar.gov.mm/documents/" + suffix, fetched))
+        entries = [SitemapEntry("https://myanmar.gov.mm/documents/" + x, None) for x in ("a", "b")]
+        source = {"baseline_include_undated": True, "delta_detail_limit": 4}
+        self.assertEqual(_schedule_undated_discovery_recovery(conn, "S01", source, entries, "2026-10-12"), 1)
+        self.assertEqual(_schedule_undated_discovery_recovery(conn, "S01", source, entries, "2026-10-12"), 0)
+        self.assertIsNotNone(conn.execute("SELECT pending_since_at FROM discovery_items WHERE url LIKE '%/a'").fetchone()[0])
+        self.assertIsNone(conn.execute("SELECT pending_since_at FROM discovery_items WHERE url LIKE '%/b'").fetchone()[0])

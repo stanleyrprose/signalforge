@@ -249,6 +249,35 @@ def _upsert_discovery_snapshot(
         )
 
 
+def _schedule_undated_discovery_recovery(
+    conn, source_id: str, source: dict, entries: list[SitemapEntry], observed_at: str,
+) -> int:  # type: ignore[no-untyped-def]
+    """One-time bounded recovery of undated S01 documents never fetched.
+
+    Do not reopen documents with any recorded fetch, canonical identity, or
+    existing pending state; normal delta processing handles those separately.
+    """
+    if source_id != "S01" or source.get("baseline_include_undated") is not True:
+        return 0
+    limit = max(0, int(source.get("delta_detail_limit", 0)))
+    scheduled = 0
+    for entry in entries:
+        if scheduled >= limit:
+            break
+        if entry.lastmod is not None:
+            continue
+        changed = conn.execute(
+            """UPDATE discovery_items
+               SET pending_since_at=?, suppress_signal_once=1
+               WHERE source_id=? AND url=? AND lastmod IS NULL
+                 AND fetched_lastmod IS NULL AND last_fetched_at IS NULL
+                 AND canonical_key IS NULL AND pending_since_at IS NULL""",
+            (observed_at, source_id, entry.url),
+        ).rowcount
+        scheduled += changed
+    return scheduled
+
+
 def _schedule_detail_parser_replay(
     conn,  # type: ignore[no-untyped-def]
     *,
@@ -1034,6 +1063,7 @@ def run_source(
                 candidates = _baseline_candidates(entries, now=now, source=source)
                 _acknowledge_baseline_exclusions(conn, source_id, entries, candidates)
             else:
+                _schedule_undated_discovery_recovery(conn, source_id, source, entries, observed_at)
                 _schedule_detail_parser_replay(
                     conn,
                     source_id=source_id,
