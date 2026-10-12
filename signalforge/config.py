@@ -72,8 +72,6 @@ class Registry:
             "public_read_acquisition_router": True,
             "c1_render": True,
             "c1_generic_interaction": False,
-            "c2_readonly_inspect": True,
-            "c3_browser_agent": False,
             "persistent_profile": True,
             "screenshot": True,
             "binary_artifact": True,

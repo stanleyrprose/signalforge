@@ -30,11 +30,20 @@ Git history remains the archive; retired code is not preserved in the current tr
 
 Reliability layers retained: source health, Assurance, missed-signal review, noise false-negative review, evidence/provenance, OCR/provider contracts required by retained tender sources, and delivery deduplication.
 
-## Implementation status
+## Implementation and verification status
 
-Implementation and static review are complete on `refactor/tender-core-only`. Current reviewed head: `e714762` (`refactor: align assurance with tender-only scope`).
+Implementation, static review and authorized local verification are complete on `refactor/tender-core-only`.
 
-Per `AGENTS.md`, tests, CI, PR, merge, deployment and production Telegram sends remain unauthorized until the next explicit gate.
+Validation completed on 2026-10-12:
+
+- affected core-path suite: 112/112 PASS;
+- MPA/provider/database focused suite after cleanup: 42/42 PASS;
+- complete repository suite: 429/429 PASS;
+- `python -m compileall -q signalforge tests`: PASS;
+- Source Registry and Provider Invocation Contract JSON validation: PASS;
+- `sh -n bin/signalforge` and `sh -n deploy/deploy-signalforge-release.sh`: PASS.
+
+Validation found and fixed two stale refactor residues: the registry loader still required retired C2/C3 provider capability flags, and MPA still retained manual-preview-only helpers/tests after the manual provider bridge was removed.
 
 Current implementation facts:
 
@@ -47,6 +56,6 @@ Current implementation facts:
 - Assurance uses `tender_coverage` for bounded independent MPT/MYTEL reconciliation; the retired ATOM surface trigger is removed;
 - precursor, project-link/lead-time, customer profile, pilot feedback, standalone digest, non-tender news/policy sources, manual provider bridge and generic C2/C3 browser escalation are retired from the active tree;
 - static consistency audit found no missing relative imports, no missing adapters for active sources, and no invalid provider capability references;
-- both Mac worktrees are clean: the original worktree tracks `main@69cc691`; the refactor worktree tracks the GitHub feature branch. GitHub remains the sole SOT.
+- GitHub remains the sole project SOT.
 
-The next gate is explicit authorization to run affected-path verification.
+Per `AGENTS.md`, PR creation, GitHub CI, merge, deployment and production Telegram sends still require the next explicit release-closure/deployment gates.

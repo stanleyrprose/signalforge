@@ -1,19 +1,17 @@
 from __future__ import annotations
 
 import io
-import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
 from pypdf import PdfWriter
 
-from signalforge.cli import main, verb_manifest
+from signalforge.cli import verb_manifest
 from signalforge.config import Registry
 from signalforge.mpa import (
     MpaParseError,
     MpaPdfFields,
-    build_manual_bundle_preview,
     classify_item_kind,
     classify_pdf_text,
     extract_deadline,
@@ -24,7 +22,6 @@ from signalforge.mpa import (
     parse_pdf_business_fields,
     parse_tender_detail_with_attachments,
     parse_tender_listing,
-    preview_summary,
 )
 
 
@@ -58,16 +55,6 @@ class MpaPreviewTests(unittest.TestCase):
         self.assertEqual(records[0].url, "https://www.mpa.gov.mm/announcements/open-tender-invitation-for-three-tugs-2/")
         self.assertEqual(records[1].provisional_item_kind, "AUCTION_NOTICE")
 
-    def test_preview_summary_keeps_identity_provisional(self) -> None:
-        summary = preview_summary(parse_listing_records(LISTING))
-        self.assertEqual(summary["status"], "PREVIEW_ONLY")
-        self.assertEqual(summary["source_id"], "S15A")
-        self.assertEqual(summary["total"], 2)
-        self.assertEqual(summary["provisional_tender"], 1)
-        self.assertEqual(summary["provisional_auction_notice"], 1)
-        self.assertEqual(summary["provisional_unclassified"], 0)
-        self.assertEqual(summary["identity"], "PROVISIONAL_SLUG_UNTIL_DETAIL_SHORTLINK")
-        self.assertEqual(summary["classification"], "TITLE_ONLY_REQUIRES_DETAIL_PDF_FOR_FINAL_ITEM_KIND")
 
     def test_detail_shortlink_and_pdf_iframe_are_extractable(self) -> None:
         detail = b"""<html><head><link rel='shortlink' href='https://www.mpa.gov.mm/?p=37867' /></head>
@@ -108,55 +95,7 @@ class MpaPreviewTests(unittest.TestCase):
         )
         self.assertEqual(classify_item_kind("General announcement"), "UNCLASSIFIED")
 
-    def test_manual_bundle_preview_joins_listing_detail_pdf_without_writing_state(self) -> None:
-        detail_url = "https://www.mpa.gov.mm/announcements/open-tender-invitation-for-three-tugs-2/"
-        pdf_url = "https://www.mpa.gov.mm/wp-content/uploads/2026/06/Three-Tug-Tender-Eng.pdf"
-        detail = f"""<html><head><link rel='shortlink' href='https://www.mpa.gov.mm/?p=37867' /></head>
-        <body><iframe data-src='{pdf_url}'></iframe></body></html>""".encode()
-        fields = MpaPdfFields(
-            final_item_kind="AUCTION_NOTICE",
-            classification_status="DETERMINISTIC_PDF",
-            classification_basis="AUCTION_EN",
-            deadline_local="2026-06-25T13:00:00",
-            deadline_timezone="Asia/Yangon",
-            deadline_status="FOUND",
-            reference_no=None,
-            scope_excerpt="three Tugs will be auctioned through an open tender system",
-            page_count=2,
-            text_chars=1941,
-        )
-        with patch("signalforge.mpa.parse_pdf_business_fields", return_value=fields):
-            result = build_manual_bundle_preview(
-                LISTING, detail, b"pdf-bytes", detail_url=detail_url, pdf_url=pdf_url
-            )
-        self.assertEqual(result["status"], "READY_FOR_MANUAL_COMMIT")
-        candidate = result["candidate"]
-        self.assertEqual(candidate["canonical_key"], "mpa:37867")
-        self.assertEqual(candidate["item_kind"], "AUCTION_NOTICE")
-        self.assertEqual(candidate["publication_date"], "2026-06-02")
-        self.assertEqual(candidate["deadline"], "2026-06-25T13:00:00+06:30")
-        self.assertEqual(candidate["reference_no"], "MPA-POST-37867")
-        self.assertEqual(candidate["reference_no_kind"], "wordpress_post_id")
-        self.assertEqual(candidate["pdf_url"], pdf_url)
-        self.assertEqual(candidate["listing_provisional_item_kind"], "TENDER")
 
-    def test_manual_bundle_preview_fails_closed_on_evidence_relationship_mismatch(self) -> None:
-        detail_url = "https://www.mpa.gov.mm/announcements/open-tender-invitation-for-three-tugs-2/"
-        pdf_url = "https://www.mpa.gov.mm/wp-content/uploads/2026/06/Three-Tug-Tender-Eng.pdf"
-        detail = f"""<html><head><link rel='shortlink' href='https://www.mpa.gov.mm/?p=37867' /></head>
-        <body><iframe data-src='{pdf_url}'></iframe></body></html>""".encode()
-        with self.assertRaisesRegex(MpaParseError, "exactly one listing row"):
-            build_manual_bundle_preview(
-                LISTING, detail, b"pdf",
-                detail_url="https://www.mpa.gov.mm/announcements/not-in-listing/",
-                pdf_url=pdf_url,
-            )
-        with self.assertRaisesRegex(MpaParseError, "PDF URL does not match"):
-            build_manual_bundle_preview(
-                LISTING, detail, b"pdf",
-                detail_url=detail_url,
-                pdf_url="https://www.mpa.gov.mm/wp-content/uploads/2026/06/other.pdf",
-            )
 
     def test_pdf_classifier_uses_authoritative_disposal_semantics(self) -> None:
         text = (
@@ -311,13 +250,8 @@ class MpaPreviewTests(unittest.TestCase):
             self.assertEqual(kwargs["timeout_seconds"], timeout)
             self.assertEqual(kwargs["target_role"], role)
 
-    def test_cli_preview_reads_file_only(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "mpa.html"
-            path.write_bytes(LISTING)
-            self.assertEqual(main(["mpa-preview", "--html", str(path)]), 0)
 
-    def test_preview_commands_are_not_worker_verbs(self) -> None:
+    def test_retired_preview_commands_are_not_worker_verbs(self) -> None:
         verbs = verb_manifest()["verbs"]
         self.assertNotIn("mpa-preview", verbs)
         self.assertNotIn("signalforge-mpa-preview", verbs)
