@@ -2,7 +2,7 @@
 Description=SignalForge Telegram delivery timer
 
 [Timer]
-OnCalendar=*-*-* *:0/5:45 UTC
+OnCalendar=*-*-* 00:30:00 UTC
 Persistent=true
 RandomizedDelaySec=10s
 AccuracySec=1s
