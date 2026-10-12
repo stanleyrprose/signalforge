@@ -15,7 +15,12 @@ from urllib.request import Request, urlopen
 from .briefing import business_briefing
 from .config import db_path
 from .db import connect
-from .translation import contains_myanmar, translate_myanmar_to_zh_hans, translate_tender_fields_to_zh_hans
+from .translation import (
+    contains_myanmar,
+    normalize_myanmar_digits,
+    translate_myanmar_to_zh_hans,
+    translate_tender_fields_to_zh_hans,
+)
 
 CHANNEL = "telegram"
 TELEGRAM_MESSAGE_LIMIT = 4096
@@ -113,6 +118,15 @@ def _presentation_scope(value: object) -> str:
     text = _WINDOWS_LOCAL_FILE_RE.sub("", text)
     segments = [segment.strip(" \t,;-") for segment in text.split("|")]
     return " | ".join(segment for segment in segments if segment).strip()
+
+
+def _presentation_reference(value: object) -> str:
+    text = normalize_myanmar_digits(value).strip()
+    if not text:
+        return ""
+    if contains_myanmar(text):
+        return "详见官方原文"
+    return text
 
 
 def _compact_scope(value: object, limit: int = 320) -> str:
@@ -219,12 +233,12 @@ def render_telegram_message(
     ]
     reference_numbers = item.get("reference_numbers")
     if isinstance(reference_numbers, list) and reference_numbers:
-        reference = ", ".join(str(value) for value in reference_numbers)
+        reference = _presentation_reference(", ".join(str(value) for value in reference_numbers))
     else:
-        reference = str(item.get("reference_no") or "")
+        reference = _presentation_reference(item.get("reference_no"))
     focus_reference_numbers = item.get("focus_reference_numbers")
     focus_reference = (
-        ", ".join(str(value) for value in focus_reference_numbers)
+        _presentation_reference(", ".join(str(value) for value in focus_reference_numbers))
         if isinstance(focus_reference_numbers, list) and focus_reference_numbers
         else ""
     )

@@ -16,6 +16,7 @@ _MYANMAR_RANGES = (
     (0xA9E0, 0xA9FF),
     (0xAA60, 0xAA7F),
 )
+_MYANMAR_DIGITS = str.maketrans("၀၁၂၃၄၅၆၇၈၉", "0123456789")
 _MICROSOFT_ENDPOINT = "https://api.cognitive.microsofttranslator.com"
 _GOOGLE_ENDPOINT = "https://translation.googleapis.com/language/translate/v2"
 _DEFAULT_PRIORITY = ("mac_oauth_llm", "microsoft", "google")
@@ -28,6 +29,11 @@ def contains_myanmar(value: object) -> bool:
         for char in text
         for start, end in _MYANMAR_RANGES
     )
+
+
+def normalize_myanmar_digits(value: object) -> str:
+    """Normalize Myanmar digits for presentation without changing canonical evidence."""
+    return str(value or "").translate(_MYANMAR_DIGITS)
 
 
 def _priority(value: str | None = None) -> tuple[str, ...]:
@@ -193,7 +199,7 @@ def translate_myanmar_to_zh_hans(
     Google Cloud Translation, then original text. Any provider failure falls
     through; translation can never suppress a SignalForge alert.
     """
-    originals = [str(value or "") for value in values]
+    originals = [normalize_myanmar_digits(value) for value in values]
     indices = [index for index, value in enumerate(originals) if contains_myanmar(value)]
     if not indices:
         return originals, False
@@ -251,7 +257,7 @@ def translate_tender_fields_to_zh_hans(
     fall back to the existing Myanmar-only cloud path so translation can never
     suppress a time-sensitive tender alert.
     """
-    originals = [str(value or "") for value in values]
+    originals = [normalize_myanmar_digits(value) for value in values]
     indices = [
         index
         for index, value in enumerate(originals)

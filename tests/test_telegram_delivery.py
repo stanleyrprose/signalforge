@@ -410,6 +410,18 @@ class TelegramDeliveryTests(unittest.TestCase):
         self.assertIn("🧩 相关分包：DMP/L-026(26-27), DMP/L-067(26-27)", text)
         self.assertIn("📦 采购内容：DMP/L-026 Communication and Information Technology | DMP/L-067 IOT Module", text)
 
+    def test_reference_presentation_normalizes_digits_and_hides_remaining_myanmar_script(self) -> None:
+        item = _briefing()["attention"][0]
+        assert isinstance(item, dict)
+        item["reference_no"] = "၃၃၇/မမ/CE"
+        text = render_telegram_message(item)
+        self.assertIn("📌 招标编号：详见官方原文", text)
+        self.assertNotIn("၃၃၇/မမ/CE", text)
+
+        item["reference_no"] = "TENDER-၂၀၂၆-၁၂"
+        text = render_telegram_message(item)
+        self.assertIn("📌 招标编号：TENDER-2026-12", text)
+
     def test_ptd_participation_deadline_is_not_rendered_as_generic_bid_deadline(self) -> None:
         item = _briefing()["attention"][0]
         assert isinstance(item, dict)

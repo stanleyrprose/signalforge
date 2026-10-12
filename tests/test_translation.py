@@ -5,7 +5,12 @@ import unittest
 from unittest.mock import patch
 from urllib.error import URLError
 
-from signalforge.translation import contains_myanmar, translate_myanmar_to_zh_hans, translate_tender_fields_to_zh_hans
+from signalforge.translation import (
+    contains_myanmar,
+    normalize_myanmar_digits,
+    translate_myanmar_to_zh_hans,
+    translate_tender_fields_to_zh_hans,
+)
 
 
 class _Response:
@@ -27,6 +32,9 @@ class TranslationTests(unittest.TestCase):
         self.assertTrue(contains_myanmar("အိတ်ဖွင့်တင်ဒါ"))
         self.assertTrue(contains_myanmar("English + မြန်မာ"))
         self.assertFalse(contains_myanmar("Open Tender No. 6/2026"))
+
+    def test_normalizes_myanmar_digits_for_presentation_only(self) -> None:
+        self.assertEqual(normalize_myanmar_digits("၂၀၂၆-၂၀၂၇ / ၁၂"), "2026-2027 / 12")
 
     def test_without_key_fails_open_without_network(self) -> None:
         values = ["English", "အိတ်ဖွင့်တင်ဒါ"]
@@ -103,6 +111,21 @@ class TranslationTests(unittest.TestCase):
         self.assertEqual(result, ["数据服务器公开招标", "公开招标", "中文保持不变"])
         self.assertTrue(translated)
         self.assertEqual(mac.call_args.args[0], values[:2])
+
+    def test_tender_translation_normalizes_myanmar_digits_before_provider_contract(self) -> None:
+        values = ["ပစ္စည်း ၁၂ မျိုး ဝယ်ယူရန်"]
+        with patch(
+            "signalforge.translation.request_translation_and_wait",
+            return_value=(["采购12种物资"], True),
+        ) as mac:
+            result, translated = translate_tender_fields_to_zh_hans(
+                values,
+                database=__import__("pathlib").Path("/tmp/fake.db"),
+                provider_priority="mac_oauth_llm,original",
+            )
+        self.assertEqual(result, ["采购12种物资"])
+        self.assertTrue(translated)
+        self.assertEqual(mac.call_args.args[0], ["ပစ္စည်း 12 မျိုး ဝယ်ယူရန်"])
 
     def test_tender_translation_fails_open_when_mac_is_unavailable(self) -> None:
         values = ["Open Tender for Data Server"]
