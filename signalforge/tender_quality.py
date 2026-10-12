@@ -7,6 +7,7 @@ from pathlib import Path
 
 from .config import Registry, db_path
 from .db import connect
+from .moep_reviewed_enrichment import apply_reviewed_moep_overlay
 
 _QUANTITY_FIELDS = ("required_quantity", "quantity", "quantities", "lots", "quantity_or_lot_summary")
 _ITEM_FIELDS = ("scope_summary", "project_name", "required_items", "items")
@@ -47,7 +48,7 @@ def tender_quality(*, database: Path | None = None, registry: Registry | None = 
     results = {
         sid: {
             "source_id": sid, "status": "NO_OBSERVED_TENDERS", "observed": 0,
-            "complete": 0, "examples": [],
+            "complete": 0, "reviewed_overlay_complete": 0, "examples": [],
             "missing": {"item": 0, "quantity": 0, "deadline": 0},
             "missing_reasons": {"item": {}, "quantity": {}, "deadline": {}},
         }
@@ -69,6 +70,19 @@ def tender_quality(*, database: Path | None = None, registry: Registry | None = 
                     payload = {}
             except (ValueError, TypeError):
                 payload = {}
+            reviewed_overlay_applied = False
+            if sid == "S20":
+                original = payload
+                payload = apply_reviewed_moep_overlay(
+                    payload,
+                    canonical_key=str(row["canonical_key"]),
+                    source_id=sid,
+                    item_kind="TENDER",
+                    reference_no=str(payload.get("reference_no") or ""),
+                )
+                reviewed_overlay_applied = payload is not original and bool(
+                    payload.get("reviewed_attachment_status") or payload.get("reviewed_enrichment_status")
+                )
             values = {
                 "item": [payload.get(k) for k in _ITEM_FIELDS],
                 "quantity": [payload.get(k) for k in _QUANTITY_FIELDS],
@@ -84,6 +98,8 @@ def tender_quality(*, database: Path | None = None, registry: Registry | None = 
                 reasons[field] = reason
             if not missing:
                 result["complete"] += 1
+                if reviewed_overlay_applied:
+                    result["reviewed_overlay_complete"] += 1
             if len(result["examples"]) < 3:
                 result["examples"].append({
                     "canonical_key": row["canonical_key"], "url": row["url"],
@@ -94,7 +110,7 @@ def tender_quality(*, database: Path | None = None, registry: Registry | None = 
             result["status"] = "COMPLETE_OBSERVED" if result["complete"] == result["observed"] else "INCOMPLETE_OBSERVED"
     return {
         "generated_at": datetime.now(UTC).isoformat(),
-        "definition": "same canonical tender: extracted item + actual quantity/lot + deadline",
+        "definition": "same canonical tender: item + actual quantity/lot + deadline, including identity-matched reviewed S20 evidence",
         "source_count": len(results), "sources": list(results.values()),
-        "limitation": "Database-only extracted-field audit. Source-not-disclosed claims, original PDF accuracy, and external verification remain unproven without source review.",
+        "limitation": "Canonical database with existing identity-matched S20 reviewed overlays; reviewed_overlay_complete counts complete tenders with reviewed overlays applied, not proof that the overlay supplied each field. Other source PDFs and unreviewed source-not-disclosed claims remain unverified.",
     }
