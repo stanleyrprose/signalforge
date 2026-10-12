@@ -115,6 +115,24 @@ class SourceScorecardTests(unittest.TestCase):
         self.assertEqual(result["summary"]["database_canonical_items"], 2)
         self.assertEqual(result["summary"]["non_active_canonical_items"], 1)
 
+    def test_repeat_signal_events_do_not_inflate_unique_tenders(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            database = self._db(tmp)
+            with connect(database) as conn, conn:
+                conn.execute(
+                    "INSERT INTO signals(signal_id,source_id,canonical_key,signal_type,created_at,payload_json) VALUES (?,?,?,?,?,?)",
+                    ("sig-repeat", "S13", "mpt:new", "UPDATED", "2026-09-10T11:00:00Z", json.dumps({"x": 3})),
+                )
+            with patch("signalforge.source_scorecard.audit", return_value=_audit()), patch(
+                "signalforge.source_scorecard.current_opportunities", return_value=_opportunities()
+            ):
+                result = source_scorecard(database=database, registry=_Registry(), now=datetime(2026, 9, 10, 12, tzinfo=UTC))
+        row = next(row for row in result["sources"] if row["source_id"] == "S13")
+        self.assertEqual(row["effective_signals_window"], 2)
+        self.assertEqual(row["unique_signaled_tenders_window"], 1)
+        self.assertEqual(row["repeat_signal_events_window"], 1)
+        self.assertEqual(result["summary"]["unique_signaled_tenders_window"], 1)
+
     def test_current_opportunity_and_telegram_contribution_are_visible(self) -> None:
         with tempfile.TemporaryDirectory() as tmp, patch("signalforge.source_scorecard.audit", return_value=_audit()), patch(
             "signalforge.source_scorecard.current_opportunities", return_value=_opportunities()
