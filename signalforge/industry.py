@@ -37,7 +37,7 @@ _DEADLINE_RE = re.compile(
 )
 _QUANTITY_SCALE_RE = re.compile(
     r"\(?\s*(?P<amount>\d[\d,]*)\s*\)?\s*"
-    r"(?P<unit>မျိုး|တန်|ပေါင်|စီး|နေရာ|tons?|tonnes?|sets?|pcs?|pieces?)",
+    r"(?P<unit>မျိုး|တန်|ပေါင်|စီး|နေရာ|tonnes?|tons?|sets?|pcs?|pieces?)(?![A-Za-z0-9])",
     re.I,
 )
 _WORK_COUNT_RE = re.compile(
