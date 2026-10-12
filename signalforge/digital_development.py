@@ -146,13 +146,13 @@ def _title_from_scope(scope: str, item: str, reference_no: str) -> str:
     return f"{item} procurement ({reference_no})"
 
 
-def _quantity_summary(scope: str, item: str) -> tuple[str, str]:
+def _quantity_summary(scope: str, item: str) -> tuple[str | None, str]:
     match = _QUANTITY_RE.search(scope)
     if match:
         count = normalize_text(match.group("count"))
         unit = normalize_text(match.group("unit"))
         return f"{count} {unit}", "HIGH"
-    return f"Official public notice does not disclose the unit/lot quantity for {item}.", "HIGH"
+    return None, "UNKNOWN_NOT_EXTRACTED"
 
 
 def _location_from_text(normalized: str) -> str | None:
@@ -170,7 +170,7 @@ class DigitalDevelopmentTender:
     reference_no: str
     title: str
     scope_summary: str
-    quantity_or_lot_summary: str
+    quantity_or_lot_summary: str | None
     quantity_or_lot_confidence: str
     deadline: str
     deadline_time: str
@@ -223,7 +223,8 @@ class DigitalDevelopmentTender:
             "scope_summary": self.scope_summary,
             "scope_excerpt": self.scope_summary,
             "quantity_or_lot_summary": self.quantity_or_lot_summary,
-            "quantity_or_lot_evidence": "ISSUER_AUTHORED_OFFICIAL_TEXT_NATIVE_PDF",
+            "quantity_or_lot_evidence": "ISSUER_AUTHORED_OFFICIAL_TEXT_NATIVE_PDF" if self.quantity_or_lot_summary else None,
+            "quantity_disclosure_status": "EXPLICIT" if self.quantity_or_lot_summary else "NOT_FOUND_IN_PUBLIC_NOTICE",
             "quantity_or_lot_confidence": self.quantity_or_lot_confidence,
             "tender_form_sale_start_date": self.sale_start_date,
             "tender_form_sale_close_date": self.sale_close_date,

@@ -59,7 +59,8 @@ class DigitalDevelopmentTests(unittest.TestCase):
         self.assertIn("budget not disclosed", str(payload["price_or_budget_summary"]).lower())
         self.assertIn("tender form fee: MMK 10,000", str(payload["price_or_budget_summary"]))
         self.assertIn("Switch", str(payload["scope_excerpt"]))
-        self.assertTrue(payload["quantity_or_lot_summary"])
+        self.assertIsNone(payload["quantity_or_lot_summary"])
+        self.assertEqual(payload["quantity_disclosure_status"], "NOT_FOUND_IN_PUBLIC_NOTICE")
 
     def test_future_server_tender_is_not_hard_coded_to_switch(self) -> None:
         text = """
