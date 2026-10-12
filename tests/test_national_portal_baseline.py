@@ -4,7 +4,7 @@ import unittest
 from datetime import UTC, datetime
 from signalforge.engine import _baseline_candidates, _schedule_undated_discovery_recovery, _upsert_discovery_snapshot
 from signalforge.mpt import SitemapEntry
-from signalforge.national_portal_tender import PortalTender, _QTY, _MYANMAR_DIGITS
+from signalforge.national_portal_tender import PortalTender, _QTY, _MYANMAR_DIGITS, _DEADLINE
 
 class NationalPortalBaselineTests(unittest.TestCase):
     def test_undated_opt_in(self):
@@ -54,3 +54,7 @@ class NationalPortalBaselineTests(unittest.TestCase):
     def test_portal_quantity_myanmar_digits_and_no_word_prefix(self):
         self.assertEqual(_QTY.search("၁၂ ခု".translate(_MYANMAR_DIGITS)).group(0), "12 ခု")
         self.assertIsNone(_QTY.search("4 setting"))
+
+    def test_submission_date_is_not_automatically_closing_date(self):
+        self.assertIsNone(_DEADLINE.search("Submission date 14.10.2026"))
+        self.assertIsNotNone(_DEADLINE.search("Submission deadline 14.10.2026"))

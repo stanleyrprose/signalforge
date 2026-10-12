@@ -15,14 +15,13 @@ from urllib.parse import urlparse
 from pypdf import PdfReader
 
 from .mpt import SitemapEntry, normalize_text
-
-_MYANMAR_DIGITS = str.maketrans("၀၁၂၃၄၅၆၇၈၉", "0123456789")
 from .digital_development import _DDD_TITLE_TOKEN
 from .national_portal import NATIONAL_PORTAL_HOSTS, _TenderCardParser, _canonical_url
 
+_MYANMAR_DIGITS = str.maketrans("၀၁၂၃၄၅၆၇၈၉", "0123456789")
 _DATE = re.compile(r"(?<!\d)(\d{1,2})[./-](\d{1,2})[./-](20\d{2})(?!\d)")
 _QTY = re.compile(r"(?<![\w/])\d[\d,]*\s*(?:units?|sets?|lots?|pieces?|pcs?|nos?|ခု|လုံး|စုံ|မျိုး)(?![A-Za-z0-9])", re.I)
-_DEADLINE = re.compile(r"(?:submission\s+(?:deadline|date)|bid\s+closing|tender\s+closing|တင်ဒါ\s*ပိတ်|တင်သွင်းရမည့်)[^\n]{0,140}", re.I)
+_DEADLINE = re.compile(r"(?:submission\s+deadline|bid\s+closing|tender\s+closing|တင်ဒါ\s*ပိတ်|တင်သွင်းရမည့်)[^\n]{0,140}", re.I)
 _ISSUER = re.compile(r"(?:ministry|department|government|enterprise|authority|committee|ဌာန|ဝန်ကြီးဌာန|ကော်မတီ)[^\n]{0,120}", re.I)
 
 
@@ -91,8 +90,13 @@ def parse_national_portal_document(payload: bytes, url: str) -> list[PortalTende
         return []  # Scanned PDFs require OCR and independent issuer review.
     issuer = _ISSUER.search(text)
     quantity = _QTY.search(text)
-    deadline_line = _DEADLINE.search(text)
-    date_match = _DATE.search(deadline_line.group(0)) if deadline_line else None
+    # The first matching line may announce a meeting or provide an incomplete
+    # heading; only a date on an explicit closing/deadline line is admissible.
+    date_match = next(
+        (match for line in text.splitlines() if _DEADLINE.search(line)
+         for match in [_DATE.search(line[_DEADLINE.search(line).start():])] if match),
+        None,
+    )
     if not (issuer and date_match):
         return []
     day, month, year = map(int, date_match.groups())
