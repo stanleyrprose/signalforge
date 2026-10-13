@@ -868,6 +868,9 @@ def run_source(
         )
         sitemap_bytes = sitemap_capture.payload
         sitemap_hash = sitemap_capture.sha256
+        if source_id == 'S01':
+            from .national_portal_tender import persist_national_portal_image_candidates
+            persist_national_portal_image_candidates(database, sitemap_bytes, observed_at, sitemap_hash)
         # Evidence retention is tied to acquisition success, not parser success.
         # Assurance must be able to replay zero-item and parser-failure outcomes.
         _write_evidence(source_id, sitemap_bytes, sitemap_hash, evidence)

@@ -49,6 +49,34 @@ def _extract_closing_deadline(text: str) -> str | None:
     return next(iter(dates)) if len(dates) == 1 else None
 
 
+def persist_national_portal_image_candidates(database, payload: bytes, observed_at: str, listing_sha256: str) -> int:
+    """Persist review-only image hints without promoting them to tenders."""
+    from .db import connect
+
+    candidates = parse_national_portal_image_candidates(payload)
+    with connect(database) as conn, conn:
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS s01_image_review ("
+            "url TEXT PRIMARY KEY, title_hint TEXT NOT NULL, issuer_hint TEXT NOT NULL, "
+            "deadline_hint TEXT NOT NULL, listing_sha256 TEXT NOT NULL, "
+            "first_seen_at TEXT NOT NULL, last_seen_at TEXT NOT NULL, "
+            "review_status TEXT NOT NULL DEFAULT 'REVIEW_REQUIRED', "
+            "ocr_input_sha256 TEXT, ocr_evidence_path TEXT, ocr_text TEXT, reviewed_at TEXT)"
+        )
+        for item in candidates:
+            conn.execute(
+                "INSERT INTO s01_image_review "
+                "(url,title_hint,issuer_hint,deadline_hint,listing_sha256,first_seen_at,last_seen_at) "
+                "VALUES (?,?,?,?,?,?,?) ON CONFLICT(url) DO UPDATE SET "
+                "title_hint=excluded.title_hint, issuer_hint=excluded.issuer_hint, "
+                "deadline_hint=excluded.deadline_hint, listing_sha256=excluded.listing_sha256, "
+                "last_seen_at=excluded.last_seen_at",
+                (item["url"], item["title_hint"], item["issuer_hint"],
+                 item["deadline_hint"], listing_sha256, observed_at, observed_at),
+            )
+    return len(candidates)
+
+
 def parse_national_portal_image_candidates(payload: bytes) -> list[dict[str, str]]:
     """Retain S01 JPEG cards as review candidates, separate from PDF tenders.
 
