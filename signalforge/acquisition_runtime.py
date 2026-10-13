@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import time
 import uuid
 from dataclasses import dataclass
@@ -382,6 +383,84 @@ def acquire_provider_diagnostic_bytes(
         artifact_path=str(artifact_path),
         runtime_projection=runtime_projection,
     )
+
+
+def acquire_provider_image_ocr(
+    *,
+    database: Path,
+    url: str,
+    timeout_seconds: int = 120,
+    max_bytes: int = 4_000_000,
+    poll_interval_seconds: float = 0.5,
+    sleeper: Callable[[float], None] = time.sleep,
+    request_now: datetime | None = None,
+) -> dict[str, object]:
+    """S01 image OCR evidence only; never auto-promote OCR to canonical truth."""
+    parsed = urlparse(url)
+    decoded_path = unquote(parsed.path)
+    if (
+        parsed.scheme != "https"
+        or (parsed.hostname or "").lower() != "myanmar.gov.mm"
+        or not parsed.path.startswith("/documents/")
+        or not re.search(r"\\.jpe?g(?:/|$)", decoded_path, re.I)
+        or ".." in decoded_path.split("/")
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.port not in (None, 443)
+        or parsed.query
+        or parsed.fragment
+    ):
+        raise ValueError("S01 image OCR URL is outside approved JPEG boundary")
+    capture = acquire_provider_diagnostic_bytes(
+        database=database,
+        assurance_run_id=str(uuid.uuid4()),
+        source_id="S01",
+        source_policy_version=2,
+        target_role="IMAGE",
+        url=url,
+        timeout_seconds=timeout_seconds,
+        max_bytes=max_bytes,
+        expected_content_types=["application/json"],
+        capability=ProviderCapability.ARTIFACT_OCR.value,
+        poll_interval_seconds=poll_interval_seconds,
+        sleeper=sleeper,
+        request_now=request_now,
+    )
+    try:
+        result = json.loads(capture.payload.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise RuntimeError("S01 image OCR response is not JSON") from exc
+    if not isinstance(result, dict):
+        raise RuntimeError("S01 image OCR response must be an object")
+    fetch, ocr = result.get("fetch"), result.get("artifact_ocr")
+    if not isinstance(fetch, dict) or not isinstance(ocr, dict):
+        raise RuntimeError("S01 image OCR evidence missing")
+    digest = fetch.get("sha256")
+    if (
+        not isinstance(digest, str)
+        or len(digest) != 64
+        or ocr.get("input_sha256") != digest
+        or ocr.get("input_bytes") != fetch.get("body_bytes")
+        or not isinstance(fetch.get("body_bytes"), int)
+        or fetch["body_bytes"] < 1
+        or not isinstance(fetch.get("status"), int)
+        or not 200 <= fetch["status"] < 300
+        or ocr.get("network_access") is not False
+        or not isinstance(ocr.get("text"), str)
+        or not {"mya", "eng"}.issubset(set(ocr.get("languages") or []))
+    ):
+        raise RuntimeError("S01 image OCR evidence integrity/metadata invalid")
+    return {
+        "status": "REVIEW_REQUIRED",
+        "source_id": "S01",
+        "url": url,
+        "provider_request_id": capture.provider_request_id,
+        "source_image_sha256": digest,
+        "ocr_text": ocr["text"],
+        "ocr_mean_confidence": ocr.get("mean_confidence"),
+        "ocr_engine": ocr.get("engine"),
+        "evidence_artifact_path": capture.artifact_path,
+    }
 
 
 def acquire_provider_document_ocr(
