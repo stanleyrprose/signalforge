@@ -102,17 +102,6 @@ def daily_cycle() -> dict[str, object]:
                 image_ocr = {"attempted": 0, "completed": 0, "failed": 1,
                              "error": f"{type(exc).__name__}: {exc}"[:200]}
             _write_json(image_path, image_ocr)
-        # Image OCR is review-only and must finish before Telegram delivery.
-        # Its failure is recorded separately, not silently counted as a tender.
-        image_path = state_root / f"{prefix}-s01-image-ocr.json"
-        if not image_path.exists():
-            from .config import db_path
-            from .national_portal_tender import process_pending_s01_image_ocr
-            try:
-                image_result = process_pending_s01_image_ocr(db_path(), limit=2)
-            except Exception as exc:
-                image_result = {"status": "FAILED", "error": f"{type(exc).__name__}: {exc}"[:250]}
-            _write_json(image_path, image_result)
         if delivery_path.exists():
             delivery = json.loads(delivery_path.read_text(encoding="utf-8"))
         else:
