@@ -62,6 +62,11 @@ def parse_national_portal_listing(payload: bytes) -> list[SitemapEntry]:
         parsed = urlparse(url)
         if parsed.hostname not in NATIONAL_PORTAL_HOSTS or not parsed.path.startswith('/documents/'):
             continue
+        # The PDF-only detail pipeline cannot process image attachments. Keep
+        # image-backed cards out of PDF discovery rather than pretending
+        # they are issuer PDF tenders. Image OCR needs a separate coverage path.
+        if re.search(r'\.(?:jpe?g|png|gif|webp)(?:/|$)', parsed.path, re.I):
+            continue
         # S51's Digital Development issuer documents are owned by its dedicated adapter.
         if ('digital development' in row['agency'].lower() or 'ဒစ်ဂျစ်တယ်' in row['agency']
                 or _DDD_TITLE_TOKEN in re.sub(r'\s+', '', normalize_text(row['title']))):
