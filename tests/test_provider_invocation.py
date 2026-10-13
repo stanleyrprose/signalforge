@@ -29,7 +29,7 @@ def contract() -> dict:
         "provider_id": "mac-mm-01",
         "transport": "pull_ssh_v1",
         "enabled": False,
-        "allowed_capabilities": ["PUBLIC_READ_ACQUIRE", "C0_FETCH", "C1_RENDER", "DOCUMENT_OCR"],
+        "allowed_capabilities": ["PUBLIC_READ_ACQUIRE", "C0_FETCH", "C1_RENDER", "DOCUMENT_OCR", "ARTIFACT_OCR"],
         "tool_map": dict(CAPABILITY_TOOL_MAP),
         "limits": {
             "max_run_seconds": 180,
@@ -70,7 +70,7 @@ def contract() -> dict:
             "S01": {
                 "enabled": True,
                 "source_policy_version": 2,
-                "allowed_capabilities": ["DOCUMENT_OCR"],
+                "allowed_capabilities": ["DOCUMENT_OCR", "ARTIFACT_OCR"],
                 "targets": {
                     "OFFICIAL_DOCUMENT": {
                         "capabilities": ["DOCUMENT_OCR"],
