@@ -276,7 +276,7 @@ class SourceScorecardTests(unittest.TestCase):
 
 
     def test_portfolio_tiers_remain_analytical_after_tender_core_reset(self) -> None:
-        self.assertEqual(SCORECARD_VERSION, 9)
+        self.assertEqual(SCORECARD_VERSION, 10)
         self.assertEqual(PORTFOLIO_TIERS["S21"], "STRATEGIC_WATCH")
         self.assertEqual(PORTFOLIO_TIERS["S22"], "STRATEGIC_WATCH")
         self.assertNotIn("S49", PORTFOLIO_TIERS)

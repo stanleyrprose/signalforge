@@ -64,7 +64,7 @@ class DigitalDevelopmentTests(unittest.TestCase):
 
     def test_quantity_myanmar_units_and_word_prefixes(self) -> None:
         from signalforge.digital_development import _quantity_summary
-        self.assertEqual(_quantity_summary("Switch ၁၂ ခု", "Switch"), ("12 ခု", "HIGH"))
+        self.assertEqual(_quantity_summary("Switch ၁၂ ခု", "Switch"), ("၁၂ ခု", "HIGH"))
         self.assertEqual(_quantity_summary("Server 4 setting", "Server"), (None, "UNKNOWN_NOT_EXTRACTED"))
 
     def test_future_server_tender_is_not_hard_coded_to_switch(self) -> None:

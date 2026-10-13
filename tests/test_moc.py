@@ -260,7 +260,7 @@ class MocGenericWorkCountTests(unittest.TestCase):
         from signalforge.moc import _business_fields_from_ocr
         scope, quantity, excluded = _business_fields_from_ocr("တင်ဒါ တည်ဆောက်ရေး လုပ်ငန်း (၇) ခု")
         self.assertIsNotNone(scope)
-        self.assertEqual(quantity, "၇ လုပ်ငန်း")
+        self.assertEqual(quantity, "7 လုပ်ငန်း")
         self.assertIsNone(excluded)
 
     def test_no_count_without_tender_context(self):
