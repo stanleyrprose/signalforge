@@ -61,8 +61,17 @@ def persist_national_portal_image_candidates(database, payload: bytes, observed_
             "deadline_hint TEXT NOT NULL, listing_sha256 TEXT NOT NULL, "
             "first_seen_at TEXT NOT NULL, last_seen_at TEXT NOT NULL, "
             "review_status TEXT NOT NULL DEFAULT 'REVIEW_REQUIRED', "
-            "ocr_input_sha256 TEXT, ocr_evidence_path TEXT, ocr_text TEXT, reviewed_at TEXT)"
+            "ocr_input_sha256 TEXT, ocr_evidence_path TEXT, ocr_text TEXT, reviewed_at TEXT, "
+            "ocr_attempts INTEGER NOT NULL DEFAULT 0, ocr_last_error TEXT, ocr_last_attempt_at TEXT)"
         )
+        existing = {row[1] for row in conn.execute("PRAGMA table_info(s01_image_review)")}
+        for name, definition in (
+            ("ocr_attempts", "INTEGER NOT NULL DEFAULT 0"),
+            ("ocr_last_error", "TEXT"),
+            ("ocr_last_attempt_at", "TEXT"),
+        ):
+            if name not in existing:
+                conn.execute(f"ALTER TABLE s01_image_review ADD COLUMN {name} {definition}")
         for item in candidates:
             conn.execute(
                 "INSERT INTO s01_image_review "
@@ -84,26 +93,39 @@ def process_pending_s01_image_ocr(database, *, limit: int = 2) -> dict[str, int]
     """
     from .acquisition_runtime import acquire_provider_image_ocr
     from .db import connect
+    from datetime import UTC, datetime
 
     if not 1 <= limit <= 4:
         raise ValueError("S01 image OCR batch limit must be between 1 and 4")
     with connect(database) as conn:
         pending = conn.execute(
             "SELECT url FROM s01_image_review WHERE review_status='REVIEW_REQUIRED' "
+            "AND ocr_attempts < 3 "
             "ORDER BY first_seen_at, url LIMIT ?", (limit,)
         ).fetchall()
     completed = 0
     failed = 0
     for (url,) in pending:
+        attempted_at = datetime.now(UTC).isoformat()
+        with connect(database) as conn, conn:
+            conn.execute(
+                "UPDATE s01_image_review SET ocr_attempts=ocr_attempts+1, ocr_last_attempt_at=? WHERE url=?",
+                (attempted_at, url),
+            )
         try:
             evidence = acquire_provider_image_ocr(database=database, url=url)
-        except Exception:
+        except Exception as exc:
+            with connect(database) as conn, conn:
+                conn.execute(
+                    "UPDATE s01_image_review SET ocr_last_error=? WHERE url=?",
+                    (f"{type(exc).__name__}: {exc}"[:250], url),
+                )
             failed += 1
             continue
         with connect(database) as conn, conn:
             conn.execute(
                 "UPDATE s01_image_review SET review_status='OCR_REVIEW_REQUIRED', "
-                "ocr_input_sha256=?, ocr_evidence_path=?, ocr_text=? "
+                "ocr_input_sha256=?, ocr_evidence_path=?, ocr_text=?, ocr_last_error=NULL "
                 "WHERE url=? AND review_status='REVIEW_REQUIRED'",
                 (evidence['source_image_sha256'], evidence['evidence_artifact_path'],
                  evidence['ocr_text'], url),
