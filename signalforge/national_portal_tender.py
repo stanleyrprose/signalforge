@@ -77,6 +77,41 @@ def persist_national_portal_image_candidates(database, payload: bytes, observed_
     return len(candidates)
 
 
+def process_pending_s01_image_ocr(database, *, limit: int = 2) -> dict[str, int]:
+    """Bounded provider OCR of review candidates, never canonicalize automatically.
+
+    Called only after discovery persistence; failures remain pending for review.
+    """
+    from .acquisition_runtime import acquire_provider_image_ocr
+    from .db import connect
+
+    if not 1 <= limit <= 4:
+        raise ValueError("S01 image OCR batch limit must be between 1 and 4")
+    with connect(database) as conn:
+        pending = conn.execute(
+            "SELECT url FROM s01_image_review WHERE review_status='REVIEW_REQUIRED' "
+            "ORDER BY first_seen_at, url LIMIT ?", (limit,)
+        ).fetchall()
+    completed = 0
+    failed = 0
+    for (url,) in pending:
+        try:
+            evidence = acquire_provider_image_ocr(database=database, url=url)
+        except Exception:
+            failed += 1
+            continue
+        with connect(database) as conn, conn:
+            conn.execute(
+                "UPDATE s01_image_review SET review_status='OCR_REVIEW_REQUIRED', "
+                "ocr_input_sha256=?, ocr_evidence_path=?, ocr_text=? "
+                "WHERE url=? AND review_status='REVIEW_REQUIRED'",
+                (evidence['source_image_sha256'], evidence['evidence_artifact_path'],
+                 evidence['ocr_text'], url),
+            )
+        completed += 1
+    return {'attempted': len(pending), 'completed': completed, 'failed': failed}
+
+
 def parse_national_portal_image_candidates(payload: bytes) -> list[dict[str, str]]:
     """Retain S01 JPEG cards as review candidates, separate from PDF tenders.
 
@@ -97,13 +132,13 @@ def parse_national_portal_image_candidates(payload: bytes) -> list[dict[str, str
             parsed.scheme != "https"
             or parsed.hostname != "myanmar.gov.mm"
             or not parsed.path.startswith("/documents/")
-            or not re.search(r"\\.jpe?g(?:/|$)", parsed.path, re.I)
+            or not re.search(r"\.jpe?g(?:/|$)", parsed.path, re.I)
         ):
             continue
         if (
             "digital development" in row["agency"].lower()
             or "ဒစ်ဂျစ်တယ်" in row["agency"]
-            or _DDD_TITLE_TOKEN in re.sub(r"\\s+", "", normalize_text(row["title"]))
+            or _DDD_TITLE_TOKEN in re.sub(r"\s+", "", normalize_text(row["title"]))
         ):
             continue
         found[url] = {

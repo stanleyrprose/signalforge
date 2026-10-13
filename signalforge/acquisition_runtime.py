@@ -402,7 +402,7 @@ def acquire_provider_image_ocr(
         parsed.scheme != "https"
         or (parsed.hostname or "").lower() != "myanmar.gov.mm"
         or not parsed.path.startswith("/documents/")
-        or not re.search(r"\\.jpe?g(?:/|$)", decoded_path, re.I)
+        or not re.search(r"\.jpe?g(?:/|$)", decoded_path, re.I)
         or ".." in decoded_path.split("/")
         or parsed.username is not None
         or parsed.password is not None
