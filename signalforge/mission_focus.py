@@ -68,6 +68,10 @@ _ENGINEERING_TERMS = (
     "environmental control system",
     "enviromental control system",
     "တည်ဆောက်ခြင်း",
+    "တည်ဆောက်ရေးလုပ်ငန်း",
+    "အဆောက်အဦ",
+    "တံတား",
+    "လမ်းဖောက်လုပ်",
 )
 _OFF_MISSION_TERMS = (
     "medical",

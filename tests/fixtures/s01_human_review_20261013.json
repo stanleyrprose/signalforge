@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "source_id": "S01",
+  "review_date": "2026-10-13",
+  "status": "HUMAN_REVIEWED_SOURCE_IMAGE_CROSS_CHECKED",
+  "notes": "Human corrections cross-checked against both original JPEG images with matching SHA-256 on 2026-10-14. Octane-92 quantity is 20,000 gallons; S01-02 submission deadline is 2026-11-02 12:00 Myanmar time. Preserve original OCR discrepancies and do not infer bid deadlines from document-sale dates.",
+  "samples": [
+    {
+      "review_id": "S01-20261013-01",
+      "classification": "GOVERNMENT_FUEL_PROCUREMENT",
+      "formal_procurement_tender": true,
+      "telegram_eligibility": "ELIGIBLE_SUBJECT_TO_CORRECTNESS_GATES",
+      "issuer": "Mandalay City Development Committee",
+      "items": [
+        {
+          "name": "Diesel",
+          "quantity": 85000,
+          "unit": "gallons",
+          "document_fee_mmk": 15000
+        },
+        {
+          "name": "Octane-92",
+          "quantity": 20000,
+          "unit": "gallons",
+          "document_fee_mmk": 10000
+        },
+        {
+          "name": "Premium Diesel",
+          "quantity": 45000,
+          "unit": "gallons",
+          "document_fee_mmk": 15000
+        }
+      ],
+      "total_quantity_gallons": 150000,
+      "document_sale_start": "2026-10-13",
+      "document_sale_end": "2026-10-16",
+      "bid_submission_deadline": null,
+      "bid_opening_date": "2026-10-29",
+      "budget": null,
+      "eligibility": [
+        "Fuel Import License",
+        "Direct importer"
+      ],
+      "ocr_issue": "Original JPEG verified 20,000 gallons; OCR quantity unreadable and must remain unknown until human review",
+      "source_image_sha256": "95a905e89bcfa32ad6bfa1d79d33b234ab866731285a7bc977a0ecb2bfc4374b"
+    },
+    {
+      "review_id": "S01-20261013-02",
+      "classification": "GOVERNMENT_ASSET_LEASING",
+      "formal_procurement_tender": false,
+      "telegram_eligibility": "NOT_PROCUREMENT_TENDER",
+      "issuer": "Mandalay City Development Committee",
+      "asset": "Mandalay Convention Centre",
+      "document_sale_start": "2026-10-16",
+      "document_sale_end": "2026-10-21",
+      "bid_submission_deadline": "2026-11-02T12:00:00+06:30",
+      "bid_opening_at": "2026-11-09T14:00:00+06:30",
+      "ocr_issue": "Original JPEG visually verified 2026-11-02 12:00 Myanmar time; OCR incorrectly read 2026-11-03",
+      "source_image_sha256": "5bd902c2e77c6949b2bcb373dcb84121e3ca733c3302afe3070cc33043a1a4bd"
+    }
+  ]
+}

@@ -189,7 +189,10 @@ def _baseline_candidates(entries: list[SitemapEntry], *, now: datetime, source: 
         entry
         for entry in entries
         if entry.url not in seed_urls
-        and (_parse_iso(entry.lastmod) or datetime.min.replace(tzinfo=UTC)) >= cutoff
+        and (
+            (_parse_iso(entry.lastmod) or datetime.min.replace(tzinfo=UTC)) >= cutoff
+            or (entry.lastmod is None and source.get("baseline_include_undated") is True)
+        )
     ]
     recent.sort(key=lambda entry: entry.lastmod or "", reverse=True)
     return (seeds + recent)[:limit]
@@ -205,7 +208,7 @@ def _upsert_discovery_snapshot(
 ) -> None:
     for entry in entries:
         existing = conn.execute(
-            "SELECT fetched_lastmod,pending_since_at,suppress_signal_once FROM discovery_items WHERE source_id=? AND url=?",
+            "SELECT fetched_lastmod,last_fetched_at,pending_since_at,suppress_signal_once FROM discovery_items WHERE source_id=? AND url=?",
             (source_id, entry.url),
         ).fetchone()
         if existing is None:
@@ -232,7 +235,10 @@ def _upsert_discovery_snapshot(
         fetched_lastmod = existing["fetched_lastmod"]
         pending_since = existing["pending_since_at"]
         suppress_once = int(existing["suppress_signal_once"] or 0)
-        if fetched_lastmod != entry.lastmod:
+        if fetched_lastmod != entry.lastmod or (
+            entry.lastmod is None and existing["last_fetched_at"] is None
+        ):
+            # NULL == NULL is not evidence that an undated document was fetched.
             pending_since = pending_since or observed_at
         else:
             pending_since = None
@@ -244,6 +250,35 @@ def _upsert_discovery_snapshot(
             """,
             (entry.lastmod, observed_at, pending_since, suppress_once, source_id, entry.url),
         )
+
+
+def _schedule_undated_discovery_recovery(
+    conn, source_id: str, source: dict, entries: list[SitemapEntry], observed_at: str,
+) -> int:  # type: ignore[no-untyped-def]
+    """One-time bounded recovery of undated S01 documents never fetched.
+
+    Do not reopen documents with any recorded fetch, canonical identity, or
+    existing pending state; normal delta processing handles those separately.
+    """
+    if source_id != "S01" or source.get("baseline_include_undated") is not True:
+        return 0
+    limit = max(0, int(source.get("delta_detail_limit", 0)))
+    scheduled = 0
+    for entry in entries:
+        if scheduled >= limit:
+            break
+        if entry.lastmod is not None:
+            continue
+        changed = conn.execute(
+            """UPDATE discovery_items
+               SET pending_since_at=?, suppress_signal_once=1
+               WHERE source_id=? AND url=? AND lastmod IS NULL
+                 AND fetched_lastmod IS NULL AND last_fetched_at IS NULL
+                 AND canonical_key IS NULL AND pending_since_at IS NULL""",
+            (observed_at, source_id, entry.url),
+        ).rowcount
+        scheduled += changed
+    return scheduled
 
 
 def _schedule_detail_parser_replay(
@@ -833,6 +868,9 @@ def run_source(
         )
         sitemap_bytes = sitemap_capture.payload
         sitemap_hash = sitemap_capture.sha256
+        if source_id == 'S01':
+            from .national_portal_tender import persist_national_portal_image_candidates
+            persist_national_portal_image_candidates(database, sitemap_bytes, observed_at, sitemap_hash)
         # Evidence retention is tied to acquisition success, not parser success.
         # Assurance must be able to replay zero-item and parser-failure outcomes.
         _write_evidence(source_id, sitemap_bytes, sitemap_hash, evidence)
@@ -1031,6 +1069,7 @@ def run_source(
                 candidates = _baseline_candidates(entries, now=now, source=source)
                 _acknowledge_baseline_exclusions(conn, source_id, entries, candidates)
             else:
+                _schedule_undated_discovery_recovery(conn, source_id, source, entries, observed_at)
                 _schedule_detail_parser_replay(
                     conn,
                     source_id=source_id,

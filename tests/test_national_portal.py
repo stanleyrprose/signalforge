@@ -15,6 +15,7 @@ from signalforge.assurance import (
 from signalforge.config import Registry
 from signalforge.db import connect, migrate
 from signalforge.national_portal import national_portal_page_url, parse_current_high_value_tender_leads
+from signalforge.national_portal_tender import parse_national_portal_listing, parse_national_portal_image_candidates
 
 
 MPT_URL = (
@@ -61,6 +62,45 @@ IWT_PORTAL_URL = "https://myanmar.gov.mm/documents/20143/0/IWT_1+Costal+Vessel+T
 
 
 class NationalPortalTests(unittest.TestCase):
+    def test_s01_image_candidates_preserved_for_review_not_pdf(self) -> None:
+        base = "https://myanmar.gov.mm/documents/20143/0/"
+        jpg = base + "electricity-notice.jpg/12345678-1234-1234-1234-123456789012"
+        pdf = base + "supply.pdf/12345678-1234-1234-1234-123456789013"
+        html = b"<html><body>" + b"".join([
+            _card(title="Power substation tender", agency="Ministry of Electric Power",
+                  closing="October 20, 2026", href=jpg),
+            _card(title="Equipment tender", agency="Ministry of Industry",
+                  closing="October 21, 2026", href=pdf),
+        ]) + b"</body></html>"
+        images = parse_national_portal_image_candidates(html)
+        self.assertEqual(len(images), 1)
+        self.assertEqual(images[0]["url"], jpg)
+        self.assertEqual(images[0]["status"], "REVIEW_REQUIRED")
+        self.assertEqual(len(parse_national_portal_listing(html)), 1)
+
+    def test_s01_image_candidates_exclude_other_hosts(self) -> None:
+        html = b"<html><body>" + _card(
+            title="Power tender", agency="Ministry of Electric Power",
+            closing="October 20, 2026",
+            href="https://example.com/documents/notice.jpg/123",
+        ) + b"</body></html>"
+        self.assertEqual(parse_national_portal_image_candidates(html), [])
+
+    def test_s01_pdf_discovery_excludes_image_backed_cards(self) -> None:
+        base = "https://myanmar.gov.mm/documents/20143/0/"
+        cards = [
+            _card(title="Construction tender", agency="Ministry of Construction",
+                  closing="October 20, 2026",
+                  href=base + "construction.jpg/12345678-1234-1234-1234-123456789012"),
+            _card(title="Supply tender", agency="Ministry of Industry",
+                  closing="October 20, 2026",
+                  href=base + "supply.pdf/12345678-1234-1234-1234-123456789013"),
+        ]
+        payload = b"<html><body>" + b"".join(cards) + b"</body></html>"
+        entries = parse_national_portal_listing(payload)
+        self.assertEqual(len(entries), 1)
+        self.assertIn("supply.pdf/", entries[0].url)
+
     def test_parser_selects_current_high_value_gap_without_promoting_aggregator_truth(self) -> None:
         leads = parse_current_high_value_tender_leads(
             _listing(),

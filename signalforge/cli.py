@@ -306,6 +306,8 @@ def main(argv: list[str] | None = None) -> int:
     telegram_parser = sub.add_parser("telegram-deliver")
     telegram_parser.add_argument("--dry-run", action="store_true")
     telegram_parser.add_argument("--translate-preview", action="store_true")
+    s01_image_parser = sub.add_parser("s01-image-ocr")
+    s01_image_parser.add_argument("--limit", type=int, default=2)
     sub.add_parser("status")
     args = parser.parse_args(argv)
     try:
@@ -321,6 +323,9 @@ def main(argv: list[str] | None = None) -> int:
             # before Telegram delivery begins, including partial failures.
             from .daily_cycle import daily_cycle
             result = daily_cycle()
+        elif args.cmd == "s01-image-ocr":
+            from .national_portal_tender import process_pending_s01_image_ocr
+            result = process_pending_s01_image_ocr(db_path(), limit=int(args.limit))
         elif args.cmd == "run-source":
             result = run_source(args.source_id, force=args.force)
         elif args.cmd == "refresh-source":

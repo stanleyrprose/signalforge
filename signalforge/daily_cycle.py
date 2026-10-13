@@ -13,6 +13,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from .engine import run_due
+from .config import db_path
 from .telegram_delivery import _send_message, telegram_deliver
 
 YANGON = ZoneInfo("Asia/Yangon")
@@ -29,7 +30,7 @@ def _write_json(path: Path, payload: dict[str, object]) -> None:
     os.replace(temp, path)
 
 
-def _coverage_report(day: str, acquisition: dict[str, object], delivery: dict[str, object]) -> str:
+def _coverage_report(day: str, acquisition: dict[str, object], delivery: dict[str, object], image_ocr: dict[str, object] | None = None) -> str:
     results = acquisition.get("results") or []
     if not isinstance(results, list):
         raise ValueError("daily acquisition results must be a list")
@@ -43,6 +44,8 @@ def _coverage_report(day: str, acquisition: dict[str, object], delivery: dict[st
         f"有效招标通知：{delivery.get('sent_count', 0)} 条；"
         f"质量过滤：{delivery.get('quality_filtered_count', 0)} 条。",
     ]
+    if image_ocr is not None:
+        lines.append(f"S01 图片 OCR：尝试 {image_ocr.get('attempted', 0)}，成功 {image_ocr.get('completed', 0)}，失败 {image_ocr.get('failed', 0)}；结果仅供审核。")
     if failed:
         lines.append("⚠️ 未成功采集来源：")
         for item in failed[:28]:
@@ -68,6 +71,7 @@ def daily_cycle() -> dict[str, object]:
     day = datetime.now(YANGON).date().isoformat()
     prefix = f"daily-cycle-{day}"
     acquisition_path = state_root / f"{prefix}-acquisition.json"
+    image_path = state_root / f"{prefix}-image-ocr.json"
     delivery_path = state_root / f"{prefix}-delivery.json"
     report_path = state_root / f"{prefix}-report.json"
     complete_path = state_root / f"{prefix}-complete.json"
@@ -88,6 +92,16 @@ def daily_cycle() -> dict[str, object]:
                 return {"status": "ACQUISITION_ABORTED", "day": day,
                         "error": f"{type(exc).__name__}: {exc}"[:300]}
             _write_json(acquisition_path, acquisition)
+        if image_path.exists():
+            image_ocr = json.loads(image_path.read_text(encoding="utf-8"))
+        else:
+            try:
+                from .national_portal_tender import process_pending_s01_image_ocr
+                image_ocr = process_pending_s01_image_ocr(db_path(), limit=2)
+            except Exception as exc:
+                image_ocr = {"attempted": 0, "completed": 0, "failed": 1,
+                             "error": f"{type(exc).__name__}: {exc}"[:200]}
+            _write_json(image_path, image_ocr)
         if delivery_path.exists():
             delivery = json.loads(delivery_path.read_text(encoding="utf-8"))
         else:
@@ -107,7 +121,7 @@ def daily_cycle() -> dict[str, object]:
             try:
                 message_id = _send_message(
                     bot_token=token, chat_id=chat,
-                    text=_coverage_report(day, acquisition, delivery),
+                    text=_coverage_report(day, acquisition, delivery, image_ocr),
                 )
             except Exception as exc:
                 return {"status": "REPORT_FAILED", "day": day,

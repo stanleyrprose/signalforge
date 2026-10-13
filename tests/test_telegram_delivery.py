@@ -85,7 +85,7 @@ class TelegramDeliveryTests(unittest.TestCase):
         self.assertEqual(result["pending_count"], 1)
         self.assertEqual(result["quality_filtered_count"], 0)
         self.assertIn(
-            "🔢 数量/规模：已核验摘要未单列；详见采购内容/官方原文",
+            "🔢 数量/规模：未提取到明确数量（不代表官方未披露），请核对原文/附件",
             result["pending"][0]["message"],
         )
 

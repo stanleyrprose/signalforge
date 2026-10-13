@@ -28,6 +28,11 @@ class IndustryTests(unittest.TestCase):
         self.assertIn("https://www.industrymsme.gov.mm/announcements/1033", by_url)
         self.assertIn("https://www.industrymsme.gov.mm/announcements/1027", by_url)
 
+    def test_quantity_units_do_not_match_prefix_of_other_words(self) -> None:
+        from signalforge.industry import _quantity_or_lot_summary
+        self.assertIsNone(_quantity_or_lot_summary("20 tonnesperday 12 setting 4 tonnage"))
+        self.assertEqual(_quantity_or_lot_summary("700 tonnes and 3 sets"), "700 tonnes; 3 sets")
+
     def test_detail_extracts_business_scope_and_explicit_close_time(self) -> None:
         tender = parse_tender_detail((ROOT / "industry-1036.html").read_bytes(), DETAIL_URL)
         self.assertIsNotNone(tender)

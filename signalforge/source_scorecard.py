@@ -11,7 +11,7 @@ from .db import connect
 from .mission_focus import MISSION_POLICY_VERSION, classify_mission_fit
 from .opportunities import current_opportunities
 
-SCORECARD_VERSION = 9
+SCORECARD_VERSION = 10
 DEFAULT_WINDOW_DAYS = 30
 
 # Provisional portfolio tiers frozen by the 2026-09-10 business-yield audit.
@@ -132,9 +132,11 @@ def source_scorecard(
                 """
             )
         }
-        signal_rows = list(conn.execute("SELECT signal_id,source_id,signal_type,created_at FROM signals"))
+        signal_rows = list(conn.execute("SELECT signal_id,source_id,canonical_key,signal_type,created_at FROM signals"))
         signal_by_source: dict[str, dict[str, int]] = {}
         latest_signal: dict[str, str] = {}
+        unique_signal_keys_window: dict[str, set[str]] = {}
+        unique_signal_keys_total: dict[str, set[str]] = {}
         for row in signal_rows:
             sid = str(row["source_id"])
             bucket = signal_by_source.setdefault(sid, {"raw_total": 0, "effective_total": 0, "known_noise_total": 0, "raw_window": 0, "known_noise_window": 0, "effective_window": 0})
@@ -151,8 +153,10 @@ def source_scorecard(
                     bucket["known_noise_window"] += 1
                 continue
             bucket["effective_total"] += 1
+            unique_signal_keys_total.setdefault(sid, set()).add(str(row["canonical_key"]))
             if in_window:
                 bucket["effective_window"] += 1
+                unique_signal_keys_window.setdefault(sid, set()).add(str(row["canonical_key"]))
 
         raw_delivery_rows = list(conn.execute(
             """
@@ -268,6 +272,9 @@ def source_scorecard(
                 "known_noise_signals_window": int(sig["known_noise_window"]),
                 "effective_signals_total": int(sig["effective_total"]),
                 "effective_signals_window": int(sig["effective_window"]),
+                "unique_signaled_tenders_window": len(unique_signal_keys_window.get(source_id, set())),
+                "unique_signaled_tenders_total": len(unique_signal_keys_total.get(source_id, set())),
+                "repeat_signal_events_window": max(0, int(sig["effective_window"]) - len(unique_signal_keys_window.get(source_id, set()))),
                 "latest_signal_at": latest_signal.get(source_id),
                 "current_opportunities": len(opps),
                 "canonical_current_opportunities": len(canonical_opps),
@@ -317,6 +324,8 @@ def source_scorecard(
         "non_active_signals": database_totals["signals"] - active_raw_signals,
         "known_noise_signals": sum(int(row["known_noise_signals"]) for row in rows),
         "effective_signals": sum(int(row["effective_signals_total"]) for row in rows),
+        "unique_signaled_tenders_window": sum(int(row["unique_signaled_tenders_window"]) for row in rows),
+        "repeat_signal_events_window": sum(int(row["repeat_signal_events_window"]) for row in rows),
         "current_opportunities": canonical_current_total + verified_external_total,
         "canonical_current_opportunities": canonical_current_total,
         "verified_external_opportunities": verified_external_total,

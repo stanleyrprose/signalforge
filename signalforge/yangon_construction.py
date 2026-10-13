@@ -157,8 +157,9 @@ def _deadline(value: str) -> str | None:
             found = _dates(normalized[idx : idx + 500])
             if found:
                 return max(found)
-    found = _dates(normalized)
-    return max(found) if found else None
+    # Other dates may describe publication, meetings or construction milestones.
+    # They are not evidence of a bid submission deadline.
+    return None
 
 
 def _reference(title: str, post_id: str) -> str:
@@ -237,6 +238,7 @@ class YangonConstructionTender:
     deadline: str | None
     scope_summary: str
     url: str
+    quantity_or_lot_summary: str | None = None
 
     item_kind = "TENDER"
     location = "Yangon Region"
@@ -266,6 +268,8 @@ class YangonConstructionTender:
             "deadline_evidence": "OFFICIAL_HTML_SUBMISSION_OR_CLOSE_DATE" if self.deadline else "UNKNOWN_NOT_PARSED",
             "location": self.location,
             "scope_summary": self.scope_summary,
+            "quantity_or_lot_summary": self.quantity_or_lot_summary,
+            "quantity_or_lot_evidence": "OFFICIAL_HTML_EXPLICIT_WORK_COUNT" if self.quantity_or_lot_summary else None,
             "selection_policy_version": SELECTION_POLICY_VERSION,
             "business_stage": "OPPORTUNITY",
             "relevance_categories": ["CONSTRUCTION"],
@@ -273,6 +277,16 @@ class YangonConstructionTender:
             "attachment_policy": "HTML_ONLY_NO_ATTACHMENT_REQUIRED",
             "url": self.url,
         }
+
+
+_WORK_COUNT_RE = re.compile(r"လုပ်ငန်း\s*\(?\s*(?P<count>\d[\d,]*)\s*\)?\s*ခု")
+
+
+def _explicit_work_count(scope: str) -> str | None:
+    """Only an explicit work-count expression is evidence of a lot count."""
+    normalized = _numeric_text(scope)
+    matches = [f"{match.group('count')} လုပ်ငန်း" for match in _WORK_COUNT_RE.finditer(normalized)]
+    return "; ".join(dict.fromkeys(matches[:8])) or None
 
 
 def parse_tender_detail(html_bytes: bytes, url: str) -> YangonConstructionTender | None:
@@ -304,4 +318,5 @@ def parse_tender_detail(html_bytes: bytes, url: str) -> YangonConstructionTender
         deadline=_deadline(scope),
         scope_summary=scope[:4000],
         url=url,
+        quantity_or_lot_summary=_explicit_work_count(scope),
     )

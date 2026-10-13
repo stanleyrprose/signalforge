@@ -386,8 +386,16 @@ def current_opportunities(
                 "scope_summary": payload.get("scope_summary") or payload.get("project_name"),
                 "relevance_categories": payload.get("relevance_categories"),
                 "mission_sector_hint": payload.get("mission_sector_hint"),
-                "quantity_or_lot_summary": payload.get("quantity_or_lot_summary"),
-                "quantity_or_lot_evidence": payload.get("quantity_or_lot_evidence"),
+                "quantity_or_lot_summary": (
+                    payload.get("quantity_or_lot_summary")
+                    or payload.get("required_quantity")
+                    or payload.get("quantity")
+                ),
+                "quantity_or_lot_evidence": (
+                    payload.get("quantity_or_lot_evidence")
+                    or ("CANONICAL_REQUIRED_QUANTITY" if payload.get("required_quantity") else None)
+                    or ("CANONICAL_QUANTITY" if payload.get("quantity") else None)
+                ),
                 "quantity_or_lot_confidence": payload.get("quantity_or_lot_confidence"),
                 "price_or_budget_summary": payload.get("price_or_budget_summary"),
                 "evidence_level": payload.get("evidence_level"),

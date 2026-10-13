@@ -25,6 +25,7 @@ class ProviderCapability(str, Enum):
     C0_FETCH = "C0_FETCH"
     C1_RENDER = "C1_RENDER"
     DOCUMENT_OCR = "DOCUMENT_OCR"
+    ARTIFACT_OCR = "ARTIFACT_OCR"
 
 
 CAPABILITY_TOOL_MAP = {
@@ -32,6 +33,7 @@ CAPABILITY_TOOL_MAP = {
     ProviderCapability.C0_FETCH.value: "browser_fetch",
     ProviderCapability.C1_RENDER.value: "browser_render",
     ProviderCapability.DOCUMENT_OCR.value: "document_ocr",
+    ProviderCapability.ARTIFACT_OCR.value: "artifact_ocr",
 }
 
 
@@ -40,6 +42,7 @@ READ_ONLY_CAPABILITIES = {
     ProviderCapability.C0_FETCH.value,
     ProviderCapability.C1_RENDER.value,
     ProviderCapability.DOCUMENT_OCR.value,
+    ProviderCapability.ARTIFACT_OCR.value,
 }
 
 

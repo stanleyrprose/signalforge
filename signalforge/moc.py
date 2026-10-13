@@ -235,6 +235,18 @@ def _business_fields_from_ocr(text: str) -> tuple[str | None, str | None, str | 
             "ဆောက်လုပ်ရေးပစ္စည်း ဝယ်ယူ/သယ်ယူပို့ဆောင်ရေးနှင့် စက်/ယာဉ်ယန္တရား ငှားရမ်းခြင်း"
         )
         return scope, "；".join(scale_parts) if scale_parts else None, None
+    # Generic construction procurement: require explicit tender context AND
+    # a numbered work package. Never infer quantities from dates or UUIDs.
+    if "တင်ဒါ" in text and any(term in text for term in ("တည်ဆောက်", "ဆောက်လုပ်", "ပြုပြင်")):
+        work = re.search(r"လုပ်ငန်း\s*\(?\s*(\d[\d,]*)\s*\)?\s*ခု", text)
+        if work:
+            count = int(work.group(1).replace(",", ""))
+            if 0 < count <= 10000:
+                return (
+                    "ဆောက်လုပ်ရေး/ပြုပြင်ရေး တင်ဒါ (တရားဝင် PDF OCR မှ)",
+                    f"{count} လုပ်ငန်း",
+                    None,
+                )
     return None, None, None
 
 
