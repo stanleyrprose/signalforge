@@ -4,7 +4,7 @@ import unittest
 from datetime import UTC, datetime
 from signalforge.engine import _baseline_candidates, _schedule_undated_discovery_recovery, _upsert_discovery_snapshot
 from signalforge.mpt import SitemapEntry
-from signalforge.national_portal_tender import PortalTender, _QTY, _MYANMAR_DIGITS, _DEADLINE
+from signalforge.national_portal_tender import PortalTender, _QTY, _MYANMAR_DIGITS, _DEADLINE, _extract_closing_deadline
 
 class NationalPortalBaselineTests(unittest.TestCase):
     def test_undated_opt_in(self):
@@ -58,3 +58,17 @@ class NationalPortalBaselineTests(unittest.TestCase):
     def test_submission_date_is_not_automatically_closing_date(self):
         self.assertIsNone(_DEADLINE.search("Submission date 14.10.2026"))
         self.assertIsNotNone(_DEADLINE.search("Submission deadline 14.10.2026"))
+
+    def test_conflicting_closing_dates_fail_closed(self):
+        text = "Submission deadline 14.10.2026\nBid closing 15.10.2026"
+        self.assertIsNone(_extract_closing_deadline(text))
+
+    def test_invalid_first_date_does_not_hide_error(self):
+        self.assertIsNone(_extract_closing_deadline("Bid closing 31.02.2026\nBid closing 15.10.2026"))
+
+    def test_incomplete_heading_and_single_valid_date(self):
+        text = "Tender closing\nSubmission deadline 15.10.2026"
+        self.assertEqual(_extract_closing_deadline(text), "2026-10-15")
+
+    def test_two_dates_on_same_deadline_line_fail_closed(self):
+        self.assertIsNone(_extract_closing_deadline("Bid closing 14.10.2026 or 15.10.2026"))

@@ -25,6 +25,30 @@ _DEADLINE = re.compile(r"(?:submission\s+deadline|bid\s+closing|tender\s+closing
 _ISSUER = re.compile(r"(?:ministry|department|government|enterprise|authority|committee|ဌာန|ဝန်ကြီးဌာန|ကော်မတီ)[^\n]{0,120}", re.I)
 
 
+def _extract_closing_deadline(text: str) -> str | None:
+    """Require a valid, unambiguous closing date in an explicit deadline line.
+
+    Multiple different closing dates can indicate amendments or separate lots;
+    never guess which one is authoritative.
+    """
+    dates: set[str] = set()
+    for line in text.splitlines():
+        marker = _DEADLINE.search(line)
+        if marker is None:
+            continue
+        matches = list(_DATE.finditer(line[marker.start():]))
+        if not matches:
+            continue  # Heading only; a later explicit deadline line may contain the date.
+        if len(matches) != 1:
+            return None
+        day, month, year = map(int, matches[0].groups())
+        try:
+            dates.add(date(year, month, day).isoformat())
+        except ValueError:
+            return None
+    return next(iter(dates)) if len(dates) == 1 else None
+
+
 def parse_national_portal_listing(payload: bytes) -> list[SitemapEntry]:
     parser = _TenderCardParser()
     parser.feed(payload.decode('utf-8', errors='replace'))
@@ -92,17 +116,8 @@ def parse_national_portal_document(payload: bytes, url: str) -> list[PortalTende
     quantity = _QTY.search(text)
     # The first matching line may announce a meeting or provide an incomplete
     # heading; only a date on an explicit closing/deadline line is admissible.
-    date_match = next(
-        (match for line in text.splitlines() if _DEADLINE.search(line)
-         for match in [_DATE.search(line[_DEADLINE.search(line).start():])] if match),
-        None,
-    )
-    if not (issuer and date_match):
-        return []
-    day, month, year = map(int, date_match.groups())
-    try:
-        deadline = date(year, month, day).isoformat()
-    except ValueError:
+    deadline = _extract_closing_deadline(text)
+    if not (issuer and deadline):
         return []
     title = text[:180]
     return [PortalTender(url, issuer.group(0), title, quantity.group(0) if quantity else None, deadline, title, hashlib.sha256(payload).hexdigest())]
