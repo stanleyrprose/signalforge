@@ -49,6 +49,45 @@ def _extract_closing_deadline(text: str) -> str | None:
     return next(iter(dates)) if len(dates) == 1 else None
 
 
+def parse_national_portal_image_candidates(payload: bytes) -> list[dict[str, str]]:
+    """Retain S01 JPEG cards as review candidates, separate from PDF tenders.
+
+    Listing metadata is a hint, not issuer-document proof. Do not create
+    canonical tenders or send Telegram from these records.
+    """
+    parser = _TenderCardParser()
+    parser.feed(payload.decode("utf-8", errors="replace"))
+    if not parser.rows:
+        raise ValueError("National Portal tender cards not found")
+    found: dict[str, dict[str, str]] = {}
+    for row in parser.rows:
+        url = _canonical_url(row["href"], "https://myanmar.gov.mm/tenders")
+        if not url:
+            continue
+        parsed = urlparse(url)
+        if (
+            parsed.scheme != "https"
+            or parsed.hostname != "myanmar.gov.mm"
+            or not parsed.path.startswith("/documents/")
+            or not re.search(r"\\.jpe?g(?:/|$)", parsed.path, re.I)
+        ):
+            continue
+        if (
+            "digital development" in row["agency"].lower()
+            or "ဒစ်ဂျစ်တယ်" in row["agency"]
+            or _DDD_TITLE_TOKEN in re.sub(r"\\s+", "", normalize_text(row["title"]))
+        ):
+            continue
+        found[url] = {
+            "url": url,
+            "title_hint": row["title"],
+            "issuer_hint": row["agency"],
+            "deadline_hint": row["closing"],
+            "status": "REVIEW_REQUIRED",
+        }
+    return list(found.values())
+
+
 def parse_national_portal_listing(payload: bytes) -> list[SitemapEntry]:
     parser = _TenderCardParser()
     parser.feed(payload.decode('utf-8', errors='replace'))
