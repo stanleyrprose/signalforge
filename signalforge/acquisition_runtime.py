@@ -641,6 +641,10 @@ def acquire_provider_bytes(
         media_type = str(row["result_media_type"] or "")
         if media_type not in expected_content_types:
             raise RuntimeError(f"provider content type mismatch: {media_type}")
+        if target_kind == "PDF" and not payload[:5] == bytes((37, 80, 68, 70, 45)):
+            # A browser may return an HTML error/challenge page with PDF metadata.
+            # Never record that response as successfully acquired PDF evidence.
+            raise RuntimeError("provider PDF signature mismatch")
         if str(row["result_request_sha256"] or "") != str(provider_request["request_sha256"]):
             raise RuntimeError("provider request/result correlation mismatch")
     except Exception as exc:

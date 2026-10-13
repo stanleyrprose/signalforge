@@ -97,6 +97,68 @@ class ProviderAcquisitionTests(unittest.TestCase):
             self.assertEqual(provider["created_at"], NOW.isoformat().replace("+00:00", "Z"))
             self.assertIn(NOW.isoformat().replace("+00:00", "Z"), provider["request_json"])
 
+    def test_provider_pdf_rejects_html_disguised_as_pdf(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            database = root / "signalforge.db"
+            migrate(database)
+            run_id = "22222222-2222-4222-8222-222222222222"
+            with connect(database) as conn, conn:
+                conn.execute(
+                    "INSERT INTO scheduler_runs(app_run_id,trigger_id,trigger_kind,source_id,worker_run_id,started_at,status,baseline,recovery) VALUES (?,?,?,?,?,?,?,?,?)",
+                    (run_id, "manual:S01:test", "MANUAL", "S01", "worker-test", NOW.isoformat(), "RUNNING", 0, 0),
+                )
+            artifact = b"<html>access denied</html>"
+            artifact_path = root / "fake.pdf"
+            artifact_path.write_bytes(artifact)
+            serviced = False
+
+            def service_once(_seconds: float) -> None:
+                nonlocal serviced
+                if serviced:
+                    return
+                serviced = True
+                claimed = claim_next_provider_request(
+                    provider_id="mac-mm-01", database=database,
+                    now=NOW + timedelta(seconds=1), lease_seconds=60,
+                )
+                complete_provider_claim(
+                    provider_request_id=claimed["provider_request_id"],
+                    provider_attempt_id=claimed["provider_attempt_id"],
+                    claim_token=claimed["claim_token"],
+                    result_sha256=hashlib.sha256(artifact).hexdigest(),
+                    browser_job_id="browser-fake-pdf-test", database=database,
+                    result_media_type="application/pdf",
+                    result_artifact_bytes=len(artifact),
+                    result_artifact_path=str(artifact_path),
+                    result_final_url="https://myanmar.gov.mm/documents/example",
+                    result_http_status=200,
+                    result_request_sha256=claimed["request"]["request_sha256"],
+                    now=NOW + timedelta(seconds=2),
+                )
+
+            with self.assertRaisesRegex(RuntimeError, "PDF signature mismatch"):
+                acquire_provider_bytes(
+                    database=database, scheduler_run_id=run_id, source_id="S01",
+                    source_policy_version=2, reason="MANUAL", egress_profile="mac-direct",
+                    target_kind="PDF", target_role="PDF",
+                    url="https://myanmar.gov.mm/documents/example",
+                    timeout_seconds=30, max_bytes=1_000_000,
+                    expected_content_types=["application/pdf"],
+                    observed_at=NOW.isoformat(), poll_interval_seconds=0.05,
+                    sleeper=service_once, request_now=NOW,
+                )
+            with connect(database) as conn:
+                attempt = conn.execute(
+                    "SELECT status,acquisition_failure_class FROM acquisition_attempts WHERE source_id='S01'"
+                ).fetchone()
+                evidence_count = conn.execute(
+                    "SELECT COUNT(*) FROM evidence_envelopes WHERE source_id='S01'"
+                ).fetchone()[0]
+            self.assertEqual(attempt["status"], "FAILED")
+            self.assertEqual(attempt["acquisition_failure_class"], "PROVIDER_RESULT_INVALID")
+            self.assertEqual(evidence_count, 0)
+
 
 if __name__ == "__main__":
     unittest.main()
