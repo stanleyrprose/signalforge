@@ -10,6 +10,25 @@ class S01ImageTriageTests(unittest.TestCase):
         self.assertEqual(result["classification"], "UNKNOWN")
         self.assertFalse(result["canonical_promotion_allowed"])
 
+    def test_real_fuel_ocr_excerpt_keeps_corrupted_octane_unknown(self):
+        text = (
+            "ဒီဇယ်ဆီ(၈၅၀၀၀)ဂါလန် Octane-92( Joooo)dlav§ "
+            "နှင့် ပရီမီယမ်ဒီဇယ်ဆီ(၄၅၀၀၀)ဂါလန်"
+        )
+        result = triage_s01_image_ocr(text)
+        self.assertEqual(result["item_quantity_candidates"], {
+            "diesel": 85000, "octane_92": None, "premium_diesel": 45000,
+        })
+        self.assertFalse(result["canonical_promotion_allowed"])
+
+    def test_real_lease_ocr_deadline_is_unverified(self):
+        result = triage_s01_image_ocr(
+            "Mandalay Convention Centre ငှားရမ်း\\n"
+            "တင်ဒါလျှောက်လွှာတင်သွင်းရမည့်နောက်ဆုံး - (၃-၁၁-၂၀၂၆)"
+        )
+        self.assertEqual(result["bid_submission_deadline_date"], "2026-11-03")
+        self.assertFalse(result["canonical_promotion_allowed"])
+
     def test_invalid_dates_never_promoted(self):
         result = triage_s01_image_ocr("31-02-2026")
         self.assertIsNone(result["bid_submission_deadline_date"])

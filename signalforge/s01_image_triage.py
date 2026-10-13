@@ -10,7 +10,7 @@ _NUMBER = re.compile(r"\(\s*([0-9][0-9,]*)\s*\)")
 _ITEMS = {
     "diesel": ("ဒီဇယ်ဆီ",),
     "octane_92": ("Octane-92",),
-    "premium_diesel": ("ပရီမီယမ်ဒီဇယ်",),
+    "premium_diesel": ("ပရီမီယမ်ဒီဇယ်ဆီ", "ပရီမီယမ်ဒီဇယ်"),
 }
 
 
@@ -33,7 +33,8 @@ def _quantity_candidates(text: str) -> dict[str, int | None]:
     for key, aliases in _ITEMS.items():
         values: set[int] = set()
         for alias in aliases:
-            pattern = re.compile(re.escape(alias) + r"\s*" + _NUMBER.pattern, re.I)
+            prefix_guard = r"(?<!ပရီမီယမ်)" if key == "diesel" else ""
+            pattern = re.compile(prefix_guard + re.escape(alias) + r"\s*" + _NUMBER.pattern, re.I)
             for match in pattern.finditer(text):
                 value = int(match.group(1).replace(",", ""))
                 if 0 < value <= 10_000_000:
