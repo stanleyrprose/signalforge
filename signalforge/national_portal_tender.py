@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import io
+import json
 import re
 from dataclasses import dataclass
 from datetime import date
@@ -122,14 +123,59 @@ def process_pending_s01_image_ocr(database, *, limit: int = 2) -> dict[str, int]
                 )
             failed += 1
             continue
-        with connect(database) as conn, conn:
-            conn.execute(
-                "UPDATE s01_image_review SET review_status='OCR_REVIEW_REQUIRED', "
-                "ocr_input_sha256=?, ocr_evidence_path=?, ocr_text=?, ocr_last_error=NULL "
-                "WHERE url=? AND review_status='REVIEW_REQUIRED'",
-                (evidence['source_image_sha256'], evidence['evidence_artifact_path'],
-                 evidence['ocr_text'], url),
-            )
+        from .s01_image_triage import triage_s01_image_ocr
+        try:
+            triage = triage_s01_image_ocr(evidence['ocr_text'])
+            with connect(database) as conn, conn:
+                conn.execute(
+                    "CREATE TABLE IF NOT EXISTS s01_image_triage ("
+                    "url TEXT PRIMARY KEY, classification TEXT NOT NULL, "
+                    "document_sale_start TEXT, document_sale_end TEXT, "
+                    "bid_submission_deadline_date TEXT, bid_opening_date TEXT, "
+                    "ocr_input_sha256 TEXT NOT NULL, status TEXT NOT NULL, "
+                    "item_quantity_candidates_json TEXT NOT NULL)"
+                )
+                existing = {row[1] for row in conn.execute("PRAGMA table_info(s01_image_triage)")}
+                if "item_quantity_candidates_json" not in existing:
+                    conn.execute(
+                        "ALTER TABLE s01_image_triage ADD COLUMN "
+                        "item_quantity_candidates_json TEXT NOT NULL DEFAULT '{}'"
+                    )
+                conn.execute(
+                    "INSERT INTO s01_image_triage "
+                    "(url,classification,document_sale_start,document_sale_end,"
+                    "bid_submission_deadline_date,bid_opening_date,ocr_input_sha256,"
+                    "status,item_quantity_candidates_json) VALUES (?,?,?,?,?,?,?,?,?) "
+                    "ON CONFLICT(url) DO UPDATE SET "
+                    "classification=excluded.classification, "
+                    "document_sale_start=excluded.document_sale_start, "
+                    "document_sale_end=excluded.document_sale_end, "
+                    "bid_submission_deadline_date=excluded.bid_submission_deadline_date, "
+                    "bid_opening_date=excluded.bid_opening_date, "
+                    "ocr_input_sha256=excluded.ocr_input_sha256, "
+                    "status=excluded.status, "
+                    "item_quantity_candidates_json=excluded.item_quantity_candidates_json",
+                    (url, triage['classification'], triage['document_sale_start'],
+                     triage['document_sale_end'], triage['bid_submission_deadline_date'],
+                     triage['bid_opening_date'], evidence['source_image_sha256'],
+                     triage['status'],
+                     json.dumps(triage['item_quantity_candidates'], sort_keys=True)),
+                )
+                conn.execute(
+                    "UPDATE s01_image_review SET review_status='OCR_REVIEW_REQUIRED', "
+                    "ocr_input_sha256=?, ocr_evidence_path=?, ocr_text=?, ocr_last_error=NULL "
+                    "WHERE url=? AND review_status='REVIEW_REQUIRED'",
+                    (evidence['source_image_sha256'], evidence['evidence_artifact_path'],
+                     evidence['ocr_text'], url),
+                )
+        except Exception as exc:
+            with connect(database) as conn, conn:
+                conn.execute(
+                    "UPDATE s01_image_review SET ocr_last_error=? WHERE url=?",
+                    (f"{type(exc).__name__}: {exc}"[:250], url),
+                )
+            failed += 1
+            continue
         completed += 1
     return {'attempted': len(pending), 'completed': completed, 'failed': failed}
 
