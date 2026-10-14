@@ -106,7 +106,20 @@ def _deadline(text: str) -> tuple[str | None, str | None]:
     translated = normalize_text(text).translate(_MYANMAR_DIGITS)
     matches = [match for match in _DATE_TIME_RE.finditer(translated) if _is_bid_submission_close_context(translated, match)]
     if len(matches) != 1:
-        return None, None
+        # Some text-native Myanmar PDFs break glyphs across spaces, but retain
+        # an explicit bid-submission heading and a single adjacent date/time.
+        # Do not guess when multiple dates occur in that heading's section.
+        loose = []
+        for heading in re.finditer(r"တင်ဒါတင်[^\n]{0,55}", translated):
+            section = translated[heading.start():heading.start() + 230]
+            if "နော" not in section or "ဆ" not in section:
+                continue
+            candidates = list(_DATE_TIME_RE.finditer(section))
+            if len(candidates) == 1:
+                loose.append(candidates[0])
+        if len(loose) != 1:
+            return None, None
+        matches = loose
     match = matches[0]
     try:
         dt = datetime(
