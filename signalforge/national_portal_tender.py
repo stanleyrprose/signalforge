@@ -126,6 +126,11 @@ def process_pending_s01_image_ocr(database, *, limit: int = 2) -> dict[str, int]
         from .s01_image_triage import triage_s01_image_ocr
         try:
             triage = triage_s01_image_ocr(evidence['ocr_text'])
+            from .s01_review_gate import decide_s01_review
+            gate = decide_s01_review(triage)
+            # Preserve the established OCR review lifecycle; gate is advisory until
+            # a separately reviewed state migration and delivery policy exist.
+            assert gate["canonical_promotion_allowed"] is False
             with connect(database) as conn, conn:
                 conn.execute(
                     "CREATE TABLE IF NOT EXISTS s01_image_triage ("
