@@ -128,6 +128,9 @@ def process_pending_s01_image_ocr(database, *, limit: int = 2) -> dict[str, int]
             triage = triage_s01_image_ocr(evidence['ocr_text'])
             from .s01_review_gate import decide_s01_review
             gate = decide_s01_review(triage)
+            # Preserve the established OCR review lifecycle; gate is advisory until
+            # a separately reviewed state migration and delivery policy exist.
+            assert gate["canonical_promotion_allowed"] is False
             with connect(database) as conn, conn:
                 conn.execute(
                     "CREATE TABLE IF NOT EXISTS s01_image_triage ("
@@ -160,14 +163,14 @@ def process_pending_s01_image_ocr(database, *, limit: int = 2) -> dict[str, int]
                     (url, triage['classification'], triage['document_sale_start'],
                      triage['document_sale_end'], triage['bid_submission_deadline_date'],
                      triage['bid_opening_date'], evidence['source_image_sha256'],
-                     gate['disposition'],
+                     triage['status'],
                      json.dumps(triage['item_quantity_candidates'], sort_keys=True)),
                 )
                 conn.execute(
-                    "UPDATE s01_image_review SET review_status=?, "
+                    "UPDATE s01_image_review SET review_status='OCR_REVIEW_REQUIRED', "
                     "ocr_input_sha256=?, ocr_evidence_path=?, ocr_text=?, ocr_last_error=NULL "
                     "WHERE url=? AND review_status='REVIEW_REQUIRED'",
-                    (gate['disposition'], evidence['source_image_sha256'], evidence['evidence_artifact_path'],
+                    (evidence['source_image_sha256'], evidence['evidence_artifact_path'],
                      evidence['ocr_text'], url),
                 )
         except Exception as exc:
