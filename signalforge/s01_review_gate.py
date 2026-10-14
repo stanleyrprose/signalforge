@@ -21,13 +21,13 @@ def decide_s01_review(triage: dict[str, Any], *, official_image_verified: bool =
         }
     if classification == "GOVERNMENT_FUEL_PROCUREMENT" and formal is True:
         return {
-            "disposition": "READY_FOR_OFFICIAL_EVIDENCE_CHECK" if official_image_verified else "REVIEW_REQUIRED",
+            "disposition": "READY_FOR_OFFICIAL_EVIDENCE_CHECK" if official_image_verified else "OCR_REVIEW_REQUIRED",
             "requires_human_review": not official_image_verified,
             "canonical_promotion_allowed": False,
             "reason": "OCR fields require independent official evidence validation",
         }
     return {
-        "disposition": "REVIEW_REQUIRED",
+        "disposition": "OCR_REVIEW_REQUIRED",
         "requires_human_review": True,
         "canonical_promotion_allowed": False,
         "reason": "procurement nature uncertain",

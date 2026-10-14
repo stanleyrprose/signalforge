@@ -11,7 +11,7 @@ class S01ReviewGateTest(unittest.TestCase):
 
     def test_procurement_requires_evidence(self):
         item = {"classification": "GOVERNMENT_FUEL_PROCUREMENT", "formal_procurement_tender": True}
-        self.assertEqual(decide_s01_review(item)["disposition"], "REVIEW_REQUIRED")
+        self.assertEqual(decide_s01_review(item)["disposition"], "OCR_REVIEW_REQUIRED")
         verified = decide_s01_review(item, official_image_verified=True)
         self.assertEqual(verified["disposition"], "READY_FOR_OFFICIAL_EVIDENCE_CHECK")
         self.assertFalse(verified["canonical_promotion_allowed"])
