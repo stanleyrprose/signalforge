@@ -126,6 +126,8 @@ def process_pending_s01_image_ocr(database, *, limit: int = 2) -> dict[str, int]
         from .s01_image_triage import triage_s01_image_ocr
         try:
             triage = triage_s01_image_ocr(evidence['ocr_text'])
+            from .s01_review_gate import decide_s01_review
+            gate = decide_s01_review(triage)
             with connect(database) as conn, conn:
                 conn.execute(
                     "CREATE TABLE IF NOT EXISTS s01_image_triage ("
@@ -158,14 +160,14 @@ def process_pending_s01_image_ocr(database, *, limit: int = 2) -> dict[str, int]
                     (url, triage['classification'], triage['document_sale_start'],
                      triage['document_sale_end'], triage['bid_submission_deadline_date'],
                      triage['bid_opening_date'], evidence['source_image_sha256'],
-                     triage['status'],
+                     gate['disposition'],
                      json.dumps(triage['item_quantity_candidates'], sort_keys=True)),
                 )
                 conn.execute(
-                    "UPDATE s01_image_review SET review_status='OCR_REVIEW_REQUIRED', "
+                    "UPDATE s01_image_review SET review_status=?, "
                     "ocr_input_sha256=?, ocr_evidence_path=?, ocr_text=?, ocr_last_error=NULL "
                     "WHERE url=? AND review_status='REVIEW_REQUIRED'",
-                    (evidence['source_image_sha256'], evidence['evidence_artifact_path'],
+                    (gate['disposition'], evidence['source_image_sha256'], evidence['evidence_artifact_path'],
                      evidence['ocr_text'], url),
                 )
         except Exception as exc:
