@@ -18,8 +18,9 @@ from signalforge.energy import (
     parse_tender_detail_with_attachments,
     parse_tender_listing,
 )
-from signalforge.engine import run_source
+from signalforge.engine import _schedule_detail_parser_replay, run_source
 from signalforge.source_adapters import adapter_for
+from signalforge.db import connect
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
@@ -119,6 +120,43 @@ class EnergyParserTests(unittest.TestCase):
             parse_tender_detail_with_attachments(html, DETAIL_URLS[235], [(metadata.pdf_url, b"not a pdf")])
 
 
+class EnergyReplayTests(unittest.TestCase):
+    def test_pdf_backed_zero_item_replay_is_exact_and_suppressed(self) -> None:
+        registry = Registry.load(ROOT)
+        source = registry.source("S39")
+        adapter = adapter_for("S39", source)
+        self.assertEqual(adapter.detail_parser_version, "energy-html-plus-text-pdf-v3")
+        from signalforge.mpt import SitemapEntry
+        detail = DETAIL_URLS[235]
+        metadata = parse_detail_metadata(_fixture("energy-235.html"), detail)
+        assert metadata is not None
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            database = base / "state.db"
+            evidence = base / "evidence"
+            with sqlite3.connect(database) as setup:
+                setup.executescript("""
+                    CREATE TABLE discovery_items(source_id TEXT,url TEXT,lastmod TEXT,fetched_lastmod TEXT,last_seen_at TEXT,canonical_key TEXT,pending_since_at TEXT,suppress_signal_once INTEGER DEFAULT 0);
+                    CREATE TABLE evidence_envelopes(evidence_id TEXT,source_id TEXT,requested_url TEXT,final_url TEXT,artifact_sha256 TEXT,artifact_media_type TEXT,fetched_at TEXT);
+                    CREATE TABLE processing_records(processing_id TEXT,evidence_id TEXT,source_id TEXT,parser_version TEXT,status TEXT,items_found INTEGER);
+                """)
+            digest = hashlib.sha256(_fixture("energy-235.html")).hexdigest()
+            folder = evidence / "S39"
+            folder.mkdir(parents=True)
+            (folder / f"{digest}.html").write_bytes(_fixture("energy-235.html"))
+            with connect(database) as conn, conn:
+                conn.execute("INSERT INTO discovery_items(source_id,url,lastmod,fetched_lastmod,last_seen_at) VALUES(?,?,?,?,?)", ("S39", detail, "2026-09-04", "2026-09-04", "2026-10-14"))
+                # Reuse real schema fields while preserving exact URL evidence matching.
+                conn.execute("INSERT INTO evidence_envelopes VALUES(?,?,?,?,?,?,?)", ("html","S39",detail,None,digest,"text/html","2026-10-14"))
+                conn.execute("INSERT INTO evidence_envelopes VALUES(?,?,?,?,?,?,?)", ("pdf","S39",metadata.pdf_url,None,"pdfsha","application/pdf","2026-10-14"))
+                conn.execute("INSERT INTO processing_records VALUES(?,?,?,?,?,?)", ("p1","pdf","S39","energy-html-plus-text-pdf-v2","SUCCESS",0))
+                scheduled = _schedule_detail_parser_replay(conn, source_id="S39", source=source, adapter=adapter, entries=[SitemapEntry(detail,"2026-09-04")], observed_at="2026-10-14", evidence=evidence)
+                self.assertEqual(scheduled,1)
+                row = conn.execute("SELECT pending_since_at,suppress_signal_once FROM discovery_items WHERE source_id='S39' AND url=?",(detail,)).fetchone()
+                self.assertEqual(tuple(row),("2026-10-14",1))
+                self.assertEqual(_schedule_detail_parser_replay(conn, source_id="S39", source=source, adapter=adapter, entries=[SitemapEntry(detail,"2026-09-04")], observed_at="2026-10-14", evidence=evidence),1)
+
+
 class EnergyEngineTests(unittest.TestCase):
     def _fixture_map(self) -> dict[str, bytes]:
         values = {LIST_URL: _fixture("energy-tenders.html")}
@@ -182,7 +220,7 @@ class EnergyEngineTests(unittest.TestCase):
                     "SELECT COUNT(*) FROM processing_records WHERE source_id='S39' AND status='SUCCESS'"
                 ).fetchone()[0]
                 detail_processing_count = conn.execute(
-                    "SELECT COUNT(*) FROM processing_records WHERE source_id='S39' AND status='SUCCESS' AND parser_version='energy-html-plus-text-pdf-v2'"
+                    "SELECT COUNT(*) FROM processing_records WHERE source_id='S39' AND status='SUCCESS' AND parser_version='energy-html-plus-text-pdf-v3'"
                 ).fetchone()[0]
                 evidence_sha = conn.execute(
                     "SELECT evidence_sha256 FROM canonical_items WHERE canonical_key='energy:235'"
