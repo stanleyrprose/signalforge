@@ -289,6 +289,7 @@ def _schedule_detail_parser_replay(
     adapter,  # type: ignore[no-untyped-def]
     entries: list[SitemapEntry],
     observed_at: str,
+    evidence: Path | None = None,
 ) -> int:
     """Re-open bounded historical zero-item parses after an explicit parser migration.
 
@@ -326,6 +327,36 @@ def _schedule_detail_parser_replay(
         # Only reopen rows that the old parser actually acknowledged at this same issuer revision.
         if discovery["fetched_lastmod"] != discovery["lastmod"]:
             continue
+        # For S39, processing evidence is the required PDF, not its HTML detail page.
+        # Derive the attachment URL from the preserved, issuer-linked HTML evidence;
+        # never associate PDFs merely because they appeared in the same scheduler run.
+        processing_urls = [entry.url]
+        if source_id == "S39" and adapter.extract_detail_attachments is not None:
+            html_rows = conn.execute(
+                """
+                SELECT artifact_sha256 FROM evidence_envelopes
+                WHERE source_id=? AND (requested_url=? OR final_url=?)
+                  AND artifact_media_type='text/html'
+                ORDER BY fetched_at DESC
+                """,
+                (source_id, entry.url, entry.url),
+            ).fetchall()
+            for html_row in html_rows:
+                html_path = (evidence or evidence_root()) / source_id / (str(html_row[0]) + ".html")
+                if not html_path.is_file():
+                    continue
+                try:
+                    urls = adapter.extract_detail_attachments(html_path.read_bytes(), entry.url)
+                except Exception:
+                    continue
+                if len(urls) == 1:
+                    processing_urls.append(urls[0])
+                    break
+        if len(processing_urls) > 1:
+            # Exact attachment match, not broad run-level correlation.
+            match_url = processing_urls[1]
+        else:
+            match_url = entry.url
         old_zero = conn.execute(
             """
             SELECT 1
@@ -335,7 +366,7 @@ def _schedule_detail_parser_replay(
               AND (e.requested_url=? OR e.final_url=?)
             LIMIT 1
             """,
-            (source_id, from_version, entry.url, entry.url),
+            (source_id, from_version, match_url, match_url),
         ).fetchone()
         if old_zero is None:
             continue
@@ -348,7 +379,7 @@ def _schedule_detail_parser_replay(
               AND (e.requested_url=? OR e.final_url=?)
             LIMIT 1
             """,
-            (source_id, to_version, entry.url, entry.url),
+            (source_id, to_version, match_url, match_url),
         ).fetchone()
         if already_replayed is not None:
             continue
@@ -1077,6 +1108,7 @@ def run_source(
                     adapter=adapter,
                     entries=entries,
                     observed_at=observed_at,
+                    evidence=evidence,
                 )
                 candidates = _pending_candidates(conn, source_id, int(source["delta_detail_limit"]))
 
