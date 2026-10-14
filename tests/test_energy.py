@@ -71,6 +71,15 @@ class EnergyParserTests(unittest.TestCase):
         ambiguous = closing + " " + closing.replace("18-9-2026", "19-9-2026")
         self.assertEqual(_deadline(ambiguous), (None, None))
 
+    def test_broken_myanmar_glyph_bid_heading_deadline(self) -> None:
+        sample = (
+            "တင်ဒါပ ိုစ သ ာင််းြျမည ်  ် - ၂၆-၉-၂၀၂၆ မှ ၁၃-၁၀-၂၀၂၆\n"
+            "တင်ဒါတင် ွင််း မည ် - ၁၃-၁၀-၂၀၂၆   ်သနေ့ ၊ (၁၃:၀၀) နာ\n"
+            "ထနော ်ဆ ုြီး ထနေ့ရ ်/ အခ ျိန်\n"
+            "တင်ဒါဖွင ်လှစ်မည ်ရ ် - ဆ ်သွယ်အထက ောင်ြီးက ောြီးပါမည်။"
+        )
+        self.assertEqual(_deadline(sample), ("2026-10-13", "13:00"))
+
     def test_text_native_pdfs_extract_reference_scope_and_deadline(self) -> None:
         expected = {
             235: ("ENERGY-27-2026-2027", "2026-09-18", "13:00", ("API 5L", "IOT Module", "Desktop Computer")),
