@@ -588,16 +588,29 @@ def _upsert_tender(
             return False, 0
     payload = tender.payload()
     payload_json = _json(payload)
-    content_hash = _material_hash(payload)
+    # S21 publishes rotating opaque post URLs. A URL change alone
+    # cannot justify an UPDATED tender notification.
+    material_payload = {k: v for k, v in payload.items() if k != "url"} if source_id == "S21" else payload
+    content_hash = _material_hash(material_payload)
     item_kind = str(getattr(tender, "item_kind", "TENDER"))
     if item_kind not in {"TENDER", "REGULATORY_NOTICE", "AUCTION_NOTICE"}:
         raise EngineError(f"unsupported canonical item kind: {item_kind}")
     title = str(getattr(tender, "title", tender.project_name))
     existing = conn.execute(
-        "SELECT content_hash FROM canonical_items WHERE canonical_key=?",
+        "SELECT content_hash,payload_json FROM canonical_items WHERE canonical_key=?",
         (tender.canonical_key,),
     ).fetchone()
-    changed = existing is None or str(existing["content_hash"]) != content_hash
+    previous_hash = str(existing["content_hash"]) if existing is not None else ""
+    if existing is not None and source_id == "S21":
+        # Pre-fix rows hashed the rotating URL. Compare retained business
+        # fields before the first upgrade to avoid a migration-only update.
+        try:
+            previous_payload = json.loads(str(existing["payload_json"]))
+        except (TypeError, json.JSONDecodeError):
+            previous_payload = None
+        if isinstance(previous_payload, dict):
+            previous_hash = _material_hash({k: v for k, v in previous_payload.items() if k != "url"})
+    changed = existing is None or previous_hash != content_hash
     if existing is None:
         conn.execute(
             """
@@ -647,10 +660,18 @@ def _upsert_tender(
             ),
         )
     else:
-        conn.execute(
-            "UPDATE canonical_items SET evidence_sha256=?,url=?,updated_at=? WHERE canonical_key=?",
-            (evidence_digest, tender.url, observed_at, tender.canonical_key),
-        )
+        if source_id == "S21":
+            # Keep the latest official URL and normalized payload even when
+            # the address rotates without a material business change.
+            conn.execute(
+                "UPDATE canonical_items SET evidence_sha256=?,url=?,payload_json=?,content_hash=?,updated_at=? WHERE canonical_key=?",
+                (evidence_digest, tender.url, payload_json, content_hash, observed_at, tender.canonical_key),
+            )
+        else:
+            conn.execute(
+                "UPDATE canonical_items SET evidence_sha256=?,url=?,updated_at=? WHERE canonical_key=?",
+                (evidence_digest, tender.url, observed_at, tender.canonical_key),
+            )
 
     signal_count = 0
     if changed and not suppress_signal:
