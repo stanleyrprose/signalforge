@@ -64,6 +64,41 @@ class S20AttachmentHealthTests(unittest.TestCase):
                 self.assertEqual(conn.execute("SELECT COUNT(*) FROM signals").fetchone()[0], 0)
                 self.assertEqual(conn.execute("SELECT COUNT(*) FROM canonical_items WHERE deadline IS NOT NULL").fetchone()[0], 0)
 
+    def test_historical_reviewed_official_attachment_counts_without_raw_db_deadline(self) -> None:
+        with tempfile.TemporaryDirectory() as d:
+            db = Path(d) / "signalforge.db"
+            migrate(db)
+            url = "https://moep.gov.mm/mm/userfile/EPGE-2192_(29_9_26).pdf"
+            payload = {
+                "reference_no": "MOEP-CONTENT-7197",
+                "attachment_name": "EPGE-2192_(29_9_26).pdf",
+                "attachment_url": url,
+                "publication_date": "2026-09-30",
+                "url": "https://moep.gov.mm/mm/ignite/contentView/7197",
+            }
+            with connect(db) as conn, conn:
+                conn.execute(
+                    "INSERT INTO canonical_items(canonical_key,source_id,item_kind,title,reference_no,"
+                    "project_name,publication_date,deadline,location,url,content_hash,evidence_sha256,"
+                    "payload_json,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    ("moep:7197:2026-09-30", "S20", "TENDER", "EPGE",
+                     "MOEP-CONTENT-7197", "EPGE", "2026-09-30", None, None,
+                     payload["url"], "a"*64, "b"*64, json.dumps(payload),
+                     "2026-09-30T00:00:00Z", "2026-09-30T00:00:00Z"),
+                )
+
+            def official_404(request, *, timeout):
+                raise urllib.error.HTTPError(request.full_url, 404, "Not Found", {}, None)
+
+            result = probe_recent_s20_attachments(
+                db, now=datetime(2026, 10, 15, tzinfo=UTC), opener=official_404,
+            )
+            self.assertEqual(result["http_404_count"], 1)
+            self.assertEqual(result["reviewed_attachment_evidence_count"], 1)
+            self.assertEqual(result["reviewed_submission_deadline_count"], 1)
+            with connect(db) as conn:
+                self.assertIsNone(conn.execute("SELECT deadline FROM canonical_items").fetchone()[0])
+
     def test_empty_recent_sample_reports_unproven_not_green(self) -> None:
         with tempfile.TemporaryDirectory() as d:
             db = Path(d)/"signalforge.db"

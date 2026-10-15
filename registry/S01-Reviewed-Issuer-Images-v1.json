@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "review_policy": "S01_OFFICIAL_IMAGE_SHA256_PLUS_HUMAN_APPROVED_EXPLICIT_BID_DEADLINE",
+  "notes": "Production review-only source facts. A human-approved image without issuer-evidenced bid submission deadline is NOT a canonical tender. Sale and opening dates are not bid deadlines. Never derive eligibility from OCR or portal closing hints.",
+  "records": {
+    "95a905e89bcfa32ad6bfa1d79d33b234ab866731285a7bc977a0ecb2bfc4374b": {
+      "review_status": "HUMAN_APPROVED_SOURCE_IMAGE",
+      "reviewed_at": "2026-10-14",
+      "formal_procurement_tender": true,
+      "issuer": "Mandalay City Development Committee",
+      "title": "MCDC diesel, Octane-92 and premium diesel supply tender",
+      "scope_summary": "MCDC fuel procurement for plant and motor vehicle department",
+      "quantity_or_lot_summary": "Diesel 85,000 gallons; Octane-92 20,000 gallons; premium diesel 45,000 gallons",
+      "document_sale_end": "2026-10-16",
+      "bid_opening_date": "2026-10-29",
+      "bid_submission_deadline": null,
+      "bid_submission_deadline_evidence": null,
+      "blocker": "ORIGINAL_SOURCE_IMAGE_DOES_NOT_STATE_CONFIRMED_BID_SUBMISSION_DEADLINE"
+    },
+    "5bd902c2e77c6949b2bcb373dcb84121e3ca733c3302afe3070cc33043a1a4bd": {
+      "review_status": "HUMAN_APPROVED_SOURCE_IMAGE",
+      "reviewed_at": "2026-10-14",
+      "formal_procurement_tender": false,
+      "issuer": "Mandalay City Development Committee",
+      "title": "Mandalay Convention Centre asset lease",
+      "scope_summary": "Government-owned venue rental/lease, not procurement",
+      "quantity_or_lot_summary": null,
+      "bid_submission_deadline": "2026-11-02",
+      "bid_submission_deadline_evidence": "HUMAN_REVIEWED_OFFICIAL_IMAGE_DEADLINE",
+      "blocker": "ASSET_LEASING_NOT_PROCUREMENT"
+    }
+  }
+}
