@@ -4,12 +4,13 @@ import json
 import sqlite3
 import tempfile
 import unittest
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 
 from signalforge.config import Registry
-from signalforge.db import migrate
-from signalforge.engine import _failure_retry_delay_seconds, run_source
+from signalforge.db import connect, migrate
+from signalforge.engine import _failure_retry_delay_seconds, _material_hash, _upsert_tender, run_source
 from signalforge.railways import parse_tender_detail, parse_tender_listing
 
 
@@ -114,6 +115,55 @@ class RailwayParserTests(unittest.TestCase):
 
 
 class RailwayEngineTests(unittest.TestCase):
+    def test_rotating_post_url_is_not_a_material_tender_update(self) -> None:
+        tender = parse_tender_detail((FIXTURES / "railways_tender_detail.html").read_bytes(), DETAIL_URL)[0]
+        rotated = replace(tender, url="https://www.railways.gov.mm/posts/new-opaque-token")
+        updated = replace(rotated, project_name=tender.project_name + " (amended scope)")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            database = Path(tmp) / "signalforge.db"
+            migrate(database)
+            with connect(database) as conn, conn:
+                created, count = _upsert_tender(
+                    conn, source_id="S21", tender=tender,
+                    observed_at="2026-10-12T00:00:00Z",
+                    suppress_signal=True, evidence_digest="a" * 64,
+                )
+                self.assertEqual((created, count), (True, 0))
+                # Production rows created before the fix included the URL
+                # in their content hash; rolling to new semantics is silent.
+                conn.execute(
+                    "UPDATE canonical_items SET content_hash=? WHERE canonical_key=?",
+                    (_material_hash(tender.payload()), tender.canonical_key),
+                )
+                changed, count = _upsert_tender(
+                    conn, source_id="S21", tender=rotated,
+                    observed_at="2026-10-13T00:00:00Z",
+                    suppress_signal=False, evidence_digest="b" * 64,
+                )
+                self.assertEqual((changed, count), (False, 0))
+                row = conn.execute(
+                    "SELECT url,content_hash,payload_json,evidence_sha256 FROM canonical_items WHERE canonical_key=?",
+                    (tender.canonical_key,),
+                ).fetchone()
+                self.assertEqual(row["url"], rotated.url)
+                self.assertEqual(json.loads(row["payload_json"])["url"], rotated.url)
+                self.assertEqual(row["evidence_sha256"], "b" * 64)
+                self.assertEqual(
+                    row["content_hash"],
+                    _material_hash({k: v for k, v in rotated.payload().items() if k != "url"}),
+                )
+                changed, count = _upsert_tender(
+                    conn, source_id="S21", tender=updated,
+                    observed_at="2026-10-14T00:00:00Z",
+                    suppress_signal=False, evidence_digest="c" * 64,
+                )
+                self.assertEqual((changed, count), (True, 1))
+                self.assertEqual(
+                    conn.execute("SELECT signal_type FROM signals").fetchall()[0]["signal_type"],
+                    "UPDATED",
+                )
+
     def test_connect_timeout_retry_backoff_is_capped_by_recovery_slo(self) -> None:
         source = _railway_registry().raw["sources"]["S21"]
         expected = {

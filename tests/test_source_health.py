@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import patch
 
-from signalforge.cli import status
+from signalforge.cli import _source_health, status
 from signalforge.config import Registry
 from signalforge.db import connect, migrate
 
@@ -34,6 +34,34 @@ class SourceHealthTests(unittest.TestCase):
         registry = Registry(raw)
         with patch.dict(os.environ, {"SIGNALFORGE_DB": str(db), "SIGNALFORGE_REPO_ROOT": str(ROOT)}, clear=False):
             return status(now=now, registry=registry)
+
+    def test_s01_status_requires_issuer_tender_evidence_not_http_success(self) -> None:
+        policy = Registry.load(ROOT).source("S01")
+        now = datetime(2026, 10, 15, 0, 10, tzinfo=UTC)
+        with tempfile.TemporaryDirectory() as tmp:
+            database = Path(tmp) / "signalforge.db"
+            migrate(database)
+            with connect(database) as conn, conn:
+                conn.execute(
+                    "INSERT INTO source_state(source_id,baseline_complete,last_success_at,next_due_at,last_error,consecutive_failures,updated_at) "
+                    "VALUES (?,?,?,?,?,?,?)",
+                    ("S01", 1, "2026-10-15T00:00:00Z", "2026-10-16T00:00:00Z", None, 0, "2026-10-15T00:00:00Z"),
+                )
+                row = dict(conn.execute("SELECT * FROM source_state WHERE source_id='S01'").fetchone())
+                unproven = _source_health(conn, "S01", row, policy, now)
+                self.assertEqual(unproven["source_health"], "YELLOW")
+                self.assertEqual(unproven["reason_code"], "SOURCE_ISSUER_EVIDENCE_UNPROVEN")
+                self.assertEqual(unproven["issuer_tender_evidence_count"], 0)
+                conn.execute(
+                    "INSERT INTO canonical_items(canonical_key,source_id,item_kind,title,reference_no,project_name,publication_date,deadline,location,url,content_hash,evidence_sha256,payload_json,created_at,updated_at) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    ("national-portal-document:verified", "S01", "TENDER", "Verified tender", "T-1", "Procurement",
+                     "2026-10-15", "2026-10-28", None, "https://myanmar.gov.mm/documents/verified.pdf",
+                     "a" * 64, "b" * 64, "{}", "2026-10-15T00:00:00Z", "2026-10-15T00:00:00Z"),
+                )
+                proven = _source_health(conn, "S01", row, policy, now)
+                self.assertEqual(proven["source_health"], "GREEN")
+                self.assertEqual(proven["issuer_tender_evidence_count"], 1)
 
     def test_registry_freezes_source_health_thresholds(self) -> None:
         source = Registry.load(ROOT).source("S13")

@@ -159,6 +159,14 @@ def _source_health(conn, source_id: str, policy: dict[str, object], now: datetim
         "parse": parse_health,
         "recovery": recovery_health,
     }
+    issuer_evidence_count = None
+    if source_id == "S01":
+        # HTTP success and a healthy OCR queue do not prove that an
+        # issuer-authored tender has passed the National Portal evidence gate.
+        issuer_evidence_count = int(conn.execute(
+            "SELECT COUNT(*) FROM canonical_items WHERE source_id='S01' AND item_kind='TENDER'"
+        ).fetchone()[0])
+        components["issuer_evidence"] = "GREEN" if issuer_evidence_count else "YELLOW"
     overall = max(components.values(), key=_severity_rank)
     reason = next((name for name, state in components.items() if state == overall and state != "GREEN"), "OK")
     return {
@@ -171,6 +179,7 @@ def _source_health(conn, source_id: str, policy: dict[str, object], now: datetim
         "recovery_backlog": backlog,
         "parse_attempts": attempts,
         "parse_successes": successes,
+        **({"issuer_tender_evidence_count": issuer_evidence_count} if source_id == "S01" else {}),
     }
 
 
