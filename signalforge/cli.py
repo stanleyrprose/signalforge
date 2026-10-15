@@ -140,6 +140,14 @@ def _source_health(conn, source_id: str, source: dict[str, object], policy: dict
         parse_health = "GREEN"
 
     component_states = [fetch_health, freshness_health, parse_health, recovery_health]
+    issuer_evidence_count = None
+    if source_id == "S01":
+        # Successful portal HTML acquisition alone is not proof of an
+        # issuer-authored tender passing the evidence gate.
+        issuer_evidence_count = int(conn.execute(
+            "SELECT COUNT(*) FROM canonical_items WHERE source_id='S01' AND item_kind='TENDER'"
+        ).fetchone()[0])
+        component_states.append("GREEN" if issuer_evidence_count else "YELLOW")
     source_health = max(component_states, key=_health_rank)
     if source_health == "UNKNOWN":
         source_health = "GREEN"
@@ -153,6 +161,8 @@ def _source_health(conn, source_id: str, source: dict[str, object], policy: dict
         if state == source_health and state in {"YELLOW", "RED"}:
             reason_code = code
             break
+    if reason_code == "OK" and source_id == "S01" and not issuer_evidence_count:
+        reason_code = "SOURCE_ISSUER_EVIDENCE_UNPROVEN"
     if reason_code == "OK" and parse_health == "UNKNOWN":
         reason_code = "PARSE_SAMPLE_INSUFFICIENT"
     return {
@@ -177,6 +187,7 @@ def _source_health(conn, source_id: str, source: dict[str, object], policy: dict
         "recovery_oldest_pending_at": oldest,
         "recovery_oldest_age_seconds": oldest_age,
         "recovery_slo_seconds": recovery_slo,
+        **({"issuer_tender_evidence_count": issuer_evidence_count} if source_id == "S01" else {}),
         "availability_class": (policy.get("availability_policy") or {}).get("class") if isinstance(policy.get("availability_policy"), dict) else None,
     }
 
