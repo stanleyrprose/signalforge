@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import patch
 
-from signalforge.auditor import audit
+from signalforge.auditor import _source_health, audit
 from signalforge.cli import main, verb_manifest
 from signalforge.config import Registry
 from signalforge.db import connect, migrate
@@ -126,6 +126,31 @@ class AuditorTests(unittest.TestCase):
                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (key, source_id, "TENDER", "Test procurement", key, "Test procurement", "2026-09-10", "2026-09-20", None, url, f"hash-{key}", f"evidence-{key}", json.dumps(payload), "2026-09-10T10:00:00Z", "2026-09-10T10:00:00Z"),
             )
+
+    def test_s01_http_success_alone_does_not_prove_issuer_tender_coverage(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            database = Path(tmp) / "signalforge.db"
+            migrate(database)
+            source = Registry.load(Path(__file__).resolve().parents[1]).source("S01")
+            now = datetime(2026, 10, 15, 0, 10, tzinfo=UTC)
+            with connect(database) as conn, conn:
+                conn.execute(
+                    "INSERT INTO source_state(source_id,baseline_complete,last_success_at,next_due_at,last_error,consecutive_failures,updated_at) "
+                    "VALUES (?,?,?,?,?,?,?)",
+                    ("S01", 1, "2026-10-15T00:00:00Z", "2026-10-16T00:00:00Z", None, 0, "2026-10-15T00:00:00Z"),
+                )
+                unproven = _source_health(conn, "S01", source, now)
+            self.assertEqual(unproven["source_health"], "YELLOW")
+            self.assertEqual(unproven["reason_code"], "ISSUER_EVIDENCE")
+            self.assertEqual(unproven["issuer_tender_evidence_count"], 0)
+            self._canonical(
+                database, key="national-portal-document:verified-1",
+                source_id="S01", url="https://myanmar.gov.mm/documents/verified.pdf",
+            )
+            with connect(database) as conn:
+                proven = _source_health(conn, "S01", source, now)
+            self.assertEqual(proven["source_health"], "GREEN")
+            self.assertEqual(proven["issuer_tender_evidence_count"], 1)
 
     def test_pass_when_health_and_tender_coverage_agree(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
