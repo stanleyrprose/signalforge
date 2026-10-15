@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from functools import partial
+
 import hashlib
 import json
 import time
@@ -730,6 +732,8 @@ def _acquire_source_bytes(
         profile = source.get("http_fetch_profile")
         if profile == "cloudrity_d1n_v1" and fetcher is fetch_bytes:
             effective_fetcher = fetch_bytes_cloudrity_d1n
+        elif profile == "cloudrity_d1n_expired_cert_v1" and fetcher is fetch_bytes:
+            effective_fetcher = partial(fetch_bytes_cloudrity_d1n, allow_expired_certificate=True)
         return acquire_local_bytes(**common, fetcher=effective_fetcher)
     if engine == "provider":
         roles = source.get("provider_target_roles") or {}

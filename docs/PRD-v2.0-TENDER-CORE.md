@@ -161,3 +161,16 @@ Any older document that describes precursor, multi-tenant/pilot, standalone dige
 ## 2026-10-12 S01/S51 Mac Browser Plane routing amendment
 
 S01 and S51 use the existing mac-mm-01 PUBLIC_READ_ACQUIRE provider for discovery HTML, detail HTML and same-origin PDF; they no longer use Bangkok direct_http. This is a targeted routing change, not a global disabling of TLS validation. Mac Browser Plane must fetch and retain original document bytes and evidence provenance. If browser acquisition fails, record TLS/browser failure rather than manufacturing a tender. S01 remains a separate issuer-PDF parser, while S51 retains its Digital Development parser; exact URL deduplication is applied before S01 canonical insertion. Production verification requires real portal HTML and issuer PDF evidence.
+
+
+## 2026-10-15 explicit S41 owner-approved issuer TLS exception
+
+- Owner explicitly accepts reduced transport trust for **S41 MYTEL only** to restore issuer-original tender feed access while Viettel Global's certificate is expired.
+- Perform a standard TLS-verifying request first. A second request without certificate verification is allowed **only when the original failure specifically says the certificate expired**, and only for HTTPS on `viettelglobal.com.vn` or `www.viettelglobal.com.vn`. No HTTP downgrade, non-issuer redirect, global SSL override, or fallback on host mismatch/unknown CA.
+- Preserve the original D1N challenge, canonical verification, business readiness checks and signal/delivery de-duplication. Emit an auditable warning whenever relaxed verification is actually exercised. This exception does not prove authenticity against an active MITM; owner knowingly accepts the risk.
+- Revert the exception after issuer certificate renewal has been independently verified; no other source receives this exception.
+
+## 2026-10-15 S20 official PDF route degradation handling
+
+- MOEP issuer HTML contains links under `/mm/userfile/` that return HTTP 404, including recent and older documents. Never invent alternate download links or deadline/quantity from missing PDFs.
+- Keep existing HTML-based Canonical evidence and non-blocking metadata policy. After daily tender delivery, perform a bounded HEAD-only check of up to five recent official S20 tender attachments and save the result in the daily state checkpoint. Include HTTP 404 count in the once-daily coverage report. This availability check is not PDF evidence, parsing or canonical promotion.

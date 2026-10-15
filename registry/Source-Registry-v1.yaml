@@ -2153,7 +2153,7 @@
       "discovery_url": "https://viettelglobal.com.vn/en/get-post-press-room?categories_id=82&offset=0&limit=100",
       "discovery_is_tender_only": false,
       "listing_complete_business_records": true,
-      "http_fetch_profile": "cloudrity_d1n_v1",
+      "http_fetch_profile": "cloudrity_d1n_expired_cert_v1",
       "language": "en",
       "poll_interval_seconds": 86400,
       "retry_interval_seconds": 300,

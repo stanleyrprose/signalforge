@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import ssl
 import urllib.error
 import urllib.request
@@ -84,14 +85,36 @@ def _fetch_bytes_with_context(
     return data
 
 
-def _fetch_bytes_with_headers(url: str, *, timeout: int, max_bytes: int, headers: dict[str, str]) -> bytes:
-    return _fetch_bytes_with_context(
-        url,
-        timeout=timeout,
-        max_bytes=max_bytes,
-        headers=headers,
-        context=ssl.create_default_context(),
-    )
+def _fetch_bytes_with_headers(
+    url: str, *, timeout: int, max_bytes: int, headers: dict[str, str],
+    expired_cert_hosts: set[str] | None = None,
+) -> bytes:
+    try:
+        return _fetch_bytes_with_context(
+            url, timeout=timeout, max_bytes=max_bytes, headers=headers,
+            context=ssl.create_default_context(),
+            allowed_redirect_hosts=expired_cert_hosts,
+        )
+    except FetchError as exc:
+        # Issuer-specific, explicitly approved exception: only expired certs;
+        # host mismatches, unknown CAs and other TLS failures stay fail-closed.
+        message = " ".join(str(item) for item in _walk_exception(exc)).lower()
+        if expired_cert_hosts is None or not (
+            "certificate has expired" in message or "certificate expired" in message
+        ):
+            raise
+        parsed = urlparse(url)
+        if (parsed.scheme != "https" or (parsed.hostname or "").lower() not in expired_cert_hosts
+            or parsed.username is not None or parsed.password is not None or parsed.port not in (None, 443)):
+            raise
+        logging.getLogger(__name__).warning(
+            "S41 issuer TLS expiry exception used for approved host: %s", parsed.hostname
+        )
+        return _fetch_bytes_with_context(
+            url, timeout=timeout, max_bytes=max_bytes, headers=headers,
+            context=ssl._create_unverified_context(),
+            allowed_redirect_hosts=expired_cert_hosts,
+        )
 
 
 def fetch_bytes(url: str, *, timeout: int = 30, max_bytes: int = 2_000_000) -> bytes:
@@ -137,17 +160,29 @@ _CLOUDRITY_D1N_HOSTS = {"viettelglobal.com.vn", "www.viettelglobal.com.vn"}
 _D1N_CHALLENGE_RE = re.compile(rb'document\.cookie="D1N=([0-9a-f]{16,64})"[^<]{0,220}window\.location\.reload\(true\)')
 
 
-def fetch_bytes_cloudrity_d1n(url: str, *, timeout: int = 30, max_bytes: int = 2_000_000) -> bytes:
+def fetch_bytes_cloudrity_d1n(
+    url: str, *, timeout: int = 30, max_bytes: int = 2_000_000,
+    allow_expired_certificate: bool = False,
+) -> bytes:
     parsed = urlparse(url)
-    if parsed.scheme != "https" or (parsed.hostname or "").lower() not in _CLOUDRITY_D1N_HOSTS:
+    if (parsed.scheme != "https" or (parsed.hostname or "").lower() not in _CLOUDRITY_D1N_HOSTS
+        or parsed.username is not None or parsed.password is not None or parsed.port not in (None, 443)
+        or parsed.fragment):
         raise FetchError(f"Cloudrity D1N profile not authorized for host: {url}")
     headers = {"User-Agent": USER_AGENT, "Accept": "application/json,text/html;q=0.9,*/*;q=0.8"}
-    first = _fetch_bytes_with_headers(url, timeout=timeout, max_bytes=max_bytes, headers=headers)
+    exception_hosts = _CLOUDRITY_D1N_HOSTS if allow_expired_certificate else None
+    first = _fetch_bytes_with_headers(
+        url, timeout=timeout, max_bytes=max_bytes, headers=headers,
+        expired_cert_hosts=exception_hosts,
+    )
     match = _D1N_CHALLENGE_RE.search(first)
     if match is None:
         return first
     headers["Cookie"] = f"D1N={match.group(1).decode('ascii')}"
-    second = _fetch_bytes_with_headers(url, timeout=timeout, max_bytes=max_bytes, headers=headers)
+    second = _fetch_bytes_with_headers(
+        url, timeout=timeout, max_bytes=max_bytes, headers=headers,
+        expired_cert_hosts=exception_hosts,
+    )
     if _D1N_CHALLENGE_RE.search(second) is not None:
         raise FetchError(f"Cloudrity D1N challenge persisted after one retry: {url}")
     return second

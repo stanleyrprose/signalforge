@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import ssl
 import sqlite3
 import tempfile
 import unittest
@@ -10,7 +11,7 @@ from unittest.mock import patch
 
 from signalforge.config import Registry
 from signalforge.engine import run_source
-from signalforge.http import FetchError, fetch_bytes_cloudrity_d1n
+from signalforge.http import FetchError, fetch_bytes_cloudrity_d1n, _fetch_bytes_with_headers
 from signalforge.mytel import MYTEL_FEED_URL, MytelParseError, parse_tender_records
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
@@ -86,6 +87,32 @@ class MytelParserTests(unittest.TestCase):
 
 
 class MytelHttpProfileTests(unittest.TestCase):
+    def test_expired_certificate_exception_is_issuer_bound_and_failure_specific(self) -> None:
+        with patch("signalforge.http._fetch_bytes_with_context", side_effect=[
+            FetchError("certificate verify failed: certificate has expired"),
+            b'{"data":[]}',
+        ]) as mock_fetch:
+            result = _fetch_bytes_with_headers(
+                MYTEL_FEED_URL, timeout=4, max_bytes=1000, headers={},
+                expired_cert_hosts={"viettelglobal.com.vn", "www.viettelglobal.com.vn"},
+            )
+        self.assertEqual(result, b'{"data":[]}')
+        self.assertEqual(mock_fetch.call_count, 2)
+        self.assertEqual(mock_fetch.call_args_list[0].kwargs["context"].verify_mode, ssl.CERT_REQUIRED)
+        self.assertEqual(mock_fetch.call_args_list[1].kwargs["context"].verify_mode, ssl.CERT_NONE)
+
+        for error in ("certificate verify failed: hostname mismatch", "certificate verify failed: self-signed certificate"):
+            with self.subTest(error=error), patch(
+                "signalforge.http._fetch_bytes_with_context",
+                side_effect=FetchError(error),
+            ) as mock_fetch:
+                with self.assertRaises(FetchError):
+                    _fetch_bytes_with_headers(
+                        MYTEL_FEED_URL, timeout=4, max_bytes=1000, headers={},
+                        expired_cert_hosts={"viettelglobal.com.vn"},
+                    )
+                self.assertEqual(mock_fetch.call_count, 1)
+
     def test_d1n_profile_retries_once_with_host_bound_cookie(self) -> None:
         challenge = b'<html><body><script>document.cookie="D1N=abcdef0123456789"+"; expires=x; path=/";window.location.reload(true);</script></body></html>'
         final = b'{"data": []}'
@@ -180,7 +207,7 @@ class MytelRegistryTests(unittest.TestCase):
         self.assertEqual(source["network_zone"], "myanmar-international")
         self.assertTrue(source["listing_complete_business_records"])
         self.assertFalse(source["discovery_is_tender_only"])
-        self.assertEqual(source["http_fetch_profile"], "cloudrity_d1n_v1")
+        self.assertEqual(source["http_fetch_profile"], "cloudrity_d1n_expired_cert_v1")
         self.assertIn("limit=100", source["discovery_url"])
         self.assertEqual(source["request_max_bytes"], 1_000_000)
         self.assertEqual(source["canonical_key"], "mytel_rfp_serial_year")

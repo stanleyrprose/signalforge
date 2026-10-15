@@ -111,7 +111,10 @@ class Registry:
             fetch_profile = source.get("http_fetch_profile")
             allowed_fetch_profiles = {
                 "cloudrity_d1n_v1",
+                "cloudrity_d1n_expired_cert_v1",
             }
+            if fetch_profile == "cloudrity_d1n_expired_cert_v1" and source_id != "S41":
+                raise ConfigError(f"expired issuer TLS exception is S41-only: {source_id}")
             if fetch_profile is not None and (
                 source.get("engine") != "direct_http" or fetch_profile not in allowed_fetch_profiles
             ):

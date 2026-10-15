@@ -30,7 +30,7 @@ def _write_json(path: Path, payload: dict[str, object]) -> None:
     os.replace(temp, path)
 
 
-def _coverage_report(day: str, acquisition: dict[str, object], delivery: dict[str, object], image_ocr: dict[str, object] | None = None) -> str:
+def _coverage_report(day: str, acquisition: dict[str, object], delivery: dict[str, object], image_ocr: dict[str, object] | None = None, attachment_health: dict[str, object] | None = None) -> str:
     results = acquisition.get("results") or []
     if not isinstance(results, list):
         raise ValueError("daily acquisition results must be a list")
@@ -46,6 +46,15 @@ def _coverage_report(day: str, acquisition: dict[str, object], delivery: dict[st
     ]
     if image_ocr is not None:
         lines.append(f"S01 图片 OCR：尝试 {image_ocr.get('attempted', 0)}，成功 {image_ocr.get('completed', 0)}，失败 {image_ocr.get('failed', 0)}；结果仅供审核。")
+    if attachment_health is not None:
+        checked = int(attachment_health.get("checked_count", 0))
+        broken = int(attachment_health.get("http_404_count", 0))
+        if checked:
+            lines.append(
+                f"S20 \u5b98\u65b9 PDF \u9644\u4ef6\uff1a\u8fd145\u5929\u62bd\u67e5 {checked} \u4efd\uff1bHTTP 404 {broken} \u4efd\u3002\u7f3a\u5931\u7684\u7269\u9879\u3001\u6570\u91cf\u53ca\u6295\u6807\u622a\u6b62\u65e5\u671f\u4e0d\u5f97\u731c\u6d4b\u3002"
+            )
+        elif attachment_health.get("status") == "CHECK_FAILED":
+            lines.append("S20 PDF \u9644\u4ef6\u5065\u5eb7\u68c0\u67e5\u5931\u8d25\uff0c\u9644\u4ef6\u53ef\u7528\u6027\u672a\u77e5\u3002")
     if failed:
         lines.append("⚠️ 未成功采集来源：")
         for item in failed[:28]:
@@ -72,6 +81,7 @@ def daily_cycle() -> dict[str, object]:
     prefix = f"daily-cycle-{day}"
     acquisition_path = state_root / f"{prefix}-acquisition.json"
     image_path = state_root / f"{prefix}-image-ocr.json"
+    attachment_path = state_root / f"{prefix}-moep-attachments.json"
     delivery_path = state_root / f"{prefix}-delivery.json"
     report_path = state_root / f"{prefix}-report.json"
     complete_path = state_root / f"{prefix}-complete.json"
@@ -113,6 +123,15 @@ def daily_cycle() -> dict[str, object]:
                 return {"status": "DELIVERY_FAILED", "day": day,
                         "error": f"{type(exc).__name__}: {exc}"[:300]}
             _write_json(delivery_path, delivery)
+        if attachment_path.exists():
+            attachment_health = json.loads(attachment_path.read_text(encoding="utf-8"))
+        else:
+            try:
+                from .moep_attachment_health import probe_recent_s20_attachments
+                attachment_health = probe_recent_s20_attachments(db_path())
+            except Exception as exc:
+                attachment_health = {"status": "CHECK_FAILED", "error": f"{type(exc).__name__}: {exc}"[:160]}
+            _write_json(attachment_path, attachment_health)
         if not report_path.exists():
             token = os.environ.get("SIGNALFORGE_TELEGRAM_BOT_TOKEN", "")
             chat = os.environ.get("SIGNALFORGE_TELEGRAM_CHAT_ID", "")
@@ -121,7 +140,7 @@ def daily_cycle() -> dict[str, object]:
             try:
                 message_id = _send_message(
                     bot_token=token, chat_id=chat,
-                    text=_coverage_report(day, acquisition, delivery, image_ocr),
+                    text=_coverage_report(day, acquisition, delivery, image_ocr, attachment_health),
                 )
             except Exception as exc:
                 return {"status": "REPORT_FAILED", "day": day,
