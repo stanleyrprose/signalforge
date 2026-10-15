@@ -35,7 +35,9 @@ class S01ReviewedImageTender:
     reviewed_at: str
 
     item_kind = "TENDER"
-    reference_no = None
+    # Storage requires NOT NULL; empty string means official reference unknown.
+    # Never manufacture a source-issued tender reference from the URL or hash.
+    reference_no = ""
     publication_date = None
     location = None
 
