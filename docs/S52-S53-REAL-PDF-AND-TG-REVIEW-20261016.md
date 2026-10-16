@@ -40,3 +40,13 @@ Do not call source GREEN or tender coverage complete on an empty parser result. 
 用户再次判定 R05 FAIL：Coverage Audit 已有121条候选、116条初步去重，但 Key News 硬编码挑选20条导致内容遗漏。Mac News Publisher 增加逐条对账：最终R06共121条候选，115条独立新闻，5条NCA/G20同一事件关联报道以正文续文形式保留合并，1条残缺待核。所有候选附文章ID、原报页码、明确去向。82篇仍需内容/专名核实；这不是最终正式审定新闻。
 
 由Bangkok VPS上 **SignalForge现有Bot** 发送新审核稿，消息ID 391（28页完整版中文新闻PDF）、392（4页逐条去向Audit）、393（验收说明）。Telegram发送未写入SignalForge business signals，回执已存入Bangkok private state。生产依旧原有28源，没有将新报纸源部署到生产；无自动日报。
+
+## 2026-10-16 R06 PASS — 手机阅读Digest新增（独立新闻流程）
+
+用户R06完整中文新闻PDF版式/覆盖率审核通过。明确要求：以后每次由Bangkok推送两份报纸中文新闻PDF时，**同时推送一条从全文提炼的高价值中文Digest**（不是R05的Top20删减版）。Digest通常8–12条，以Myanmar政策/NCA、电信、工程能源国企招标、投资、燃油、外汇等优先；逐条保留正文Nnnn编号、原报页码、简明说明和风险提示。不会向传统Tender Signal写入内容。
+
+Mac `macmini_automation`新增 `scripts/newspaper_digest.py`：复用完整版新闻清单，确定性选择12条，按Telegram 4096 UTF-16长度拆分，JSON同时绑定官方PDF SHA及中文版PDF SHA，不额外调用LLM。
+
+本仓库新增 `tools/send_newspaper_daily_digest_tg.py`：Bangkok原有SignalForge Bot发送顺序为 **Digest消息→完整版中文版PDF**，按paper/date/SHA保留持久回执，失败不可盲目重发。对于R06已发送过的PDF（旧消息391），通过`--digest-only --preview`仅发了Digest试运行，Telegram实际消息 **394**。不同于S52/S53招标source采集，完整新闻翻译+摘要的代码继续由Mac仓库管理。
+
+当前仅为开发分支/实测投递；未PR/CI/Merge，未开启定时自动日报，也未部署S52/S53新source。正式启用须获得分阶段授权，并先验证新闻Digest稿可读性。
