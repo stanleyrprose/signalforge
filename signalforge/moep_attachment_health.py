@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import re
+import ssl
 import urllib.error
 import urllib.request
 from datetime import UTC, datetime, timedelta
@@ -10,6 +11,8 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from .db import connect
+from .http import _SameOriginHttpsRedirectHandler
+from .moep_reviewed_enrichment import apply_reviewed_moep_overlay
 
 
 def probe_recent_s20_attachments(
@@ -19,17 +22,23 @@ def probe_recent_s20_attachments(
     """HEAD at most five issuer-linked PDFs. Never invent missing tender facts."""
     if not 1 <= max_checks <= 5 or not 1 <= timeout <= 10:
         raise ValueError("S20 attachment check must remain bounded")
-    opener = opener or urllib.request.urlopen
+    if opener is None:
+        opener = urllib.request.build_opener(
+            urllib.request.HTTPSHandler(context=ssl.create_default_context()),
+            _SameOriginHttpsRedirectHandler({"moep.gov.mm", "www.moep.gov.mm"}),
+        ).open
     today = (now or datetime.now(UTC)).astimezone(UTC)
     cutoff = (today - timedelta(days=45)).date().isoformat()
     with connect(database) as conn:
         rows = conn.execute(
-            "SELECT canonical_key,payload_json FROM canonical_items "
+            "SELECT canonical_key,reference_no,publication_date,url,payload_json FROM canonical_items "
             "WHERE source_id='S20' AND item_kind='TENDER' AND publication_date>=? "
             "AND deadline IS NULL ORDER BY publication_date DESC LIMIT 25",
             (cutoff,),
         ).fetchall()
     urls = {}
+    reviewed_official_count = 0
+    reviewed_deadline_count = 0
     for row in rows:
         try:
             payload = json.loads(str(row["payload_json"] or "{}"))
@@ -48,7 +57,23 @@ def probe_recent_s20_attachments(
             or parsed.query or parsed.fragment
         ):
             continue
-        urls.setdefault(url, str(row["canonical_key"]))
+        if url in urls:
+            continue
+        urls[url] = str(row["canonical_key"])
+        original_payload = {
+            **payload,
+            "publication_date": payload.get("publication_date") or row["publication_date"],
+            "url": payload.get("url") or row["url"],
+        }
+        enriched = apply_reviewed_moep_overlay(
+            original_payload,
+            canonical_key=str(row["canonical_key"]),
+            source_id="S20", item_kind="TENDER",
+            reference_no=str(payload.get("reference_no") or row["reference_no"] or ""),
+        )
+        if enriched.get("reviewed_attachment_status"):
+            reviewed_official_count += 1
+            reviewed_deadline_count += int(bool(enriched.get("deadline")))
         if len(urls) == max_checks:
             break
 
@@ -73,6 +98,8 @@ def probe_recent_s20_attachments(
         "checked_count": len(results),
         "http_404_count": missing,
         "pdf_accessible_count": healthy,
+        "reviewed_attachment_evidence_count": reviewed_official_count,
+        "reviewed_submission_deadline_count": reviewed_deadline_count,
         "rows": results,
         "meaning": "Availability only; HEAD responses do not authorize PDF-derived item, quantity, or deadline fields",
     }

@@ -30,7 +30,7 @@ def _write_json(path: Path, payload: dict[str, object]) -> None:
     os.replace(temp, path)
 
 
-def _coverage_report(day: str, acquisition: dict[str, object], delivery: dict[str, object], image_ocr: dict[str, object] | None = None, attachment_health: dict[str, object] | None = None) -> str:
+def _coverage_report(day: str, acquisition: dict[str, object], delivery: dict[str, object], image_ocr: dict[str, object] | None = None, attachment_health: dict[str, object] | None = None, s01_verified: dict[str, object] | None = None) -> str:
     results = acquisition.get("results") or []
     if not isinstance(results, list):
         raise ValueError("daily acquisition results must be a list")
@@ -46,6 +46,17 @@ def _coverage_report(day: str, acquisition: dict[str, object], delivery: dict[st
     ]
     if image_ocr is not None:
         lines.append(f"S01 图片 OCR：尝试 {image_ocr.get('attempted', 0)}，成功 {image_ocr.get('completed', 0)}，失败 {image_ocr.get('failed', 0)}；结果仅供审核。")
+    if s01_verified is not None:
+        reviewed = int(s01_verified.get("reviewed", 0))
+        created = int(s01_verified.get("promoted", 0))
+        if s01_verified.get("status") == "CHECK_FAILED":
+            lines.append("S01 正式招标复核入库检查失败；本轮有效新增数未知。")
+        else:
+            lines.append(
+                f"S01 官方原图复核：已审核 {reviewed} 件；新入库可信招标 {created}；"
+                f"缺投标提交截止日 {int(s01_verified.get('blocked_missing_bid_deadline', 0))}；"
+                f"非采购 {int(s01_verified.get('excluded_nonprocurement', 0))}。"
+            )
     if attachment_health is not None:
         checked = int(attachment_health.get("checked_count", 0))
         broken = int(attachment_health.get("http_404_count", 0))
@@ -54,7 +65,19 @@ def _coverage_report(day: str, acquisition: dict[str, object], delivery: dict[st
                 f"S20 \u5b98\u65b9 PDF \u9644\u4ef6\uff1a\u8fd145\u5929\u62bd\u67e5 {checked} \u4efd\uff1bHTTP 404 {broken} \u4efd\u3002\u7f3a\u5931\u7684\u7269\u9879\u3001\u6570\u91cf\u53ca\u6295\u6807\u622a\u6b62\u65e5\u671f\u4e0d\u5f97\u731c\u6d4b\u3002"
             )
         elif attachment_health.get("status") == "CHECK_FAILED":
-            lines.append("S20 PDF \u9644\u4ef6\u5065\u5eb7\u68c0\u67e5\u5931\u8d25\uff0c\u9644\u4ef6\u53ef\u7528\u6027\u672a\u77e5\u3002")
+            lines.append("S20 PDF 附件健康检查失败，附件可用性未知。")
+        recovery = attachment_health.get("recovery")
+        if isinstance(recovery, dict):
+            lines.append(
+                f"S20 历史官方附件核验记录：{int(attachment_health.get('reviewed_attachment_evidence_count', 0))} 份；"
+                f"其中有独立截止日证据 {int(attachment_health.get('reviewed_submission_deadline_count', 0))} 份。"
+            )
+            lines.append(
+                f"S20 PDF 原件恢复：存档 {int(recovery.get('downloaded_count', 0))} 份，"
+                f"原生文本恢复 {int(recovery.get('native_text_count', 0))} 份，"
+                f"需扫描/OCR/复核 {int(recovery.get('scan_or_parse_review_count', 0))} 份；"
+                "未复核内容不自动补写投标截止日期。"
+            )
     if failed:
         lines.append("⚠️ 未成功采集来源：")
         for item in failed[:28]:
@@ -81,6 +104,7 @@ def daily_cycle() -> dict[str, object]:
     prefix = f"daily-cycle-{day}"
     acquisition_path = state_root / f"{prefix}-acquisition.json"
     image_path = state_root / f"{prefix}-image-ocr.json"
+    s01_verified_path = state_root / f"{prefix}-s01-verified.json"
     attachment_path = state_root / f"{prefix}-moep-attachments.json"
     delivery_path = state_root / f"{prefix}-delivery.json"
     report_path = state_root / f"{prefix}-report.json"
@@ -112,6 +136,15 @@ def daily_cycle() -> dict[str, object]:
                 image_ocr = {"attempted": 0, "completed": 0, "failed": 1,
                              "error": f"{type(exc).__name__}: {exc}"[:200]}
             _write_json(image_path, image_ocr)
+        if s01_verified_path.exists():
+            s01_verified = json.loads(s01_verified_path.read_text(encoding="utf-8"))
+        else:
+            try:
+                from .s01_reviewed_tenders import promote_reviewed_s01_images
+                s01_verified = promote_reviewed_s01_images(db_path())
+            except Exception as exc:
+                s01_verified = {"status": "CHECK_FAILED", "error": f"{type(exc).__name__}: {exc}"[:180]}
+            _write_json(s01_verified_path, s01_verified)
         if delivery_path.exists():
             delivery = json.loads(delivery_path.read_text(encoding="utf-8"))
         else:
@@ -129,6 +162,10 @@ def daily_cycle() -> dict[str, object]:
             try:
                 from .moep_attachment_health import probe_recent_s20_attachments
                 attachment_health = probe_recent_s20_attachments(db_path())
+                from .moep_attachment_recovery import recover_accessible_s20_pdfs
+                attachment_health["recovery"] = recover_accessible_s20_pdfs(
+                    db_path(), attachment_health,
+                )
             except Exception as exc:
                 attachment_health = {"status": "CHECK_FAILED", "error": f"{type(exc).__name__}: {exc}"[:160]}
             _write_json(attachment_path, attachment_health)
@@ -140,7 +177,7 @@ def daily_cycle() -> dict[str, object]:
             try:
                 message_id = _send_message(
                     bot_token=token, chat_id=chat,
-                    text=_coverage_report(day, acquisition, delivery, image_ocr, attachment_health),
+                    text=_coverage_report(day, acquisition, delivery, image_ocr, attachment_health, s01_verified),
                 )
             except Exception as exc:
                 return {"status": "REPORT_FAILED", "day": day,
