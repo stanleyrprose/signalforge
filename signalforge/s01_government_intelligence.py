@@ -68,3 +68,33 @@ def intelligence_review_preview(database: Path) -> dict[str, object]:
             "中文翻译状态": "待翻译与人工验收",
         })
     return {"status": "REVIEW_ONLY", "count": len(items), "items": items}
+
+
+def intelligence_coverage_audit(database: Path) -> dict[str, object]:
+    """Account for all acquired S01 image candidates, including unreviewed and failed OCR."""
+    with connect(database) as conn:
+        has_images = conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='s01_image_review'").fetchone()
+        rows = conn.execute("SELECT review_status,COUNT(*) FROM s01_image_review GROUP BY review_status").fetchall() if has_images else []
+        counts = {str(status): count for status, count in rows}
+        reviewed = conn.execute("SELECT COUNT(*) FROM government_intelligence_items WHERE source_id='S01'").fetchone()[0]
+    return {"source": "S01", "image_candidates": sum(counts.values()),
+            "review_status_counts": counts, "verified_non_tender_items": reviewed,
+            "coverage_complete": False,
+            "limitations": "S01 tender listing images only; does not cover portal-wide government news"}
+
+
+def render_intelligence_digest(database: Path) -> str:
+    """Review draft, with clearly marked untranslated original fields."""
+    preview = intelligence_review_preview(database)
+    audit = intelligence_coverage_audit(database)
+    lines = ["📰 S01 政府重要信息｜中文审核稿（禁止当作正式新闻推送）",
+             f"已核实非招标公告：{preview['count']}；已发现图片候选：{audit['image_candidates']}；全站覆盖：未验证。"]
+    for i, item in enumerate(preview["items"], 1):
+        lines.extend([f"{i}. 【{item['类别']}】{item['公告标题（原文）']}",
+                      f"发布单位：{item['发布单位（原文）']}",
+                      f"内容（原文）：{item['内容（原文）']}",
+                      f"证据 SHA256：{item['证据SHA256']}",
+                      "中文译文：待生成／审核，不得将原文标为已翻译。"])
+    if not preview["items"]:
+        lines.append("本次没有可核实的非招标公告；不能据此认定官网没有重要新闻。")
+    return "\n".join(lines)
