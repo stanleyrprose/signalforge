@@ -115,6 +115,52 @@ class RailwayParserTests(unittest.TestCase):
 
 
 class RailwayEngineTests(unittest.TestCase):
+    def test_older_less_complete_post_does_not_overwrite_current_tender(self) -> None:
+        tender = parse_tender_detail((FIXTURES / "railways_tender_detail.html").read_bytes(), DETAIL_URL)[0]
+        current = replace(tender, publication_date="2026-06-04", deadline="2026-06-10")
+        older = replace(tender, publication_date="2026-05-25", deadline=None, project_name="Short title", url="https://www.railways.gov.mm/posts/old")
+        amendment = replace(current, deadline="2026-06-12")
+        with tempfile.TemporaryDirectory() as tmp:
+            database = Path(tmp) / "signalforge.db"
+            migrate(database)
+            with connect(database) as conn, conn:
+                self.assertEqual(_upsert_tender(conn, source_id="S21", tender=current, observed_at="2026-10-12T00:00:00Z", suppress_signal=True, evidence_digest="a" * 64), (True, 0))
+                self.assertEqual(_upsert_tender(conn, source_id="S21", tender=older, observed_at="2026-10-13T00:00:00Z", suppress_signal=False, evidence_digest="b" * 64), (False, 0))
+                row = conn.execute("SELECT payload_json FROM canonical_items WHERE canonical_key=?", (current.canonical_key,)).fetchone()
+                self.assertEqual(json.loads(row["payload_json"])["deadline"], "2026-06-10")
+                self.assertEqual(_upsert_tender(conn, source_id="S21", tender=amendment, observed_at="2026-10-14T00:00:00Z", suppress_signal=False, evidence_digest="c" * 64), (True, 1))
+
+    def test_production_s21_46_47_versions_converge_without_repeated_updates(self) -> None:
+        """Reproduce the two real October 16 signal payload date/deadline pairs."""
+        template = parse_tender_detail((FIXTURES / "railways_tender_detail.html").read_bytes(), DETAIL_URL)[0]
+        with tempfile.TemporaryDirectory() as tmp:
+            database = Path(tmp) / "signalforge.db"
+            migrate(database)
+            with connect(database) as conn, conn:
+                for number in ("46/မမ/CE", "47/မမ/CE"):
+                    old = replace(template, reference_no=number, publication_date="2026-05-25", deadline=None, project_name="Short notice", url="https://www.railways.gov.mm/posts/old")
+                    detailed = replace(template, reference_no=number, publication_date="2026-06-04", deadline="2026-05-25", project_name="Detailed notice", url="https://www.railways.gov.mm/posts/detailed")
+                    self.assertEqual(_upsert_tender(conn, source_id="S21", tender=old, observed_at="2026-10-16T00:00:00Z", suppress_signal=True, evidence_digest="a" * 64), (True, 0))
+                    self.assertEqual(_upsert_tender(conn, source_id="S21", tender=detailed, observed_at="2026-10-16T00:00:01Z", suppress_signal=False, evidence_digest="b" * 64), (True, 1))
+                    for _ in range(3):
+                        self.assertEqual(_upsert_tender(conn, source_id="S21", tender=old, observed_at="2026-10-16T00:00:02Z", suppress_signal=False, evidence_digest="a" * 64), (False, 0))
+                        self.assertEqual(_upsert_tender(conn, source_id="S21", tender=detailed, observed_at="2026-10-16T00:00:03Z", suppress_signal=False, evidence_digest="b" * 64), (False, 0))
+                    saved = conn.execute("SELECT payload_json FROM canonical_items WHERE canonical_key=?", (detailed.canonical_key,)).fetchone()
+                    self.assertEqual(json.loads(saved["payload_json"])["deadline"], "2026-05-25")
+
+    def test_older_equal_completeness_different_title_cannot_overwrite(self) -> None:
+        tender = parse_tender_detail((FIXTURES / "railways_tender_detail.html").read_bytes(), DETAIL_URL)[0]
+        current = replace(tender, publication_date="2026-06-04", project_name="Current detailed scope")
+        historical = replace(tender, publication_date="2026-05-25", project_name="Different historical scope")
+        with tempfile.TemporaryDirectory() as tmp:
+            database = Path(tmp) / "signalforge.db"
+            migrate(database)
+            with connect(database) as conn, conn:
+                self.assertEqual(_upsert_tender(conn, source_id="S21", tender=current, observed_at="2026-10-16T00:00:00Z", suppress_signal=True, evidence_digest="a" * 64), (True, 0))
+                self.assertEqual(_upsert_tender(conn, source_id="S21", tender=historical, observed_at="2026-10-16T00:00:01Z", suppress_signal=False, evidence_digest="b" * 64), (False, 0))
+                saved = conn.execute("SELECT payload_json FROM canonical_items WHERE canonical_key=?", (current.canonical_key,)).fetchone()
+                self.assertEqual(json.loads(saved["payload_json"])["project_name"], "Current detailed scope")
+
     def test_rotating_post_url_is_not_a_material_tender_update(self) -> None:
         tender = parse_tender_detail((FIXTURES / "railways_tender_detail.html").read_bytes(), DETAIL_URL)[0]
         rotated = replace(tender, url="https://www.railways.gov.mm/posts/new-opaque-token")

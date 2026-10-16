@@ -612,6 +612,18 @@ def _upsert_tender(
             previous_payload = None
         if isinstance(previous_payload, dict):
             previous_hash = _material_hash({k: v for k, v in previous_payload.items() if k != "url"})
+    # S21 can expose the same reference in multiple historical post pages.
+    # Do not let an older, less complete notice replace a newer detailed one.
+    # Equal/newer notices still go through material-change detection so real
+    # amendments, including deadline changes, remain eligible for alerts.
+    if existing is not None and source_id == "S21" and isinstance(previous_payload, dict):
+        old_date = previous_payload.get("publication_date")
+        new_date = payload.get("publication_date")
+        # A strictly older dated post is historical, regardless of how many
+        # optional fields it happens to populate. Equal-date amendments still
+        # pass through material-change detection below.
+        if isinstance(old_date, str) and isinstance(new_date, str) and len(old_date) == 10 and len(new_date) == 10 and old_date[4:5] == new_date[4:5] == "-" and old_date[7:8] == new_date[7:8] == "-" and old_date.replace("-", "").isdigit() and new_date.replace("-", "").isdigit() and new_date < old_date:
+            return False, 0
     changed = existing is None or previous_hash != content_hash
     if existing is None:
         conn.execute(
