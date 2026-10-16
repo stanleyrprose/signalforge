@@ -50,3 +50,7 @@ Mac `macmini_automation`新增 `scripts/newspaper_digest.py`：复用完整版�
 本仓库新增 `tools/send_newspaper_daily_digest_tg.py`：Bangkok原有SignalForge Bot发送顺序为 **Digest消息→完整版中文版PDF**，按paper/date/SHA保留持久回执，失败不可盲目重发。对于R06已发送过的PDF（旧消息391），通过`--digest-only --preview`仅发了Digest试运行，Telegram实际消息 **394**。不同于S52/S53招标source采集，完整新闻翻译+摘要的代码继续由Mac仓库管理。
 
 当前仅为开发分支/实测投递；未PR/CI/Merge，未开启定时自动日报，也未部署S52/S53新source。正式启用须获得分阶段授权，并先验证新闻Digest稿可读性。
+
+## Digest Rev2 — 增加AI语义新闻编辑校验
+
+用户再次调整新闻优先级：政治/政策、经济、地缘政治、国际关系、民生社会、国内冲突/和平进程优先，工程招标只保留重大影响；AI需评估事件的新信息量并引用已有旧期新闻。Mac开发`newspaper_digest_ai.py`且要求全部文章都得到AI评估，Bangkok的`send_newspaper_daily_digest_tg.py`现在能验收严格的`newspaper-digest-v2`协议。真实调用Codex OAuth遭遇额度限制，**尚未产生或推送AI真实Digest**；旧TG 394仍是规则版。投递流程仍处开发分支，正式生产不变。详细见`docs/NEWSPAPER-DIGEST-V2-CONTRACT.md`。

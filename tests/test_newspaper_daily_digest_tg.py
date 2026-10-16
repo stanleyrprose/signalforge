@@ -65,6 +65,51 @@ class DigestDeliveryTests(unittest.TestCase):
                 self.assertIn("试运行",text_send.call_args.args[2])
                 pdf_send.assert_not_called()
 
+    def test_v2_ai_manifest_must_cover_every_article_and_history(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            bundle,pdf=self.fixture(root)
+            data=json.loads(bundle.read_text())
+            data.update({
+                "schema_version":"newspaper-digest-v2",
+                "selection_method":"AI_SEMANTIC_WITH_RULES",
+                "ai_assessed_count":115,
+                "novelty_baseline":"NO_HISTORY",
+                "ai_input_fingerprint":"b"*64,
+            })
+            data["selected"][0].update({
+                "novelty_status":"UNKNOWN",
+                "why_it_matters":"该事件对公众政策落实与经济环境存在影响。"
+            })
+            mod.validate_bundle(data,pdf)
+            data["ai_assessed_count"]=114
+            with self.assertRaisesRegex(ValueError,"Incomplete AI"):
+                mod.validate_bundle(data,pdf)
+            data["ai_assessed_count"]=115
+            data["selected"][0]["novelty_status"]="NEW_DEVELOPMENT"
+            with self.assertRaisesRegex(ValueError,"without history"):
+                mod.validate_bundle(data,pdf)
+            data["selected"][0]["novelty_status"]="UNKNOWN"
+            data["selection_method"]="RULES_V1_EXPLICIT"
+            with self.assertRaisesRegex(ValueError,"AI assessment"):
+                mod.validate_bundle(data,pdf)
+
+    def test_v2_human_review_keeps_v1_receipt_untouched(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            bundle,pdf=self.fixture(root)
+            existing=mod._receipt_file(root/"receipts",{
+                "paper":"mal","date":"2026-10-16","schema_version":"newspaper-digest-v1",
+            })
+            existing.parent.mkdir(parents=True)
+            existing.write_text('{"delivery":"existing-v1"}',encoding="utf-8")
+            preview=mod._receipt_file(root/"receipts",{
+                "paper":"mal","date":"2026-10-16","schema_version":"newspaper-digest-v2",
+            },preview=True)
+            self.assertNotEqual(existing,preview)
+            self.assertIn("human-review",str(preview))
+            self.assertEqual(json.loads(existing.read_text())["delivery"],"existing-v1")
+
     def test_pdf_sha_change_fails_before_sending(self):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder)

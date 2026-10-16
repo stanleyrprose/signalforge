@@ -36,7 +36,7 @@ def _utf16(value: str) -> int:
 
 
 def validate_bundle(digest: dict, pdf: Path) -> None:
-    if digest.get("schema_version") != "newspaper-digest-v1":
+    if digest.get("schema_version") not in ("newspaper-digest-v1","newspaper-digest-v2"):
         raise ValueError("Unsupported newspaper digest schema")
     if digest.get("paper") not in ("km", "mal"):
         raise ValueError("Unknown official newspaper")
@@ -65,6 +65,27 @@ def validate_bundle(digest: dict, pdf: Path) -> None:
         raise ValueError("Digest item count mismatch")
     if digest.get("edition_news_count", 0) < digest["selected_count"]:
         raise ValueError("Digest exceeds edition article count")
+    if digest.get("schema_version")=="newspaper-digest-v2":
+        if digest.get("selection_method")!="AI_SEMANTIC_WITH_RULES":
+            raise ValueError("V2 digest requires an AI assessment, no silent rules fallback")
+        if digest.get("ai_assessed_count")!=digest["edition_news_count"]:
+            raise ValueError("Incomplete AI assessment coverage")
+        if digest.get("novelty_baseline") not in ("AVAILABLE","NO_HISTORY"):
+            raise ValueError("Unverified novelty baseline")
+        if not re.fullmatch(r"[0-9a-f]{64}",str(digest.get("ai_input_fingerprint") or "")):
+            raise ValueError("AI source fingerprint missing")
+        if any(
+            not isinstance(x,dict) or
+            x.get("novelty_status") not in ("NEW_DEVELOPMENT","REPEATED","UNKNOWN") or
+            not isinstance(x.get("why_it_matters"),str) or
+            len(x.get("why_it_matters",""))<10
+            for x in selected
+        ):
+            raise ValueError("AI reason/novelty incomplete")
+        if digest["novelty_baseline"]=="NO_HISTORY" and any(
+            x["novelty_status"]!="UNKNOWN" for x in selected
+        ):
+            raise ValueError("Cannot claim novel developments without history")
     if len({x.get("publication_id") for x in selected if isinstance(x, dict)}) != len(selected):
         raise ValueError("Repeated or malformed article IDs")
     if not all(isinstance(message, str) and 0 < _utf16(message) <= 4096
@@ -72,8 +93,12 @@ def validate_bundle(digest: dict, pdf: Path) -> None:
         raise ValueError("Telegram digest message length invalid")
 
 
-def _receipt_file(root: Path, digest: dict) -> Path:
-    # All IDs and dates used to construct filename have already been validated.
+def _receipt_file(root: Path, digest: dict, *, preview: bool = False) -> Path:
+    # Review editions (e.g. V2 replacing accepted V1) have their own receipt
+    # namespace. Never overwrite a genuine delivered issue's receipt.
+    if preview:
+        return (root / "human-review" / digest["schema_version"]
+                / digest["paper"] / (digest["date"]+".json"))
     return root / digest["paper"] / (digest["date"] + ".json")
 
 
@@ -90,7 +115,7 @@ def send_issue(bundle: Path, pdf: Path, *, receipts: Path = DEFAULT_RECEIPTS,
     digest = json.loads(bundle.read_text(encoding="utf-8"))
     validate_bundle(digest, pdf)
     token, chat = _credentials()
-    receipt_file = _receipt_file(receipts, digest)
+    receipt_file = _receipt_file(receipts, digest, preview=preview)
     digest_hash = _sha256(bundle)
     state = json.loads(receipt_file.read_text(encoding="utf-8")) if receipt_file.is_file() else {}
     if state and (
