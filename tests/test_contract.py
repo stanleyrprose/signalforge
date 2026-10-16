@@ -25,7 +25,7 @@ class ContractTests(unittest.TestCase):
         )
         self.assertEqual(manifest["verbs"]["signalforge-refresh"]["argument"], "source_id")
         self.assertEqual(manifest["grammar"]["source_id"], "^[A-Z][A-Z0-9]{0,15}$")
-        self.assertEqual(manifest["active_source_ids"], ["S13", "S16", "S20", "S21", "S22", "S23", "S25", "S26", "S28", "S29", "S30", "S31", "S32", "S33", "S34", "S35", "S36", "S37", "S39", "S40", "S41", "S43", "S47", "S01", "S15A", "S27", "S38", "S51"])
+        self.assertEqual(manifest["active_source_ids"], ["S13", "S16", "S20", "S21", "S22", "S23", "S25", "S26", "S28", "S29", "S30", "S31", "S32", "S33", "S34", "S35", "S36", "S37", "S39", "S40", "S41", "S43", "S47", "S52", "S53", "S01", "S15A", "S27", "S38", "S51"])
 
         registry = Registry.load(ROOT)
         railways = registry.raw["sources"]["S21"]
@@ -49,7 +49,7 @@ class ContractTests(unittest.TestCase):
         removed = {
             "S05A", "S07", "S08A", "S10", "S12",
             "S44", "S45", "S46", "S48", "S49", "S50",
-            "S52", "S53", "S54", "S55", "S56", "S57",
+            "S54", "S55", "S56", "S57",
         }
         self.assertTrue(removed.isdisjoint(registry.raw["sources"]))
 
