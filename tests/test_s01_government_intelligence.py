@@ -30,3 +30,21 @@ class GovernmentIntelligenceTests(unittest.TestCase):
                 self.assertEqual(conn.execute('SELECT COUNT(*) FROM government_intelligence_items').fetchone()[0], 1)
                 self.assertEqual(conn.execute('SELECT COUNT(*) FROM canonical_items').fetchone()[0], 0)
                 self.assertEqual(conn.execute('SELECT COUNT(*) FROM signals').fetchone()[0], 0)
+
+    def test_preview_is_evidence_linked_and_not_falsely_translated(self):
+        from signalforge.s01_government_intelligence import intelligence_review_preview
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'registry').mkdir()
+            (root / 'registry' / 'S01-Reviewed-Issuer-Images-v1.json').write_text(json.dumps({
+                'schema_version': 1, 'records': {
+                    'b' * 64: {'review_status': 'HUMAN_APPROVED_SOURCE_IMAGE',
+                               'formal_procurement_tender': False, 'issuer': 'MCDC',
+                               'title': 'Convention Centre lease', 'scope_summary': 'Venue rental'}}}))
+            database = root / 'test.db'
+            migrate(database)
+            refresh_s01_government_intelligence(database, root=root)
+            preview = intelligence_review_preview(database)
+            self.assertEqual(preview['count'], 1)
+            self.assertEqual(preview['items'][0]['证据SHA256'], 'b' * 64)
+            self.assertEqual(preview['items'][0]['中文翻译状态'], '待翻译与人工验收')
