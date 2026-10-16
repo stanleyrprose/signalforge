@@ -24,6 +24,6 @@ Project source: Mac repo `scripts/newspaper_digest_ai.py`, editorial design `doc
 
 用户反馈：外汇市场报价表缺具体可核的价格、单位与日期，外交/地缘政治比例过低。Mac V2.1只在有**经原报核实的币种、买卖价、单位、日期**时准许报价表进入Digest；当期外汇表OCR单位缺失，已从Digest排除（完整版PDF保持原样）。外交从V2一条提升为V2.1的三条：缅印项目MOU、缅日议会交流组织、缅越外交会见。115/115真实AI评估直接复用，无额外模型运行；Telegram消息分配12条，独立正式Tender Canonical。
 
-Mac生成 `Chinese-News-Telegram-Digest-v2.1.json`，通过现有 `newspaper-digest-v2` schema和PDF SHA验收。Bangkok端 `tools/send_newspaper_daily_digest_tg.py` 新增 `--review-tag v2-1`，在人工作业 `--digest-only --preview` 下按修订版本保存**独立幂等回执**，不覆盖之前V2消息395回执或正式生产日刊回执。**Bangkok SignalForge Bot 已向用户TG发送 V2.1 人工验收 Digest：消息ID396。** 先前已通过的完整中文PDF消息391未重发。审阅回复在ChatGPT会话 `V2.1 PASS` 或 `V2.1 REVISE`，目前仍待用户反馈。
+Mac生成 `Chinese-News-Telegram-Digest-v2.1.json`，通过现有 `newspaper-digest-v2` schema和PDF SHA验收。Bangkok端 `tools/send_newspaper_daily_digest_tg.py` 新增 `--review-tag v2-1`，在人工作业 `--digest-only --preview` 下按修订版本保存**独立幂等回执**，不覆盖之前V2消息395回执或正式生产日刊回执。**Bangkok SignalForge Bot 已向用户TG发送 V2.1 人工验收 Digest：消息ID396。** 先前已通过的完整中文PDF消息391未重发。**用户已于2026-10-16在ChatGPT会话确认 `V2.1 PASS`。** Telegram审阅消息396对应Digest选题与阅读形式验收通过；审批未覆盖独立事实核验、正式代码发布或生产自动调度。根据本仓库AGENTS.md，仍需单独release-closure（PR/CI/Merge）及部署许可；现有SignalForge Tender Core PRD v2.0不包含独立新闻Digest产品，合并前必须澄清隔离/产品范围。
 
 开发分支尚未PR/CI/Merge或按日报调度部署；其他SignalForge生产来源/推送不因这次人工审核发生变更。
