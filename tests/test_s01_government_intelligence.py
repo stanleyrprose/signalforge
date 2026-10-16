@@ -1,0 +1,32 @@
+import json
+import tempfile
+import unittest
+from pathlib import Path
+
+from signalforge.db import connect, migrate
+from signalforge.s01_government_intelligence import refresh_s01_government_intelligence
+
+
+class GovernmentIntelligenceTests(unittest.TestCase):
+    def test_review_only_separate_from_tender(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'registry').mkdir()
+            records = {
+                'a' * 64: {'review_status': 'HUMAN_APPROVED_SOURCE_IMAGE', 'formal_procurement_tender': True,
+                           'issuer': 'MCDC', 'title': 'Fuel tender', 'scope_summary': 'Fuel'},
+                'b' * 64: {'review_status': 'HUMAN_APPROVED_SOURCE_IMAGE', 'formal_procurement_tender': False,
+                           'issuer': 'MCDC', 'title': 'Convention Centre lease', 'scope_summary': 'Venue rental'},
+            }
+            (root / 'registry' / 'S01-Reviewed-Issuer-Images-v1.json').write_text(
+                json.dumps({'schema_version': 1, 'records': records}))
+            database = root / 'test.db'
+            migrate(database)
+            for _ in range(2):
+                result = refresh_s01_government_intelligence(database, root=root)
+                self.assertEqual(result['candidates'], 1)
+                self.assertEqual(result['telegram_sent'], 0)
+            with connect(database) as conn:
+                self.assertEqual(conn.execute('SELECT COUNT(*) FROM government_intelligence_items').fetchone()[0], 1)
+                self.assertEqual(conn.execute('SELECT COUNT(*) FROM canonical_items').fetchone()[0], 0)
+                self.assertEqual(conn.execute('SELECT COUNT(*) FROM signals').fetchone()[0], 0)
