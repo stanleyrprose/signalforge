@@ -38,6 +38,9 @@ from .mol import extract_tender_pdf_urls as extract_mol_tender_pdf_urls
 from .mol import parse_tender_detail_with_attachments as parse_mol_tender_detail_with_attachments
 from .mol import parse_tender_listing as parse_mol_tender_listing
 from .moi import parse_tender_detail as parse_moi_tender_detail
+from .official_newspapers import (
+    parse_kyemon_issues, parse_myanma_alinn_issues, parse_official_newspaper_pdf,
+)
 from .moi import parse_tender_listing as parse_moi_tender_listing
 from .moba import parse_tender_detail as parse_moba_tender_detail
 from .moba import parse_tender_listing as parse_moba_tender_listing
@@ -417,6 +420,26 @@ ADAPTERS = {
         parse_discovery=_empty_discovery,
         parse_detail=lambda _payload, _url: [],
         parse_discovery_records=parse_mte_tender_records,
+    ),
+    "moi_kyemon_daily": SourceAdapter(
+        name="moi_kyemon_daily",
+        discovery_content_types=("text/html",),
+        discovery_parser_version="moi-kyemon-issue-links-v1",
+        detail_parser_version="moi-newspaper-native-text-strict-v1",
+        normalizer_version="official-newspaper-tender-evidence-v1",
+        canonicalizer_version="official-issuer-reference-deadline-v1",
+        parse_discovery=parse_kyemon_issues,
+        parse_detail=parse_official_newspaper_pdf,
+    ),
+    "moi_myanma_alinn_daily": SourceAdapter(
+        name="moi_myanma_alinn_daily",
+        discovery_content_types=("text/html",),
+        discovery_parser_version="moi-myanma-alinn-issue-links-v1",
+        detail_parser_version="moi-newspaper-native-text-strict-v1",
+        normalizer_version="official-newspaper-tender-evidence-v1",
+        canonicalizer_version="official-issuer-reference-deadline-v1",
+        parse_discovery=parse_myanma_alinn_issues,
+        parse_detail=parse_official_newspaper_pdf,
     ),
     "moi_tender": SourceAdapter(
         name="moi_tender",

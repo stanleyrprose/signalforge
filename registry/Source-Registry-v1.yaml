@@ -2825,6 +2825,186 @@
         },
         "enable_only_after_gate_pass": true
       }
+    },
+    "S52": {
+      "name": "Kyemon (The Mirror) Official Daily Newspaper Procurement Notices",
+      "adapter": "moi_kyemon_daily",
+      "enabled": true,
+      "role": "ACTIVE_SELECTIVE",
+      "audit_status": "YELLOW_OFFICIAL_DAILY_PDF_FETCH_CONFIRMED_NATIVE_BURMESE_FONT_REVIEW_GATE",
+      "item_kind": "TENDER",
+      "network_zone": "myanmar-international",
+      "engine": "direct_http",
+      "landing_url": "https://www.moi.gov.mm/km/",
+      "discovery_url": "https://www.moi.gov.mm/km/",
+      "discovery_is_tender_only": false,
+      "language": "my-en",
+      "poll_interval_seconds": 86400,
+      "retry_interval_seconds": 300,
+      "priority": 80,
+      "recovery_slo_seconds": 3600,
+      "availability_policy": {
+        "class": "DELAY_TOLERANT_MONITORED",
+        "accepted_collection_outage_seconds": 7200,
+        "collection_rto_seconds": 3600,
+        "business_data_rpo_target_seconds": 86400,
+        "outage_status": "DATA_COLLECTION_DELAYED",
+        "delivery_during_recovery": "CONTINUE_WITH_DEGRADED_HEALTH"
+      },
+      "baseline_lookback_days": 5,
+      "baseline_detail_limit": 1,
+      "delta_detail_limit": 2,
+      "request_timeout_seconds": 45,
+      "request_max_bytes": 7000000,
+      "request_delay_ms": 300,
+      "canonical_key": "official_newspaper_issuer_reference_deadline",
+      "first_baseline_customer_signal": false,
+      "bootstrap_seed_urls": [],
+      "selection_policy_version": 1,
+      "health_policy": {
+        "freshness_yellow_seconds": 129600,
+        "freshness_red_seconds": 172800,
+        "fetch_yellow_failures": 1,
+        "fetch_red_failures": 3,
+        "parse_window_runs": 10,
+        "parse_min_attempts": 1,
+        "parse_yellow_ratio": 0.9,
+        "parse_red_ratio": 0.7,
+        "parse_probe_interval_seconds": 7200,
+        "parse_sample_source": "DETAIL_SCHEDULER"
+      },
+      "source_policy_version": 1,
+      "egress_profile": "mm-intl-datacenter",
+      "acquisition_policy": {
+        "enabled": true,
+        "primary": {
+          "method": "DIRECT_HTTP",
+          "target_kind": "HTML"
+        },
+        "supplementary": [],
+        "escalation": {
+          "DNS_FAILURE": {
+            "action": "RETRY"
+          },
+          "CONNECT_TIMEOUT": {
+            "action": "RETRY"
+          },
+          "HTTP_429": {
+            "action": "RETRY"
+          },
+          "HTTP_403": {
+            "action": "REVIEW"
+          },
+          "TLS_FAILURE": {
+            "action": "FAIL"
+          },
+          "JS_RENDER_REQUIRED": {
+            "action": "REVIEW_CAPABILITY"
+          },
+          "PARSER_DRIFT": {
+            "action": "REAUDIT"
+          },
+          "PDF_PARSE_FAILURE": {
+            "action": "REAUDIT"
+          }
+        }
+      },
+      "attachment_policy": {
+        "mode": "PDF_ISSUE_PRIMARY_NATIVE_TEXT_REVIEW_ONLY",
+        "fetch_in_primary_pipeline": false
+      },
+      "listing_complete_business_records": false,
+      "detail_target_kind": "PDF"
+    },
+    "S53": {
+      "name": "Myanma Alinn Official Daily Newspaper Procurement Notices",
+      "adapter": "moi_myanma_alinn_daily",
+      "enabled": true,
+      "role": "ACTIVE_SELECTIVE",
+      "audit_status": "YELLOW_OFFICIAL_DAILY_PDF_FETCH_CONFIRMED_NATIVE_BURMESE_FONT_REVIEW_GATE",
+      "item_kind": "TENDER",
+      "network_zone": "myanmar-international",
+      "engine": "direct_http",
+      "landing_url": "https://www.moi.gov.mm/mal/",
+      "discovery_url": "https://www.moi.gov.mm/mal/",
+      "discovery_is_tender_only": false,
+      "language": "my-en",
+      "poll_interval_seconds": 86400,
+      "retry_interval_seconds": 300,
+      "priority": 80,
+      "recovery_slo_seconds": 3600,
+      "availability_policy": {
+        "class": "DELAY_TOLERANT_MONITORED",
+        "accepted_collection_outage_seconds": 7200,
+        "collection_rto_seconds": 3600,
+        "business_data_rpo_target_seconds": 86400,
+        "outage_status": "DATA_COLLECTION_DELAYED",
+        "delivery_during_recovery": "CONTINUE_WITH_DEGRADED_HEALTH"
+      },
+      "baseline_lookback_days": 5,
+      "baseline_detail_limit": 1,
+      "delta_detail_limit": 2,
+      "request_timeout_seconds": 45,
+      "request_max_bytes": 7000000,
+      "request_delay_ms": 300,
+      "canonical_key": "official_newspaper_issuer_reference_deadline",
+      "first_baseline_customer_signal": false,
+      "bootstrap_seed_urls": [],
+      "selection_policy_version": 1,
+      "health_policy": {
+        "freshness_yellow_seconds": 129600,
+        "freshness_red_seconds": 172800,
+        "fetch_yellow_failures": 1,
+        "fetch_red_failures": 3,
+        "parse_window_runs": 10,
+        "parse_min_attempts": 1,
+        "parse_yellow_ratio": 0.9,
+        "parse_red_ratio": 0.7,
+        "parse_probe_interval_seconds": 7200,
+        "parse_sample_source": "DETAIL_SCHEDULER"
+      },
+      "source_policy_version": 1,
+      "egress_profile": "mm-intl-datacenter",
+      "acquisition_policy": {
+        "enabled": true,
+        "primary": {
+          "method": "DIRECT_HTTP",
+          "target_kind": "HTML"
+        },
+        "supplementary": [],
+        "escalation": {
+          "DNS_FAILURE": {
+            "action": "RETRY"
+          },
+          "CONNECT_TIMEOUT": {
+            "action": "RETRY"
+          },
+          "HTTP_429": {
+            "action": "RETRY"
+          },
+          "HTTP_403": {
+            "action": "REVIEW"
+          },
+          "TLS_FAILURE": {
+            "action": "FAIL"
+          },
+          "JS_RENDER_REQUIRED": {
+            "action": "REVIEW_CAPABILITY"
+          },
+          "PARSER_DRIFT": {
+            "action": "REAUDIT"
+          },
+          "PDF_PARSE_FAILURE": {
+            "action": "REAUDIT"
+          }
+        }
+      },
+      "attachment_policy": {
+        "mode": "PDF_ISSUE_PRIMARY_NATIVE_TEXT_REVIEW_ONLY",
+        "fetch_in_primary_pipeline": false
+      },
+      "listing_complete_business_records": false,
+      "detail_target_kind": "PDF"
     }
   },
   "deferred_sources": {

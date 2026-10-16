@@ -588,11 +588,44 @@ def _upsert_tender(
         ).fetchone()
         if owner is not None:
             return False, 0
+    if source_id in {"S52", "S53"}:
+        # The same issuer notice is routinely reprinted by both state papers.
+        # A shared canonical key belongs to the first source that proved it.
+        duplicate = conn.execute(
+            "SELECT source_id FROM canonical_items WHERE canonical_key=? AND source_id<>? LIMIT 1",
+            (tender.canonical_key, source_id),
+        ).fetchone()
+        if duplicate is not None:
+            return False, 0
+        # Exact issuer reference + independently extracted issuer identify
+        # already-owned tenders without fuzzy/LLM cross-source matching.
+        ref = str(getattr(tender, "reference_no", "") or "")
+        issuer = str(getattr(tender, "issuer", "") or "").strip().casefold()
+        if ref and issuer:
+            for existing_owner in conn.execute(
+                "SELECT source_id,payload_json FROM canonical_items "
+                "WHERE reference_no=? AND source_id NOT IN ('S52','S53') AND item_kind='TENDER'",
+                (ref,),
+            ):
+                try:
+                    official = json.loads(str(existing_owner["payload_json"] or "{}"))
+                except (ValueError, TypeError):
+                    continue
+                if isinstance(official, dict) and str(official.get("issuer") or "").strip().casefold() == issuer:
+                    return False, 0
     payload = tender.payload()
     payload_json = _json(payload)
-    # S21 publishes rotating opaque post URLs. A URL change alone
-    # cannot justify an UPDATED tender notification.
-    material_payload = {k: v for k, v in payload.items() if k != "url"} if source_id == "S21" else payload
+    # URL rotation or newspaper edition reprints must not manufacture
+    # materially updated procurement events.
+    if source_id == "S21":
+        material_payload = {k: v for k, v in payload.items() if k != "url"}
+    elif source_id in {"S52", "S53"}:
+        material_payload = {k: payload.get(k) for k in (
+            "issuer", "reference_no", "scope_summary",
+            "quantity_or_lot_summary", "deadline",
+        )}
+    else:
+        material_payload = payload
     content_hash = _material_hash(material_payload)
     item_kind = str(getattr(tender, "item_kind", "TENDER"))
     if item_kind not in {"TENDER", "REGULATORY_NOTICE", "AUCTION_NOTICE"}:
