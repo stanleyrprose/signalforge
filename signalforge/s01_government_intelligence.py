@@ -48,3 +48,23 @@ def refresh_s01_government_intelligence(database: Path, *, root: Path | None = N
             candidates += 1
     return {"status": "REVIEW_ONLY", "candidates": candidates, "excluded_tender_or_incomplete": excluded,
             "telegram_sent": 0}
+
+
+def intelligence_review_preview(database: Path) -> dict[str, object]:
+    """Evidence-linked, Chinese review preview; never pretend English facts are translated."""
+    with connect(database) as conn:
+        rows = conn.execute(
+            "SELECT identity,issuer,title,summary,category,evidence_sha256,review_status "
+            "FROM government_intelligence_items WHERE source_id='S01' "
+            "ORDER BY first_seen_at DESC, identity LIMIT 50"
+        ).fetchall()
+    items = []
+    for row in rows:
+        items.append({
+            "identity": row[0], "发布单位（原文）": row[1],
+            "公告标题（原文）": row[2], "内容（原文）": row[3],
+            "类别": "政府资产出租" if row[4] == "STATE_ASSET_LEASE" else "政府公告",
+            "证据SHA256": row[5], "审核状态": row[6],
+            "中文翻译状态": "待翻译与人工验收",
+        })
+    return {"status": "REVIEW_ONLY", "count": len(items), "items": items}
