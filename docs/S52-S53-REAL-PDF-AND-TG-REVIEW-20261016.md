@@ -29,3 +29,8 @@ New source identity: S52 = Kyemon (ကြေးမုံ), S53 = Myanma Alinn (�
 ## Release gate
 
 Do not call source GREEN or tender coverage complete on an empty parser result. Await R01/R02 human feedback before attempting full-edition daily publication. Correct publication workflow requires separate PR/CI/merge and Bangkok release authorization. Keep the Mac entire-paper translation pipeline independent of SignalForge S52/S53 tender-source identity.
+
+
+## 2026-10-16 R04 FAIL，R05 已重新发送
+
+用户反馈《缅甸之光》R04漏报严重，Mac补做当期32页完整OCR和候选审计（121个页内候选、116个去重候选）。修复前2页偏差和LOW静默丢失，并恢复NCA、价格数据、政策、工程与能源招标信息。R05材料经Bangkok SignalForge Bot发送：官方PDF message 387、重点中文新闻QA 388、覆盖审计389、说明390。Telegram只用于**人工审核**，不触发正式Tender Signal。R05正在等待人工回复；SignalForge S52/S53两新来源尚未部署，生产仍28源。
