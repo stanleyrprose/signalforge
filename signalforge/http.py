@@ -186,3 +186,47 @@ def fetch_bytes_cloudrity_d1n(
     if _D1N_CHALLENGE_RE.search(second) is not None:
         raise FetchError(f"Cloudrity D1N challenge persisted after one retry: {url}")
     return second
+
+_S01_TLS_EXCEPTION_HOSTS = {"myanmar.gov.mm", "www.myanmar.gov.mm"}
+
+
+def fetch_s01_bytes_insecure_tls(url: str, *, timeout: int = 30, max_bytes: int = 2_000_000) -> bytes:
+    """Owner-authorized S01-only certificate bypass; HTTPS same-origin redirects only.
+
+    Do not use for Telegram, other sources or general HTTP acquisition.
+    """
+    parsed = urlparse(url)
+    if (parsed.scheme != "https" or (parsed.hostname or "").lower() not in _S01_TLS_EXCEPTION_HOSTS
+        or parsed.username is not None or parsed.password is not None or parsed.port not in (None, 443)):
+        raise FetchError(f"S01 TLS exception not authorized for URL: {url}")
+    logging.getLogger(__name__).warning("S01 owner-approved TLS certificate validation bypass: %s", parsed.hostname)
+    return _fetch_bytes_with_context(
+        url, timeout=timeout, max_bytes=max_bytes,
+        headers={"User-Agent": USER_AGENT, "Accept": "text/html,application/xhtml+xml,*/*;q=0.8"},
+        context=ssl._create_unverified_context(), allowed_redirect_hosts=_S01_TLS_EXCEPTION_HOSTS,
+    )
+
+
+def fetch_s01_news_unverified_tls(
+    url: str, *, timeout: int = 30, max_bytes: int = 2_000_000,
+) -> bytes:
+    """Owner-approved S01-only TLS bypass for public news/announcements.
+
+    Never applies to tenders, credentials, other domains, or redirects off origin.
+    Content acquired this way is untrusted until separately corroborated.
+    """
+    parsed = urlparse(url)
+    if (parsed.scheme != "https" or parsed.hostname not in {"myanmar.gov.mm", "www.myanmar.gov.mm"}
+        or parsed.username is not None or parsed.password is not None
+        or parsed.port not in (None, 443)
+        or not (parsed.path.startswith("/en/news-media/") or parsed.path.startswith("/news-media/"))):
+        raise FetchError("S01 unverified TLS exception restricted to official news-media URLs")
+    logging.getLogger(__name__).warning(
+        "S01 news-only TLS certificate verification disabled by owner approval: %s", url
+    )
+    return _fetch_bytes_with_context(
+        url, timeout=timeout, max_bytes=max_bytes,
+        headers={"User-Agent": USER_AGENT, "Accept": "text/html,application/xhtml+xml"},
+        context=ssl._create_unverified_context(),
+        allowed_redirect_hosts={"myanmar.gov.mm", "www.myanmar.gov.mm"},
+    )
