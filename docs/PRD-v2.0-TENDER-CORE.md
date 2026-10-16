@@ -180,3 +180,11 @@ S01 and S51 use the existing mac-mm-01 PUBLIC_READ_ACQUIRE provider for discover
 The owner approved a **separate S01 Government Intelligence information output**, while preserving the existing Tender Core. The pure-news exclusion in Section 5 continues to apply **to the Tender Core pipeline**, but does not prohibit this independently gated S01 output. Its scope, evidence fields, deduplication, non-tender classification, review-first rollout and separate Bangkok Telegram digest are defined in `docs/S01-GOVERNMENT-INTELLIGENCE-REV1.md`.
 
 Do not route Government Intelligence into canonical `TENDER` records, tender signals, tender Telegram receipts, or tender health/coverage KPIs. No automatic production delivery until the review-only Chinese preview is accepted.
+
+## 2026-10-16 owner-approved newspaper Telegram transport boundary
+
+The owner separately approved Chinese editions of Myanmar official newspapers and AI-ranked Digest v2.1. This does **not** add a news, policy or strategic digest product to SignalForge Tender Core, expand the procurement Source Registry, or authorize production scheduling.
+
+This repository may own a narrowly scoped **manual CLI Telegram delivery transport**, `tools/send_newspaper_daily_digest_tg.py` + `tools/newspaper_telegram_transport.py`, solely to reuse the existing Bangkok SignalForge Bot for newspaper material independently produced and source-checked by the Mac mini `macmini_automation` repository. Transport input must reference the full Chinese PDF by SHA, require AI assessment of every included article for v2, and preserve independent date/paper delivery receipts.
+
+The CLI is outside `signalforge/engine.py`, scheduler, canonical Tender model, existing Telegram tender delivery, procurement Source Registry and automated service definitions. No S52/S53 source activation is part of this exception. It must not be enabled, timed, or deployed into production without **separate deployment authorization**. The tender-only scope in the preceding sections remains unchanged.
