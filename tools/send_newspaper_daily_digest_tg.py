@@ -93,12 +93,16 @@ def validate_bundle(digest: dict, pdf: Path) -> None:
         raise ValueError("Telegram digest message length invalid")
 
 
-def _receipt_file(root: Path, digest: dict, *, preview: bool = False) -> Path:
+def _receipt_file(root: Path, digest: dict, *, preview: bool = False,
+                  review_tag: str | None = None) -> Path:
     # Review editions (e.g. V2 replacing accepted V1) have their own receipt
     # namespace. Never overwrite a genuine delivered issue's receipt.
+    if review_tag and (not preview or not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,30}",review_tag)):
+        raise ValueError("Review tag requires preview and a bounded slug")
     if preview:
+        suffix = ("-"+review_tag) if review_tag else ""
         return (root / "human-review" / digest["schema_version"]
-                / digest["paper"] / (digest["date"]+".json"))
+                / digest["paper"] / (digest["date"]+suffix+".json"))
     return root / digest["paper"] / (digest["date"] + ".json")
 
 
@@ -111,11 +115,13 @@ def _save(path: Path, state: dict) -> None:
 
 
 def send_issue(bundle: Path, pdf: Path, *, receipts: Path = DEFAULT_RECEIPTS,
-               digest_only: bool = False, preview: bool = False) -> dict:
+               digest_only: bool = False, preview: bool = False,
+               review_tag: str | None = None) -> dict:
     digest = json.loads(bundle.read_text(encoding="utf-8"))
     validate_bundle(digest, pdf)
     token, chat = _credentials()
-    receipt_file = _receipt_file(receipts, digest, preview=preview)
+    receipt_file = _receipt_file(receipts, digest, preview=preview,
+                                 review_tag=review_tag)
     digest_hash = _sha256(bundle)
     state = json.loads(receipt_file.read_text(encoding="utf-8")) if receipt_file.is_file() else {}
     if state and (
@@ -134,7 +140,10 @@ def send_issue(bundle: Path, pdf: Path, *, receipts: Path = DEFAULT_RECEIPTS,
         if key not in state["messages"]:
             # Provider outcome on timeout is ambiguous: operator should check
             # Telegram before retry; no unsafe blind automatic resend.
-            text = ("🧪 新闻Digest试运行（R06中文版已单独发送）\n" if preview else "") + part
+            label=(str(digest.get("editorial_policy_version") or "Digest").replace("digest-editorial-","")).upper()
+            prefix=(f"🧪 新闻Digest {label} 人工验收｜R06完整中文版PDF不重发\n"
+                    if preview else "")
+            text=prefix+part
             if _utf16(text) > 4096:
                 raise RuntimeError("Preview marker exceeded Telegram limit")
             state["messages"][key] = _send_text(token, chat, text)
@@ -161,9 +170,12 @@ def main() -> None:
     parser.add_argument("--digest-only", action="store_true",
                         help="For previously delivered complete PDF (e.g. approved R06)")
     parser.add_argument("--preview", action="store_true")
+    parser.add_argument("--review-tag", default=None,
+                        help="Unique per-revision preview receipt slug; e.g. v2-1")
     args = parser.parse_args()
     print(json.dumps(send_issue(args.digest,args.pdf,
-                               digest_only=args.digest_only,preview=args.preview),
+                               digest_only=args.digest_only,preview=args.preview,
+                               review_tag=args.review_tag),
                      ensure_ascii=False))
 
 

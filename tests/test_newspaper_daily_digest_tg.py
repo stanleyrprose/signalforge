@@ -62,7 +62,7 @@ class DigestDeliveryTests(unittest.TestCase):
                                    digest_only=True,preview=True)
                 self.assertEqual(out["digest_ids"],[712])
                 self.assertIsNone(out["pdf_message_id"])
-                self.assertIn("试运行",text_send.call_args.args[2])
+                self.assertIn("人工验收",text_send.call_args.args[2])
                 pdf_send.assert_not_called()
 
     def test_v2_ai_manifest_must_cover_every_article_and_history(self):
@@ -109,6 +109,45 @@ class DigestDeliveryTests(unittest.TestCase):
             self.assertNotEqual(existing,preview)
             self.assertIn("human-review",str(preview))
             self.assertEqual(json.loads(existing.read_text())["delivery"],"existing-v1")
+
+    def test_v2_point_one_preview_receipt_is_revision_scoped(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            bundle,pdf=self.fixture(root)
+            data=json.loads(bundle.read_text())
+            data.update({
+                "schema_version":"newspaper-digest-v2",
+                "selection_method":"AI_SEMANTIC_WITH_RULES",
+                "ai_assessed_count":115,
+                "novelty_baseline":"NO_HISTORY",
+                "ai_input_fingerprint":"b"*64,
+                "editorial_policy_version":"digest-editorial-v2.1",
+            })
+            data["selected"][0].update({
+                "novelty_status":"UNKNOWN",
+                "why_it_matters":"该事项涉及政策与经济环境，值得继续观察。",
+            })
+            bundle.write_text(json.dumps(data,ensure_ascii=False),encoding="utf-8")
+            old=mod._receipt_file(root/"receipts",data,preview=True)
+            new=mod._receipt_file(root/"receipts",data,preview=True,review_tag="v2-1")
+            self.assertNotEqual(old,new)
+            with patch.object(mod,"_credentials",return_value=("fake","allowed-chat")), \
+                 patch.object(mod,"_send_text",return_value=718) as msg, \
+                 patch.object(mod,"_send_document") as document:
+                first=mod.send_issue(bundle,pdf,receipts=root/"receipts",
+                                      preview=True,digest_only=True,review_tag="v2-1")
+                second=mod.send_issue(bundle,pdf,receipts=root/"receipts",
+                                      preview=True,digest_only=True,review_tag="v2-1")
+                self.assertEqual(msg.call_count,1)
+                document.assert_not_called()
+                self.assertEqual(first["digest_ids"],[718])
+                self.assertEqual(second["digest_ids"],[718])
+            self.assertFalse(old.exists())
+            self.assertTrue(new.exists())
+            with self.assertRaisesRegex(ValueError,"Review tag"):
+                mod._receipt_file(root/"receipts",data,preview=True,review_tag="../old")
+            with self.assertRaisesRegex(ValueError,"requires preview"):
+                mod._receipt_file(root/"receipts",data,preview=False,review_tag="v2-1")
 
     def test_pdf_sha_change_fails_before_sending(self):
         with tempfile.TemporaryDirectory() as folder:
