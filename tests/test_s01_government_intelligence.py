@@ -48,3 +48,20 @@ class GovernmentIntelligenceTests(unittest.TestCase):
             self.assertEqual(preview['count'], 1)
             self.assertEqual(preview['items'][0]['证据SHA256'], 'b' * 64)
             self.assertEqual(preview['items'][0]['中文翻译状态'], '待翻译与人工验收')
+
+    def test_audit_does_not_claim_full_coverage(self):
+        from signalforge.s01_government_intelligence import intelligence_coverage_audit, render_intelligence_digest
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            database = root / 'test.db'
+            migrate(database)
+            with connect(database) as conn, conn:
+                conn.execute('CREATE TABLE s01_image_review (url TEXT PRIMARY KEY, review_status TEXT)')
+                conn.execute("INSERT INTO s01_image_review VALUES ('https://myanmar.gov.mm/documents/test.jpg','OCR_REVIEW_REQUIRED')")
+            (root / 'registry').mkdir()
+            (root / 'registry' / 'S01-Reviewed-Issuer-Images-v1.json').write_text(json.dumps({'schema_version':1,'records':{}}))
+            refresh_s01_government_intelligence(database, root=root)
+            audit = intelligence_coverage_audit(database)
+            self.assertEqual(audit['image_candidates'], 1)
+            self.assertFalse(audit['coverage_complete'])
+            self.assertIn('全站覆盖：未验证', render_intelligence_digest(database))
