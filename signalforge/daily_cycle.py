@@ -30,7 +30,7 @@ def _write_json(path: Path, payload: dict[str, object]) -> None:
     os.replace(temp, path)
 
 
-def _coverage_report(day: str, acquisition: dict[str, object], delivery: dict[str, object], image_ocr: dict[str, object] | None = None, attachment_health: dict[str, object] | None = None, s01_verified: dict[str, object] | None = None) -> str:
+def _coverage_report(day: str, acquisition: dict[str, object], delivery: dict[str, object], image_ocr: dict[str, object] | None = None, attachment_health: dict[str, object] | None = None, s01_verified: dict[str, object] | None = None, s01_intelligence: dict[str, object] | None = None) -> str:
     results = acquisition.get("results") or []
     if not isinstance(results, list):
         raise ValueError("daily acquisition results must be a list")
@@ -57,6 +57,8 @@ def _coverage_report(day: str, acquisition: dict[str, object], delivery: dict[st
                 f"缺投标提交截止日 {int(s01_verified.get('blocked_missing_bid_deadline', 0))}；"
                 f"非采购 {int(s01_verified.get('excluded_nonprocurement', 0))}。"
             )
+    if s01_intelligence is not None:
+        lines.append(f"S01 政府重要信息（独立审核队列）：候选 {s01_intelligence.get('candidates', 0)}；暂不自动推送，等待中文 Digest 验收。")
     if attachment_health is not None:
         checked = int(attachment_health.get("checked_count", 0))
         broken = int(attachment_health.get("http_404_count", 0))
@@ -105,6 +107,7 @@ def daily_cycle() -> dict[str, object]:
     acquisition_path = state_root / f"{prefix}-acquisition.json"
     image_path = state_root / f"{prefix}-image-ocr.json"
     s01_verified_path = state_root / f"{prefix}-s01-verified.json"
+    intelligence_path = state_root / f"{prefix}-s01-intelligence.json"
     attachment_path = state_root / f"{prefix}-moep-attachments.json"
     delivery_path = state_root / f"{prefix}-delivery.json"
     report_path = state_root / f"{prefix}-report.json"
@@ -145,6 +148,15 @@ def daily_cycle() -> dict[str, object]:
             except Exception as exc:
                 s01_verified = {"status": "CHECK_FAILED", "error": f"{type(exc).__name__}: {exc}"[:180]}
             _write_json(s01_verified_path, s01_verified)
+        if intelligence_path.exists():
+            s01_intelligence = json.loads(intelligence_path.read_text(encoding="utf-8"))
+        else:
+            try:
+                from .s01_government_intelligence import refresh_s01_government_intelligence
+                s01_intelligence = refresh_s01_government_intelligence(db_path())
+            except Exception as exc:
+                s01_intelligence = {"status": "CHECK_FAILED", "error": f"{type(exc).__name__}: {exc}"[:180]}
+            _write_json(intelligence_path, s01_intelligence)
         if delivery_path.exists():
             delivery = json.loads(delivery_path.read_text(encoding="utf-8"))
         else:
@@ -177,7 +189,7 @@ def daily_cycle() -> dict[str, object]:
             try:
                 message_id = _send_message(
                     bot_token=token, chat_id=chat,
-                    text=_coverage_report(day, acquisition, delivery, image_ocr, attachment_health, s01_verified),
+                    text=_coverage_report(day, acquisition, delivery, image_ocr, attachment_health, s01_verified, s01_intelligence),
                 )
             except Exception as exc:
                 return {"status": "REPORT_FAILED", "day": day,

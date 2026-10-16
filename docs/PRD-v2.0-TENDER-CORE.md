@@ -174,3 +174,9 @@ S01 and S51 use the existing mac-mm-01 PUBLIC_READ_ACQUIRE provider for discover
 
 - MOEP issuer HTML contains links under `/mm/userfile/` that return HTTP 404, including recent and older documents. Never invent alternate download links or deadline/quantity from missing PDFs.
 - Keep existing HTML-based Canonical evidence and non-blocking metadata policy. After daily tender delivery, perform a bounded HEAD-only check of up to five recent official S20 tender attachments and save the result in the daily state checkpoint. Include HTTP 404 count in the once-daily coverage report. This availability check is not PDF evidence, parsing or canonical promotion.
+
+## 2026-10-16 owner-approved S01 Government Intelligence exception
+
+The owner approved a **separate S01 Government Intelligence information output**, while preserving the existing Tender Core. The pure-news exclusion in Section 5 continues to apply **to the Tender Core pipeline**, but does not prohibit this independently gated S01 output. Its scope, evidence fields, deduplication, non-tender classification, review-first rollout and separate Bangkok Telegram digest are defined in `docs/S01-GOVERNMENT-INTELLIGENCE-REV1.md`.
+
+Do not route Government Intelligence into canonical `TENDER` records, tender signals, tender Telegram receipts, or tender health/coverage KPIs. No automatic production delivery until the review-only Chinese preview is accepted.
