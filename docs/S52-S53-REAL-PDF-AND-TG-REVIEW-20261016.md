@@ -34,3 +34,9 @@ Do not call source GREEN or tender coverage complete on an empty parser result. 
 ## 2026-10-16 R04 FAIL，R05 已重新发送
 
 用户反馈《缅甸之光》R04漏报严重，Mac补做当期32页完整OCR和候选审计（121个页内候选、116个去重候选）。修复前2页偏差和LOW静默丢失，并恢复NCA、价格数据、政策、工程与能源招标信息。R05材料经Bangkok SignalForge Bot发送：官方PDF message 387、重点中文新闻QA 388、覆盖审计389、说明390。Telegram只用于**人工审核**，不触发正式Tender Signal。R05正在等待人工回复；SignalForge S52/S53两新来源尚未部署，生产仍28源。
+
+## 2026-10-16 R05 FAIL → R06 完整新闻对账
+
+用户再次判定 R05 FAIL：Coverage Audit 已有121条候选、116条初步去重，但 Key News 硬编码挑选20条导致内容遗漏。Mac News Publisher 增加逐条对账：最终R06共121条候选，115条独立新闻，5条NCA/G20同一事件关联报道以正文续文形式保留合并，1条残缺待核。所有候选附文章ID、原报页码、明确去向。82篇仍需内容/专名核实；这不是最终正式审定新闻。
+
+由Bangkok VPS上 **SignalForge现有Bot** 发送新审核稿，消息ID 391（28页完整版中文新闻PDF）、392（4页逐条去向Audit）、393（验收说明）。Telegram发送未写入SignalForge business signals，回执已存入Bangkok private state。生产依旧原有28源，没有将新报纸源部署到生产；无自动日报。
