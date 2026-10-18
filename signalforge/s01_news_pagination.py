@@ -33,11 +33,10 @@ def pagination_urls(payload: bytes, *, base_url: str = NEWS_URL, max_pages: int 
             continue
         params = parse_qs(parsed.query)
         pages = [int(v) for k, values in params.items() if k.endswith("_cur") for v in values if v.isdecimal()]
-        if not pages or pages[0] < 2:
+        if not pages or not 2 <= pages[0] <= max_pages:
             continue
         if not any("AssetPublisherPortlet_INSTANCE_idasset354" in v for v in params.get("p_p_id", [])):
             continue
         found.setdefault(pages[0], urlunparse(parsed._replace(fragment="")))
-    # Discovery must expose every observed link, including pages beyond the fetch cap.
-    # The caller records unfetched URLs and blocks publication when truncated.
+    # Ignore out-of-window last-page jump links; this is a bounded daily review.
     return [found[p] for p in sorted(found)]

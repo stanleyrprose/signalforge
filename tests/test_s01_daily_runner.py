@@ -18,17 +18,20 @@ class S01DailyRunnerTests(unittest.TestCase):
             ai.assert_not_called()
             send.assert_not_called()
 
-    def test_incomplete_details_never_calls_ai_or_delivery(self):
+    def test_partial_details_continue_to_ai_and_prepare(self):
         with tempfile.TemporaryDirectory() as tmp, patch(
             'signalforge.s01_daily_runner.acquire_paginated_news_review',
             return_value={'pagination_incomplete': False, 'unique_candidates': 3}
         ), patch('signalforge.s01_daily_runner.acquire_news_details',
                  return_value={'failed': ['url'], 'details_saved': 2}), patch(
-            'signalforge.s01_daily_runner.review') as ai, patch(
-            'signalforge.s01_daily_runner.transfer') as send:
-            with self.assertRaisesRegex(RuntimeError, 'detail'):
-                run(Path(tmp), day='2026-10-18', publish=True)
-            ai.assert_not_called()
+            'signalforge.s01_daily_runner.review',
+            return_value={'unresolved': 1, 'excluded': 0, 'included': 2}) as ai, patch(
+            'signalforge.s01_daily_runner.prepare',
+            return_value={'status': 'READY_FOR_REVIEW', 'edition_id': 'partial', 'manifest': '/tmp/manifest'}
+        ), patch('signalforge.s01_daily_runner.transfer') as send:
+            result = run(Path(tmp), day='2026-10-18')
+            self.assertEqual(result['articles'], 2)
+            ai.assert_called_once()
             send.assert_not_called()
 
     def test_review_mode_does_not_send(self):

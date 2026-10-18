@@ -94,16 +94,24 @@ def acquire_paginated_news_review(database: Path, evidence_dir: Path, *, max_pag
     seen_pages = set()
     seen_articles = set()
     audit = []
+    fetch_attempts = {}
     while queue and len(seen_pages) < max_pages:
         url = queue.pop(0)
         if url in seen_pages:
             continue
         seen_pages.add(url)
-        try:
-            payload = fetch_s01_news_unverified_tls(url)
-        except Exception as exc:
-            audit.append({"page_url": url, "status": "FETCH_FAILED", "error": str(exc)[:200],
-                          "candidates": 0, "duplicates": 0, "new_candidates": 0})
+        payload = None
+        error = None
+        for attempt in range(1, 4):
+            try:
+                payload = fetch_s01_news_unverified_tls(url)
+                break
+            except Exception as exc:
+                error = exc
+        fetch_attempts[url] = attempt
+        if payload is None:
+            audit.append({"page_url": url, "status": "FETCH_FAILED", "error": str(error)[:200],
+                          "attempts": attempt, "candidates": 0, "duplicates": 0, "new_candidates": 0})
             continue
         candidates = parse_news_discovery(payload, base_url=url)
         links = {c["url"] for c in candidates}
@@ -111,7 +119,7 @@ def acquire_paginated_news_review(database: Path, evidence_dir: Path, *, max_pag
         seen_articles.update(links)
         result = acquire_news_review(database, evidence_dir, payload=payload)
         audit.append({"page_url": url, "listing_sha256": result["listing_sha256"],
-                      "candidates": len(candidates), "duplicates": duplicates,
+                      "candidates": len(candidates), "attempts": attempt, "duplicates": duplicates,
                       "new_candidates": len(links) - duplicates})
         for next_url in pagination_urls(payload, base_url=url, max_pages=max_pages):
             if next_url not in seen_pages and next_url not in queue:

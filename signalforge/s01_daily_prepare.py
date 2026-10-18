@@ -20,10 +20,10 @@ def prepare(audit_path: Path, ledger_path: Path, output_dir: Path,
     if pagination.get("pagination_incomplete") or any(
         page.get("status") == "FETCH_FAILED" for page in pagination.get("pages", [])):
         raise ValueError("pagination fetch incomplete")
-    if report["unresolved"] or report.get("excluded", 0):
-        raise ValueError("incomplete S01 audit; cannot publish full edition")
-    if report["included"] != report["total_discovered"]:
-        raise ValueError("all-news coverage mismatch")
+    if report.get("excluded", 0):
+        raise ValueError("news must not be excluded by importance")
+    if report["included"] < 1 or report["included"] + report["unresolved"] != report["total_discovered"]:
+        raise ValueError("S01 article accounting mismatch")
     # A successful article-level audit does not prove that all listing pages were fetched.
     if report.get("pagination_incomplete") or report.get("coverage_incomplete"):
         raise ValueError("source pagination/coverage incomplete")
@@ -80,13 +80,15 @@ def prepare(audit_path: Path, ledger_path: Path, output_dir: Path,
             raise ValueError("edition PDF already exists; reuse immutable manifest or reconcile")
         result = render_pdf(subreport, pdf, edition_date=day, fontfile=fontfile)
         manifest = {
+            "incomplete_count": report["unresolved"],
+            "pending_articles": [{"url": x["url"], "reason": x.get("exclusion_reason")} for x in report["items"] if x["disposition"] != "INCLUDED"],
             "date": day, "edition_id": edition,
             "articles": [{"identity": identity, "detail_sha": sha,
                           "url": next(item["url"] for item in new_items
                                       if article_identity(item["url"]) == identity)}
                          for identity, sha in identities],
             "pdf": str(pdf), "pdf_sha256": hashlib.sha256(pdf.read_bytes()).hexdigest(),
-            "digest": render_digest(subreport, edition_date=day),
+            "digest": render_digest(subreport, edition_date=day) + (f"\n待补采/补译：{report['unresolved']} 条，详见审计记录。" if report["unresolved"] else ""),
             "caption": f"S01 缅甸政府门户中文新闻｜{day}｜{len(new_items)}条"
         }
         manifest_path = output_dir / f"S01-manifest-{day}-{edition[:12]}.json"

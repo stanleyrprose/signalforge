@@ -98,7 +98,7 @@ def _transfer_locked(manifest: Path, mac_ledger: Path, outbox: Path, *,
         ["ssh", "-o", "BatchMode=yes", host, "test", "-f", remote_receipt],
         check=False, timeout=180)
     if found.returncode == 1:
-        _run(["ssh", "-o", "BatchMode=yes", host, python, "-m",
+        _run(["ssh", "-o", "BatchMode=yes", host, "env", "PYTHONPATH=/srv/signalforge/active", python, "-m",
               "signalforge.s01_daily_sender", remote_ledger, remote_dir + "/manifest.json"])
     elif found.returncode != 0:
         raise RuntimeError("remote receipt probe failed; delivery status unknown")

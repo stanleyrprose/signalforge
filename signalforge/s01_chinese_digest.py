@@ -62,7 +62,7 @@ def reconcile_ai_digest(database: Path, results: list[dict], *, min_importance: 
     report = {"total_discovered": len(items), "included": len(included),
               "excluded": sum(i["disposition"] == "EXCLUDED_LOW_PRIORITY" for i in items),
               "unresolved": unresolved,
-              "digest_publish_gate": "REVIEW_REQUIRED" if not unresolved else "BLOCKED_UNRESOLVED_ITEMS",
+              "digest_publish_gate": "REVIEW_REQUIRED" if not unresolved else ("PARTIAL_READY_FOR_REVIEW" if included else "BLOCKED_NO_ARTICLES"),
               "items": items}
     if output:
         output.parent.mkdir(parents=True, exist_ok=True)

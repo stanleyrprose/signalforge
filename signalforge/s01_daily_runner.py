@@ -48,11 +48,10 @@ def run(root: Path, *, day: str, max_pages: int = 20, batch_size: int = 4,
         if pagination['pagination_incomplete'] or not pagination['unique_candidates']:
             raise RuntimeError('S01 pagination incomplete/empty; no publication')
         details = acquire_news_details(db, evidence, limit=pagination['unique_candidates'])
-        if details['failed'] or details['details_saved'] != pagination['unique_candidates']:
-            raise RuntimeError('S01 detail coverage incomplete; no publication')
+        # Individual detail failures remain visible in the audit; publish successful articles.
         result = review(db, evidence, batch_size=batch_size)
-        if result['unresolved'] or result['excluded'] or result['included'] != pagination['unique_candidates']:
-            raise RuntimeError('S01 AI/coverage reconciliation incomplete; no publication')
+        if result['excluded'] or result['included'] < 1 or result['included'] + result['unresolved'] != pagination['unique_candidates']:
+            raise RuntimeError('S01 AI/coverage accounting invalid; no publication')
         prepared = prepare(evidence / 'coverage-audit.json', ledger, output,
                            day=day, fontfile=font)
         if prepared['status'] == 'NO_NEW_ARTICLES':
