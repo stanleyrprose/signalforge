@@ -1,61 +1,55 @@
-# CHECKPOINT — Tender Core Reset
+# CHECKPOINT — SignalForge Dual-Goal Status
 
-Updated: 2026-10-11
+Updated: 2026-10-18
+Baseline: `main` at `e4eb9a5ae3613adb42059d9304bb5a53b2d30c1a` (merged PR #312)
+Status: documentation reconciliation; production daily-operation acceptance remains separately gated.
 
-## Decision
+## Authoritative scope
 
-SignalForge is reset to one product objective: official Myanmar government/SOE tender detection and timely Simplified-Chinese Telegram delivery.
+`GOAL.md` (updated 2026-10-16) defines **two independent outputs**:
 
-The following product directions are retired from the active tree:
+1. **Tender Core** — official Myanmar government/SOE tender acquisition, evidence, qualified new/material-change signals, Simplified-Chinese Telegram notices and delivery receipts.
+2. **News/Policy Intelligence** — separate news/policy acquisition and review, Chinese PDF edition, prioritized Chinese Digest and independently receipted Bangkok Telegram delivery.
 
-- project precursor / early-project acquisition;
-- project-to-procurement lead-time and link-review workflows;
-- multi-tenant/customer business profiles;
-- pilot validation and Telegram inline feedback;
-- pure strategic/news/regulatory intelligence inputs;
-- separate daily business/strategic digest delivery.
+News articles must not be inserted into canonical `TENDER` records merely to obtain delivery. The tender-only exclusions in `docs/PRD-v2.0-TENDER-CORE.md` still govern **Tender Core**, not the separately authorized news goal. The 2026-10-11 tender-only reset is a historical milestone, not the current whole-product scope. Detailed news rollout gates remain subject to approved product requirements and deployment acceptance.
 
-Git history remains the archive; retired code is not preserved in the current tree for hypothetical future reuse.
+## Implemented and evidenced (not equivalent to continuous production acceptance)
 
-## Baseline
+- Tender Core retains the formal tender evidence → canonicalization → signal/readiness → Chinese presentation → Telegram/receipt path, source health, OCR/provider contracts, Assurance and missed-signal/noise review.
+- On 2026-10-12 the tender-core reset had 429 repository tests passing; this is **historical verification**, not a current production health claim.
+- PR #310 (merged 2026-10-16): dual-goal `GOAL.md` authorization.
+- PR #311 (merged 2026-10-17): isolated S01 all-news Rev2 Chinese PDF/Digest, Bangkok transport and checksum/receipt handoff. Its PR acceptance recorded Telegram preview messages 411/412; the PR explicitly did not claim unattended daily deployment.
+- PR #312 (merged 2026-10-18): guarded S01 daily news runner and partial-coverage delivery. Live acceptance recorded five listing pages, 51 discovered, 50 translated, a 15-page PDF, and successful Bangkok Telegram messages 420/421. Failed articles remain in audit rather than blocking the whole edition.
 
-- GitHub repository: `stanleyrprose/signalforge`
-- authoritative baseline used for this refactor: `main` at `69cc69101039fadab7dcd8fa32bff875bf0e3545`
-- implementation branch: `refactor/tender-core-only`
-- GitHub is the sole project SOT; local worktrees are disposable.
+These are specific S01 acceptance observations, **not** proof that S52/S53 or all other sources are active, or that every daily unattended run succeeds.
 
-## Core runtime retained
+## Scheduling: desired contract vs repository configuration vs live runtime
 
-`registry tender sources -> run_due/run_source -> source adapters -> evidence/canonical items -> Signals -> briefing/readiness -> Chinese presentation translation -> telegram_deliver -> delivery_receipts`
+**Approved product behavior:** `GOAL.md` calls for one daily Tender Core acquisition/delivery cycle and a separate daily News/Policy output. The pipelines require independent readiness, idempotency and receipts.
 
-Reliability layers retained: source health, Assurance, missed-signal review, noise false-negative review, evidence/provenance, OCR/provider contracts required by retained tender sources, and delivery deduplication.
+**Configuration checked at this baseline:**
 
-## Implementation and verification status
+- `systemd/signalforge-run-due.timer`: `OnCalendar=*-*-* 00:00:00 UTC` (daily).
+- `systemd/signalforge-telegram-deliver.timer`: `OnCalendar=*-*-* 00:30:00 UTC` (daily).
+- Each timer uses `Persistent=true`; randomized delay means exact invocation time may vary.
+- S01 has a guarded daily runner implemented in code via PR #312. A merged runner is **not** proof of an enabled unattended production timer.
 
-Implementation, static review and authorized local verification are complete on `refactor/tender-core-only`.
+**Live activation unknown in this checkpoint:** deployed revision, active Bangkok/Mac timers, most recent successful Tender and News runs, daily delivery receipts, and end-to-end coverage have not been independently confirmed here. Inspect production runtime state rather than infer it from Git.
 
-Validation completed on 2026-10-12:
+The old 2026-10-11 checkpoint's 15/30-minute source polling and 5-minute scheduler/delivery claims are superseded as a **current product/configuration description**. Do not reuse its old 27-source count as today's enabled-source count without querying the live registry/runtime.
 
-- affected core-path suite: 112/112 PASS;
-- MPA/provider/database focused suite after cleanup: 42/42 PASS;
-- complete repository suite: 429/429 PASS;
-- `python -m compileall -q signalforge tests`: PASS;
-- Source Registry and Provider Invocation Contract JSON validation: PASS;
-- `sh -n bin/signalforge` and `sh -n deploy/deploy-signalforge-release.sh`: PASS.
+## Outstanding acceptance evidence
 
-Validation found and fixed two stale refactor residues: the registry loader still required retired C2/C3 provider capability flags, and MPA still retained manual-preview-only helpers/tests after the manual provider bridge was removed.
+- **Tender:** current enabled official tender sources, last daily source outcomes, discovered/qualified tenders, Telegram success receipts, completeness and known misses.
+- **News:** individually approved/activated sources (including S01/S52/S53 as applicable), most recent unattended run, article/PDF/Digest coverage and omissions, successful Telegram receipts.
+- **Operations:** independently verified systemd/scheduler enablement, recovery/idempotency after failure, and deployed code revision against GitHub `main`.
 
-Current implementation facts:
+Until this evidence is recorded, classify the dual-goal system as **partially demonstrated; continuous production delivery not yet verified**.
 
-- 27 enabled sources, all explicitly `item_kind=TENDER`;
-- source polling is 15 or 30 minutes and runtime validation rejects enabled sources slower than 30 minutes;
-- due-source scheduling is every 5 minutes; Telegram delivery is every 5 minutes at the :45 second offset;
-- Telegram's internal current-tender read is unbounded and no longer has the 500-row read-view cap;
-- source scorecard/business KPI yield is not mission-filtered; mission classification is analytical metadata only;
-- business KPI measures recent Signal-created-to-Telegram success latency from existing receipts;
-- Assurance uses `tender_coverage` for bounded independent MPT/MYTEL reconciliation; the retired ATOM surface trigger is removed;
-- precursor, project-link/lead-time, customer profile, pilot feedback, standalone digest, non-tender news/policy sources, manual provider bridge and generic C2/C3 browser escalation are retired from the active tree;
-- static consistency audit found no missing relative imports, no missing adapters for active sources, and no invalid provider capability references;
-- GitHub remains the sole project SOT.
+## Retired scope and historical reference
 
-Per `AGENTS.md`, PR creation, GitHub CI, merge, deployment and production Telegram sends still require the next explicit release-closure/deployment gates.
+Precursor/lead-time analysis, multi-tenant/customer profiles, pilot feedback and public SaaS remain outside the authorized product. The earlier Tender Core reset and its tests are preserved in Git history and `docs/PRD-v2.0-TENDER-CORE.md`, rather than being described as the present whole-product checkpoint.
+
+## Change control
+
+GitHub `stanleyrprose/signalforge` is the sole code/document SOT. This checkpoint is documentary: it does not change schedulers, enable sources, trigger Telegram delivery or authorize deployment. Development/verification/PR/CI/Merge/deployment gates remain governed by `AGENTS.md`.
