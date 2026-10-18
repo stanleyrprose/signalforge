@@ -41,7 +41,7 @@ def run(root: Path, *, day: str, max_pages: int = 20, batch_size: int = 4,
     with _lock(root / '.runner.lock'):
         evidence = root / 'evidence' / day
         output = root / 'outbox'
-        db = root / 's01-news-review.sqlite'
+        db = evidence / 's01-news-review.sqlite'
         ledger = root / 's01-delivery.sqlite'
         evidence.mkdir(parents=True, exist_ok=True)
         pagination = acquire_paginated_news_review(db, evidence, max_pages=max_pages)
