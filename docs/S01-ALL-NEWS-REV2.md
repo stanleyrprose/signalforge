@@ -29,3 +29,9 @@
 - 所有新闻必须有原始 URL；数字、日期、主体不可推断。S01 来源的 TLS 验证例外必须保留证据风险标记。
 - 部署前必须通过单独审核：代码审查 → 获授权后测试 → PR/CI/Merge 授权 → Bangkok 部署授权 → 连续日验收。
 - 不再适用 Rev1 的“过滤体育/例行会议/普通新闻”作为全量新闻输出的规则。Rev1 的高价值情报分类可继续作为排序标签，不再作为收录门槛。
+
+## Daily Runner（开发分支，待验收）
+
+`python3 -m signalforge.s01_daily_runner --database <独立新闻DB> --evidence <证据目录> --output <版次目录> --mac-ledger <独立投递DB>` 默认只生成审核稿，不发送 Telegram。加入 `--publish` 才会执行 Bangkok 传输。入口持有单进程锁，先核对分页、正文和 AI 覆盖，再生成 PDF 和发送；失败时不跳过审计。要求 Mac 已有 Codex CLI OAuth、PyMuPDF、中文字体和到 Bangkok 的 SSH 配置。日报调度尚未启用；必须先进行真实内容覆盖验收和异常恢复验收。
+
+**已知待解决：** 当前 review runner 会读取独立新闻数据库中所有历史文章；跨日增量和当日覆盖的严格隔离需要在无人值守上线前完成。Bangkok 新闻 inbox/ledger 路径的运行用户权限亦须单独验证。不要把代码部署等同于已启用每日自动日报。
