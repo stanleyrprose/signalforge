@@ -339,14 +339,18 @@ def _render_alert(report: dict[str, object]) -> str:
     transports = routes.get("selected_transports") if isinstance(routes, dict) else {}
     return "\n".join(
         [
-            "⚠️ SignalForge Public Read Health",
-            "Status: DEGRADED",
+            "⚠️ SignalForge Provider Route Telemetry",
+            f"Provider acquisition: {report.get('success_rate')} success rate",
+            f"Route telemetry: {report.get('status')}",
+            "Tender Telegram delivery: NOT_ASSESSED",
+            "News PDF/Digest delivery: NOT_ASSESSED",
             f"Window: {report.get('window_hours')}H",
-            f"Anomalies: {anomaly_text or 'UNKNOWN'}",
-            f"States: {json.dumps(states, ensure_ascii=False, sort_keys=True)}",
-            f"Routes: {json.dumps(selected, ensure_ascii=False, sort_keys=True)}",
-            f"Transports: {json.dumps(transports, ensure_ascii=False, sort_keys=True)}",
-            f"24H Gate: {gate.get('status') if isinstance(gate, dict) else 'UNKNOWN'}",
+            f"Route/integrity anomalies: {anomaly_text or 'UNKNOWN'}",
+            f"Provider states: {json.dumps(states, ensure_ascii=False, sort_keys=True)}",
+            f"Selected routes: {json.dumps(selected, ensure_ascii=False, sort_keys=True)}",
+            f"Selected transports: {json.dumps(transports, ensure_ascii=False, sort_keys=True)}",
+            f"Route telemetry 24H Gate: {gate.get('status') if isinstance(gate, dict) else 'UNKNOWN'}",
+            "This alert does not evaluate Tender/News Telegram receipts.",
         ]
     )
 
