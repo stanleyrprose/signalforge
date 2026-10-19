@@ -18,7 +18,7 @@ from pathlib import Path
 def _read(path: Path):
     if not path.is_file():
         return None
-    return sqlite3.connect(f"file:{path.resolve()}?mode=ro", uri=True)
+    return sqlite3.connect(f"{path.resolve().as_uri()}?mode=ro", uri=True)
 
 
 def tender_health(path: Path, since: str) -> dict:
@@ -73,16 +73,20 @@ def news_health(path: Path, since: str) -> dict:
                    and isinstance(parts[part].get("message_id"), int)
                    and parts[part]["message_id"] > 0 for part in ("pdf", "digest"))
         ]
-        invalid = any(
+        unresolved = any(
             receipt["status"] in ("FAILED", "UNKNOWN", "PENDING")
             for parts in editions.values() for receipt in parts.values()
         )
+        incomplete = bool(editions) and len(complete) != len(editions)
+        # Paired receipts do not prove that the daily schedule actually ran.
+        status = "WARN" if editions else "UNKNOWN"
         return {
-            "status": "WARN" if invalid else ("PASS" if complete else "UNKNOWN"),
-            "reason": ("unresolved/failed delivery receipt" if invalid else
-                       "both S01 PDF and Digest receipts observed" if complete else
-                       "no complete recent S01 PDF/Digest receipt pair"),
+            "status": status,
+            "reason": ("unresolved or incomplete S01 delivery" if unresolved or incomplete else
+                       "paired receipts observed; unattended schedule unverified" if complete else
+                       "no recent S01 PDF/Digest receipt pair"),
             "complete_editions": len(complete), "recent_editions": len(editions),
+            "receipt_status": "PAIRED_OBSERVED" if complete else "NOT_CONFIRMED",
             "note": "S01 receipts only; source coverage, scheduler and other newspapers not assessed",
         }
     except sqlite3.DatabaseError as exc:
