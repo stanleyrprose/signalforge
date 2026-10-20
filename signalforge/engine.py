@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Callable
 from urllib.parse import urlparse
 
-from .acquisition_contract import ProcessingFailure, request_reason
+from .acquisition_contract import ProcessingFailure, classify_acquisition_failure, request_reason
 from .acquisition_runtime import (
     acquire_local_bytes,
     acquire_provider_bytes,
@@ -746,7 +746,19 @@ def _acquire_source_bytes(
             effective_fetcher = fetch_bytes_cloudrity_d1n
         elif profile == "cloudrity_d1n_expired_cert_v1" and fetcher is fetch_bytes:
             effective_fetcher = partial(fetch_bytes_cloudrity_d1n, allow_expired_certificate=True)
-        return acquire_local_bytes(**common, fetcher=effective_fetcher)
+        # Retry only transient timeouts for these three sources; audit each attempt.
+        for attempt in range(3 if source_id in {"S37", "S43", "S47"} else 1):
+            try:
+                return acquire_local_bytes(**common, fetcher=effective_fetcher)
+            except Exception as exc:
+                if (
+                    attempt >= 2
+                    or source_id not in {"S37", "S43", "S47"}
+                    or classify_acquisition_failure(exc).value != "CONNECT_TIMEOUT"
+                ):
+                    raise
+                time.sleep(0.5 * (attempt + 1))
+        raise AssertionError("unreachable")
     if engine == "provider":
         roles = source.get("provider_target_roles") or {}
         target_role = roles.get(target_kind)
@@ -1189,6 +1201,7 @@ def run_source(
                         break
 
         delay = max(0, int(source["request_delay_ms"])) / 1000.0
+        detail_failure_classes: list[str] = []
         for index, entry in enumerate(candidates):
             expected_tender = entry.url in known_tender_urls
             if expected_tender:
@@ -1214,8 +1227,9 @@ def run_source(
                     observed_at=observed_at,
                     fetcher=fetcher,
                 )
-            except Exception:
+            except Exception as exc:
                 detail_errors += 1
+                detail_failure_classes.append(classify_acquisition_failure(exc).value)
                 continue
 
             html = detail_capture.payload
@@ -1429,7 +1443,8 @@ def run_source(
             signals_created += detail_signals
 
         if candidates and fetched == 0 and detail_errors == len(candidates):
-            raise RuntimeError("all bounded detail candidates failed")
+            failure_summary = ",".join(sorted(set(detail_failure_classes))) or "PROCESSING_FAILURE"
+            raise RuntimeError(f"all bounded detail candidates failed: {failure_summary}")
 
         with connect(database) as conn:
             backlog_remaining, _oldest_pending = _pending_summary(conn, source_id)
