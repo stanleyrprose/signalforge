@@ -5,6 +5,7 @@ Manual review only: no Telegram or production publication.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import subprocess
 from pathlib import Path
@@ -29,6 +30,13 @@ def run(database: Path, output_dir: Path, *, batch_size: int = 4) -> dict:
         index = offset // batch_size + 1
         response_path = output_dir / f"model-batch-{index:02d}.json"
         prompt_path = output_dir / f"prompt-batch-{index:02d}.txt"
+        # Invalidate stale numbered batches when acquired source content changes.
+        signature = hashlib.sha256(json.dumps(
+            [list(row) for row in batch], ensure_ascii=False).encode()).hexdigest()
+        signature_path = output_dir / f"model-batch-{index:02d}.sha256"
+        if not signature_path.exists() or signature_path.read_text().strip() != signature:
+            response_path.unlink(missing_ok=True)
+            signature_path.unlink(missing_ok=True)
         if not response_path.exists():
             payload = [{"url": url, "title_hint": title, "body_text": body,
                         "detail_sha256": sha, "evidence_status": "DETAIL_EXTRACTED_UNVERIFIED"}
@@ -76,6 +84,7 @@ def run(database: Path, output_dir: Path, *, batch_size: int = 4) -> dict:
         validated = validate_review_result(result, source)
         if {item["source_url"] for item in validated} != expected:
             raise ValueError(f"batch {index}: missing or unexpected article results")
+        signature_path.write_text(signature, encoding="ascii")
         results.append(result)
     report = reconcile_ai_digest(database, results, output=output_dir / "coverage-audit.json")
     (output_dir / "chinese-digest-review.txt").write_text(
