@@ -14,7 +14,7 @@ class S01DailyLaunchdContractTests(unittest.TestCase):
         self.assertEqual(job["Label"], "com.stanley.signalforge-s01-news-daily")
         self.assertEqual(job["StartCalendarInterval"], {"Hour": 17, "Minute": 0})
         self.assertFalse(job["RunAtLoad"])
-        self.assertIn("run-s01-news-daily.zsh", job["ProgramArguments"][-1])
+        self.assertIn("Application Support/SignalForge/runtime/run-s01-news-daily.zsh", job["ProgramArguments"][-1])
 
     def test_wrapper_explicitly_publishes_via_bangkok(self):
         wrapper = (ROOT / "deploy/run-s01-news-daily.zsh").read_text()

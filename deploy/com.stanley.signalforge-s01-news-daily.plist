@@ -6,7 +6,7 @@
   <key>ProgramArguments</key>
   <array>
     <string>/bin/zsh</string>
-    <string>/Users/xu/Documents/mcpx-projects/signalforge/deploy/run-s01-news-daily.zsh</string>
+    <string>/Users/xu/Library/Application Support/SignalForge/runtime/run-s01-news-daily.zsh</string>
   </array>
   <key>StartCalendarInterval</key>
   <dict><key>Hour</key><integer>17</integer><key>Minute</key><integer>0</integer></dict>
