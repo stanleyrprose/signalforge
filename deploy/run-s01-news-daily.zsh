@@ -2,7 +2,7 @@
 # Mac launchd entrypoint. Never invoke Tender Core; Bangkok owns Telegram transport.
 set -euo pipefail
 export PATH="/opt/homebrew/bin:/usr/local/bin:/opt/anaconda3/bin:/usr/bin:/bin:/usr/sbin:/sbin"
-REPO="/Users/xu/Documents/mcpx-projects/signalforge"
+REPO="/Users/xu/Library/Application Support/SignalForge/runtime"
 ROOT="/Users/xu/Library/Application Support/SignalForge/S01Daily"
 mkdir -p "$ROOT" "/Users/xu/Library/Logs/SignalForge"
 cd "$REPO"
