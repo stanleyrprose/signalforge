@@ -11,3 +11,7 @@ Scope: S01 news PDF + Chinese Digest only. Tender Core and MOI newspaper timers 
 - An interrupted or ambiguous Telegram send must be reconciled against receipt state before retrying, not blindly resent. A failed article can remain audit-visible and must not automatically suppress an otherwise valid partial edition.
 - The runner currently requires an authenticated **Codex CLI** to perform its AI Chinese review. Cloud GPT migration is separate scope; if Codex is unavailable, fail without pretending to publish.
 - This release artifact does not install or enable the LaunchAgent, run a job, send messages, change credentials or modify production.
+
+## macOS protected-directory production workaround
+
+launchd background services cannot reliably open a script inside Documents due to macOS privacy controls. Before bootstrap, stage the GitHub-main source's `signalforge` package and `deploy/run-s01-news-daily.zsh` under `~/Library/Application Support/SignalForge/runtime`; copy the plist to `~/Library/LaunchAgents`. Keep the staged package synced with the merged release and do not edit it as a source of truth.
