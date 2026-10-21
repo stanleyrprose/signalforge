@@ -32,19 +32,19 @@ def _credentials() -> tuple[str, str]:
     return token, chat
 
 
-def _send(token: str, endpoint: str, data: bytes, mime: str) -> int:
+def _send(token: str, endpoint: str, data: bytes, mime: str, *, timeout: int = 45) -> int:
     request = urllib.request.Request(
         f"https://api.telegram.org/bot{token}/{endpoint}", data=data,
         headers={"Content-Type": mime}, method="POST",
     )
     try:
-        with urllib.request.urlopen(request, timeout=45) as response:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
             answer = json.loads(response.read(65536))
     except urllib.error.HTTPError as exc:
         raise RuntimeError(f"Telegram HTTP {exc.code}; check receipt before retry") from None
     except Exception as exc:
         raise RuntimeError(
-            f"Telegram delivery outcome unknown ({type(exc).__name__}); do not blindly resend"
+            f"Telegram delivery outcome unknown ({type(exc).__name__}: {str(exc)[:160]}); do not blindly resend"
         ) from None
     if answer.get("ok") is not True:
         raise RuntimeError("Telegram rejected newspaper dispatch")
@@ -77,4 +77,4 @@ def _send_document(token: str, chat: str, path: Path, caption: str) -> int:
         (f"\r\n--{boundary}--\r\n").encode("utf-8"),
     ])
     return _send(token, "sendDocument", b"".join(fields),
-                 f"multipart/form-data; boundary={boundary}")
+                 f"multipart/form-data; boundary={boundary}", timeout=120)
