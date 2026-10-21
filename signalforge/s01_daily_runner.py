@@ -7,6 +7,7 @@ from __future__ import annotations
 import argparse
 import fcntl
 import json
+import sqlite3
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
@@ -66,11 +67,16 @@ def run(root: Path, *, day: str, max_pages: int = 20, batch_size: int = 4,
         # Keep durable DB, coverage audits and Telegram receipts. Remove only
         # regenerable HTML/model working files after both remote receipts are
         # imported; a cleanup failure must not turn delivery into a resend.
-        receipts = sent.get('receipts', {})
         cleanup_status = 'SKIPPED'
-        if (isinstance(receipts, dict) and
-                all(type(receipts.get(part)) is int and receipts[part] > 0
-                    for part in ('pdf', 'digest'))):
+        # transfer() imports both receipts to Mac SQLite before returning;
+        # inspect that durable record, not the sender's transient return value.
+        with sqlite3.connect(ledger) as conn:
+            receipts = dict(conn.execute(
+                "SELECT part,message_id FROM deliveries "
+                "WHERE edition_id=? AND status='SUCCESS'",
+                (sent['edition_id'],)).fetchall())
+        if all(type(receipts.get(part)) is int and receipts[part] > 0
+               for part in ('pdf', 'digest')):
             transient = sorted(
                 p for p in evidence.iterdir()
                 if p.is_file() and not p.is_symlink() and (
