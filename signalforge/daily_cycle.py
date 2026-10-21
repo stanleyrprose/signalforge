@@ -44,6 +44,9 @@ def _coverage_report(day: str, acquisition: dict[str, object], delivery: dict[st
         f"有效招标通知：{delivery.get('sent_count', 0)} 条；"
         f"质量过滤：{delivery.get('quality_filtered_count', 0)} 条。",
     ]
+    # This report is sent every day even when there are no actionable new tenders.
+    if int(delivery.get("sent_count", 0)) == 0:
+        lines.append("✅ 今日无新增招标（本轮无新增有效招标通知）。")
     if image_ocr is not None:
         lines.append(f"S01 图片 OCR：尝试 {image_ocr.get('attempted', 0)}，成功 {image_ocr.get('completed', 0)}，失败 {image_ocr.get('failed', 0)}；结果仅供审核。")
     if s01_verified is not None:
