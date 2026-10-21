@@ -16,6 +16,7 @@ from .s01_news_review import acquire_paginated_news_review, acquire_news_details
 from .s01_codex_review_runner import run as review
 from .s01_daily_prepare import prepare
 from .s01_daily_transfer import transfer
+from .temporary_cleanup import cleanup_completed_temp
 
 
 @contextmanager
@@ -62,7 +63,31 @@ def run(root: Path, *, day: str, max_pages: int = 20, batch_size: int = 4,
         sent = transfer(Path(prepared['manifest']), ledger, output, host=host,
                         remote_inbox=remote_inbox, remote_ledger=remote_ledger,
                         python=remote_python)
-        return {'status': 'DELIVERED', **sent}
+        # Keep durable DB, coverage audits and Telegram receipts. Remove only
+        # regenerable HTML/model working files after both remote receipts are
+        # imported; a cleanup failure must not turn delivery into a resend.
+        receipts = sent.get('receipts', {})
+        cleanup_status = 'SKIPPED'
+        if (isinstance(receipts, dict) and
+                all(type(receipts.get(part)) is int and receipts[part] > 0
+                    for part in ('pdf', 'digest'))):
+            transient = sorted(
+                p for p in evidence.iterdir()
+                if p.is_file() and not p.is_symlink() and (
+                    p.name.startswith('s01-news-listing-') and p.suffix == '.html'
+                    or p.name.startswith('s01-news-detail-') and p.suffix == '.html'
+                    or p.name.startswith('model-batch-') and p.suffix in {'.json', '.sha256'}
+                    or p.name.startswith('prompt-batch-') and p.suffix == '.txt'
+                )
+            )
+            try:
+                outcome = cleanup_completed_temp(
+                    evidence, transient, delivery_confirmed=True,
+                    durable_receipts_confirmed=True)
+                cleanup_status = outcome['status']
+            except (OSError, ValueError) as exc:
+                cleanup_status = 'WARN_CLEANUP_FAILED_' + type(exc).__name__
+        return {'status': 'DELIVERED', **sent, 'mac_temp_cleanup': cleanup_status}
 
 
 def main() -> None:
