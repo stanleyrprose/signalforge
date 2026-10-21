@@ -58,3 +58,14 @@ class CompletedTempCleanupTests(unittest.TestCase):
                                        delivery_confirmed=True,
                                        durable_receipts_confirmed=True)
             self.assertTrue(disposable.exists())
+
+    def test_explicit_database_artifact_is_protected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for name in ('copy.db', 'run.sqlite', 'work.db-wal', 'audit.jsonl'):
+                artifact = root / name
+                artifact.write_text('retain')
+                with self.assertRaises(CleanupSafetyError):
+                    cleanup_completed_temp(root, [artifact], delivery_confirmed=True,
+                                           durable_receipts_confirmed=True)
+                self.assertTrue(artifact.exists())

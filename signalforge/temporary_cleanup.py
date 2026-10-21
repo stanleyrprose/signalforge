@@ -35,7 +35,10 @@ def cleanup_completed_temp(root: Path, paths: list[Path], *,
         return {"status": "NOTHING_TO_REMOVE", "removed": 0}
     if len(set(map(str, candidates))) != len(candidates):
         raise CleanupSafetyError("duplicate cleanup path")
+    protected_suffixes = {'.db', '.sqlite', '.sqlite3', '.db-wal', '.db-shm', '.jsonl'}
     for path in candidates:
+        if any(path.name.endswith(ext) for ext in protected_suffixes):
+            raise CleanupSafetyError('database or audit material is not disposable')
         if path.is_symlink() or not path.exists() or path.resolve().parent != root:
             raise CleanupSafetyError("path outside task-owned temp root or missing")
         if path.name.startswith(".") or path.name in {
