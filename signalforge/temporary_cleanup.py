@@ -5,7 +5,6 @@ module never discovers files by age or deletes evidence, ledgers or receipts.
 """
 from __future__ import annotations
 
-import os
 import shutil
 from pathlib import Path
 
@@ -25,8 +24,11 @@ def cleanup_completed_temp(root: Path, paths: list[Path], *,
     """
     if not delivery_confirmed or not durable_receipts_confirmed:
         raise CleanupSafetyError("task delivery and durable receipts not both confirmed")
-    root = Path(root).resolve(strict=True)
-    if not root.is_dir() or root.is_symlink():
+    original_root = Path(root)
+    if original_root.is_symlink():
+        raise CleanupSafetyError("symlinked task root is forbidden")
+    root = original_root.resolve(strict=True)
+    if not root.is_dir():
         raise CleanupSafetyError("invalid task temp root")
     candidates = [Path(path) for path in paths]
     if not candidates:
