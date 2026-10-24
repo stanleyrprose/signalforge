@@ -1,5 +1,7 @@
 # SignalForge Assurance v1
 
+> Historical evidence scope — added 2026-10-24: the original observations, PASS/FAIL results, deployment SHAs, source roles, cadence, model choices and next-step recommendations below apply to the recorded date/release/subsystem. They do not establish current authorization, deployment or delivery health. Current product requirements follow [GOAL](../../GOAL.md) and the [S01/S52/S53 news contract](../S01-S52-S53-NEWS-DELIVERY-CONTRACT.md); surviving technical controls require confirmation against current code. This scope note does not change the historical results.
+
 ## Purpose
 
 SignalForge Assurance v1 adds a counter-evidence loop around the production signal pipeline. Its job is not to produce more Signals. Its job is to prove where SignalForge may be blind, preserve false negatives, make filtering auditable, give humans a controlled override, and periodically test whether operational metrics still correlate with commercial value.

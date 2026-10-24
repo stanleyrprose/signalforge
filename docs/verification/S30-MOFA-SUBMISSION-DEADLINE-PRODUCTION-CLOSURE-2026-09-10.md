@@ -1,5 +1,7 @@
 # S30 MOFA Submission-Deadline Parser Production Closure — 2026-09-10
 
+> Historical evidence scope — added 2026-10-24: the original observations, PASS/FAIL results, deployment SHAs, source roles, cadence, model choices and next-step recommendations below apply to the recorded date/release/subsystem. They do not establish current authorization, deployment or delivery health. Current product requirements follow [GOAL](../../GOAL.md) and the [S01/S52/S53 news contract](../S01-S52-S53-NEWS-DELIVERY-CONTRACT.md); surviving technical controls require confirmation against current code. This scope note does not change the historical results.
+
 ## Outcome
 
 S30 MOFA previously labeled enriched PDF deadlines as `OFFICIAL_TEXT_NATIVE_PDF_CLOSE_DATE_TIME`, but `_pdf_deadline()` selected the maximum date-time found anywhere in the PDF. PR #128 tightens the parser so a deadline is accepted only when the date-time is bound to a tender-submission line. Current production business payload remains byte-equivalent.

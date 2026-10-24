@@ -1,6 +1,10 @@
 # Trigger Policy v1
 
-## R5 trigger model
+## Applicability (updated 2026-10-24)
+
+The cadence and RPO/RTO values below describe the historical R5 release. Current Tender Core uses the 2026-10-12 daily-cadence amendment in `PRD-v2.0-TENDER-CORE.md`; S01/S52/S53 have independent daily news jobs under `S01-S52-S53-NEWS-DELIVERY-CONTRACT.md`. The historical 5/15-minute timers below are not current installation instructions. Correlation, bounded recovery, evidence and deduplication contracts remain technical references where implemented.
+
+## Historical R5 trigger model
 
 R5 is polling-first. There is no public webhook ingress in this release.
 

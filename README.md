@@ -1,6 +1,6 @@
 # SignalForge
 
-SignalForge operates two independently controlled Myanmar intelligence products. Bangkok owns production Telegram delivery; Mac may perform approved source processing.
+SignalForge has two approved, independently controlled Myanmar intelligence products. Bangkok owns production Telegram delivery; Mac may perform approved source processing.
 
 **Tender Core:** `official tender source -> acquisition/parser -> canonical tender -> NEW/UPDATED signal -> readiness/translation -> Telegram`.
 
@@ -64,4 +64,4 @@ sh -n deploy/deploy-signalforge-release.sh
   locks/
 ```
 
-Production is Bangkok-only. Runtime state, credentials, evidence and databases are not stored in Git.
+Formal SignalForge Telegram dispatch is Bangkok-owned; approved acquisition, OCR, translation and rendering may run on Mac. Runtime state, credentials, evidence and databases are not stored in Git.

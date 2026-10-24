@@ -1,5 +1,7 @@
 # Source Yield / Signal Funnel Audit v2 — 2026-09-12
 
+> Historical evidence scope — added 2026-10-24: the original observations, PASS/FAIL results, deployment SHAs, source roles, cadence, model choices and next-step recommendations below apply to the recorded date/release/subsystem. They do not establish current authorization, deployment or delivery health. Current product requirements follow [GOAL](../../GOAL.md) and the [S01/S52/S53 news contract](../S01-S52-S53-NEWS-DELIVERY-CONTRACT.md); surviving technical controls require confirmation against current code. This scope note does not change the historical results.
+
 ## Decision
 
 SignalForge production is technically healthy and the S16/YCDC incident is closed without code or routing changes. The value audit now has enough evidence to promote **S21 Myanma Railways from `STRATEGIC_WATCH` to analytical `CORE`**. No other source tier or runtime setting is changed.

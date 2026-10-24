@@ -1,5 +1,7 @@
 # Read-Layer Deadline Kind Production Closure — 2026-09-10
 
+> Historical evidence scope — added 2026-10-24: the original observations, PASS/FAIL results, deployment SHAs, source roles, cadence, model choices and next-step recommendations below apply to the recorded date/release/subsystem. They do not establish current authorization, deployment or delivery health. Current product requirements follow [GOAL](../../GOAL.md) and the [S01/S52/S53 news contract](../S01-S52-S53-NEWS-DELIVERY-CONTRACT.md); surviving technical controls require confirmation against current code. This scope note does not change the historical results.
+
 ## Outcome
 
 PR #130 enriches the customer read model with source-reviewed deadline semantics without rewriting canonical facts. The eight current OPEN opportunities now expose `deadline_kind=BID_SUBMISSION_DEADLINE`; the one UNKNOWN DOMS opportunity remains `deadline_kind=null`.

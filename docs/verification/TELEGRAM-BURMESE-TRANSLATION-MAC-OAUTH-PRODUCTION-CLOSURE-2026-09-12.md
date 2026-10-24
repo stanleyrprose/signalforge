@@ -1,5 +1,7 @@
 # Telegram Burmese → Chinese via Mac OAuth — Production Closure — 2026-09-12
 
+> Historical evidence scope — added 2026-10-24: the original observations, PASS/FAIL results, deployment SHAs, source roles, cadence, model choices and next-step recommendations below apply to the recorded date/release/subsystem. They do not establish current authorization, deployment or delivery health. Current product requirements follow [GOAL](../../GOAL.md) and the [S01/S52/S53 news contract](../S01-S52-S53-NEWS-DELIVERY-CONTRACT.md); surviving technical controls require confirmation against current code. This scope note does not change the historical results.
+
 ## Scope
 
 This closure covers presentation-only Myanmar/Burmese → Simplified-Chinese translation for SignalForge Telegram delivery. It does **not** change canonical evidence, Signal facts, deadlines, references, source routing, delivery identity, or Browser Plane C0–C3 capabilities.

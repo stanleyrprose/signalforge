@@ -1,5 +1,7 @@
 # SignalForge PRD v1.5 — Acquisition Policy & Local Contract Foundation
 
+> Applicability — 2026-10-24: historical versioned acquisition contract, not current project-wide scope or live health. Product scope follows `GOAL.md`, the Tender Core component PRD and the S01/S52/S53 news contract. Bangkok-only statements refer to formal orchestration/dispatch ownership and do not prohibit approved Mac processing. Earlier cadence, activation state and deployment claims apply only to their recorded release/date. Retain still-applicable evidence, provider, security and Worker correlation boundaries.
+
 **项目：** SignalForge / VPS Worker Runtime  
 **版本：** v1.5  
 **日期：** 2026-09-03  
