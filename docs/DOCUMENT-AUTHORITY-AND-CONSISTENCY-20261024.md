@@ -37,3 +37,7 @@
 - All 101 verification Markdown files now carry dated applicability notes. Original-body SHA verification: 101/101 unchanged; relative rendered Markdown path targets: zero missing in the 119-file scan.
 - Static path checking does not validate heading anchors, example commands, module/config contracts, external URLs, or semantics. Those gates remain open; no zero-conflict PASS is claimed.
 - Full historical file contents have been retrieved, but detailed per-file semantic reconciliation is incomplete. The remaining file matrix and production blockers are recorded in [the takeover report](NEWS-TAKEOVER-AUDIT-20261024.md).
+
+## Runtime follow-up
+
+The runtime-directory access blocker was resolved by explicit owner approval and connector configuration on 2026-10-24. Real inference remains blocked by expired/reused Codex OAuth credentials; see the latest checkpoint in [the takeover report](NEWS-TAKEOVER-AUDIT-20261024.md). The code diagnostics/receipt cleanup fixes have affected-path test evidence, but do not imply live delivery or full document-consistency PASS.

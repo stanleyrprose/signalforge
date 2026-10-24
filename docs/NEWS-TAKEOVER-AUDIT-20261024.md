@@ -2,6 +2,24 @@
 
 Status: OPEN / NOT PROJECT CLOSURE. Neither document zero-conflict nor three-source production delivery has passed.
 
+
+## Latest checkpoint — 2026-10-24 10:18 Asia/Yangon
+
+This section supersedes the initial access-blocker snapshot below. Overall status remains OPEN; neither end-to-end delivery nor full semantic document audit is PASS.
+
+- Owner authorized the three requested runtime/log roots. CodexPro launch configuration was backed up, extended only by those roots, linted and reloaded. Access to logs and artifacts now succeeds. Temporary connector reload jobs have been removed.
+- S01 Codex transcripts from Oct 22/23 record `workspace routing discovery unauthorized (401)`.
+- Real Oct 24 newspaper preparation reached OCR and the first AI extraction, then failed with `refresh_token_reused`: the existing access token is expired and its refresh token has already been used.
+- A separate minimal isolated Codex inference also failed with the same token-refresh/401 errors. Disabling workspace tools does NOT repair invalid authentication. `codex login status` reports stored login, not usable inference authorization.
+- Existing Oct 24 original PDFs and unresolved recovery data remain retained. No new Telegram dispatch occurred during this checkpoint.
+- Implemented on development branches: bounded/redacted S01 model-failure evidence and terminal-auth fail-fast; tool-isolated inference; newspaper actionable failure details and persisted NOT_READY states; nonzero scheduler failure exit; durable local PDF/Digest receipt before cleanup; idempotent cleanup preserving original evidence; cleanup-only recovery without resend.
+- Tests after these implementation changes: SignalForge affected paths 14 PASS; Mac newspaper delivery 12 PASS; Mac scheduler 10 PASS. The S01 2-test subset was rerun after auth fail-fast; scheduler subset was rerun after per-paper corrupt-receipt isolation. Counts are 36 distinct tests, not a sum of repeated executions.
+- Mac changes are isolated in `macmini_automation-news-recovery-20261024` on `fix/news-daily-recovery-impl-20261024`; the existing live script worktree was not replaced.
+- No PR/CI/main merge or SignalForge production deployment has been performed for these changes. Original whole-project document zero-conflict and all three current production-delivery gates remain open.
+
+**Current Hard Stop:** reauthenticating Codex creates/replaces an account credential. Under the owner's credential rule, obtain explicit approval to start the existing account's OAuth sign-in. Do not print tokens, ask for a password/private key, delete the old auth state, or silently select a paid provider. After successful reauthentication, resume real processing, reconcile Bangkok per-artifact receipts, then complete release/deployment and both-host cleanup verification.
+
+
 ## Authorized outcome and non-goals
 
 Complete both the document-consistency goal and independent daily S01/S52/S53 Chinese PDF + AI Digest delivery through Bangkok, with durable per-artifact receipts and receipt-gated cleanup on each host. Preserve Tender Core. No new credentials, paid model provisioning, blanket root permissions, generic routing framework, tenant features or precursor work.
@@ -37,7 +55,7 @@ This is NOT a proof of full semantic consistency. Heading anchors, plain-code pa
 | D08 | S52/S53 to `km`/`mal` source-ID association not yet independently established | Mac code identifies Kyemon and Myanma Alinn; do not guess their S52/S53 ID mapping | OPEN |
 | D09 | Relative Markdown links | Zero missing paths in the 119-file scan; reproducible static utility added | Static path check only |
 | D10 | Full command/module/config and heading-link validity | Not covered by path scanner | OPEN |
-| D11 | Current production evidence consistency | Runtime paths denied by connector allowlist | BLOCKED |
+| D11 | Current production evidence consistency | Runtime access restored with owner approval; actual inference fails with expired/reused OAuth token | BLOCKED ON REAUTH |
 | D12 | Remaining detailed file-by-file semantic audit | Matrix below deliberately avoids automatic semantic PASS | OPEN |
 
 ## Production trace
