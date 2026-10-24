@@ -146,7 +146,7 @@ GitHub `stanleyrprose/signalforge` is the sole SOT.
 
 This PRD controls current product scope. Older acquisition/provider PRDs may remain as lower-level technical contract references only where their code paths are still retained.
 
-Any older document that describes precursor, multi-tenant/pilot, standalone digest, non-tender strategic feeds or removed generic escalation capability is historical and must not override this PRD.
+Any older document that describes precursor, multi-tenant/pilot or removed generic escalation capability is historical and must not override this **Tender Core component** PRD. Its exclusion of standalone digest or non-tender news applies only to Tender Core; the separately approved News/Policy S01/S52/S53 pipeline is governed by `S01-S52-S53-NEWS-DELIVERY-CONTRACT.md`.
 
 
 ## 2026-10-12 user-approved daily cadence amendment (implementation in progress)
@@ -181,7 +181,11 @@ The owner approved a **separate S01 Government Intelligence information output**
 
 Do not route Government Intelligence into canonical `TENDER` records, tender signals, tender Telegram receipts, or tender health/coverage KPIs. No automatic production delivery until the review-only Chinese preview is accepted.
 
-## 2026-10-16 owner-approved newspaper Telegram transport boundary
+## 2026-10-24 product-scope reconciliation (current)
+
+This document is the **Tender Core component PRD**, not the complete SignalForge product PRD. Its tender-only exclusions remain valid **within Tender Core** and must not suppress the separately approved News/Policy product. The current approved News/Policy contract is `docs/S01-S52-S53-NEWS-DELIVERY-CONTRACT.md`: S01/S52/S53 daily collection, Chinese translation and PDF, AI editorial Digest, Bangkok-owned Telegram delivery, independent receipts and successful-send temporary-file cleanup. The 2026-10-16 transport-only constraints below describe that historical release slice; they do not revoke the newer approved source scope. Production execution and Telegram delivery remain UNKNOWN until verified against Bangkok and Mac runtime evidence.
+
+## 2026-10-16 owner-approved newspaper Telegram transport boundary (historical release slice)
 
 The owner separately approved Chinese editions of Myanmar official newspapers and AI-ranked Digest v2.1. This does **not** add a news, policy or strategic digest product to SignalForge Tender Core, expand the procurement Source Registry, or authorize production scheduling.
 

@@ -1,12 +1,12 @@
 # SignalForge
 
-SignalForge is a Bangkok-only Myanmar government/SOE tender notification application.
+SignalForge operates two independently controlled Myanmar intelligence products. Bangkok owns production Telegram delivery; Mac may perform approved source processing.
 
-Its single product path is:
+**Tender Core:** `official tender source -> acquisition/parser -> canonical tender -> NEW/UPDATED signal -> readiness/translation -> Telegram`.
 
-`official source -> acquisition/parser -> canonical tender -> NEW/UPDATED signal -> readiness/translation -> Telegram`
+**News/Policy (S01/S52/S53):** `daily official news/newspapers -> extraction/OCR -> Chinese translation -> PDF + AI Digest -> Bangkok Telegram -> independent receipts -> temporary-file cleanup after successful delivery`.
 
-The active repository intentionally excludes early-project precursor tracking, multi-tenant/customer profiles, pilot feedback, strategic/news feeds, and a separate business-digest product.
+See `GOAL.md`, `docs/S01-S52-S53-NEWS-DELIVERY-CONTRACT.md` and `AGENTS.md`. The two products have separate schedules, source identities, deduplication, delivery receipts and health metrics. The repository still excludes precursor tracking, multi-tenant/customer profiles and pilot feedback. This describes the approved product scope; it is not a claim that all three news sources have passed live production acceptance.
 
 ## Source of truth
 

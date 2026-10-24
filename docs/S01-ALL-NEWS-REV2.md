@@ -32,6 +32,6 @@
 
 ## Daily Runner（开发分支，待验收）
 
-`python3 -m signalforge.s01_daily_runner --database <独立新闻DB> --evidence <证据目录> --output <版次目录> --mac-ledger <独立投递DB>` 默认只生成审核稿，不发送 Telegram。加入 `--publish` 才会执行 Bangkok 传输。入口持有单进程锁，先核对分页、正文和 AI 覆盖，再生成 PDF 和发送；失败时不跳过审计。要求 Mac 已有 Codex CLI OAuth、PyMuPDF、中文字体和到 Bangkok 的 SSH 配置。日报调度尚未启用；必须先进行真实内容覆盖验收和异常恢复验收。
+`python3 -m signalforge.s01_daily_runner --database <独立新闻DB> --evidence <证据目录> --output <版次目录> --mac-ledger <独立投递DB>` 默认只生成审核稿，不发送 Telegram。加入 `--publish` 才会执行 Bangkok 传输。入口持有单进程锁，先核对分页、正文和 AI 覆盖，再生成 PDF 和发送；失败时不跳过审计。要求 Mac 已有 Codex CLI OAuth、PyMuPDF、中文字体和到 Bangkok 的 SSH 配置。该句描述此文档编写时的历史状态，不代表2026-10-24生产状态。当前目标为每日自动调度；是否已启用、实际采集与TG投递是否成功，必须检查Mac/Bangkok运行日志和Telegram回执，不得从本文件推断。
 
 **已知待解决：** 当前 review runner 会读取独立新闻数据库中所有历史文章；跨日增量和当日覆盖的严格隔离需要在无人值守上线前完成。Bangkok 新闻 inbox/ledger 路径的运行用户权限亦须单独验证。不要把代码部署等同于已启用每日自动日报。

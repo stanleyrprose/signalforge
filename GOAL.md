@@ -1,6 +1,8 @@
 # GOAL — SignalForge Myanmar Tender Alerts + News/Policy Intelligence
 
-Updated: 2026-10-16
+Updated: 2026-10-24
+
+**Current owner-approved scope:** S01/S52/S53 daily news acquisition, Chinese translation/PDF, AI editorial Digest and independent Bangkok Telegram delivery, as specified in `docs/S01-S52-S53-NEWS-DELIVERY-CONTRACT.md`. Historical references to future source authorization below describe the 2026-10-16 baseline; they do not revoke the owner's subsequent instruction. Actual activation/delivery remains unverified until production evidence is obtained.
 Status: owner-approved product-goal expansion; implementation and production activation remain separately gated.
 
 ## Primary goals
@@ -107,13 +109,13 @@ A high source count or GREEN health state alone is not business success.
 ## Source policy
 
 - `registry/Source-Registry-v1.yaml` remains the **Tender Core** executable source inventory. Its active entries must be capable of producing formal government/SOE procurement tender evidence.
-- Non-tender news, official newspapers and policy sources belong to a **separate News/Policy source inventory/contract**, not the canonical Tender Core registry. Do not automatically activate S52/S53 because the product goal has expanded.
+- Non-tender news, official newspapers and policy sources belong to a **separate News/Policy source inventory/contract**, not the canonical Tender Core registry. **S01/S52/S53 are now explicitly approved for daily News/Policy delivery** by `docs/S01-S52-S53-NEWS-DELIVERY-CONTRACT.md`; this does not silently activate runtime services or merge them into Tender Core.
 
 ## Source of truth and change gates
 
 GitHub repository `stanleyrprose/signalforge` is the sole source of truth for code, rules, PRDs and current documentation.
 
 - `main` is the accepted baseline; development takes place on GitHub-backed branches.
-- This GOAL records owner authorization for the second product objective. The older tender-only exclusions in `docs/PRD-v2.0-TENDER-CORE.md` govern **Tender Core**, but must be reconciled in a subsequent explicitly approved product PRD before activating a general news/policy pipeline.
+- This GOAL records owner authorization for the second product objective. The older tender-only exclusions in `docs/PRD-v2.0-TENDER-CORE.md` govern **Tender Core** only. The approved separate News/Policy product requirements are now reconciled in `docs/S01-S52-S53-NEWS-DELIVERY-CONTRACT.md`; runtime activation and actual delivery require evidence.
 - This change alone does not assert that S52/S53, cloud GPT inference, PDF generation or independent daily Telegram delivery are already implemented or production-ready.
 - Runtime state, secrets, downloaded evidence and production databases remain outside Git. Tests, PR/CI/Merge and deployment follow the project development gates.

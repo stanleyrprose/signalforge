@@ -1,6 +1,6 @@
 # Bangkok SignalForge Bot newspaper Digest V2 transport contract
 
-**Development / not deployed** · 2026-10-16.
+**Historical transport-only development snapshot** · 2026-10-16. For current approved S01/S52/S53 end-to-end news product scope see `S01-S52-S53-NEWS-DELIVERY-CONTRACT.md`. Historical deployment statements below are not evidence of current production status.
 
 The Mac-produced Chinese full-newspaper PDF remains the source of truth; a separate AI-based editorial Digest may accompany the PDF. User priority: Myanmar politics, policy, domestic conflict/peace, economy, diplomacy/geopolitics/international relations, livelihood and society. Routine tender and construction business are not allowed to monopolize the Digest.
 
@@ -14,7 +14,7 @@ The Mac-produced Chinese full-newspaper PDF remains the source of truth; a separ
 - Each selected item contains a Chinese evidence-bounded `why_it_matters` and `novelty_status`.
 - PDF SHA and issuer document SHA match the provided bundle; Telegram messages remain inside provider limits and retain independent paper/date receipt state. Human-review issues use Digest-only mode to avoid redelivering an already accepted PDF.
 
-AI inference runs on the Mac with its existing authenticated Codex account. Bangkok never calls a model: it only verifies and sends validated payloads via the existing SignalForge Telegram Bot. This **does not** write tender Canonical records or alter the current 28-source Bangkok production schedule.
+In this historical V2 transport slice, AI inference ran on the Mac with its then-authenticated Codex account and Bangkok verified and sent the validated payloads via the existing SignalForge Telegram Bot. Current model/provider selection is implementation-specific and must be verified; the approved product scope does not mandate Codex CLI or prohibit a separately approved cloud inference provider. This **does not** write tender Canonical records or alter the current 28-source Bangkok production schedule.
 
 2026-10-16 the first Mac AI call hit a temporary OAuth quota limit, but **after user confirmed quota recovery the real 115/115 articles completed**. The actual V2 JSON passed validation on the Mac and was transferred to the Bangkok VPS. **Bangkok sent the AI V2 Digest-only preview via the existing SignalForge Bot, Telegram message ID 395.** The previously approved full R06 PDF (Telegram message 391) was not resent; V1 Digest message 394 and its delivery receipt remain intact. There is no 7-day historical baseline, so novelty remains `UNKNOWN`; no new paid model or credential was provisioned. User acceptance of the V2 Digest is still pending, with no PR/merge/daily production release.
 
@@ -36,6 +36,6 @@ This release branch is derived directly from current SignalForge `main` and cont
 - `tests/test_newspaper_daily_digest_tg.py`: isolated mock-based unit tests.
 - `docs/NEWSPAPER-DIGEST-V2-CONTRACT.md` and an explicit narrowly scoped PRD clarification.
 
-All S52/S53 source registration, acquisition adapters, engine changes, OCR source parsing and historical R01–R06 review scripts remain on the previous development branch and are **excluded**.
+For **this historical transport-only PR**, S52/S53 source registration, acquisition adapters, engine changes, OCR source parsing and historical R01–R06 review scripts were **excluded from that PR only**. They are **not excluded from the current approved product scope**: S01/S52/S53 daily acquisition, translation, PDF, AI Digest and Bangkok Telegram delivery are explicitly required by `S01-S52-S53-NEWS-DELIVERY-CONTRACT.md`. Runtime deployment and successful sends still require separate evidence.
 
 No systemd units, cron tasks, provider credentials, production dispatch or SignalForge canonical tables are added to this PR. Human-vetted newspaper PDF source data and Digest manifests stay on Mac/Bangkok runtime only; no artifacts in Git.

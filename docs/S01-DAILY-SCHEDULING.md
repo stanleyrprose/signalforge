@@ -1,6 +1,6 @@
 # S01 autonomous daily publication (Mac launchd)
 
-Scope: S01 news PDF + Chinese Digest only. Tender Core and MOI newspaper timers remain unchanged.
+Scope of this scheduler: S01 news PDF + Chinese Digest only. Project-wide daily news coverage additionally requires independent S52 and S53 newspaper jobs per `S01-S52-S53-NEWS-DELIVERY-CONTRACT.md`. This Mac launchd file is not evidence that S52/S53 are scheduled or that S01 actually delivered. Tender Core and existing MOI newspaper timers remain separately managed.
 
 - Deploy after focused verification, PR/CI/Merge and explicit production authorization.
 - Use `deploy/com.stanley.signalforge-s01-news-daily.plist` for the user LaunchAgent.
