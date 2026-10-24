@@ -22,3 +22,7 @@
 - A README link or a file in another repository is not sufficient to prove a running Agent has loaded a policy.
 
 This policy file is self-contained and governs development only. It does not authorize operation of production collectors, scheduled automations or customer-facing alerts.
+
+## Global temporary-file cleanup requirement
+
+For every existing and future SignalForge source/job on Mac, Bangkok or other workers: classify task-owned intermediate files at design time; after its business success gate and durable delivery receipts (where applicable), clean only explicitly allowlisted regenerable temporary artifacts. Never remove business evidence, audit records, DBs, code, configurations or receipts. Preserve unresolved delivery states (`UNKNOWN`/`PENDING`) and recovery artifacts. Cleanup failure must not repeat acquisition, publication or Telegram dispatch. Multi-node cleanup needs independent per-node evidence. See `docs/GLOBAL-TEMP-ARTIFACT-LIFECYCLE.md`. This is an engineering policy; it does not itself grant permission to operate production systems.
