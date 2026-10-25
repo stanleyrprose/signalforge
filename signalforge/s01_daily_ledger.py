@@ -85,6 +85,24 @@ class S01Ledger:
                     item["reviews"][fingerprint] = metadata["ai_review"]
         return result
 
+    def purge_delivered_review_content(self, edition_id: str) -> None:
+        """Keep content fingerprints and receipts; remove confirmed AI text."""
+        receipts = dict(self.db.execute(
+            "SELECT part,message_id FROM deliveries WHERE edition_id=? AND status='SUCCESS'",
+            (edition_id,)).fetchall())
+        if not all(type(receipts.get(part)) is int and receipts[part] > 0 for part in ("pdf", "digest")):
+            raise ValueError("Confirmed PDF and Digest required for content cleanup")
+        with self.db:
+            for identity, raw in self.db.execute(
+                    "SELECT identity,review_json FROM articles WHERE delivered_sha=detail_sha").fetchall():
+                metadata = json.loads(raw) if raw else {}
+                fingerprint = metadata.get("content_sha256") if isinstance(metadata, dict) else None
+                minimum = {"content_sha256": fingerprint} if fingerprint else {}
+                self.db.execute("UPDATE articles SET review_json=? WHERE identity=?",
+                                (json.dumps(minimum), identity))
+        # This ledger stores minimal identity/receipt state after cleanup.
+        # Undelivered/ambiguous article revisions are not touched.
+
     def close(self):
         self.db.close()
 

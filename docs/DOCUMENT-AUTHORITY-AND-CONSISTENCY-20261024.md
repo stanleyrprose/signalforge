@@ -1,5 +1,9 @@
 # SignalForge document authority and consistency audit — 2026-10-24
 
+## Latest owner amendment — 2026-10-25
+
+[News processing and cleanup](NEWS-PROCESSING-POLICY-20261025.md) takes precedence over older news retention and unreadable-page blocking clauses. It is approved behavior with a development-only implementation; it is not covered by earlier passing test counts or deployment proofs. Current execution is limited to code/docs and static review; regression/system tests and PR/CI/Merge require new explicit approval.
+
 ## Current governing documents
 
 1. `GOAL.md` — dual-product objectives and separation of Tender Core vs News/Policy.

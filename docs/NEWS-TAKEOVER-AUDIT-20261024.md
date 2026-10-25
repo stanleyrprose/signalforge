@@ -3,7 +3,21 @@
 Status: OPEN / NOT PROJECT CLOSURE. Neither document zero-conflict nor three-source production delivery has passed.
 
 
-## Latest checkpoint — 2026-10-25 11:50 Asia/Yangon
+## Latest owner-policy checkpoint — 2026-10-25
+
+Overall handoff remains OPEN. [The Oct 25 owner amendment](NEWS-PROCESSING-POLICY-20261025.md) now supersedes news-content retention and unreadable-page blocking: force readable LOW as 待核, disclose/skip unreadable pages, complete PDF + Digest, then delete all task content after paired receipts while retaining minimum dedup/receipt state.
+
+- Current work is implementation/static review only. No new regression/system tests, PR, CI or Merge are authorized for this amendment. Earlier tests and deployment proofs apply only to their recorded code.
+- SignalForge production remains `1578631af25527446f8e7e4afecae34e64a517b9` on Mac and Bangkok; newspaper production is `20fff408353df88de4f9ed0b6099ec3694b4b29d`. The new policy implementation is NOT DEPLOYED.
+- Merged newspaper recovery and editorial fixes: #17, #18, #19 and #20. PR #21 was opened before the latest restriction; its CI finished before that instruction. It remains OPEN and is not merged. New-policy work is on a different branch without an open PR.
+- Real Oct 24 paper backfill: km 32 source pages / 112 news / 25 Chinese PDF pages / 112 AI assessments / Digest 480 + PDF 481; mal 32 / 125 / 29 / 125 / Digest 482 + PDF 483. Independent Bangkok receipts match Mac IDs and hashes. Old-policy cleanup completed on both hosts and rerun returned ALREADY_DELIVERED for both. This does not prove the newly requested all-content cleanup.
+- Natural Oct 25 sends remain km 476/477 and mal 478/479. S01 Oct 24 remains 467/468.
+- PDF QA also found one explicit private congratulations item in the delivered Oct 24 mal PDF. Its receipt/history is preserved; the narrow fix is in held PR #21 and the new development branch. Do not silently replace or resend a delivered issue.
+- S01 Oct 25 processing saved 202 details; 150 matched receipt-confirmed exact bodies and 52 were unseen/changed. It stopped at AI batch 39 with a real provider usage-limit error; the CLI says retry after 15:30 local. Recovery inputs remain, no Oct 25 PDF/Digest delivery is claimed. Do not buy credits or change credentials without authorization.
+- Document static path/heading and historical-body checks are separate from semantic/current-runtime acceptance. Source numerical mapping (S52/S53 versus km/mal) remains unresolved; no Tender registry IDs were changed.
+- These facts supersede the older checkpoints below. Earlier statuses, blockers and pending rows are dated audit history, not current assertions.
+
+## Historical checkpoint — 2026-10-25 11:50 Asia/Yangon
 
 Overall status remains OPEN. The records below supersede the earlier access/authentication and delivery unknowns; they do not assert full project closure.
 

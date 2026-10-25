@@ -13,7 +13,7 @@ from pathlib import Path
 from .s01_daily_handoff import accept
 
 
-def cleanup(root: Path, edition: str) -> dict:
+def cleanup(root: Path, edition: str, *, ledger: Path | None = None) -> dict:
     if not re.fullmatch(r"[0-9a-f]{64}", edition):
         raise ValueError("invalid edition identifier")
     root = root.resolve(strict=True)
@@ -42,6 +42,13 @@ def cleanup(root: Path, edition: str) -> dict:
         p.is_symlink() or not p.is_file() for p in directory.iterdir()
     ):
         raise ValueError("unexpected files in cleanup directory")
+    if ledger is not None:
+        from .s01_daily_ledger import S01Ledger
+        retained = S01Ledger(ledger)
+        try:
+            retained.purge_delivered_review_content(edition)
+        finally:
+            retained.close()
     shutil.rmtree(directory)
     return {"status": "TEMP_ARTIFACTS_REMOVED", "edition_id": edition}
 
@@ -50,8 +57,9 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("root", type=Path)
     parser.add_argument("edition")
+    parser.add_argument("--ledger", type=Path)
     args = parser.parse_args()
-    print(json.dumps(cleanup(args.root, args.edition)))
+    print(json.dumps(cleanup(args.root, args.edition, ledger=args.ledger)))
 
 
 if __name__ == "__main__":

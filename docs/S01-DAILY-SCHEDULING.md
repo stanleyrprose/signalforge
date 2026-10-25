@@ -1,5 +1,7 @@
 # S01 autonomous daily publication (Mac launchd)
 
+Current cleanup behavior is amended by [the Oct 25 owner policy](NEWS-PROCESSING-POLICY-20261025.md); its new implementation has not been deployed. Minimum receipts remain after all task content is removed.
+
 Scope of this scheduler: S01 news PDF + Chinese Digest only. Project-wide daily news coverage additionally requires independent S52 and S53 newspaper jobs per `S01-S52-S53-NEWS-DELIVERY-CONTRACT.md`. This Mac launchd file is not evidence that S52/S53 are scheduled or that S01 actually delivered. Tender Core and existing MOI newspaper timers remain separately managed.
 
 - Deploy after focused verification, PR/CI/Merge and explicit production authorization.
@@ -10,7 +12,7 @@ Scope of this scheduler: S01 news PDF + Chinese Digest only. Project-wide daily 
 - Inspect the wrapper exit status, `~/Library/Logs/signalforge-s01-news-daily.*.log`, S01 local/remote receipt ledgers and real Telegram messages before declaring PASS.
 - An interrupted or ambiguous Telegram send must be reconciled against receipt state before retrying, not blindly resent. A failed article can remain audit-visible and must not automatically suppress an otherwise valid partial edition.
 - The runner currently requires an authenticated **Codex CLI** to perform its AI Chinese review. Cloud GPT migration is separate scope; if Codex is unavailable, fail without pretending to publish.
-- This release artifact does not install or enable the LaunchAgent, run a job, send messages, change credentials or modify production.
+- This document alone does not authorize activation. The 2026-10-25 recovery release is merged and deployed; installed launchd cadence and actual delivery evidence are tracked separately in [the takeover audit](NEWS-TAKEOVER-AUDIT-20261024.md).
 
 ## macOS protected-directory production workaround
 

@@ -11,7 +11,6 @@ from zoneinfo import ZoneInfo
 
 from .s01_daily_runner import _lock, run
 from .s01_daily_transfer import transfer
-from .temporary_cleanup import cleanup_completed_temp
 
 YANGON = ZoneInfo("Asia/Yangon")
 
@@ -101,21 +100,14 @@ def execute_prepared(root: Path, path: Path, state: dict, manifest: str) -> dict
 
 
 def cleanup_evidence(root: Path, day: str) -> dict:
-    # Called only after transfer confirms/imports both independent receipts.
-    folder = root / "evidence" / day
-    if not folder.exists():
-        return {"status": "NOTHING_TO_REMOVE", "removed": 0}
-    files = [p for p in folder.iterdir() if p.is_file() and not p.is_symlink() and (
-        (p.name.startswith(("s01-news-listing-", "s01-news-detail-")) and p.suffix == ".html")
-        or (p.name.startswith("model-batch-") and p.suffix in (".json", ".sha256"))
-        or (p.name.startswith("prompt-batch-") and p.suffix == ".txt"))]
+    # Cleanup retries require minimum durable receipts, never retained payloads.
+    from .s01_content_cleanup import cleanup_day
+    journal = root / "daily-schedule" / (day + ".json")
     try:
-        result = cleanup_completed_temp(folder, files, delivery_confirmed=True,
-                                        durable_receipts_confirmed=True)
-    except (OSError, ValueError) as exc:
-        result = {"status": "PENDING", "reason": type(exc).__name__}
-    _save(folder / "temp-cleanup.json", result)
-    return result
+        state = json.loads(journal.read_text(encoding="utf-8"))
+        return cleanup_day(root, day, state["edition_id"])
+    except (OSError, ValueError, KeyError) as exc:
+        return {"status": "PENDING", "reason": type(exc).__name__}
 
 
 def main() -> None:

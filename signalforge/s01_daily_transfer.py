@@ -63,6 +63,19 @@ def _transfer_locked(manifest: Path, mac_ledger: Path, outbox: Path, *,
     staged = stage(manifest, outbox)
     directory = Path(staged["directory"])
     edition = staged["edition_id"] if "edition_id" in staged else directory.name
+    # Minimum date/edition binding survives content cleanup and guards its scope.
+    from datetime import date
+    day = date.fromisoformat(json.loads(manifest.read_text(encoding="utf-8"))["date"]).isoformat()
+    index = mac_ledger.parent / "edition-index" / (edition + ".json")
+    if index.resolve() != mac_ledger.parent.resolve() / "edition-index" / (edition + ".json"):
+        raise ValueError("Unsafe S01 edition index")
+    binding = {"date": day, "edition_id": edition}
+    if index.exists() and json.loads(index.read_text(encoding="utf-8")) != binding:
+        raise ValueError("S01 edition index mismatch")
+    index.parent.mkdir(parents=True, exist_ok=True)
+    temporary = index.with_suffix(".tmp")
+    temporary.write_text(json.dumps(binding) + "\n", encoding="utf-8")
+    temporary.replace(index)
     remote_dir = remote_inbox.rstrip("/") + "/" + edition
     # Create the inbox root explicitly; a fresh isolated deployment may not have it.
     _run(["ssh", "-o", "BatchMode=yes", host, "mkdir", "-p", remote_inbox])
@@ -106,14 +119,14 @@ def _transfer_locked(manifest: Path, mac_ledger: Path, outbox: Path, *,
     result = import_receipt(mac_ledger, manifest, receipt)
     # Cleanup only after Mac has durably imported both Telegram receipts.
     _run(["ssh", "-o", "BatchMode=yes", host, python, "-m",
-          "signalforge.s01_daily_cleanup", remote_inbox, edition])
+          "signalforge.s01_daily_cleanup", remote_inbox, edition, "--ledger", remote_ledger])
     # Resolve the original generated PDF before removing the staging directory.
     source_pdf = manifest.parent / Path(
         json.loads(manifest.read_text(encoding="utf-8"))["pdf"]).name
     import shutil
     shutil.copyfile(receipt, directory / "manifest.receipt.json")
     from .s01_daily_cleanup import cleanup
-    cleanup(outbox, edition)
+    cleanup(outbox, edition, ledger=mac_ledger)
     # Remove generated artifacts only when they live inside the designated
     # outbox; never unlink an arbitrary source file or evidence directory.
     generated_root = outbox.resolve()

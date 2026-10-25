@@ -1,5 +1,7 @@
 # SignalForge Sprint: S20 PDF evidence recovery + S01 issuer tender extraction
 
+> Historical sprint snapshot: the development/release status, counts and future actions below describe 2026-10-15 only. This is Tender Core evidence work, not the S01 news product. For current scope see [the news contract](S01-S52-S53-NEWS-DELIVERY-CONTRACT.md); for current observed deployment see [the takeover audit](NEWS-TAKEOVER-AUDIT-20261024.md). Preserve the dated results.
+
 Date: 2026-10-15
 Status: DEVELOPMENT BRANCH; NOT TESTED / NOT RELEASED
 Baseline: GitHub main `7370156326f499465ea1136db45ca672b0644f47`

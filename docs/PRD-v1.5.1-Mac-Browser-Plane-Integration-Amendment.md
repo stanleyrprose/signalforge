@@ -330,7 +330,7 @@ invocation_mode: manual_or_future_contract
 
 Manual Provider Bridge v0 不改变 `production_enabled=false`：它没有 SignalForge→Mac 网络调用通道，`provider-request` / `provider-import` 也不进入 VPS Worker verb manifest。当前仍不允许 SignalForge unattended production 依赖 Mac remote invocation。
 
-操作与验证边界见 `docs/MANUAL-PROVIDER-BRIDGE-v0.md`。
+历史操作与验证边界曾见 `docs/MANUAL-PROVIDER-BRIDGE-v0.md`；该文件和人工路径后来已退出活动树，仅在本仓库 Git 历史中归档。当前已批准的生产 Provider 路径见 [v1.7 PUBLIC_READ_ACQUIRE](PRD-v1.7-PUBLIC-READ-ACQUIRE.md)，不得依据本历史段重新启用人工路径。
 
 2026-09-04 的 S15A parser preview 证明：Manual Bridge 能可靠提供 MPA listing/detail/PDF evidence，但 **listing title 不能直接作为最终 business classification**。例如 `Open Tender Invitation for three Tugs` 的官方 PDF 明确说明三艘拖轮将通过 open tender 方式拍卖，因此 listing-only 会把资产处置误判成采购机会。2026-09-05 已单独批准并实现最小 PDF supplementary classification/extraction slice：固定 `pypdf==6.16.2`、per-release SignalForge venv、bounded deterministic PDF parser，可输出最终 `TENDER` / `AUCTION_NOTICE`、deadline、显式 reference 与 evidence excerpt；模糊输入 fail closed。该批准**只覆盖 PDF runtime + parser capability**，不等于 S15A source activation，也不改变 `production_enabled=false`、`remote_invocation=false` 或 Manual Provider Bridge 的人工搬运边界。Evidence: `docs/verification/S15A-MPA-PARSER-PREVIEW-2026-09-04.md` 与 `docs/verification/S15A-MPA-PDF-SUPPLEMENTARY-2026-09-05.md`。
 

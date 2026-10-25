@@ -58,8 +58,19 @@ def validate_bundle(digest: dict, pdf: Path) -> None:
     selected = digest.get("selected")
     if not isinstance(messages, list) or not 1 <= len(messages) <= 12:
         raise ValueError("Invalid digest message segmentation")
-    if not isinstance(selected, list) or not 1 <= len(selected) <= 12:
+    if not isinstance(selected, list) or not 0 <= len(selected) <= 12:
         raise ValueError("Invalid digest item count")
+    if not selected and (digest.get("schema_version") != "newspaper-digest-v2"
+                         or digest.get("empty_digest_reason") != "NO_ELIGIBLE_DIGEST_STORY"):
+        raise ValueError("Empty Digest requires an explicit no-eligible-story result")
+    skipped = digest.get("unreadable_pages", [])
+    if (not isinstance(skipped, list)
+            or any(not isinstance(row, dict) or type(row.get("page")) is not int
+                   or not 1 <= row["page"] <= digest.get("source_pages", 0)
+                   or not isinstance(row.get("reason"), str) or not 1 <= len(row["reason"]) <= 160
+                   for row in skipped)
+            or len({row["page"] for row in skipped}) != len(skipped)):
+        raise ValueError("Invalid unreadable-page markers")
     if digest.get("selected_count") != len(selected):
         raise ValueError("Digest item count mismatch")
     if digest.get("edition_news_count", 0) < digest["selected_count"]:
@@ -133,6 +144,11 @@ def send_issue(bundle: Path, pdf: Path, *, receipts: Path = DEFAULT_RECEIPTS,
     state.setdefault("source_pdf_sha256", digest["source_pdf_sha256"])
     state.setdefault("edition_pdf_sha256", digest["edition_pdf_sha256"])
     state.setdefault("digest_sha256", digest_hash)
+    state.setdefault("coverage", {
+        "source_pages": digest.get("source_pages"),
+        "edition_news_count": digest["edition_news_count"],
+        "unreadable_pages": digest.get("unreadable_pages", []),
+    })
     state.setdefault("messages", {})
     for index, part in enumerate(digest["messages"], 1):
         key = str(index)
@@ -149,7 +165,9 @@ def send_issue(bundle: Path, pdf: Path, *, receipts: Path = DEFAULT_RECEIPTS,
             _save(receipt_file, state)
     if not digest_only and "pdf_message_id" not in state:
         label = str(digest.get("paper_label") or digest["paper"])
-        caption = f"📰 {label} · {digest['date']} 全量中文新闻PDF（非Top精选；Digest已单独发送）"
+        skipped_count = len(digest.get("unreadable_pages", []))
+        coverage = f"；{skipped_count}页无法读取，已标记跳过" if skipped_count else ""
+        caption = f"📰 {label} · {digest['date']} 中文新闻PDF（可读新闻全收录{coverage}；Digest已单独发送）"
         state["pdf_message_id"] = _send_document(token, chat, pdf, caption)
         _save(receipt_file, state)
     return {

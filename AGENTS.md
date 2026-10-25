@@ -1,5 +1,9 @@
 # SignalForge — Development Agent Rules
 
+## Active owner execution boundary — 2026-10-25
+
+The owner explicitly limits this continuation to implementation and static review. Do not run regression/system tests, open a new PR, trigger CI or Merge until separately and explicitly approved. Prior release approvals and prior passing test counts do not validate the new [news processing amendment](docs/NEWS-PROCESSING-POLICY-20261025.md). Preserve pending/unknown delivery inputs. Production is still the last accepted deployed release.
+
 ## Development lifecycle (Agent Development Policy v1.0)
 
 - Read this repository's current branch, **`docs/PRD-v2.0-TENDER-CORE.md` (Tender Core component PRD), `GOAL.md` and `docs/S01-S52-S53-NEWS-DELIVERY-CONTRACT.md` (current dual-product scope)**, actual workflow triggers and project operational constraints before code changes. Older PRDs are lower-level historical/technical references and cannot expand product scope.
@@ -25,4 +29,4 @@ This policy file is self-contained and governs development only. It does not aut
 
 ## Global temporary-file cleanup requirement
 
-For every existing and future SignalForge source/job on Mac, Bangkok or other workers: classify task-owned intermediate files at design time; after its business success gate and durable delivery receipts (where applicable), clean only explicitly allowlisted regenerable temporary artifacts. Never remove business evidence, audit records, DBs, code, configurations or receipts. Preserve unresolved delivery states (`UNKNOWN`/`PENDING`) and recovery artifacts. Cleanup failure must not repeat acquisition, publication or Telegram dispatch. Multi-node cleanup needs independent per-node evidence. See `docs/GLOBAL-TEMP-ARTIFACT-LIFECYCLE.md`. This is an engineering policy; it does not itself grant permission to operate production systems.
+For every existing and future SignalForge source/job on Mac, Bangkok or other workers: classify task-owned intermediate files at design time; after its business success gate and durable delivery receipts (where applicable), clean only explicitly allowlisted regenerable temporary artifacts. Never remove persistent business/audit/receipt DBs, code, configurations or credentials. The owner's 2026-10-25 news-only amendment explicitly reclassifies original/OCR/translated content and per-task review SQLite as disposable after confirmed PDF + Digest delivery; this does not permit deleting shared Tender Core or delivery ledgers. Preserve unresolved delivery states (`UNKNOWN`/`PENDING`) and recovery artifacts. Cleanup failure must not repeat acquisition, publication or Telegram dispatch. Multi-node cleanup needs independent per-node evidence. See `docs/GLOBAL-TEMP-ARTIFACT-LIFECYCLE.md`. This is an engineering policy; it does not itself grant permission to operate production systems.

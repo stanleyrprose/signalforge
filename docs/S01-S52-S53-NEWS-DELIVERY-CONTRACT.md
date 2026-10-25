@@ -1,6 +1,6 @@
 # S01 / S52 / S53 新闻采集与 Telegram 日报交付契约
 
-Status: owner-approved product scope; production status must be verified independently. Updated: 2026-10-24.
+Status: owner-approved product scope; production status must be verified independently. Updated: 2026-10-25. The [Oct 25 owner amendment](NEWS-PROCESSING-POLICY-20261025.md) supersedes older news retention and unreadable-page blocking rules: originals and processing content are needed before delivery; all task content is cleaned after confirmed PDF + Digest receipts, retaining minimum dedup/receipt state. Readable LOW items are extracted as 待核; unreadable pages are marked and skipped while the other news proceeds. Implementation is not yet tested, released or deployed.
 
 ## Mandatory source coverage
 
