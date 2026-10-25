@@ -2,7 +2,7 @@
 
 ## Current news-only owner amendment — 2026-10-25
 
-For S01 and both newspaper jobs, [the newer owner policy](NEWS-PROCESSING-POLICY-20261025.md) now requires all task content to be removed after confirmed PDF and Digest delivery. This explicitly includes originals, OCR, source/translated text, per-task processing SQLite files, PDF/Digest/model/render files and old revisions. Retain only minimum hashes, counters and independent dedup/receipt state outside content. Shared Tender Core/business DBs, delivery ledgers, code/config and credentials remain protected. Unconfirmed delivery inputs are retained. This exception changes news content retention only; other task policies below remain intact. The exception is a development implementation, not a production rollout claim.
+For S01 and both newspaper jobs, [the newer owner policy](NEWS-PROCESSING-POLICY-20261025.md) now requires all task content to be removed after confirmed selected-body attachment and Digest delivery. This explicitly includes originals, OCR, source/translated text, per-task processing SQLite files, PDF/Digest/model/render files and old revisions. Retain only minimum hashes, counters and independent dedup/receipt state outside content. Shared Tender Core/business DBs, delivery ledgers, code/config and credentials remain protected. Unconfirmed delivery inputs are retained. This exception changes news content retention only; other task policies below remain intact. The policy has been deployed for news; dated receipts and cleanup evidence are recorded in [operations](CURRENT-OPERATIONS.md). This statement does not validate future edits.
 
 ## Earlier lifecycle baseline (historical retention classification for news)
 
@@ -33,9 +33,9 @@ regenerable temporary artifacts.
 
 | Task | State |
 | --- | --- |
-| S01 Mac evidence HTML/model working artifacts | Implementation merged; gated by both durable Telegram receipts; live rollout unverified |
+| S01 Mac evidence HTML/model working artifacts | Receipt-gated all-content cleanup deployed; Oct24/25 proofs in operations |
 | S01 Mac outbox / Bangkok inbox | Existing guarded `s01_daily_transfer` and `s01_daily_cleanup`; retain contracts and verify current receipts |
-| Newspaper PDF/Digest | Pending native receipt mapping, independent of S01 |
+| Newspaper PDF/Digest | Independent native receipts and all-content cleanup deployed; Oct24/25 proofs in operations |
 | Tender Core artifacts | Pending classification of persistent evidence vs temporary files |
 | S20 OCR/PDF, Browser Plane and other source workers | Pending per-owner integration and source-specific verification |
 | Website monitoring | Pending adapter and durable event/notification acknowledgement |

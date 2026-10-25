@@ -1,6 +1,6 @@
 # S01 article identity and content versions — 2026-10-25
 
-Status: merged in PR #325 at `1578631af25527446f8e7e4afecae34e64a517b9` and deployed to Mac and Bangkok on 2026-10-25. Full unittest suite: 539 PASS; PR and main CI passed. A real two-fetch probe confirmed changed raw HTML SHA with byte-identical extracted article text. Receipt-confirmed legacy metadata was reconciled for 202 articles on each host with database backups retained. The first post-deployment daily processing remains independently tracked in the takeover audit.
+Status: merged in PR #325 at `1578631af25527446f8e7e4afecae34e64a517b9` and deployed to Mac and Bangkok on 2026-10-25. Full unittest suite: 539 PASS; PR and main CI passed. A real two-fetch probe confirmed changed raw HTML SHA with byte-identical extracted article text. Receipt-confirmed legacy metadata was reconciled for 202 articles on each host with database backups retained. Actual post-deployment delivery and cleanup are independently recorded in [current operations](CURRENT-OPERATIONS.md).
 
 A real repeated fetch returned different raw HTML SHA values for identical extracted article text. Raw HTML SHA is evidence identity and must be retained; it is insufficient to classify a news article as materially updated.
 

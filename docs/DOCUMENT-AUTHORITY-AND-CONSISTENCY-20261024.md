@@ -1,47 +1,28 @@
-# SignalForge document authority and consistency audit — 2026-10-24
+# Document authority and consistency
 
-## Latest owner amendment — 2026-10-25
+Updated 2026-10-25. One rule has one canonical home; references do not create a second competing rule.
 
-[News processing and cleanup](NEWS-PROCESSING-POLICY-20261025.md) takes precedence over older news retention and unreadable-page blocking clauses. It is approved behavior with a development-only implementation; it is not covered by earlier passing test counts or deployment proofs. Current execution is limited to code/docs and static review; regression/system tests and PR/CI/Merge require new explicit approval.
+## Current authority
 
-## Current governing documents
+1. Owner's current instruction and approved project goals.
+2. [GOAL](../GOAL.md): Tender Core plus separate News/Policy objectives.
+3. [Tender PRD](PRD-v2.0-TENDER-CORE.md): procurement correctness, evidence and production boundaries.
+4. [News delivery contract](S01-S52-S53-NEWS-DELIVERY-CONTRACT.md): source identities, formats, independent delivery and receipt-gated cleanup; [News inventory](../registry/News-Sources-v1.json) is its identity table, not Tender activation.
+5. [AGENTS](../AGENTS.md): implementation, verification and release workflow. Existing owner release authorization applies only to its actual slice.
+6. S01 [Rev2](S01-ALL-NEWS-REV2.md), [schedule](S01-DAILY-SCHEDULING.md), [content identity](S01-CONTENT-IDENTITY-20261025.md) and [Markdown amendment](S01-MARKDOWN-INDEPENDENT-DELIVERY-20261025.md): component details subordinate to the news contract.
 
-1. `GOAL.md` — dual-product objectives and separation of Tender Core vs News/Policy.
-2. `AGENTS.md` — repository development/release gates; does not prove runtime deployment.
-3. `docs/PRD-v2.0-TENDER-CORE.md` — Tender Core component only.
-4. `docs/S01-S52-S53-NEWS-DELIVERY-CONTRACT.md` — current approved News/Policy S01/S52/S53 source-to-Telegram delivery contract.
-5. `docs/S01-ALL-NEWS-REV2.md`, `docs/S01-DAILY-SCHEDULING.md` — S01 implementation-specific requirements, subject to the current news contract.
+Deployment is a runtime release marker plus matching GitHub merge/deployment evidence. Production PASS additionally requires real source processing, Telegram IDs, independent receipts and cleanup. Current dated observations have one home: [operations](CURRENT-OPERATIONS.md). CI, a timer, generated files or source authorization alone do not prove delivery.
 
-## Historical snapshots, not current product vetoes
+## Historical and technical references
 
-- `CHECKPOINT.md` documents the 2026-10-11 tender-only reset, superseded for product scope by the subsequent dual-product GOAL.
-- `docs/NEWSPAPER-DIGEST-V2-CONTRACT.md` records the 2026-10-16 transport-only release slice. Exclusion of S52/S53 source adapters applied **only to that PR**.
-- `docs/S01-GOVERNMENT-INTELLIGENCE-REV1.md` records an initial review-first rollout, not a permanent ban on approved daily delivery.
-- `docs/verification/*.md` are dated test, incident and production observations. Historical `S01 Assurance-only`, `NOT_DEPLOYED`, `tender-only` and newspaper fallback decisions are valid **for the date, subsystem and evidence recorded**, not assertions about today's News/Policy product scope or live delivery.
-- Older PRD v1.5/v1.7, acquisition, provider and trigger policies remain valid for their technical/safety boundaries unless a newer explicit contract supersedes them. Do not globally erase TLS, evidence, procurement qualification or production safety requirements.
+- CHECKPOINT is the dated October11 Tender reset, not a current news veto.
+- Takeover audit, transport-only newspaper contract, S01 Rev1, October15 sprint and delivery-blocker report preserve their dated facts. Their OPEN/NOT_DEPLOYED/approval statements are bounded to those checkpoints.
+- Every verification Markdown has an applicability note. Its original body is immutable and hash-checked. Old Assurance-only roles, 5/15-minute cadences, superseded model choices and retired precursor/auction/customer features cannot override current requirements.
+- v1.5/v1.5.1/v1.7 and fetch/trigger policies are lower-level technical references. Surviving correlation, PIC, URL/size/time, TLS and fail-closed controls still apply where current code/source contracts implement them. Source-specific S01/S41 exceptions do not grant blanket TLS bypasses.
+- Historical command examples and removed implementation paths describe that release; they are not current runbooks. Current commands/modules/configuration must exist. Rendered relative Markdown links and anchors must resolve even in historical files.
 
-## Consistency rules
+## Consistency and acceptance
 
-- S01 News/Policy collection and S01 Tender Assurance may coexist with distinct source roles and separate receipts; S01 news articles do not become canonical tenders.
-- S52/S53 are approved newspaper News/Policy sources; the tender Source Registry is not their activation inventory.
-- Daily acquisition, Chinese PDF translation, AI Digest, Bangkok Telegram delivery, durable independent receipts, and post-success cleanup are required **outcomes**. Documentation cannot establish whether they are running.
-- Historical release gates and model choices (e.g., Mac Codex CLI) are implementation snapshots, not immutable product requirements.
-- Do not rewrite dated verification evidence to make it match current policy. For current runtime PASS, inspect actual Mac/Bangkok scheduler logs, Telegram API message IDs and receipt state.
+S01 news and Tender Assurance remain distinct; ordinary news does not become a canonical tender. S52/S53 newspaper aliases do not enter the Tender registry. S01 uses Markdown; newspapers use PDF. AI Provider is replaceable, Bangkok owns formal TG, business and route telemetry health are separate, and all task content is cleaned after selected-body plus Digest receipts while minimum audit/dedup state remains.
 
-## Audit evidence and residual limitations
-
-- 2026-10-24 local scan: 124 Markdown files, including 23 outside `docs/verification/`; relative Markdown links in the 23 non-verification files: 0 broken.
-- Keyword/role scan of historical verification files found S01 `Assurance-only` and `NOT_DEPLOYED` statements tied to September/October tender snapshots; these are not conflicts with the newer independent S01 news pipeline.
-- This is a documentation scope reconciliation, **not** a claim that all semantic contradictions across 124 files are mechanically proven absent. Final sign-off requires repository diff review and GitHub reconciliation. Production S01/S52/S53 execution and Telegram receipts remain separately unverified.
-
-## Work takeover checkpoint (2026-10-24; not final acceptance)
-
-- GitHub main read and fetched at `0d0e0632119e14d5867473bb77d97e9d72abd090`; local handoff changes preserved in `3e8c857` before integration.
-- Explicit static inventory: 119 formal project Markdown files before adding the takeover report; the count excludes six ignored local `.ai-bridge` notes and tool/cache directories. The earlier 124-file scan used a different scope and is not the current formal-document total.
-- All 101 verification Markdown files now carry dated applicability notes. Original-body SHA verification: 101/101 unchanged; relative rendered Markdown path targets: zero missing in the 119-file scan.
-- Static path checking does not validate heading anchors, example commands, module/config contracts, external URLs, or semantics. Those gates remain open; no zero-conflict PASS is claimed.
-- Full historical file contents have been retrieved, but detailed per-file semantic reconciliation is incomplete. The remaining file matrix and production blockers are recorded in [the takeover report](NEWS-TAKEOVER-AUDIT-20261024.md).
-
-## Runtime follow-up
-
-Updated 2026-10-25: runtime access and OAuth authentication were restored with owner authorization. Bangkok and Mac independent receipts now confirm Oct 24 S01 Digest/PDF 467/468, and Oct 25 km 476/477 and mal 478/479. These prove those sends, not full content/cleanup/release acceptance. Full unittest verification for the pending recovery release is SignalForge 534 PASS and Mac automation 66 PASS. See [the takeover report](NEWS-TAKEOVER-AUDIT-20261024.md) for unresolved semantic, evidence-retention, cleanup and release checks. No whole-project zero-conflict PASS is claimed.
+Audit evidence must list files, authority/applicability, conflicts and resolutions, references, historical-body preservation and limitations. A scoped historical record is not a present conflict merely because its old result differs from today's. Do not rewrite old evidence or claim semantic PASS from a keyword/link scan. Full current-file sign-off and dated runtime evidence remain separate gates.

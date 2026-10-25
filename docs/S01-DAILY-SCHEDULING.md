@@ -1,19 +1,17 @@
-# S01 autonomous daily publication (Mac launchd)
+# S01 daily publication — Mac launchd
 
-Current cleanup behavior is amended by [the Oct 25 owner policy](NEWS-PROCESSING-POLICY-20261025.md); its new implementation has not been deployed. Minimum receipts remain after all task content is removed.
+Current contract: [daily news](S01-S52-S53-NEWS-DELIVERY-CONTRACT.md); dated deployment and actual receipts: [operations](CURRENT-OPERATIONS.md). This scheduler covers S01 Markdown + Digest only. Newspaper and Tender jobs remain separate.
 
-Scope of this scheduler: S01 news PDF + Chinese Digest only. Project-wide daily news coverage additionally requires independent S52 and S53 newspaper jobs per `S01-S52-S53-NEWS-DELIVERY-CONTRACT.md`. This Mac launchd file is not evidence that S52/S53 are scheduled or that S01 actually delivered. Tender Core and existing MOI newspaper timers remain separately managed.
+- Source: `deploy/com.stanley.signalforge-s01-news-daily.plist`; wrapper `deploy/run-s01-news-daily.zsh`; Python `signalforge.s01_daily_schedule`.
+- Calendar trigger17:00 in Mac local time, with hourly StartInterval3600 and RunAtLoad. Confirm the Mac timezone is Asia/Yangon. Before17:00 Yangon, latest due date is yesterday.
+- One successful edition per date. Current due date first; at most one older pending date is additionally attempted per invocation. Failure/corruption in a historical journal cannot prevent the current date from being attempted. Successful dates reuse receipts and perform cleanup-only recovery; no reacquisition/resend.
+- Existing prepared manifests and retained acquisition/validated AI work are reused. PENDING/UNKNOWN component outcomes require reconciliation; the other component can still proceed. Article-level unreadability stays audit-visible and does not suppress successful content.
+- The current worker uses authenticated Mac Codex CLI. Quota failure requests a separately deduplicated Bangkok notice and retains progress. The product does not permanently require that Provider.
+- Formal sending occurs on Bangkok; its independent ledger is the authority for sends. Mac imports checksum-bound selected-body/Digest receipts before both-host content cleanup.
+- Inspect launchd exit status, `~/Library/Logs/signalforge-s01-news-daily.*.log`, daily journals, local/remote receipts and actual message IDs. A loaded timer is not delivery evidence.
 
-- Deploy after focused verification, PR/CI/Merge and explicit production authorization.
-- Use `deploy/com.stanley.signalforge-s01-news-daily.plist` for the user LaunchAgent.
-- Configured for **17:00 Mac local time**; confirm Mac time zone is `Asia/Yangon` before production activation. Runtime edition date is calculated in `Asia/Yangon`.
-- The wrapper invokes `signalforge.s01_daily_schedule`, which prepares through the guarded runner and explicitly transfers the immutable edition through the Bangkok S01 sender. Tender Core is outside this path.
-- One completed edition per Yangon date, due at 17:00. Hourly and load-time checks resume the oldest started unfinished date, reuse a prepared manifest, and consult durable per-artifact receipts after an interrupted transfer. Before 17:00, the latest due date is yesterday. They do not substitute an old source issue for a new one. Unknown Telegram outcomes remain blocked by the Bangkok sender. A completed date does not reacquire or resend; cleanup retries remain independent. Timer presence still does not prove actual delivery.
-- Inspect the wrapper exit status, `~/Library/Logs/signalforge-s01-news-daily.*.log`, S01 local/remote receipt ledgers and real Telegram messages before declaring PASS.
-- An interrupted or ambiguous Telegram send must be reconciled against receipt state before retrying, not blindly resent. A failed article can remain audit-visible and must not automatically suppress an otherwise valid partial edition.
-- The runner currently requires an authenticated **Codex CLI** to perform its AI Chinese review. Cloud GPT migration is separate scope; if Codex is unavailable, fail without pretending to publish.
-- This document alone does not authorize activation. The 2026-10-25 recovery release is merged and deployed; installed launchd cadence and actual delivery evidence are tracked separately in [the takeover audit](NEWS-TAKEOVER-AUDIT-20261024.md).
+## Protected-directory staging
 
-## macOS protected-directory production workaround
+launchd cannot reliably open Documents scripts under macOS privacy controls. Stage the merged release's `signalforge` package and wrapper under `~/Library/Application Support/SignalForge/runtime`; install the plist under `~/Library/LaunchAgents`. Persist repository/SHA in runtime/release.json. Never edit staged code as SOT. Before replace/restart, verify no S01 task is running, retain rollback, and preserve ledgers/pending content.
 
-launchd background services cannot reliably open a script inside Documents due to macOS privacy controls. Before bootstrap, stage the GitHub-main source's `signalforge` package and `deploy/run-s01-news-daily.zsh` under `~/Library/Application Support/SignalForge/runtime`; copy the plist to `~/Library/LaunchAgents`. Keep the staged package synced with the merged release and do not edit it as a source of truth.
+The current-day-priority change requires its own affected-path verification, CI and deployment evidence; older production results do not validate unshipped changes.

@@ -1,6 +1,6 @@
 # S01 Government Intelligence (historical review-first baseline)
 
-> Current owner-approved S01 scope is daily news acquisition, Chinese PDF and AI Digest, Bangkok Telegram delivery, and independent receipts per `S01-S52-S53-NEWS-DELIVERY-CONTRACT.md`. Review-first restrictions below describe the initial rollout gate; they do not revoke later owner authorization. Production PASS still requires runtime evidence. — Rev1 (owner-approved scope, implementation gate)
+> Current owner-approved S01 scope is daily news acquisition, Chinese Markdown body and AI Digest, Bangkok Telegram delivery, and independent receipts per `S01-S52-S53-NEWS-DELIVERY-CONTRACT.md`. Review-first restrictions below describe the initial rollout gate; they do not revoke later owner authorization. Production PASS still requires runtime evidence. — Rev1 (owner-approved scope, implementation gate)
 
 ## Goal and boundary
 

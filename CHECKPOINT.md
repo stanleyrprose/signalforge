@@ -1,6 +1,6 @@
 # CHECKPOINT — Historical Tender Core Reset (superseded for product scope)
 
-Current continuation: [Oct 25 owner news policy](docs/NEWS-PROCESSING-POLICY-20261025.md), implementation/static review only. No new regression/system tests or PR/CI/Merge. The reset facts below remain historical.
+Current scope and dated runtime evidence: [GOAL](GOAL.md), [news contract](docs/S01-S52-S53-NEWS-DELIVERY-CONTRACT.md), [operations](docs/CURRENT-OPERATIONS.md). All reset rules, cadence and release gates below describe the October11–12 reset only.
 
 > Historical snapshot dated 2026-10-11. Its single-product and retired-news assertions describe that reset only and are superseded by `GOAL.md` (2026-10-16) and `docs/S01-S52-S53-NEWS-DELIVERY-CONTRACT.md` (2026-10-24). Current product scope includes **both** Tender Core and independently operated S01/S52/S53 News/Policy collection, Chinese PDF translation, AI Digest and daily Bangkok Telegram delivery. This note does not assert current production deployment or delivery success. Preserve the historical validation numbers below as dated evidence.
 

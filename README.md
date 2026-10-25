@@ -1,16 +1,16 @@
 # SignalForge
 
-> Current S01 amendment (2026-10-25): [Markdown body + independently attempted Digest](docs/S01-MARKDOWN-INDEPENDENT-DELIVERY-20261025.md) supersedes S01 PDF wording below. S52/S53 retain PDF. Content cleanup requires the selected body attachment and Digest receipts. This is approved behavior; deployment/production evidence is recorded separately.
+> Formats: S01 Markdown; S52/km and S53/mal Chinese PDF. [News contract](docs/S01-S52-S53-NEWS-DELIVERY-CONTRACT.md) · [dated production evidence](docs/CURRENT-OPERATIONS.md).
 
 SignalForge has two approved, independently controlled Myanmar intelligence products. Bangkok owns production Telegram delivery; Mac may perform approved source processing.
 
 **Tender Core:** `official tender source -> acquisition/parser -> canonical tender -> NEW/UPDATED signal -> readiness/translation -> Telegram`.
 
-**News/Policy (S01/S52/S53):** `daily official news/newspapers -> extraction/OCR -> Chinese translation -> PDF + AI Digest -> Bangkok Telegram -> independent receipts -> temporary-file cleanup after successful delivery`.
+**News/Policy (S01/S52/S53):** `daily official news/newspapers -> extraction/OCR -> Chinese translation -> body attachment + AI Digest -> Bangkok Telegram -> independent receipts -> temporary-file cleanup after successful delivery`.
 
-Current news behavior follows [the Oct 25 owner amendment](docs/NEWS-PROCESSING-POLICY-20261025.md): force readable low-confidence items as 待核, mark/skip unreadable pages, and remove all task content after both TG receipts. This amendment is implemented only on a development branch and is not deployed.
+Current news behavior follows [the Oct 25 owner amendment](docs/NEWS-PROCESSING-POLICY-20261025.md): force readable low-confidence items as 待核, mark/skip unreadable pages, and remove all task content after both TG receipts. The policy and S01 Markdown transport were deployed through PRs #326/#328; dated receipts and remaining recovery work are recorded in the operations document.
 
-See `GOAL.md`, `docs/S01-S52-S53-NEWS-DELIVERY-CONTRACT.md` and `AGENTS.md`. The two products have separate schedules, source identities, deduplication, delivery receipts and health metrics. The repository still excludes precursor tracking, multi-tenant/customer profiles and pilot feedback. This describes the approved product scope; it is not a claim that all three news sources have passed live production acceptance.
+See `GOAL.md`, `docs/S01-S52-S53-NEWS-DELIVERY-CONTRACT.md` and `AGENTS.md`. The two products have separate schedules, source identities, deduplication, delivery receipts and health metrics. The repository still excludes precursor tracking, multi-tenant/customer profiles and pilot feedback. This describes the approved product scope; live completion requires actual receipts and both-host cleanup evidence.
 
 ## Source of truth
 

@@ -1,5 +1,7 @@
 # Delivery blocker recovery — 2026-10-25
 
+Scope: dated pre-PR327 recovery snapshot. Later Markdown replacement and confirmed delivery are in [operations](CURRENT-OPERATIONS.md); earlier PDF UNKNOWN and recovery retention instructions below apply before that approved replacement.
+
 Owner request: investigate missing S01 and Tender delivery blockers; explicitly send an S01 failure notice to Telegram if AI quota is exhausted. Existing authorization for related PR/CI/Merge/deployment persists; no unrelated system testing or source-policy changes.
 
 Verified observations:
