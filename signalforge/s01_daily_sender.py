@@ -15,10 +15,12 @@ from signalforge.s01_attachment import attachment_part, verify_attachment
 
 def failure_status(exc: Exception) -> str:
     import re
-    return "FAILED" if re.search(r"Telegram HTTP 4\d\d", str(exc)) else "UNKNOWN"
+    return "FAILED" if isinstance(exc, ValueError) or re.search(r"Telegram HTTP 4\d\d", str(exc)) else "UNKNOWN"
 
 
 def failure_reason(exc: Exception) -> str:
+    if isinstance(exc, ValueError):
+        return "正文附件格式、编码或大小不符合传输要求，请检查后重试"
     import re
     code = re.search(r"Telegram HTTP (\d{3})", str(exc))
     if code:

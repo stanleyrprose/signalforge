@@ -116,6 +116,21 @@ class MarkdownDeliveryTests(unittest.TestCase):
             self.assertNotIn("pdf",manifest)
             self.assertIn("全部中文正文",Path(manifest["markdown"]).read_text())
 
+    def test_real_document_transport_accepts_utf8_markdown_with_correct_mime(self):
+        from tools import newspaper_telegram_transport as real
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);path,payload,data,t=self.case(root)
+            with patch.object(real,"_send",return_value=105) as post:
+                self.assertEqual(real._send_document("test","chat",payload,"正文"),105)
+                self.assertIn(b"Content-Type: text/markdown; charset=utf-8",post.call_args.args[2])
+                self.assertIn("中文新闻".encode(),post.call_args.args[2])
+            payload.write_bytes(bytes([255]))
+            with patch.object(real,"_send") as post:
+                with self.assertRaises(ValueError):
+                    real._send_document("test","chat",payload,"正文")
+                post.assert_not_called()
+
     def test_legacy_pdf_manifest_still_delivers(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);path,payload,data,t=self.case(root,"pdf")

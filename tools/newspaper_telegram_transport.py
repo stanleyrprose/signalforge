@@ -61,7 +61,16 @@ def _send_text(token: str, chat: str, text: str) -> int:
 
 def _send_document(token: str, chat: str, path: Path, caption: str) -> int:
     pdf = path.read_bytes()
-    if len(pdf) > MAX_PDF_BYTES or not pdf.startswith(b"%PDF-"):
+    mime = "application/pdf"
+    if path.suffix.lower() == ".md":
+        if len(pdf) > 2_000_000 or not pdf.strip() or bytes([0]) in pdf:
+            raise ValueError("Invalid or oversized S01 Markdown")
+        try:
+            pdf.decode("utf-8")
+        except UnicodeDecodeError:
+            raise ValueError("S01 Markdown must be UTF-8") from None
+        mime = "text/markdown; charset=utf-8"
+    elif len(pdf) > MAX_PDF_BYTES or not pdf.startswith(b"%PDF-"):
         raise RuntimeError("Invalid or oversized Chinese news PDF")
     boundary = "newspaper-" + uuid.uuid4().hex
     fields = []
@@ -72,7 +81,7 @@ def _send_document(token: str, chat: str, path: Path, caption: str) -> int:
         )
     fields.extend([
         (f"--{boundary}\r\nContent-Disposition: form-data; name=\"document\"; "
-         f"filename=\"{path.name}\"\r\nContent-Type: application/pdf\r\n\r\n").encode("utf-8"),
+         f"filename=\"{path.name}\"\r\nContent-Type: {mime}\r\n\r\n").encode("utf-8"),
         pdf,
         (f"\r\n--{boundary}--\r\n").encode("utf-8"),
     ])
