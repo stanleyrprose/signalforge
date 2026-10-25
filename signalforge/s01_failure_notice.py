@@ -29,7 +29,7 @@ def send(day: str, completed: int, total: int, *, root: Path=ROOT, transport=Non
         text=(f"⚠️ S01 新闻日报处理未完成｜{day}\n"
               "原因：AI 推理额度受限。\n"
               f"已完成并校验的中文处理：{completed}/{total} 条。\n"
-              "本次 PDF 和 Digest 尚未投递。处理进度已保留，额度恢复后继续。\n"
+              "本次正文附件和 Digest 尚未投递。处理进度已保留，额度恢复后继续。\n"
               "这是失败状态通知，不代表日报已送达；同一日同类事件仅通知一次。")
         if transport is None:
             from tools import newspaper_telegram_transport as transport

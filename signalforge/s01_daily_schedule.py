@@ -69,7 +69,8 @@ def execute(root: Path, *, now: datetime | None = None) -> dict:
                 rows = dict(conn.execute(
                     "SELECT part,message_id FROM deliveries WHERE edition_id=? AND status='SUCCESS'",
                     (state["edition_id"],)).fetchall())
-            if not all(type(rows.get(p)) is int and rows[p] > 0 for p in ("pdf", "digest")):
+            from .s01_attachment import paired_receipts
+            if not paired_receipts(rows):
                 raise RuntimeError("missing prepared manifest without confirmed receipts")
             result = {"status": "DELIVERED", "edition_id": state["edition_id"]}
         else:

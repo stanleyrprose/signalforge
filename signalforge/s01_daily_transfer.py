@@ -95,9 +95,29 @@ def _transfer_locked(manifest: Path, mac_ledger: Path, outbox: Path, *,
         ["ssh", "-o", "BatchMode=yes", host, "test", "-f", remote_dir + "/READY"],
         check=False, timeout=180)
     if ready_probe.returncode == 1:
+        # Transfer the tiny manifest and send Digest before any body upload.
+        # This also recovers interrupted document uploads without repeating Digest.
+        _run(["scp", "-B", str(directory / "manifest.json"), f"{host}:{remote_dir}/manifest.json"])
+    elif ready_probe.returncode != 0:
+        raise RuntimeError("remote READY probe failed; refuse overwrite")
+    _run(["ssh", "-o", "BatchMode=yes", host, "env", "PYTHONPATH=/srv/signalforge/active",
+          python, "-m", "signalforge.s01_daily_sender", remote_ledger,
+          remote_dir + "/manifest.json", "--digest-only"])
+    if ready_probe.returncode == 1:
         files = sorted(p for p in directory.iterdir() if p.name != "READY")
-        _run(["scp", "-B", *map(str, files), f"{host}:{remote_dir}/"])
-        _run(["scp", "-B", str(directory / "READY"), f"{host}:{remote_dir}/READY"])
+        try:
+            _run(["scp", "-B", *map(str, files), f"{host}:{remote_dir}/"])
+            _run(["scp", "-B", str(directory / "READY"), f"{host}:{remote_dir}/READY"])
+        except (subprocess.SubprocessError, OSError):
+            # Bangkok can report a missing/corrupt body even when its upload failed.
+            # A simultaneous SSH outage remains explicitly failed on the Mac.
+            try:
+                _run(["ssh", "-o", "BatchMode=yes", host, "env", "PYTHONPATH=/srv/signalforge/active",
+                      python, "-m", "signalforge.s01_daily_sender", remote_ledger,
+                      remote_dir + "/manifest.json"])
+            except (subprocess.SubprocessError, OSError):
+                pass
+            raise
     elif ready_probe.returncode != 0:
         raise RuntimeError("remote READY probe failed; refuse overwrite")
     _run(["ssh", "-o", "BatchMode=yes", host, python, "-m",
@@ -121,8 +141,8 @@ def _transfer_locked(manifest: Path, mac_ledger: Path, outbox: Path, *,
     _run(["ssh", "-o", "BatchMode=yes", host, python, "-m",
           "signalforge.s01_daily_cleanup", remote_inbox, edition, "--ledger", remote_ledger])
     # Resolve the original generated PDF before removing the staging directory.
-    source_pdf = manifest.parent / Path(
-        json.loads(manifest.read_text(encoding="utf-8"))["pdf"]).name
+    from .s01_attachment import attachment_path
+    source_pdf = attachment_path(json.loads(manifest.read_text(encoding="utf-8")), manifest.parent)
     import shutil
     shutil.copyfile(receipt, directory / "manifest.receipt.json")
     from .s01_daily_cleanup import cleanup

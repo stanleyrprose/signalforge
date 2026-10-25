@@ -7,7 +7,8 @@ import json
 from pathlib import Path
 
 from .s01_daily_ledger import S01Ledger, edition_identity
-from .s01_daily_pdf import render_digest, render_pdf
+from .s01_daily_pdf import render_digest
+from .s01_attachment import render_markdown
 
 
 def prepare(audit_path: Path, ledger_path: Path, output_dir: Path,
@@ -78,10 +79,13 @@ def prepare(audit_path: Path, ledger_path: Path, output_dir: Path,
         output_dir.mkdir(parents=True, exist_ok=True)
         identities = sorted({(article_identity(x["url"]), x["detail_sha256"]) for x in new_items})
         edition = edition_identity(day, identities)
-        pdf = output_dir / f"S01-Chinese-News-{day}-{edition[:12]}.pdf"
+        pdf = output_dir / f"S01-Chinese-News-{day}-{edition[:12]}.md"
         if pdf.exists():
-            raise ValueError("edition PDF already exists; reuse immutable manifest or reconcile")
-        result = render_pdf(subreport, pdf, edition_date=day, fontfile=fontfile)
+            raise ValueError("edition Markdown already exists; reuse immutable manifest or reconcile")
+        pdf.write_text(render_markdown({**subreport, "pending_articles": [
+            {"url": x["url"], "reason": x.get("exclusion_reason")} for x in report["items"]
+            if x["disposition"] != "INCLUDED"]}, edition_date=day), encoding="utf-8")
+        result = {"markdown": str(pdf), "articles": len(new_items), "bytes": pdf.stat().st_size}
         manifest = {
             "incomplete_count": report["unresolved"],
             "pending_articles": [{"url": x["url"], "reason": x.get("exclusion_reason")} for x in report["items"] if x["disposition"] != "INCLUDED"],
@@ -92,7 +96,7 @@ def prepare(audit_path: Path, ledger_path: Path, output_dir: Path,
                           **next({k: item[k] for k in ("content_sha256", "ai_review") if k in item}
                                  for item in new_items if article_identity(item["url"]) == identity)}
                          for identity, sha in identities],
-            "pdf": str(pdf), "pdf_sha256": hashlib.sha256(pdf.read_bytes()).hexdigest(),
+            "markdown": str(pdf), "markdown_sha256": hashlib.sha256(pdf.read_bytes()).hexdigest(),
             "digest": render_digest(subreport, edition_date=day) + (f"\n待补采/补译：{report['unresolved']} 条，详见审计记录。" if report["unresolved"] else ""),
             "caption": f"S01 缅甸政府门户中文新闻｜{day}｜{len(new_items)}条"
         }

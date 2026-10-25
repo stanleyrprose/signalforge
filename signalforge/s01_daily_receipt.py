@@ -10,6 +10,7 @@ import json
 from pathlib import Path
 
 from .s01_daily_ledger import S01Ledger, article_identity, edition_identity
+from .s01_attachment import attachment_part, verify_attachment
 
 
 def export_receipt(ledger_path: Path, manifest_path: Path, output: Path) -> dict:
@@ -30,7 +31,7 @@ def export_receipt(ledger_path: Path, manifest_path: Path, output: Path) -> dict
             "SELECT part,message_id FROM deliveries WHERE edition_id=? AND status='SUCCESS'",
             (edition,)).fetchall())
         if not all(type(rows.get(part)) is int and rows[part] > 0
-                   for part in ("digest", "pdf")):
+                   for part in ("digest", attachment_part(manifest))):
             raise ValueError("both successful Telegram receipts required")
         receipt = {
             "date": manifest["date"], "edition_id": edition,
@@ -47,9 +48,7 @@ def export_receipt(ledger_path: Path, manifest_path: Path, output: Path) -> dict
 def import_receipt(ledger_path: Path, manifest_path: Path, receipt_path: Path) -> dict:
     manifest_bytes = manifest_path.read_bytes()
     manifest = json.loads(manifest_bytes)
-    pdf = manifest_path.parent / Path(manifest["pdf"]).name
-    if not pdf.is_file() or hashlib.sha256(pdf.read_bytes()).hexdigest() != manifest["pdf_sha256"]:
-        raise ValueError("local PDF missing or checksum mismatch")
+    verify_attachment(manifest, manifest_path.parent)
     receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
     pairs = [(e["identity"], e["detail_sha"]) for e in manifest["articles"]]
     edition = edition_identity(manifest["date"], pairs)
@@ -68,7 +67,7 @@ def import_receipt(ledger_path: Path, manifest_path: Path, receipt_path: Path) -
         raise ValueError("duplicate article identity")
     telegram = receipt["telegram"]
     if not all(type(telegram.get(part)) is int and telegram[part] > 0
-               for part in ("digest", "pdf")):
+               for part in ("digest", attachment_part(manifest))):
         raise ValueError("invalid Telegram receipt")
     ledger = S01Ledger(ledger_path)
     try:
@@ -81,7 +80,7 @@ def import_receipt(ledger_path: Path, manifest_path: Path, receipt_path: Path) -
         for entry in manifest["articles"]:
             from .s01_daily_ledger import review_metadata
             ledger.upsert_article(entry["url"], entry["detail_sha"], review=review_metadata(entry))
-        for part in ("digest", "pdf"):
+        for part in ("digest", attachment_part(manifest)):
             ledger.record_delivery(edition, part, "SUCCESS", telegram[part])
         ledger.mark_delivered(pairs, edition)
         return {"status": "RECEIPT_IMPORTED", "edition_id": edition, "articles": len(pairs)}

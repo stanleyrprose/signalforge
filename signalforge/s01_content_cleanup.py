@@ -13,6 +13,7 @@ import shutil
 import sqlite3
 
 from .s01_daily_ledger import S01Ledger
+from .s01_attachment import paired_receipts
 
 
 def cleanup_day(root: Path, day: str, edition: str) -> dict:
@@ -30,7 +31,7 @@ def cleanup_day(root: Path, day: str, edition: str) -> dict:
         receipts = dict(conn.execute(
             "SELECT part,message_id FROM deliveries WHERE edition_id=? AND status='SUCCESS'",
             (edition,)).fetchall())
-    if not all(type(receipts.get(part)) is int and receipts[part] > 0 for part in ("pdf", "digest")):
+    if not paired_receipts(receipts):
         raise ValueError("Both durable S01 message receipts required")
     folder = root / "evidence" / day
     if folder.is_symlink() or folder.resolve() != root / "evidence" / day:
