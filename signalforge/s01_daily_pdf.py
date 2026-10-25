@@ -28,6 +28,11 @@ def render_pdf(report: dict, output: Path, *, edition_date: str, fontfile: Path)
 
     def write(text: str, size: int = 10, indent: int = 0):
         nonlocal y
+        import re
+        # Preserve the original spelling in the source audit/URL; never paint
+        # unreadable missing-glyph boxes or invent a Chinese proper name.
+        text = re.sub(r"[\u1000-\u109f\uaa60-\uaa7f\ua9e0-\ua9ff]+",
+                      "〔缅文专名见原文〕", str(text))
         available = 510 - indent
         for raw in str(text).splitlines() or [""]:
             segments = []
@@ -75,7 +80,11 @@ def render_digest(report: dict, *, edition_date: str, top_n: int = 10) -> str:
              "重要性只影响以下 Digest 排序，不影响 PDF 收录。"]
     for index, item in enumerate(included[:top_n], 1):
         ai = item["ai_review"]
-        lines.append(f"{index}. {ai['chinese_title']}（{ai['category']}）")
+        title = ai["chinese_title"][:75]
+        summary = ai["chinese_summary"][:135]
+        reason = ai["rationale"][:65]
+        lines.append(f"{index}. {title}（{ai['category'][:30]}）\n{summary}"
+                     f"\n关注：{reason}\n来源：随附PDF第{index}条；官方单一来源，未经独立核验。")
     if report["unresolved"]:
         lines.append(f"注意：{report['unresolved']} 条待补处理，未计入已完成新闻。")
     return "\n".join(lines)

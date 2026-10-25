@@ -40,4 +40,4 @@
 
 ## Runtime follow-up
 
-The runtime-directory access blocker was resolved by explicit owner approval and connector configuration on 2026-10-24. Real inference remains blocked by expired/reused Codex OAuth credentials; see the latest checkpoint in [the takeover report](NEWS-TAKEOVER-AUDIT-20261024.md). The code diagnostics/receipt cleanup fixes have affected-path test evidence, but do not imply live delivery or full document-consistency PASS.
+Updated 2026-10-25: runtime access and OAuth authentication were restored with owner authorization. Bangkok and Mac independent receipts now confirm Oct 24 S01 Digest/PDF 467/468, and Oct 25 km 476/477 and mal 478/479. These prove those sends, not full content/cleanup/release acceptance. Full unittest verification for the pending recovery release is SignalForge 534 PASS and Mac automation 66 PASS. See [the takeover report](NEWS-TAKEOVER-AUDIT-20261024.md) for unresolved semantic, evidence-retention, cleanup and release checks. No whole-project zero-conflict PASS is claimed.

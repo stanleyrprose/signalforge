@@ -3,7 +3,21 @@
 Status: OPEN / NOT PROJECT CLOSURE. Neither document zero-conflict nor three-source production delivery has passed.
 
 
-## Latest checkpoint — 2026-10-24 10:18 Asia/Yangon
+## Latest checkpoint — 2026-10-25 11:50 Asia/Yangon
+
+Overall status remains OPEN. The records below supersede the earlier access/authentication and delivery unknowns; they do not assert full project closure.
+
+- Owner completed OAuth sign-in on Oct 24; a real isolated inference succeeded. The earlier credential Hard Stop is resolved. A later newspaper retry met a usage limit; recovery inputs were retained.
+- Bangkok read-only ledger query confirms S01 edition `d57ea102dc7742c4aed72aabf10ed338b4042a404264c00c6bb6df823e780c78`: Digest message 467 and PDF message 468, both SUCCESS on Oct 24. The separate earlier prepared `d29d467f...` candidate is not the delivered edition and must not be blindly resent.
+- Bangkok independent newspaper JSON receipts confirm Oct 25 km: Digest 476 / PDF 477; mal: Digest 478 / PDF 479. Mac daily scheduler JSON independently records the same four IDs, with 144 km and 143 mal articles.
+- Oct 25 generated newspaper payloads are absent on Mac; OCR/status and disposition manifests remain. Both-host cleanup, original-evidence retention and exact runtime provenance still require reconciliation before full E2E PASS.
+- Newspaper delivery LaunchAgent was temporarily stopped for the Oct 24 manual preparation window, then restored successfully on Oct 24 at approximately 20:00. Its Oct 25 natural delivery succeeded. Tender Core services were not paused or changed.
+- Development now adds S01 durable daily completion, prepared-manifest recovery and hourly/load-time due checks. It also improves S01 Digest substance and unsupported-script display; newspaper failure isolation, receipt-first cleanup and numberless-market-table exclusion are implemented.
+- Focused verification: S01 schedule/runtime/runner/readability 10 PASS; newspaper semantic Digest 16 PASS after correcting an overbroad category filter. Earlier cleanup/delivery/scheduler checks remain separately recorded. CI/merge/deployment for this development release are still pending.
+- Numerical S52/S53-to-paper mapping remains unconfirmed because historical assistant records conflict. Production evidence uses unambiguous km/Kyemon and mal/Myanma Alinn identities; no Tender Source Registry ID was changed.
+- Document inventory/path/historical-body checks have passed statically. Detailed semantic/command/heading checks and the full per-file sign-off remain open. Do not replace the P entries below with automatic PASS.
+
+## Historical checkpoint — 2026-10-24 10:18 Asia/Yangon
 
 This section supersedes the initial access-blocker snapshot below. Overall status remains OPEN; neither end-to-end delivery nor full semantic document audit is PASS.
 
@@ -17,7 +31,7 @@ This section supersedes the initial access-blocker snapshot below. Overall statu
 - Mac changes are isolated in `macmini_automation-news-recovery-20261024` on `fix/news-daily-recovery-impl-20261024`; the existing live script worktree was not replaced.
 - No PR/CI/main merge or SignalForge production deployment has been performed for these changes. Original whole-project document zero-conflict and all three current production-delivery gates remain open.
 
-**Current Hard Stop:** reauthenticating Codex creates/replaces an account credential. Under the owner's credential rule, obtain explicit approval to start the existing account's OAuth sign-in. Do not print tokens, ask for a password/private key, delete the old auth state, or silently select a paid provider. After successful reauthentication, resume real processing, reconcile Bangkok per-artifact receipts, then complete release/deployment and both-host cleanup verification.
+**Historical Hard Stop at that checkpoint (resolved by authorized login):** reauthenticating Codex creates/replaces an account credential. Under the owner's credential rule, obtain explicit approval to start the existing account's OAuth sign-in. Do not print tokens, ask for a password/private key, delete the old auth state, or silently select a paid provider. After successful reauthentication, resume real processing, reconcile Bangkok per-artifact receipts, then complete release/deployment and both-host cleanup verification.
 
 
 ## Authorized outcome and non-goals
@@ -68,7 +82,7 @@ This is NOT a proof of full semantic consistency. Heading anchors, plain-code pa
 | Newspaper prepare | Loaded LaunchAgent, 27 runs, last exit 0 | Code catches per-paper prepare exceptions into PENDING and may still exit 0; exit 0 is not publication success |
 | Newspaper deliver | Loaded LaunchAgent, 50 runs, last exit 0 | Code may return NOT_READY without a nonzero exit; no delivery inference |
 | Bangkok Tender Core | Oct 24 06:30–06:36 scheduler log: 28 sources, one failed, sent_count 0, COMPLETE_WITH_SOURCE_FAILURES | Unrelated source failure identity not investigated here; no tender services altered |
-| Bangkok runtime | Scheduler descriptor reports `276671551317ee745a9eaf284c18308dbce32743` | Compare actual active release and component versions before deployment; does not match current GitHub main |
+| Bangkok runtime | Worker descriptor reports `276671551317ee745a9eaf284c18308dbce32743`; actual SignalForge active app is `88e3cbd139f6fe651d9a4a05252e4def229432b9` at inspection | Worker and app SHAs describe distinct components; compare each with its own repository/release |
 | Telegram | Bangkok sender paths present in existing Mac code | Latest per-source/date PDF and Digest message IDs plus independent receipts not yet obtained |
 | Cleanup | Existing code includes guarded S01 transfer/cleanup and newspaper local/remote cleanup | Actual per-node completion, evidence preservation and recovery remain unverified |
 
