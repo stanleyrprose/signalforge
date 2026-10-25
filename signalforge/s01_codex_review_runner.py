@@ -16,7 +16,8 @@ from .s01_ai_review import SYSTEM_INSTRUCTIONS, validate_review_result
 from .s01_chinese_digest import reconcile_ai_digest, render_chinese_digest
 
 
-def run(database: Path, output_dir: Path, *, batch_size: int = 4) -> dict:
+def run(database: Path, output_dir: Path, *, batch_size: int = 4,
+        cache_ledger: Path | None = None) -> dict:
     if not 1 <= batch_size <= 10:
         raise ValueError("batch_size must be 1..10")
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -26,6 +27,14 @@ def run(database: Path, output_dir: Path, *, batch_size: int = 4) -> dict:
             WHERE d.body_chars >= 100 ORDER BY n.url""").fetchall()
     source = [{"url": r[0]} for r in rows]
     results = []
+    from .s01_daily_ledger import S01Ledger, article_identity, content_fingerprint
+    delivered = {}
+    if cache_ledger and cache_ledger.exists():
+        ledger = S01Ledger(cache_ledger)
+        try:
+            delivered = ledger.delivered_versions()
+        finally:
+            ledger.close()
     for offset in range(0, len(rows), batch_size):
         batch = rows[offset:offset + batch_size]
         index = offset // batch_size + 1
@@ -41,6 +50,21 @@ def run(database: Path, output_dir: Path, *, batch_size: int = 4) -> dict:
         payload = [{"item_id": str(i), "url": url, "title_hint": title, "body_text": body,
                     "detail_sha256": sha, "evidence_status": "DETAIL_EXTRACTED_UNVERIFIED"}
                    for i, (url, title, body, sha) in enumerate(batch)]
+        # Reuse only receipt-confirmed review of this exact unchanged body.
+        # Raw HTML evidence still changes/signs the acquisition independently.
+        if not response_path.exists() and delivered:
+            import copy
+            cached = []
+            for i, (url, _title, body, _sha) in enumerate(batch):
+                review = delivered.get(article_identity(url), {}).get("reviews", {}).get(content_fingerprint(body))
+                if not review:
+                    break
+                item = copy.deepcopy(review)
+                item["item_id"] = str(i)
+                item["source_url"] = url
+                cached.append(item)
+            if len(cached) == len(batch):
+                response_path.write_text(json.dumps({"items": cached}, ensure_ascii=False), encoding="utf-8")
         prompt = (SYSTEM_INSTRUCTIONS +
                   "\nFor this batch use item_id instead of source_url. Return each item_id exactly once, " +
                   "preserve the associated translation for that item_id. " +

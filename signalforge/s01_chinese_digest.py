@@ -31,7 +31,7 @@ def reconcile_ai_digest(database: Path, results: list[dict], *, min_importance: 
         raise ValueError("invalid threshold")
     with connect(database) as conn:
         rows = conn.execute("""SELECT n.url,n.title_hint,n.listing_sha256,
-            d.detail_sha256,d.body_chars,d.review_status
+            d.detail_sha256,d.body_chars,d.review_status,d.body_text
             FROM s01_news_review n LEFT JOIN s01_news_detail_review d ON d.url=n.url
             ORDER BY n.url""").fetchall()
     source = [{"url": r[0]} for r in rows]
@@ -42,7 +42,8 @@ def reconcile_ai_digest(database: Path, results: list[dict], *, min_importance: 
                 raise ValueError("duplicate AI result across batches")
             reviewed[item["source_url"]] = item
     items = []
-    for url, title, listing_sha, detail_sha, chars, status in rows:
+    from .s01_daily_ledger import content_fingerprint
+    for url, title, listing_sha, detail_sha, chars, status, body in rows:
         ai = reviewed.get(url)
         if not detail_sha or (chars or 0) < 100:
             disposition, reason = "DETAIL_REQUIRED", "Missing sufficient article body evidence"
@@ -54,6 +55,7 @@ def reconcile_ai_digest(database: Path, results: list[dict], *, min_importance: 
             disposition, reason = "EXCLUDED_LOW_PRIORITY", ai["rationale"]
         items.append({"url": url, "title_hint": title, "listing_sha256": listing_sha,
                       "detail_sha256": detail_sha, "detail_status": status,
+                      "content_sha256": content_fingerprint(body) if body else None,
                       "disposition": disposition, "exclusion_reason": reason,
                       "ai_review": ai})
     included = sorted((i for i in items if i["disposition"] == "INCLUDED"),
