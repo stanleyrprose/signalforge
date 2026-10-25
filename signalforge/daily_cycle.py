@@ -6,6 +6,8 @@ its checkpoint was committed; tender receipts handle per-item retry separately.
 from __future__ import annotations
 
 import fcntl
+import hashlib
+import html
 import json
 import os
 from datetime import datetime
@@ -30,6 +32,52 @@ def _write_json(path: Path, payload: dict[str, object]) -> None:
     os.replace(temp, path)
 
 
+def _report_parts(text: str, limit: int = 3800) -> list[str]:
+    """Plain report text is escaped for the HTML transport and UTF-16 bounded."""
+    parts, chunk = [], ""
+    for char in text:
+        safe = html.escape(char, quote=False)
+        if len((chunk + safe).encode("utf-16-le")) // 2 > limit:
+            parts.append(chunk)
+            chunk = ""
+        chunk += safe
+    if chunk:
+        parts.append(chunk)
+    return parts
+
+
+def _send_report(path: Path, day: str, text: str, token: str, chat: str) -> dict:
+    parts = _report_parts(text)
+    fingerprint = hashlib.sha256(text.encode()).hexdigest()
+    progress_path = path.with_name(path.stem + "-parts.json")
+    state = json.loads(progress_path.read_text()) if progress_path.exists() else {
+        "fingerprint": fingerprint, "parts": {}}
+    if state["fingerprint"] != fingerprint:
+        raise ValueError("Daily report changed after a send attempt; reconcile first")
+    for i, part in enumerate(parts):
+        key = str(i)
+        previous = state["parts"].get(key, {})
+        if previous.get("status") == "SUCCESS":
+            continue
+        if previous.get("status") in ("PENDING", "UNKNOWN"):
+            raise RuntimeError("Daily report outcome unknown; reconcile before resend")
+        state["parts"][key] = {"status": "PENDING"}
+        _write_json(progress_path, state)
+        try:
+            message_id = _send_message(bot_token=token, chat_id=chat, text=part)
+        except Exception as exc:
+            import re
+            state["parts"][key] = {"status": "FAILED" if re.search(r"telegram HTTP 4\d\d", str(exc)) else "UNKNOWN"}
+            _write_json(progress_path, state)
+            raise
+        state["parts"][key] = {"status": "SUCCESS", "message_id": message_id}
+        _write_json(progress_path, state)
+    ids = [state["parts"][str(i)]["message_id"] for i in range(len(parts))]
+    result = {"day": day, "message_id": ids[0], "message_ids": ids}
+    _write_json(path, result)
+    return result
+
+
 def _coverage_report(day: str, acquisition: dict[str, object], delivery: dict[str, object], image_ocr: dict[str, object] | None = None, attachment_health: dict[str, object] | None = None, s01_verified: dict[str, object] | None = None, s01_intelligence: dict[str, object] | None = None) -> str:
     results = acquisition.get("results") or []
     if not isinstance(results, list):
@@ -45,8 +93,11 @@ def _coverage_report(day: str, acquisition: dict[str, object], delivery: dict[st
         f"质量过滤：{delivery.get('quality_filtered_count', 0)} 条。",
     ]
     # This report is sent every day even when there are no actionable new tenders.
+    blocked = int(delivery.get("quality_filtered_count", 0)) + int(delivery.get("failed_count", 0))
     if int(delivery.get("sent_count", 0)) == 0:
-        lines.append("✅ 今日无新增招标（本轮无新增有效招标通知）。")
+        lines.append("⚠️ 本轮没有成功投递的新增招标通知，有待处理项目；不代表来源没有新增。" if blocked else "✅ 今日无新增招标（本轮无新增有效招标通知）。")
+    if delivery.get("failed_count"):
+        lines.append(f"⚠️ 本轮投递失败 {delivery.get('failed_count', 0)} 条，未写成功回执；其他符合条件的招标已继续处理。")
     if image_ocr is not None:
         lines.append(f"S01 图片 OCR：尝试 {image_ocr.get('attempted', 0)}，成功 {image_ocr.get('completed', 0)}，失败 {image_ocr.get('failed', 0)}；结果仅供审核。")
     if s01_verified is not None:
@@ -61,7 +112,7 @@ def _coverage_report(day: str, acquisition: dict[str, object], delivery: dict[st
                 f"非采购 {int(s01_verified.get('excluded_nonprocurement', 0))}。"
             )
     if s01_intelligence is not None:
-        lines.append(f"S01 政府重要信息（独立审核队列）：候选 {s01_intelligence.get('candidates', 0)}；暂不自动推送，等待中文 Digest 验收。")
+        lines.append(f"S01 招标关联资讯审核候选：{s01_intelligence.get('candidates', 0)}；S01 全量新闻由独立日报投递。")
     if attachment_health is not None:
         checked = int(attachment_health.get("checked_count", 0))
         broken = int(attachment_health.get("http_404_count", 0))
@@ -160,16 +211,19 @@ def daily_cycle() -> dict[str, object]:
             except Exception as exc:
                 s01_intelligence = {"status": "CHECK_FAILED", "error": f"{type(exc).__name__}: {exc}"[:180]}
             _write_json(intelligence_path, s01_intelligence)
-        if delivery_path.exists():
-            delivery = json.loads(delivery_path.read_text(encoding="utf-8"))
+        prior_delivery = json.loads(delivery_path.read_text(encoding="utf-8")) if delivery_path.exists() else {}
+        if prior_delivery.get("status") == "PASS":
+            delivery = prior_delivery
         else:
             try:
                 delivery = telegram_deliver()
-                if not isinstance(delivery, dict) or delivery.get("status") != "PASS" or delivery.get("dry_run"):
+                if not isinstance(delivery, dict) or delivery.get("status") not in ("PASS", "PARTIAL") or delivery.get("dry_run"):
                     raise ValueError("Telegram delivery did not complete successfully")
             except Exception as exc:
                 return {"status": "DELIVERY_FAILED", "day": day,
                         "error": f"{type(exc).__name__}: {exc}"[:300]}
+            delivery["sent"] = prior_delivery.get("sent", []) + delivery.get("sent", [])
+            delivery["sent_count"] = len(delivery["sent"])
             _write_json(delivery_path, delivery)
         if attachment_path.exists():
             attachment_health = json.loads(attachment_path.read_text(encoding="utf-8"))
@@ -190,14 +244,15 @@ def daily_cycle() -> dict[str, object]:
             if not token or not chat:
                 return {"status": "REPORT_FAILED", "day": day, "error": "Telegram credentials unavailable"}
             try:
-                message_id = _send_message(
-                    bot_token=token, chat_id=chat,
-                    text=_coverage_report(day, acquisition, delivery, image_ocr, attachment_health, s01_verified, s01_intelligence),
-                )
+                _send_report(report_path, day,
+                    _coverage_report(day, acquisition, delivery, image_ocr, attachment_health, s01_verified, s01_intelligence),
+                    token, chat)
             except Exception as exc:
                 return {"status": "REPORT_FAILED", "day": day,
                         "error": f"{type(exc).__name__}: {exc}"[:300]}
-            _write_json(report_path, {"message_id": message_id, "day": day})
+        if delivery.get("failed_count"):
+            return {"status":"DELIVERY_PARTIAL","day":day,"sent_count":delivery["sent_count"],
+                    "failed_count":delivery["failed_count"]}
         failures = [r for r in acquisition["results"]
                     if isinstance(r, dict) and r.get("status") == "FAILED"]
         outcome = {

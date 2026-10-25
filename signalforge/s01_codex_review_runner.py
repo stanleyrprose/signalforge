@@ -16,6 +16,12 @@ from .s01_ai_review import SYSTEM_INSTRUCTIONS, validate_review_result
 from .s01_chinese_digest import reconcile_ai_digest, render_chinese_digest
 
 
+class AIUsageLimitError(RuntimeError):
+    def __init__(self, completed: int, total: int):
+        super().__init__("CODEX_AI_USAGE_LIMIT: retained progress; Bangkok failure notice required")
+        self.completed, self.total = completed, total
+
+
 def run(database: Path, output_dir: Path, *, batch_size: int = 4,
         cache_ledger: Path | None = None) -> dict:
     if not 1 <= batch_size <= 10:
@@ -111,6 +117,9 @@ def run(database: Path, output_dir: Path, *, batch_size: int = 4,
                                             "returncode": completed.returncode,
                                             "detail": detail}, ensure_ascii=False),
                                 encoding="utf-8")
+                            if any(marker in (completed.stderr or "").lower() for marker in
+                                   ("usage limit", "insufficient_quota", "quota exceeded", "usage_limit_exceeded")):
+                                raise AIUsageLimitError(sum(len(x["items"]) for x in results), len(rows))
                             if any(marker in (completed.stderr or "").lower() for marker in
                                    ("refresh_token_reused", "refresh token was already used", "token is expired")):
                                 raise RuntimeError("CODEX_AUTH_REAUTH_REQUIRED: retained model-error diagnostic")

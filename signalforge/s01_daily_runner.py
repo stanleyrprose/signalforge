@@ -44,12 +44,34 @@ def run(root: Path, *, day: str, max_pages: int = 20, batch_size: int = 4,
         db = evidence / 's01-news-review.sqlite'
         ledger = root / 's01-delivery.sqlite'
         evidence.mkdir(parents=True, exist_ok=True)
-        pagination = acquire_paginated_news_review(db, evidence, max_pages=max_pages)
-        if pagination['pagination_incomplete'] or not pagination['unique_candidates']:
-            raise RuntimeError('S01 pagination incomplete/empty; no publication')
-        details = acquire_news_details(db, evidence, limit=pagination['unique_candidates'])
+        import hashlib
+        checkpoint = evidence / "acquisition-checkpoint.json"
+        if checkpoint.is_file():
+            snapshot = json.loads(checkpoint.read_text())
+            if snapshot["date"] != day or hashlib.sha256(db.read_bytes()).hexdigest() != snapshot["db_sha256"]:
+                raise RuntimeError("Retained S01 acquisition changed; reconcile before resume")
+            pagination = snapshot["pagination"]
+        else:
+            pagination = acquire_paginated_news_review(db, evidence, max_pages=max_pages)
+            if pagination['pagination_incomplete'] or not pagination['unique_candidates']:
+                raise RuntimeError('S01 pagination incomplete/empty; no publication')
+            details = acquire_news_details(db, evidence, limit=pagination['unique_candidates'])
+            checkpoint.write_text(json.dumps({"date":day,"pagination":pagination,
+                "db_sha256":hashlib.sha256(db.read_bytes()).hexdigest()})+"\n")
         # Individual detail failures remain visible in the audit; publish successful articles.
-        result = review(db, evidence, batch_size=batch_size, cache_ledger=ledger)
+        from .s01_codex_review_runner import AIUsageLimitError
+        try:
+            result = review(db, evidence, batch_size=batch_size, cache_ledger=ledger)
+        except AIUsageLimitError as exc:
+            from .s01_failure_notice import notify_from_mac
+            notice = {"status":"PENDING", "failure_class":"AI_USAGE_LIMIT",
+                      "completed_articles":exc.completed, "total_articles":exc.total}
+            try:
+                notice = notify_from_mac(day, exc.completed, exc.total)
+            except Exception as failure:
+                notice["notice_error_type"] = type(failure).__name__
+            (evidence / "failure-notice.json").write_text(json.dumps(notice)+"\n")
+            raise
         if result['excluded'] or result['included'] < 1 or result['included'] + result['unresolved'] != pagination['unique_candidates']:
             raise RuntimeError('S01 AI/coverage accounting invalid; no publication')
         prepared = prepare(evidence / 'coverage-audit.json', ledger, output,

@@ -7,6 +7,13 @@ from signalforge.s01_daily_runner import run
 
 
 class S01DailyRunnerTests(unittest.TestCase):
+    def snapshot_root(self, tmp):
+        root=Path(tmp)
+        folder=root/'evidence/2026-10-18'
+        folder.mkdir(parents=True)
+        (folder/'s01-news-review.sqlite').write_bytes(b'mocked acquisition snapshot')
+        return root
+
     def test_incomplete_pagination_never_calls_ai_or_delivery(self):
         with tempfile.TemporaryDirectory() as tmp, patch(
             'signalforge.s01_daily_runner.acquire_paginated_news_review',
@@ -14,7 +21,7 @@ class S01DailyRunnerTests(unittest.TestCase):
         ), patch('signalforge.s01_daily_runner.review') as ai, patch(
             'signalforge.s01_daily_runner.transfer') as send:
             with self.assertRaisesRegex(RuntimeError, 'pagination'):
-                run(Path(tmp), day='2026-10-18', publish=True)
+                run(self.snapshot_root(tmp), day='2026-10-18', publish=True)
             ai.assert_not_called()
             send.assert_not_called()
 
@@ -29,7 +36,7 @@ class S01DailyRunnerTests(unittest.TestCase):
             'signalforge.s01_daily_runner.prepare',
             return_value={'status': 'READY_FOR_REVIEW', 'edition_id': 'partial', 'manifest': '/tmp/manifest'}
         ), patch('signalforge.s01_daily_runner.transfer') as send:
-            result = run(Path(tmp), day='2026-10-18')
+            result = run(self.snapshot_root(tmp), day='2026-10-18')
             self.assertEqual(result['articles'], 2)
             ai.assert_called_once()
             send.assert_not_called()
@@ -45,7 +52,7 @@ class S01DailyRunnerTests(unittest.TestCase):
             'signalforge.s01_daily_runner.prepare',
             return_value={'status': 'READY_FOR_REVIEW', 'edition_id': 'abc', 'manifest': '/tmp/manifest'}
         ), patch('signalforge.s01_daily_runner.transfer') as send:
-            result = run(Path(tmp), day='2026-10-18')
+            result = run(self.snapshot_root(tmp), day='2026-10-18')
             self.assertEqual(result['status'], 'READY_NOT_PUBLISHED')
             send.assert_not_called()
 
