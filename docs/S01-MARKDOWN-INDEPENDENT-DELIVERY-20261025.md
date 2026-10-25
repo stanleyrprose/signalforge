@@ -1,6 +1,6 @@
 # S01 Markdown 正文与独立 Digest 投递 — 2026-10-25
 
-Status: owner-approved amendment. Implementation and runtime acceptance must be recorded separately.
+Status: owner-approved; implemented, merged and deployed by PR328 at `431cc0a32aaf7440c08c5b2b6c71ab8e90ba1773`. Real Oct25 Digest484 and Markdown487 have independent success receipts; task content was removed on both hosts. See [dated operations](CURRENT-OPERATIONS.md).
 
 ## Current contract
 
@@ -16,4 +16,4 @@ No Tender source-registry, canonical rules, schedule or new browser-routing fram
 
 Observed 2026-10-25 09:42 UTC: S20 `https://moep.gov.mm/mm/ignite/page/62` returned HTTP200 through Bangkok urllib (0.85s), Mac urllib (0.73s) and installed Mac Browser Plane (system_curl C0, about0.96s,186107 bytes). Browser rendering was not needed. The earlier daily timeout is a historical failure; the exact transient network/server cause is unproven. HTTP200 alone is not a tender coverage/PDF availability PASS.
 
-This amendment takes precedence over older S01 PDF wording. Historical verification outcomes are not rewritten. Release SHA, actual MD message ID and cleanup proof are added only after real deployment.
+This amendment takes precedence over older S01 PDF wording. Historical verification outcomes are not rewritten. The release and real delivery evidence above were added after actual deployment.

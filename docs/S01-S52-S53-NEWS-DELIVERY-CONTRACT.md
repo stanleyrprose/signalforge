@@ -1,25 +1,35 @@
-# S01 / S52 / S53 新闻采集与 Telegram 日报交付契约
+# S01 / S52 / S53 新闻日报交付契约
 
-> Current S01 amendment (2026-10-25): [Markdown body + independently attempted Digest](S01-MARKDOWN-INDEPENDENT-DELIVERY-20261025.md) supersedes S01 PDF wording below. S52/S53 retain PDF. Content cleanup requires the selected body attachment and Digest receipts. This is approved behavior; deployment/production evidence is recorded separately.
+Status: approved scope and behavior. Runtime observations and release evidence: [operations record](CURRENT-OPERATIONS.md). Updated 2026-10-25.
 
-Status: owner-approved product scope; production status must be verified independently. Updated: 2026-10-25. The [Oct 25 owner amendment](NEWS-PROCESSING-POLICY-20261025.md) supersedes older news retention and unreadable-page blocking rules: originals and processing content are needed before delivery; all task content is cleaned after confirmed PDF + Digest receipts, retaining minimum dedup/receipt state. Readable LOW items are extracted as 待核; unreadable pages are marked and skipped while the other news proceeds. Implementation is not yet tested, released or deployed.
+## Source identities and product boundary
 
-## Mandatory source coverage
+[News inventory](../registry/News-Sources-v1.json) defines current operational aliases: S01 official portal news; S52 = km / Kyemon《镜报》; S53 = mal / Myanma Alinn《缅甸之光》. The two numerical newspaper bindings are prospective aliases effective with this reconciliation, not claims about inconsistent historical labels. Historical receipts remain keyed by km/mal and must not be relabeled.
 
-- S01: official government news and announcements; collect all accessible news/information within bounded crawling, not only tender notices. Preserve tender qualification as a separate Tender Core pipeline.
-- S52 and S53: approved newspaper sources; collect the daily editions, preserve original PDF/evidence, extract and translate substantive news to Simplified Chinese.
-- Each source runs once daily, with explicit source-specific schedule, run ID, date, completion status, and error evidence. Failure of one source must not suppress the others.
+Tender Core uses its own Source Registry, canonical TENDER, signals, schedule and receipts. S01 news and S01 Tender Assurance coexist. Newspaper activation does not add S52/S53 to the tender registry.
 
-## End-to-end daily delivery
+## Daily content
 
-For each source: acquire and record original evidence → extract/OCR → deduplicate while retaining coverage audit → translate into readable Simplified Chinese → produce reviewable Chinese PDF → generate concise, AI-assisted Chinese Digest emphasizing politics, policy, economy, diplomacy/geopolitics, conflict, livelihood and important developments → deliver PDF and Digest via the Bangkok-owned SignalForge Telegram bot → persist source/date/artifact-specific Telegram message IDs and independent receipts → clean related temporary files on Mac and Bangkok after confirmed successful delivery.
+Acquire original source evidence → extract/OCR → deduplicate → Chinese processing → full body attachment and AI Digest → Bangkok Telegram → independent durable receipts → both-host content cleanup.
 
-No fabricated dates, amounts, claims or source links. Do not claim delivery from a successful local render alone. A Telegram failure remains retryable and must not trigger premature cleanup. Repeated runs must not redeliver already accepted PDFs/Digests. Preserve minimum durable receipt/audit evidence and distinguish business delivery health from provider route telemetry.
+- S01 includes all recognizable accessible news/information within bounded pagination, regardless of procurement or importance. Its body attachment is UTF-8 Markdown; importance affects Digest ordering only.
+- S52/S53 collect their daily newspaper issues, omit advertisements and boilerplate, and include all substantive extracted news in Chinese PDF.
+- Readable low-confidence material must be extracted and marked 待核. Unreadable pages/items retain page/URL and failure reason, are skipped, and do not suppress successful content.
+- Digest prioritizes politics, policy, economy, diplomacy/geopolitics, international relations, conflict, livelihood and society. Facts, amounts, dates and attribution must be source-backed; uncertainty remains visible.
+- AI Provider choice is an engineering decision based on availability, quality, cost and contract. Current workers use authenticated Mac Codex CLI; the product does not permanently require that model/provider.
 
-## Scope clarification
+## Dispatch and recovery
 
-The statement in `docs/NEWSPAPER-DIGEST-V2-CONTRACT.md` that S52/S53 acquisition was excluded describes only that historical transport-only PR. It is **not** a permanent product exclusion. S01/S52/S53 news acquisition, Chinese PDF translation, editorial Digest and independent daily Telegram dispatch are now in the approved SignalForge News/Policy product scope. Activation and actual production health must be established by deployment/runtime evidence, not by this document alone.
+Each source has one successful edition per source date, separate schedule, deduplication, health and receipts. Bangkok alone formally sends SignalForge Telegram.
 
-## Production acceptance
+S01 attempts/reuses Digest before body upload; missing, invalid, rejected or ambiguous body delivery cannot suppress Digest. A Digest failure also cannot suppress the body attempt. Failed components request a separately receipted reason notice. Telegram/SSH-wide outages can prevent that notice; retain explicit failure state. AI quota exhaustion sends the independently deduplicated quota notice and preserves validated progress.
 
-For S01, S52 and S53 separately verify: daily scheduler triggered; acquisition and source coverage; extraction/translation; valid PDF; Digest; Bangkok sender execution; Telegram API response/message ID; durable independent receipt; post-send cleanup on both hosts. Mark PASS only when all checks have evidence. Record explicit FAILED/UNKNOWN for any missing stage. Do not interrupt Tender Core.
+SUCCESS requires a positive Telegram message ID. Explicit rejection is FAILED; ambiguous/PENDING/UNKNOWN outcomes require reconciliation before repeating that component. Success is never overwritten or resent. The current due S01 date takes priority, with at most one prior unfinished date attempted per invocation; one date's failure does not prevent attempting the other. Historical recovery does not invent publication timestamps or substitute an old newspaper issue.
+
+S52/S53 retain independent PDF and Digest component receipts and the existing approved deduplication/human content acceptance; this amendment does not reopen those reviews.
+
+## Cleanup and acceptance
+
+Remove all task-owned originals, OCR, per-task SQLite, translated/AI content, body files, Digest/render files and superseded revisions only after Digest and the selected body attachment have confirmed durable receipts. Retain minimum identity/hash/coverage/dedup/receipt state; protect shared Tender DBs, code/config and credentials. Cleanup failures trigger cleanup-only retries.
+
+For each source verify scheduler execution, actual source content/coverage, extraction/Chinese content, body integrity, Digest, Bangkok sending, independent message IDs/receipts and cleanup on both hosts. Do not infer delivery from rendering, test success or a loaded timer. Detailed S01 body/failure semantics: [Markdown amendment](S01-MARKDOWN-INDEPENDENT-DELIVERY-20261025.md). Historical transport-only exclusions do not revoke this contract.

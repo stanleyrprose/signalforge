@@ -1,6 +1,6 @@
 # SignalForge — Development Agent Rules
 
-> Current S01 amendment (2026-10-25): [Markdown body + independently attempted Digest](docs/S01-MARKDOWN-INDEPENDENT-DELIVERY-20261025.md) supersedes S01 PDF wording below. S52/S53 retain PDF. Content cleanup requires the selected body attachment and Digest receipts. This is approved behavior; deployment/production evidence is recorded separately.
+> Current S01 format (2026-10-25): [Markdown body + independently attempted Digest](docs/S01-MARKDOWN-INDEPENDENT-DELIVERY-20261025.md) supersedes S01 PDF wording below. S52/S53 retain PDF. Content cleanup requires the selected body attachment and Digest receipts. This is approved behavior; deployment/production evidence is recorded separately.
 
 ## Active owner execution boundary — 2026-10-25
 
@@ -18,7 +18,7 @@ The owner initially limited this continuation to implementation/static review, t
 
 ## Current dual-product scope
 
-- The current owner-approved product scope includes Tender Core **and** separately operated S01/S52/S53 news acquisition, Chinese translation/PDF, AI Digest and Bangkok Telegram delivery. See `GOAL.md` and `docs/S01-S52-S53-NEWS-DELIVERY-CONTRACT.md`. Historical tender-only reset/PR documents cannot silently exclude the news pipeline.
+- The current owner-approved product scope includes Tender Core **and** separately operated S01/S52/S53 news acquisition, Chinese translation/body attachment, AI Digest and Bangkok Telegram delivery. See `GOAL.md` and `docs/S01-S52-S53-NEWS-DELIVERY-CONTRACT.md`. Historical tender-only reset/PR documents cannot silently exclude the news pipeline.
 - Preserve independent schedules, source inventories, deduplication and Telegram receipts. Do not infer production PASS from scope documentation.
 
 ## SignalForge boundaries
@@ -31,4 +31,4 @@ This policy file is self-contained and governs development only. It does not aut
 
 ## Global temporary-file cleanup requirement
 
-For every existing and future SignalForge source/job on Mac, Bangkok or other workers: classify task-owned intermediate files at design time; after its business success gate and durable delivery receipts (where applicable), clean only explicitly allowlisted regenerable temporary artifacts. Never remove persistent business/audit/receipt DBs, code, configurations or credentials. The owner's 2026-10-25 news-only amendment explicitly reclassifies original/OCR/translated content and per-task review SQLite as disposable after confirmed PDF + Digest delivery; this does not permit deleting shared Tender Core or delivery ledgers. Preserve unresolved delivery states (`UNKNOWN`/`PENDING`) and recovery artifacts. Cleanup failure must not repeat acquisition, publication or Telegram dispatch. Multi-node cleanup needs independent per-node evidence. See `docs/GLOBAL-TEMP-ARTIFACT-LIFECYCLE.md`. This is an engineering policy; it does not itself grant permission to operate production systems.
+For every existing and future SignalForge source/job on Mac, Bangkok or other workers: classify task-owned intermediate files at design time; after its business success gate and durable delivery receipts (where applicable), clean only explicitly allowlisted regenerable temporary artifacts. Never remove persistent business/audit/receipt DBs, code, configurations or credentials. The owner's 2026-10-25 news-only amendment explicitly reclassifies original/OCR/translated content and per-task review SQLite as disposable after confirmed selected-body attachment + Digest delivery; this does not permit deleting shared Tender Core or delivery ledgers. Preserve unresolved delivery states (`UNKNOWN`/`PENDING`) and recovery artifacts. Cleanup failure must not repeat acquisition, publication or Telegram dispatch. Multi-node cleanup needs independent per-node evidence. See `docs/GLOBAL-TEMP-ARTIFACT-LIFECYCLE.md`. This is an engineering policy; it does not itself grant permission to operate production systems.

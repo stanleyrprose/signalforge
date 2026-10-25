@@ -1,9 +1,9 @@
 # SignalForge Work takeover audit — 2026-10-24
 
-Status: OPEN / NOT PROJECT CLOSURE. Neither document zero-conflict nor three-source production delivery has passed.
+Status: HISTORICAL TAKEOVER CHECKPOINTS. Current approved rules, dated receipts and remaining work are in [operations](CURRENT-OPERATIONS.md) and [document authority](DOCUMENT-AUTHORITY-AND-CONSISTENCY-20261024.md). The OPEN/PENDING/BLOCKED labels and matrix below describe their checkpoint dates, not today's runtime. Historical results are preserved.
 
 
-## Latest owner-policy checkpoint — 2026-10-25
+## Historical owner-policy checkpoint — 2026-10-25, before release authorization
 
 Overall handoff remains OPEN. [The Oct 25 owner amendment](NEWS-PROCESSING-POLICY-20261025.md) now supersedes news-content retention and unreadable-page blocking: force readable LOW as 待核, disclose/skip unreadable pages, complete PDF + Digest, then delete all task content after paired receipts while retaining minimum dedup/receipt state.
 
@@ -69,7 +69,7 @@ Observed result before report addition: zero missing relative Markdown path targ
 
 This is NOT a proof of full semantic consistency. Heading anchors, plain-code path references, example commands, current runtime/config consistency and full historical semantic review remain open. All historical bodies were retrieved; retrieval and additive scope notes do not count as detailed semantic sign-off.
 
-## Conflict and gap ledger
+## Historical conflict and gap ledger
 
 | ID | Finding | Handling / evidence | State |
 | --- | --- | --- | --- |
@@ -86,7 +86,7 @@ This is NOT a proof of full semantic consistency. Heading anchors, plain-code pa
 | D11 | Current production evidence consistency | Runtime access restored with owner approval; actual inference fails with expired/reused OAuth token | BLOCKED ON REAUTH |
 | D12 | Remaining detailed file-by-file semantic audit | Matrix below deliberately avoids automatic semantic PASS | OPEN |
 
-## Production trace
+## Historical production trace
 
 | Path | Fact | Unknown / next evidence |
 | --- | --- | --- |

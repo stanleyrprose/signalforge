@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "scope": "News/Policy only; not Tender Core activation",
+  "effective_date": "2026-10-25",
+  "historical_numeric_mapping": "Do not infer older source IDs; retain original paper keys",
+  "sources": [
+    {
+      "source_id": "S01",
+      "key": "s01-news",
+      "name": "Myanmar National Portal official news",
+      "url": "https://myanmar.gov.mm/en/news-media/news/latest-news",
+      "body_format": "markdown"
+    },
+    {
+      "source_id": "S52",
+      "key": "km",
+      "name": "Kyemon / 镜报",
+      "url": "https://www.moi.gov.mm/km/",
+      "body_format": "pdf"
+    },
+    {
+      "source_id": "S53",
+      "key": "mal",
+      "name": "Myanma Alinn / 缅甸之光",
+      "url": "https://www.moi.gov.mm/mal/",
+      "body_format": "pdf"
+    }
+  ]
+}
