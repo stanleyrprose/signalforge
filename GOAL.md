@@ -1,6 +1,8 @@
 # GOAL — SignalForge Myanmar Tender Alerts + News/Policy Intelligence
 
-Updated: 2026-10-24
+Updated: 2026-10-25
+
+The latest [news processing amendment](docs/NEWS-PROCESSING-POLICY-20261025.md) governs current news retention and unreadable-page handling: source content is retained during processing/recovery, then all task content is deleted after confirmed PDF + Digest delivery, keeping minimum dedup/receipt state. Low-confidence readable text is extracted as 待核; unreadable pages are marked/skipped. This is approved behavior, not deployed acceptance. No regression/system tests or PR/CI/Merge without new explicit approval.
 
 **Current owner-approved scope:** S01/S52/S53 daily news acquisition, Chinese translation/PDF, AI editorial Digest and independent Bangkok Telegram delivery, as specified in `docs/S01-S52-S53-NEWS-DELIVERY-CONTRACT.md`. Historical references to future source authorization below describe the 2026-10-16 baseline; they do not revoke the owner's subsequent instruction. Actual activation/delivery remains unverified until production evidence is obtained.
 Status: owner-approved product-goal expansion; implementation and production activation remain separately gated.
@@ -19,7 +21,7 @@ Both goals prioritize verified, useful content over raw source counts. The news/
 - **Tender Core** retains its existing canonical `TENDER` model, new/materially-updated signals, source inventory, qualification gates, scheduler, Telegram notices, delivery receipts and KPIs.
 - **News/Policy Intelligence** has separate source eligibility, collection/review states, article/event deduplication, editorial ranking, PDF/Digest artifacts, dispatch controls, delivery receipts and coverage measures. It may reuse bounded acquisition, OCR, translation, rendering and transport capabilities without routing non-tenders into Tender Core.
 - A government announcement that independently qualifies as a formal procurement tender must satisfy Tender Core evidence and readiness rules before entering that pipeline. Cross-output links or deduplication must not silently discard a tender.
-- Both outputs may use the same Bangkok-owned Telegram bot transport but require distinguishable messages and independent idempotency/receipts. News/Policy rollout is review-first; recurring production delivery requires explicit verification and deployment approval.
+- Both outputs may use the same Bangkok-owned Telegram bot transport but require distinguishable messages and independent idempotency/receipts. The initial review-first rollout has already received owner content acceptance; current recovery work preserves that acceptance and verifies deployment and production delivery separately.
 - This GOAL authorizes the **product scope**, not immediate source activation, automatic sends, purchases, credentials, gateway changes or production deployment. Detailed requirements and acceptance gates belong to an updated PRD before implementation.
 
 ## Tender delivery contract
@@ -42,7 +44,7 @@ Myanmar/Burmese presentation text may be translated to Simplified Chinese. Canon
 ## News/Policy Digest delivery contract
 
 - Coverage may include material Myanmar politics, policy, economy, foreign relations/geopolitics, business, public services, social developments, and domestic conflict/security news where reliable public evidence is available.
-- Preserve original article/document identity, publisher, publication date when known, source URL and acquired evidence. Clearly distinguish an original report, an official claim, independent corroboration and editorial/AI inference.
+- Preserve original article/document identity, publisher, publication date when known, source URL and acquired evidence during processing and recovery. After confirmed paired news delivery, the Oct 25 amendment removes content and retains only minimum identity/hash/counters/receipt state. Clearly distinguish an original report, an official claim, independent corroboration and editorial/AI inference.
 - Produce a comprehensive, reviewable Chinese PDF edition/collection and a shorter prioritized Chinese Digest for reading in Telegram. Each item must be traceable to its source; missing, disputed or unverifiable details must remain explicitly uncertain.
 - Translate Burmese into readable Simplified Chinese without inventing amounts, dates, statements or named entities. Eliminate advertisements, boilerplate and irrelevant duplicates without hiding material stories.
 - Deterministic identity/content matching should precede bounded AI-assisted semantic deduplication, topic classification and importance ranking. Scores and editorial inclusion are not tender qualification gates.
@@ -100,7 +102,7 @@ A high source count or GREEN health state alone is not business success.
 
 ## Production boundaries
 
-- Production execution and Telegram transport remain Bangkok-owned; Mac Browser Plane may provide acquisition/OCR through approved, bounded contracts.
+- Tender Core production orchestration and formal SignalForge Telegram transport remain Bangkok-owned. Mac may run approved news collection, OCR, AI translation, PDF generation and independent news schedules; approved Tender acquisition uses its bounded Provider contracts. Mac never sends the formal SignalForge Telegram output directly.
 - Direct HTTP remains the default for Tender Core unless a source-specific approved contract specifies otherwise. Existing TLS/fail-closed exceptions are source-specific, not global.
 - Keep tender and news schedulers, readiness decisions, canonical data and receipts logically independent. Reuse working primitives rather than adding duplicate infrastructure.
 - AI/model provider selection and authentication must be supported, verified and cost-accountable. Codex CLI is not a required News/Policy production inference layer.

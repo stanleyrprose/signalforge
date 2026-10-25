@@ -1,5 +1,11 @@
 # SignalForge global temporary artifact lifecycle
 
+## Current news-only owner amendment — 2026-10-25
+
+For S01 and both newspaper jobs, [the newer owner policy](NEWS-PROCESSING-POLICY-20261025.md) now requires all task content to be removed after confirmed PDF and Digest delivery. This explicitly includes originals, OCR, source/translated text, per-task processing SQLite files, PDF/Digest/model/render files and old revisions. Retain only minimum hashes, counters and independent dedup/receipt state outside content. Shared Tender Core/business DBs, delivery ledgers, code/config and credentials remain protected. Unconfirmed delivery inputs are retained. This exception changes news content retention only; other task policies below remain intact. The exception is a development implementation, not a production rollout claim.
+
+## Earlier lifecycle baseline (historical retention classification for news)
+
 Status: approved engineering policy; implementation merged in PRs #322/#323 by main `0d0e063`. Current per-host deployment and production cleanup remain unverified as of 2026-10-24.
 
 ## Invariant for every task
