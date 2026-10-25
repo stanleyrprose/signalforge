@@ -1,6 +1,10 @@
 # Fetch Policy v1
 
-## Production defaults
+## Applicability (updated 2026-10-24)
+
+This is the historical R5/S13 acquisition baseline and a lower-level technical reference. Current source-specific contracts and the Tender Core PRD take precedence. Approved Mac `PUBLIC_READ_ACQUIRE` routes and explicitly bounded S01/S41 TLS exceptions are not globally prohibited by this file; they do not grant exceptions to S13 or other sources. Preserve evidence and fail-closed behavior outside each explicit exception.
+
+## R5/S13 production defaults
 
 SignalForge R5 uses Direct HTTP first. TLS certificate and hostname verification are mandatory. `verify=False`, `curl -k`, certificate bypass, browser rendering, and third-party render proxies are not approved production paths.
 

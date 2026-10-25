@@ -1,12 +1,12 @@
 # S01 autonomous daily publication (Mac launchd)
 
-Scope: S01 news PDF + Chinese Digest only. Tender Core and MOI newspaper timers remain unchanged.
+Scope of this scheduler: S01 news PDF + Chinese Digest only. Project-wide daily news coverage additionally requires independent S52 and S53 newspaper jobs per `S01-S52-S53-NEWS-DELIVERY-CONTRACT.md`. This Mac launchd file is not evidence that S52/S53 are scheduled or that S01 actually delivered. Tender Core and existing MOI newspaper timers remain separately managed.
 
 - Deploy after focused verification, PR/CI/Merge and explicit production authorization.
 - Use `deploy/com.stanley.signalforge-s01-news-daily.plist` for the user LaunchAgent.
 - Configured for **17:00 Mac local time**; confirm Mac time zone is `Asia/Yangon` before production activation. Runtime edition date is calculated in `Asia/Yangon`.
-- The wrapper invokes the existing guarded runner with explicit `--publish`. It reuses the Bangkok S01 sender and existing separate receipt/cleanup protocol.
-- One scheduled invocation per day. A Mac shutdown or sleep may skip the event; launchd calendar triggers alone provide no durable catch-up. Do not interpret timer presence as actual delivery.
+- The wrapper invokes `signalforge.s01_daily_schedule`, which prepares through the guarded runner and explicitly transfers the immutable edition through the Bangkok S01 sender. Tender Core is outside this path.
+- One completed edition per Yangon date, due at 17:00. Hourly and load-time checks resume the oldest started unfinished date, reuse a prepared manifest, and consult durable per-artifact receipts after an interrupted transfer. Before 17:00, the latest due date is yesterday. They do not substitute an old source issue for a new one. Unknown Telegram outcomes remain blocked by the Bangkok sender. A completed date does not reacquire or resend; cleanup retries remain independent. Timer presence still does not prove actual delivery.
 - Inspect the wrapper exit status, `~/Library/Logs/signalforge-s01-news-daily.*.log`, S01 local/remote receipt ledgers and real Telegram messages before declaring PASS.
 - An interrupted or ambiguous Telegram send must be reconciled against receipt state before retrying, not blindly resent. A failed article can remain audit-visible and must not automatically suppress an otherwise valid partial edition.
 - The runner currently requires an authenticated **Codex CLI** to perform its AI Chinese review. Cloud GPT migration is separate scope; if Codex is unavailable, fail without pretending to publish.

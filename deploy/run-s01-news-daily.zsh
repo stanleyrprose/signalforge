@@ -14,6 +14,5 @@ if [[ ! -f "$REPO/signalforge/s01_daily_runner.py" ]]; then
   print -u2 "S01 not published: runner missing"
   exit 1
 fi
-# --publish is explicit: normal dry-run defaults must not suppress scheduled TG delivery.
-exec /opt/anaconda3/bin/python3 -m signalforge.s01_daily_runner \
-  --root "$ROOT" --publish --host vps-bangkok
+# The schedule owns one completed issue per Yangon date and resumes immutable manifests.
+exec /opt/anaconda3/bin/python3 -m signalforge.s01_daily_schedule --root "$ROOT"

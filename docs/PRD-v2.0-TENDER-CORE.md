@@ -1,14 +1,14 @@
 # PRD v2.0 — SignalForge Tender Core
 
-Status: APPROVED PRODUCT BASELINE
-Updated: 2026-10-11
+Status: APPROVED TENDER CORE COMPONENT BASELINE
+Updated: 2026-10-24
 Repository: stanleyrprose/signalforge
 
 ## 1. Product objective
 
-SignalForge exists to detect new or materially updated official Myanmar government/SOE procurement tenders and deliver useful Simplified-Chinese Telegram alerts promptly.
+Tender Core exists to detect new or materially updated official Myanmar government/SOE procurement tenders and deliver useful Simplified-Chinese Telegram alerts promptly.
 
-No second product is implied by the repository.
+This PRD governs Tender Core only. The separately approved News/Policy product is governed by [the news delivery contract](S01-S52-S53-NEWS-DELIVERY-CONTRACT.md) and `GOAL.md`.
 
 ## 2. Authoritative runtime path
 
@@ -63,7 +63,7 @@ These are supporting controls, not separate products.
 
 ## 5. Explicitly out of scope
 
-Do not implement or retain:
+Within Tender Core, do not implement or retain:
 
 - project precursor / early-project monitoring;
 - project-to-procurement linking or lead-time metrics;
@@ -112,17 +112,17 @@ The refactor does not destructively drop production data. New schema initializat
 
 ## 9. Deployment boundary
 
-Production remains Bangkok-only. Mac/provider execution is used only by retained source contracts. Direct HTTP is the default.
+Tender Core production orchestration and formal Telegram sending remain Bangkok-owned. Approved source contracts may execute acquisition/OCR on Mac. News/Policy may also process translation and PDFs on Mac under its separate contract. Direct HTTP is the Tender Core default unless an explicit source contract overrides it.
 
-Retired systemd digest/feedback units should be disabled/stopped/removed during the next approved deployment, but no deployment is authorized by this PRD itself.
+Retired Tender Core business-digest/feedback units remain retired. This does not apply to approved News/Policy newspaper or S01 jobs. No deployment is authorized by this PRD itself.
 
 ## 10. Success metrics
 
 Primary:
 
 - formal tender discovery/delivery coverage;
-- Signal-created-to-Telegram success latency: target <= 300 seconds; report recent median/P95 and within-target rate;
-- source-publication-to-Telegram normal-path objective: <= 35 minutes for the current 15/30-minute source polling policy, excluding issuer/network/provider degradation and only where publication timing is observable;
+- acquisition and Telegram delivery: once daily, after the daily acquisition cycle, under the 2026-10-12 cadence amendment;
+- report actual acquisition/publication-to-delivery latency where timestamps are observable; the historical 300-second/35-minute objectives are superseded;
 - notice field completeness;
 - duplicate-free delivery;
 - reviewed missed-signal count / false-negative rate;
@@ -144,9 +144,9 @@ GitHub `stanleyrprose/signalforge` is the sole SOT.
 
 ## 12. Relationship to older documents
 
-This PRD controls current product scope. Older acquisition/provider PRDs may remain as lower-level technical contract references only where their code paths are still retained.
+This PRD controls current Tender Core component scope. Older acquisition/provider PRDs may remain as lower-level technical contract references only where their code paths are still retained.
 
-Any older document that describes precursor, multi-tenant/pilot, standalone digest, non-tender strategic feeds or removed generic escalation capability is historical and must not override this PRD.
+Any older document that describes precursor, multi-tenant/pilot or removed generic escalation capability is historical and must not override this **Tender Core component** PRD. Its exclusion of standalone digest or non-tender news applies only to Tender Core; the separately approved News/Policy S01/S52/S53 pipeline is governed by `S01-S52-S53-NEWS-DELIVERY-CONTRACT.md`.
 
 
 ## 2026-10-12 user-approved daily cadence amendment (implementation in progress)
@@ -181,7 +181,11 @@ The owner approved a **separate S01 Government Intelligence information output**
 
 Do not route Government Intelligence into canonical `TENDER` records, tender signals, tender Telegram receipts, or tender health/coverage KPIs. No automatic production delivery until the review-only Chinese preview is accepted.
 
-## 2026-10-16 owner-approved newspaper Telegram transport boundary
+## 2026-10-24 product-scope reconciliation (current)
+
+This document is the **Tender Core component PRD**, not the complete SignalForge product PRD. Its tender-only exclusions remain valid **within Tender Core** and must not suppress the separately approved News/Policy product. The current approved News/Policy contract is `docs/S01-S52-S53-NEWS-DELIVERY-CONTRACT.md`: S01/S52/S53 daily collection, Chinese translation and PDF, AI editorial Digest, Bangkok-owned Telegram delivery, independent receipts and successful-send temporary-file cleanup. The 2026-10-16 transport-only constraints below describe that historical release slice; they do not revoke the newer approved source scope. Production execution and Telegram delivery remain UNKNOWN until verified against Bangkok and Mac runtime evidence.
+
+## 2026-10-16 owner-approved newspaper Telegram transport boundary (historical release slice)
 
 The owner separately approved Chinese editions of Myanmar official newspapers and AI-ranked Digest v2.1. This does **not** add a news, policy or strategic digest product to SignalForge Tender Core, expand the procurement Source Registry, or authorize production scheduling.
 

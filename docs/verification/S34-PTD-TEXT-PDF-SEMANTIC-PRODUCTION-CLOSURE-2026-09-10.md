@@ -1,5 +1,7 @@
 # S34 PTD Text-PDF Semantic Production Closure — 2026-09-10
 
+> Historical evidence scope — added 2026-10-24: the original observations, PASS/FAIL results, deployment SHAs, source roles, cadence, model choices and next-step recommendations below apply to the recorded date/release/subsystem. They do not establish current authorization, deployment or delivery health. Current product requirements follow [GOAL](../../GOAL.md) and the [S01/S52/S53 news contract](../S01-S52-S53-NEWS-DELIVERY-CONTRACT.md); surviving technical controls require confirmation against current code. This scope note does not change the historical results.
+
 ## Outcome
 
 S34 Posts and Telecommunications Department is now production-capable of using its official same-origin tender PDF as a required semantic supplement to the issuer HTML. The production application is `5fc7625da9c19599ef0a1dd1e6b3fca68d90013b` and the final gate is PASS.

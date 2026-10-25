@@ -1,5 +1,7 @@
 # S21 Myanma Railways Coverage Recovery Recheck — 2026-09-20
 
+> Historical evidence scope — added 2026-10-24: the original observations, PASS/FAIL results, deployment SHAs, source roles, cadence, model choices and next-step recommendations below apply to the recorded date/release/subsystem. They do not establish current authorization, deployment or delivery health. Current product requirements follow [GOAL](../../GOAL.md) and the [S01/S52/S53 news contract](../S01-S52-S53-NEWS-DELIVERY-CONTRACT.md); surviving technical controls require confirmation against current code. This scope note does not change the historical results.
+
 ## Goal
 
 Determine whether S21 can be safely restored from `CHECK_FAILED` through another official-origin acquisition path without weakening the coverage standard.

@@ -1,8 +1,8 @@
 # S01 全量中文资讯 Rev2 — 实施规格
 
-状态：IMPLEMENTATION DRAFT / NOT DEPLOYED
+状态：已批准实施规格；代码已存在，当前生产部署与交付待核验（2026-10-24）
 日期：2026-10-17
-上位依据：PRD-v2.0-TENDER-CORE.md §178–182；本文件更新 S01 非招投标新闻输出范围，不改变 Tender Core。
+上位依据：[三路新闻交付契约](S01-S52-S53-NEWS-DELIVERY-CONTRACT.md)；本文件更新 S01 非招投标新闻输出范围，不改变 Tender Core。
 
 ## 产品目标
 
@@ -30,8 +30,8 @@
 - 部署前必须通过单独审核：代码审查 → 获授权后测试 → PR/CI/Merge 授权 → Bangkok 部署授权 → 连续日验收。
 - 不再适用 Rev1 的“过滤体育/例行会议/普通新闻”作为全量新闻输出的规则。Rev1 的高价值情报分类可继续作为排序标签，不再作为收录门槛。
 
-## Daily Runner（开发分支，待验收）
+## Daily Runner（代码接口；生产待核验）
 
-`python3 -m signalforge.s01_daily_runner --database <独立新闻DB> --evidence <证据目录> --output <版次目录> --mac-ledger <独立投递DB>` 默认只生成审核稿，不发送 Telegram。加入 `--publish` 才会执行 Bangkok 传输。入口持有单进程锁，先核对分页、正文和 AI 覆盖，再生成 PDF 和发送；失败时不跳过审计。要求 Mac 已有 Codex CLI OAuth、PyMuPDF、中文字体和到 Bangkok 的 SSH 配置。日报调度尚未启用；必须先进行真实内容覆盖验收和异常恢复验收。
+`python3 -m signalforge.s01_daily_runner --root <S01Daily根目录> --date <YYYY-MM-DD>` 默认只生成审核稿，不发送 Telegram。加入 `--publish` 才会执行 Bangkok 传输。入口持有单进程锁，先核对分页、正文和 AI 覆盖，再生成 PDF 和发送；失败时不跳过审计。要求 Mac 已有 Codex CLI OAuth、PyMuPDF、中文字体和到 Bangkok 的 SSH 配置。该句描述此文档编写时的历史状态，不代表2026-10-24生产状态。当前目标为每日自动调度；是否已启用、实际采集与TG投递是否成功，必须检查Mac/Bangkok运行日志和Telegram回执，不得从本文件推断。
 
-**已知待解决：** 当前 review runner 会读取独立新闻数据库中所有历史文章；跨日增量和当日覆盖的严格隔离需要在无人值守上线前完成。Bangkok 新闻 inbox/ledger 路径的运行用户权限亦须单独验证。不要把代码部署等同于已启用每日自动日报。
+**历史风险及当前静态事实：** 初版 review runner 曾有历史文章混入风险；当前 daily runner 为每个日期使用 `evidence/<day>/s01-news-review.sqlite`，并通过持久化投递 ledger 管理跨日去重。跨日真实验收仍待执行。Bangkok 新闻 inbox/ledger 路径的运行用户权限亦须单独验证。不要把代码部署等同于已启用每日自动日报。

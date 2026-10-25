@@ -1,6 +1,6 @@
 # SignalForge global temporary artifact lifecycle
 
-Status: DEVELOPMENT DRAFT — not yet verified or deployed.
+Status: approved engineering policy; implementation merged in PRs #322/#323 by main `0d0e063`. Current per-host deployment and production cleanup remain unverified as of 2026-10-24.
 
 ## Invariant for every task
 
@@ -27,8 +27,8 @@ regenerable temporary artifacts.
 
 | Task | State |
 | --- | --- |
-| S01 Mac evidence HTML/model working artifacts | Implementation on feature branch; gated by both durable Telegram receipts |
-| S01 Mac outbox / Bangkok inbox | Existing guarded `s01_daily_transfer` and `s01_daily_cleanup`; retain these proven contracts |
+| S01 Mac evidence HTML/model working artifacts | Implementation merged; gated by both durable Telegram receipts; live rollout unverified |
+| S01 Mac outbox / Bangkok inbox | Existing guarded `s01_daily_transfer` and `s01_daily_cleanup`; retain contracts and verify current receipts |
 | Newspaper PDF/Digest | Pending native receipt mapping, independent of S01 |
 | Tender Core artifacts | Pending classification of persistent evidence vs temporary files |
 | S20 OCR/PDF, Browser Plane and other source workers | Pending per-owner integration and source-specific verification |

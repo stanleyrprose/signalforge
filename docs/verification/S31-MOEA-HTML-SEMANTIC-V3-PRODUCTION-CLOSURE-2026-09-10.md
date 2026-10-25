@@ -1,5 +1,7 @@
 # S31 MOEA HTML Semantic v3 Production Closure — 2026-09-10
 
+> Historical evidence scope — added 2026-10-24: the original observations, PASS/FAIL results, deployment SHAs, source roles, cadence, model choices and next-step recommendations below apply to the recorded date/release/subsystem. They do not establish current authorization, deployment or delivery health. Current product requirements follow [GOAL](../../GOAL.md) and the [S01/S52/S53 news contract](../S01-S52-S53-NEWS-DELIVERY-CONTRACT.md); surviving technical controls require confirmation against current code. This scope note does not change the historical results.
+
 ## Outcome
 
 The existing-source deadline audit found one remaining S31 HTML-only semantic gap after v2: issuer record `moea:2023-06-09:c4536709e24937fd` explicitly states a tender-application submission final date, but the v2 parser recognized only the shorter tender-submission phrase. PR #124 closes that gap without adding PDF acquisition, OCR, a new source, schema, identity or runtime capability.
