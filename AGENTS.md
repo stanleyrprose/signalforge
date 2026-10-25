@@ -2,7 +2,7 @@
 
 ## Active owner execution boundary — 2026-10-25
 
-The owner explicitly limits this continuation to implementation and static review. Do not run regression/system tests, open a new PR, trigger CI or Merge until separately and explicitly approved. Prior release approvals and prior passing test counts do not validate the new [news processing amendment](docs/NEWS-PROCESSING-POLICY-20261025.md). Preserve pending/unknown delivery inputs. Production is still the last accepted deployed release.
+The owner initially limited this continuation to implementation/static review, then explicitly authorized PR, Merge and real deployment on 2026-10-25. Perform the required CI/affected-path verification and release checks for this approved slice; do not expand to unrelated regression/system work. Prior release approvals and prior passing test counts do not validate the new [news processing amendment](docs/NEWS-PROCESSING-POLICY-20261025.md). Preserve pending/unknown delivery inputs. Production is still the last accepted deployed release.
 
 ## Development lifecycle (Agent Development Policy v1.0)
 
