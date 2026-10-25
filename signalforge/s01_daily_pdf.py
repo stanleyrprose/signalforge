@@ -76,15 +76,19 @@ def render_digest(report: dict, *, edition_date: str, top_n: int = 10) -> str:
     included = sorted((item for item in report["items"] if item["disposition"] == "INCLUDED"),
                       key=lambda item: -item["ai_review"]["importance"])
     lines = [f"【S01 缅甸政府门户｜{edition_date}】",
-             f"本期中文新闻 {len(included)} 条；完整内容、原文链接见 PDF。",
-             "重要性只影响以下 Digest 排序，不影响 PDF 收录。"]
+             f"本期中文新闻 {len(included)} 条；完整内容、原文链接见 Markdown 附件。",
+             "重要性只影响以下 Digest 排序，不影响正文收录。"]
     for index, item in enumerate(included[:top_n], 1):
         ai = item["ai_review"]
         title = ai["chinese_title"][:75]
         summary = ai["chinese_summary"][:135]
         reason = ai["rationale"][:65]
-        lines.append(f"{index}. {title}（{ai['category'][:30]}）\n{summary}"
-                     f"\n关注：{reason}\n来源：随附PDF第{index}条；官方单一来源，未经独立核验。")
+        entry = (f"{index}. {title}（{ai['category'][:30]}）\n{summary}"
+                     f"\n关注：{reason}\n来源：{item['url']}；官方单一来源，未经独立核验。")
+        if len(("\n".join(lines + [entry])).encode("utf-16-le")) // 2 > 3700:
+            lines.append("更多新闻见正文附件；附件投递状态单独报告。")
+            break
+        lines.append(entry)
     if report["unresolved"]:
         lines.append(f"注意：{report['unresolved']} 条待补处理，未计入已完成新闻。")
     return "\n".join(lines)

@@ -1,5 +1,7 @@
 # GOAL — SignalForge Myanmar Tender Alerts + News/Policy Intelligence
 
+> Current S01 amendment (2026-10-25): [Markdown body + independently attempted Digest](docs/S01-MARKDOWN-INDEPENDENT-DELIVERY-20261025.md) supersedes S01 PDF wording below. S52/S53 retain PDF. Content cleanup requires the selected body attachment and Digest receipts. This is approved behavior; deployment/production evidence is recorded separately.
+
 Updated: 2026-10-25
 
 The latest [news processing amendment](docs/NEWS-PROCESSING-POLICY-20261025.md) governs current news retention and unreadable-page handling: source content is retained during processing/recovery, then all task content is deleted after confirmed PDF + Digest delivery, keeping minimum dedup/receipt state. Low-confidence readable text is extracted as 待核; unreadable pages are marked/skipped. This is approved behavior, not deployed acceptance. No regression/system tests or PR/CI/Merge without new explicit approval.

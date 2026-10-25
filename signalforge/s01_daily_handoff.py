@@ -13,6 +13,7 @@ import tempfile
 from pathlib import Path
 
 from .s01_daily_ledger import article_identity, edition_identity
+from .s01_attachment import attachment_path
 
 
 def _manifest(path: Path) -> tuple[dict, Path]:
@@ -25,9 +26,8 @@ def _manifest(path: Path) -> tuple[dict, Path]:
         raise ValueError("edition mismatch")
     if any(article_identity(e["url"]) != e["identity"] for e in entries):
         raise ValueError("article identity mismatch")
-    pdf = path.parent / Path(data["pdf"]).name
-    if not pdf.is_file() or hashlib.sha256(pdf.read_bytes()).hexdigest() != data["pdf_sha256"]:
-        raise ValueError("PDF missing or checksum mismatch")
+    # Payload validation happens after the independent Digest send on Bangkok.
+    pdf = attachment_path(data, path.parent)
     return data, pdf
 
 
@@ -45,7 +45,8 @@ def stage(manifest_path: Path, outbox: Path) -> dict:
     tmp = Path(tempfile.mkdtemp(prefix=".s01-stage-", dir=outbox))
     try:
         shutil.copyfile(manifest_path, tmp / "manifest.json")
-        shutil.copyfile(pdf, tmp / pdf.name)
+        if pdf.is_file():
+            shutil.copyfile(pdf, tmp / pdf.name)
         (tmp / "READY").write_text(edition + "\n", encoding="ascii")
         os.replace(tmp, target)
     finally:

@@ -1,5 +1,7 @@
 # SignalForge
 
+> Current S01 amendment (2026-10-25): [Markdown body + independently attempted Digest](docs/S01-MARKDOWN-INDEPENDENT-DELIVERY-20261025.md) supersedes S01 PDF wording below. S52/S53 retain PDF. Content cleanup requires the selected body attachment and Digest receipts. This is approved behavior; deployment/production evidence is recorded separately.
+
 SignalForge has two approved, independently controlled Myanmar intelligence products. Bangkok owns production Telegram delivery; Mac may perform approved source processing.
 
 **Tender Core:** `official tender source -> acquisition/parser -> canonical tender -> NEW/UPDATED signal -> readiness/translation -> Telegram`.

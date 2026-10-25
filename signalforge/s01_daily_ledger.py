@@ -90,8 +90,9 @@ class S01Ledger:
         receipts = dict(self.db.execute(
             "SELECT part,message_id FROM deliveries WHERE edition_id=? AND status='SUCCESS'",
             (edition_id,)).fetchall())
-        if not all(type(receipts.get(part)) is int and receipts[part] > 0 for part in ("pdf", "digest")):
-            raise ValueError("Confirmed PDF and Digest required for content cleanup")
+        from .s01_attachment import paired_receipts
+        if not paired_receipts(receipts):
+            raise ValueError("Confirmed attachment and Digest required for content cleanup")
         with self.db:
             for identity, raw in self.db.execute(
                     "SELECT identity,review_json FROM articles WHERE delivered_sha=detail_sha").fetchall():
@@ -145,8 +146,10 @@ class S01Ledger:
     def mark_delivered(self, articles: list[tuple[str, str]], edition_id: str):
         receipts = self.db.execute(
             "SELECT part,status FROM deliveries WHERE edition_id=?", (edition_id,)).fetchall()
-        if dict(receipts).get("pdf") != "SUCCESS" or dict(receipts).get("digest") != "SUCCESS":
-            raise ValueError("both Digest and PDF success receipts required")
+        states = dict(receipts)
+        if states.get("digest") != "SUCCESS" or not any(
+                states.get(part) == "SUCCESS" for part in ("markdown", "pdf")):
+            raise ValueError("both Digest and attachment success receipts required")
         with self.db:
             for identity, sha in articles:
                 self.db.execute("""UPDATE articles SET delivered_sha=?

@@ -42,7 +42,7 @@ class ContentDedupTests(unittest.TestCase):
                                "disposition":"INCLUDED","ai_review":{"chinese_title":"政策新闻"}}]}
             (root/"audit.json").write_text(json.dumps(audit))
             (root/"s01-news-coverage-audit.json").write_text(json.dumps({"candidate_urls":[URL]}))
-            with patch("signalforge.s01_daily_prepare.render_pdf") as render:
+            with patch("signalforge.s01_daily_prepare.render_markdown") as render:
                 result = prepare(root/"audit.json", root/"ledger.sqlite", root/"outbox",
                                  day="2026-10-25", fontfile=root/"font")
             self.assertEqual(result["status"], "NO_NEW_ARTICLES")

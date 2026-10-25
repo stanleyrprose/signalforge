@@ -1,5 +1,7 @@
 # News processing and cleanup — owner amendment 2026-10-25
 
+> Current S01 amendment (2026-10-25): [Markdown body + independently attempted Digest](S01-MARKDOWN-INDEPENDENT-DELIVERY-20261025.md) supersedes S01 PDF wording below. S52/S53 retain PDF. Content cleanup requires the selected body attachment and Digest receipts. This is approved behavior; deployment/production evidence is recorded separately.
+
 Status: owner-approved behavior and explicit PR/Merge/deployment authorization received 2026-10-25. Release verification is now in progress; no production PASS is claimed before actual rollout. This amendment supersedes earlier news-only retention and unreadable-page blocking rules; historical records keep their dated results.
 
 1. After both Telegram PDF and Digest have confirmed durable message receipts, remove all content files belonging to that task on Mac and Bangkok: originals, OCR, per-task processing DBs, source text, translations, prompts/model outputs, PDFs, Digest, render files and superseded revisions. Retain only minimum identity/hash/coverage counters and independent dedup/delivery receipts outside content. Shared Tender Core DBs, delivery ledgers, code, configuration and credentials are outside this deletion scope. Pending/unknown delivery content is not cleaned.

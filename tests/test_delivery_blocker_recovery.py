@@ -19,7 +19,7 @@ class QuotaNoticeTests(unittest.TestCase):
             second=notice.send("2026-10-25",152,202,root=Path(t),transport=transport)
             self.assertEqual(first["message_id"],901)
             self.assertEqual(second["status"],"ALREADY_SENT")
-            self.assertIn("PDF 和 Digest 尚未投递",transport._send_text.call_args.args[2])
+            self.assertIn("正文附件和 Digest 尚未投递",transport._send_text.call_args.args[2])
             transport._send_text.assert_called_once()
 
     def test_unknown_quota_notice_is_not_repeated(self):

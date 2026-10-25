@@ -11,6 +11,7 @@ import shutil
 from pathlib import Path
 
 from .s01_daily_handoff import accept
+from .s01_attachment import attachment_part, attachment_path
 
 
 def cleanup(root: Path, edition: str, *, ledger: Path | None = None) -> dict:
@@ -33,11 +34,11 @@ def cleanup(root: Path, edition: str, *, ledger: Path | None = None) -> dict:
         payload.get("manifest_sha256") != hashlib.sha256(manifest_bytes).hexdigest()
     ) or payload.get("articles") != json.loads(manifest_bytes)["articles"] or not all(
         type(payload.get("telegram", {}).get(k)) is int and payload["telegram"][k] > 0
-        for k in ("digest", "pdf")
+        for k in ("digest", attachment_part(json.loads(manifest_bytes)))
     ):
         raise ValueError("incomplete or mismatched delivery receipt")
     allowed = {"READY", "manifest.json", "manifest.receipt.json",
-               Path(json.loads(manifest_bytes)["pdf"]).name}
+               attachment_path(json.loads(manifest_bytes), directory).name}
     if {p.name for p in directory.iterdir()} != allowed or any(
         p.is_symlink() or not p.is_file() for p in directory.iterdir()
     ):

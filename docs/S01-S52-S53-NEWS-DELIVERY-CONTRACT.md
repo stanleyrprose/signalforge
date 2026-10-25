@@ -1,5 +1,7 @@
 # S01 / S52 / S53 新闻采集与 Telegram 日报交付契约
 
+> Current S01 amendment (2026-10-25): [Markdown body + independently attempted Digest](S01-MARKDOWN-INDEPENDENT-DELIVERY-20261025.md) supersedes S01 PDF wording below. S52/S53 retain PDF. Content cleanup requires the selected body attachment and Digest receipts. This is approved behavior; deployment/production evidence is recorded separately.
+
 Status: owner-approved product scope; production status must be verified independently. Updated: 2026-10-25. The [Oct 25 owner amendment](NEWS-PROCESSING-POLICY-20261025.md) supersedes older news retention and unreadable-page blocking rules: originals and processing content are needed before delivery; all task content is cleaned after confirmed PDF + Digest receipts, retaining minimum dedup/receipt state. Readable LOW items are extracted as 待核; unreadable pages are marked and skipped while the other news proceeds. Implementation is not yet tested, released or deployed.
 
 ## Mandatory source coverage
