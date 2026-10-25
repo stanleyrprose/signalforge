@@ -528,5 +528,41 @@ class TelegramDeliveryTests(unittest.TestCase):
                     telegram_deliver(database=database)
 
 
+
+    def test_bad_presentation_does_not_block_later_valid_tender(self):
+        import copy
+        briefing=_briefing()
+        second=copy.deepcopy(briefing["attention"][0])
+        second.update(canonical_key="mofa:2",latest_signal_id="sig-2")
+        briefing["attention"].append(second)
+        with tempfile.TemporaryDirectory() as t:
+            db=Path(t)/"db";migrate(db)
+            with patch("signalforge.telegram_delivery.business_briefing",return_value=briefing), patch(
+                "signalforge.telegram_delivery.render_telegram_message",side_effect=[ValueError("bad item"),"valid tender"]),patch(
+                "signalforge.telegram_delivery._send_message",return_value="902") as send:
+                result=telegram_deliver(database=db,bot_token="test",chat_id="configured")
+            self.assertEqual(result["sent_count"],1)
+            self.assertEqual(result["quality_filtered_count"],1)
+            send.assert_called_once()
+
+    def test_definitive_http400_does_not_block_other_tenders_or_create_false_receipt(self):
+        import copy
+        briefing=_briefing()
+        second=copy.deepcopy(briefing["attention"][0])
+        second.update(canonical_key="mofa:2",latest_signal_id="sig-2")
+        briefing["attention"].append(second)
+        with tempfile.TemporaryDirectory() as t:
+            db=Path(t)/"db";migrate(db)
+            with patch("signalforge.telegram_delivery.business_briefing",return_value=briefing), patch(
+                "signalforge.telegram_delivery._send_message",side_effect=[TelegramDeliveryError("telegram HTTP 400"),"903"]):
+                result=telegram_deliver(database=db,bot_token="test",chat_id="configured")
+            self.assertEqual(result["status"],"PARTIAL")
+            self.assertEqual(result["sent_count"],1)
+            self.assertEqual(result["failed_count"],1)
+            with connect(db) as conn:
+                rows=conn.execute("SELECT canonical_key FROM delivery_receipts").fetchall()
+            self.assertEqual([row[0] for row in rows],["mofa:2"])
+
+
 if __name__ == "__main__":
     unittest.main()

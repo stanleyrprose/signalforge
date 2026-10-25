@@ -390,7 +390,9 @@ def telegram_deliver(
                 continue
             signal_id = str(delivery_item.get("latest_signal_id") or "")
             if not signal_id:
-                raise TelegramDeliveryError("attention item missing latest_signal_id")
+                quality_filtered.append({"canonical_key":str(delivery_item.get("canonical_key") or ""),
+                                         "reasons":["MISSING_SIGNAL_ID"]})
+                continue
             key = _delivery_key(delivery_item)
             # Semantic lookup keeps rollout compatible with legacy owner-feed
             # receipts whose delivery_key also included attention_action.
@@ -400,7 +402,12 @@ def telegram_deliver(
             ).fetchone()
             if exists is not None:
                 continue
-            text = render_telegram_message(delivery_item, translator=translator, now=now)
+            try:
+                text = render_telegram_message(delivery_item, translator=translator, now=now)
+            except (ValueError, TypeError, RuntimeError) as exc:
+                quality_filtered.append({"canonical_key":str(delivery_item.get("canonical_key") or ""),
+                                         "reasons":["PRESENTATION_FAILED:"+type(exc).__name__]})
+                continue
             if (not dry_run or translate_preview) and contains_myanmar(text):
                 quality_filtered.append(
                     {
@@ -435,12 +442,18 @@ def telegram_deliver(
         raise TelegramDeliveryError("telegram credentials are not configured")
 
     sent: list[dict[str, object]] = []
+    failed: list[dict[str, object]] = []
     for item in pending:
-        message_id = _send_message(
-            bot_token=token,
-            chat_id=target_chat,
-            text=str(item["message"]),
-        )
+        try:
+            message_id = _send_message(
+                bot_token=token, chat_id=target_chat, text=str(item["message"]),
+            )
+        except TelegramDeliveryError as exc:
+            if str(exc) != "telegram HTTP 400":
+                raise  # global transport/auth or ambiguous outcomes need reconciliation
+            failed.append({"canonical_key":item["canonical_key"],
+                           "reason":"TELEGRAM_REJECTED_HTTP_400"})
+            continue
         sent_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
         with connect(target) as conn, conn:
             conn.execute(
@@ -471,11 +484,13 @@ def telegram_deliver(
         )
 
     return {
-        "status": "PASS",
+        "status": "PARTIAL" if failed else "PASS",
         "channel": CHANNEL,
         "dry_run": False,
         "pending_count": len(pending),
         "sent_count": len(sent),
+        "failed_count":len(failed),
+        "failed":failed,
         "quality_filtered_count": len(quality_filtered),
         "quality_filtered": quality_filtered,
         "sent": sent,
