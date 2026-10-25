@@ -14,4 +14,4 @@ Current contract: [daily news](S01-S52-S53-NEWS-DELIVERY-CONTRACT.md); dated dep
 
 launchd cannot reliably open Documents scripts under macOS privacy controls. Stage the merged release's `signalforge` package and wrapper under `~/Library/Application Support/SignalForge/runtime`; install the plist under `~/Library/LaunchAgents`. Persist repository/SHA in runtime/release.json. Never edit staged code as SOT. Before replace/restart, verify no S01 task is running, retain rollback, and preserve ledgers/pending content.
 
-The current-day-priority change requires its own affected-path verification, CI and deployment evidence; older production results do not validate unshipped changes.
+The current-day-priority change was focused-test verified, CI-passed, merged and deployed by PR329 at7c317550e90c39a76e0274cb1a1690fdabcfc37e. Dated real current-day/no-resend evidence is recorded in operations; future days require their own actual results.
