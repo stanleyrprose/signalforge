@@ -17,7 +17,15 @@ def article_identity(url: str) -> str:
     query = parse_qs(parsed.query, keep_blank_values=True)
     ids = [values[0] for key, values in query.items()
            if key.lower().endswith("assetentryid") and len(values) == 1 and values[0].isdigit()]
-    if ids and len(set(ids)) == 1:
+    for key, values in query.items():
+        if key.lower().endswith("_redirect") and len(values) == 1:
+            nested = urlsplit(values[0])
+            if nested.hostname in {"myanmar.gov.mm", "www.myanmar.gov.mm"}:
+                ids.extend(v[0] for k, v in parse_qs(nested.query).items()
+                           if k.lower().endswith("assetentryid") and len(v) == 1 and v[0].isdigit())
+    if ids and len(set(ids)) != 1:
+        raise ValueError("conflicting S01 asset identities")
+    if ids:
         return "s01:asset:" + ids[0]
     # Different query parameters may identify different articles on a shared route.
     canonical = unquote(parsed.path).rstrip("/") + ("?" + parsed.query if parsed.query else "")
@@ -29,6 +37,23 @@ def edition_identity(day: str, articles: list[tuple[str, str]]) -> str:
     stable = sorted(set(articles))
     data = json.dumps([day, stable], ensure_ascii=False, separators=(",", ":"))
     return hashlib.sha256(data.encode()).hexdigest()
+
+
+def content_fingerprint(text: str) -> str:
+    """Hash article text, retaining raw acquisition SHA as separate evidence."""
+    import unicodedata
+    normalized = " ".join(unicodedata.normalize("NFC", text).split())
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+
+def review_metadata(entry: dict) -> dict | None:
+    value = entry.get("content_sha256")
+    if value is None:
+        return None
+    import re
+    if not isinstance(value, str) or not re.fullmatch(r"[a-f0-9]{64}", value):
+        raise ValueError("invalid article content fingerprint")
+    return {"content_sha256": value, "ai_review": entry.get("ai_review")}
 
 
 class S01Ledger:
@@ -44,6 +69,21 @@ class S01Ledger:
             message_id INTEGER, updated_at TEXT NOT NULL,
             PRIMARY KEY (edition_id, part))""")
         self.db.commit()
+
+    def delivered_versions(self) -> dict:
+        result = {}
+        for url, raw, current, review in self.db.execute(
+                "SELECT url,delivered_sha,detail_sha,review_json FROM articles WHERE delivered_sha IS NOT NULL"):
+            key = article_identity(url)
+            item = result.setdefault(key, {"raw": set(), "content": set(), "reviews": {}})
+            item["raw"].add(raw)
+            metadata = json.loads(review) if review else {}
+            if current == raw and isinstance(metadata, dict) and metadata.get("content_sha256"):
+                fingerprint = metadata["content_sha256"]
+                item["content"].add(fingerprint)
+                if isinstance(metadata.get("ai_review"), dict):
+                    item["reviews"][fingerprint] = metadata["ai_review"]
+        return result
 
     def close(self):
         self.db.close()

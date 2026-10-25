@@ -28,6 +28,8 @@ def deliver(ledger_path: Path, manifest_path: Path, *, transport) -> dict:
     try:
         from signalforge.s01_daily_ledger import article_identity
         seen_identities = set()
+        delivered = ledger.delivered_versions()
+        from signalforge.s01_daily_ledger import review_metadata
         for entry in manifest["articles"]:
             identity, sha, url = entry["identity"], entry["detail_sha"], entry["url"]
             if identity in seen_identities:
@@ -44,7 +46,12 @@ def deliver(ledger_path: Path, manifest_path: Path, *, transport) -> dict:
                 raise ValueError("manifest includes already delivered article version")
             if row and row[0] != sha and row[1] != row[0]:
                 raise ValueError("unresolved prior article version; reconcile before replacement")
-            ledger.upsert_article(url, sha)
+            metadata = review_metadata(entry)
+            if (metadata and metadata["content_sha256"] in delivered.get(identity, {}).get("content", set())
+                    and not (same_edition and same_edition[0] == "SUCCESS")):
+                raise ValueError("manifest includes already delivered article content")
+        for entry in manifest["articles"]:
+            ledger.upsert_article(entry["url"], entry["detail_sha"], review=review_metadata(entry))
         if not articles:
             raise ValueError("empty edition must use a no-news status message, not an empty PDF")
         token, chat = transport._credentials()

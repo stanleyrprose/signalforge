@@ -43,9 +43,11 @@ def prepare(audit_path: Path, ledger_path: Path, output_dir: Path,
     for item in included:
         identity = article_identity(item["url"])
         previous = by_identity.get(identity)
-        if previous is not None and previous != item["detail_sha256"]:
+        current = (item["detail_sha256"], item.get("content_sha256"))
+        if (previous is not None and previous[0] != current[0]
+                and (previous[1] is None or previous[1] != current[1])):
             raise ValueError("same article identity has conflicting body hashes; review required")
-        by_identity[identity] = item["detail_sha256"]
+        by_identity[identity] = current
     ledger = S01Ledger(ledger_path)
     try:
         for item in included:
@@ -55,11 +57,12 @@ def prepare(audit_path: Path, ledger_path: Path, output_dir: Path,
         # Do not mutate the Mac delivery ledger until a Bangkok receipt is imported.
         # The sender maintains its own independent delivery state.
         pending = set()
+        delivered = ledger.delivered_versions()
         for item in included:
             identity = article_identity(item["url"])
-            row = ledger.db.execute("SELECT delivered_sha FROM articles WHERE identity=?",
-                                    (identity,)).fetchone()
-            if row is None or row[0] != item["detail_sha256"]:
+            versions = delivered.get(identity, {"raw": set(), "content": set()})
+            if (item["detail_sha256"] not in versions["raw"]
+                    and item.get("content_sha256") not in versions["content"]):
                 pending.add((identity, item["detail_sha256"]))
         new_items = []
         seen_identities = set()
@@ -85,7 +88,9 @@ def prepare(audit_path: Path, ledger_path: Path, output_dir: Path,
             "date": day, "edition_id": edition,
             "articles": [{"identity": identity, "detail_sha": sha,
                           "url": next(item["url"] for item in new_items
-                                      if article_identity(item["url"]) == identity)}
+                                      if article_identity(item["url"]) == identity),
+                          **next({k: item[k] for k in ("content_sha256", "ai_review") if k in item}
+                                 for item in new_items if article_identity(item["url"]) == identity)}
                          for identity, sha in identities],
             "pdf": str(pdf), "pdf_sha256": hashlib.sha256(pdf.read_bytes()).hexdigest(),
             "digest": render_digest(subreport, edition_date=day) + (f"\n待补采/补译：{report['unresolved']} 条，详见审计记录。" if report["unresolved"] else ""),

@@ -75,11 +75,12 @@ def import_receipt(ledger_path: Path, manifest_path: Path, receipt_path: Path) -
         # Reject conflicting revisions instead of overwriting newer local state.
         for entry in manifest["articles"]:
             row = ledger.db.execute(
-                "SELECT detail_sha FROM articles WHERE identity=?", (entry["identity"],)).fetchone()
-            if row and row[0] != entry["detail_sha"]:
+                "SELECT detail_sha,delivered_sha FROM articles WHERE identity=?", (entry["identity"],)).fetchone()
+            if row and row[0] != entry["detail_sha"] and row[1] != row[0]:
                 raise ValueError("local article revision conflict")
         for entry in manifest["articles"]:
-            ledger.upsert_article(entry["url"], entry["detail_sha"])
+            from .s01_daily_ledger import review_metadata
+            ledger.upsert_article(entry["url"], entry["detail_sha"], review=review_metadata(entry))
         for part in ("digest", "pdf"):
             ledger.record_delivery(edition, part, "SUCCESS", telegram[part])
         ledger.mark_delivered(pairs, edition)
