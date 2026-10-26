@@ -3,7 +3,7 @@
 Current contract: [daily news](S01-S52-S53-NEWS-DELIVERY-CONTRACT.md); dated deployment and actual receipts: [operations](CURRENT-OPERATIONS.md). This scheduler covers S01 Markdown + Digest only. Newspaper and Tender jobs remain separate.
 
 - Source: `deploy/com.stanley.signalforge-s01-news-daily.plist`; wrapper `deploy/run-s01-news-daily.zsh`; Python `signalforge.s01_daily_schedule`.
-- Calendar trigger17:00 in Mac local time, with hourly StartInterval3600 and RunAtLoad. Confirm the Mac timezone is Asia/Yangon. Before17:00 Yangon, latest due date is yesterday.
+- Calendar trigger09:40 in Mac local time (owner amendment2026-10-26), with hourly StartInterval3600 and RunAtLoad. Confirm the Mac timezone is Asia/Yangon. Before09:40 Yangon, latest due date is yesterday. This triggers collection/AI processing and Bangkok dispatch; delivery follows successful processing, so09:40 is not a guarantee that Telegram has received every component at that exact minute.
 - One successful edition per date. Current due date first; at most one older pending date is additionally attempted per invocation. Failure/corruption in a historical journal cannot prevent the current date from being attempted. Successful dates reuse receipts and perform cleanup-only recovery; no reacquisition/resend.
 - Existing prepared manifests and retained acquisition/validated AI work are reused. PENDING/UNKNOWN component outcomes require reconciliation; the other component can still proceed. Article-level unreadability stays audit-visible and does not suppress successful content.
 - The current worker uses authenticated Mac Codex CLI. Quota failure requests a separately deduplicated Bangkok notice and retains progress. The product does not permanently require that Provider.

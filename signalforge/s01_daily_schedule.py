@@ -24,7 +24,7 @@ def _save(path: Path, value: dict) -> None:
 
 def execute(root: Path, *, now: datetime | None = None) -> dict:
     now = (now or datetime.now(YANGON)).astimezone(YANGON)
-    due = (now if now.hour >= 17 else now - timedelta(days=1)).date().isoformat()
+    due = (now if (now.hour, now.minute) >= (9, 40) else now - timedelta(days=1)).date().isoformat()
     root = root.resolve()
     with _lock(root / ".schedule.lock"):
         folder = root / "daily-schedule"
