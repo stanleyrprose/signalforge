@@ -12,7 +12,7 @@ class S01DailyLaunchdContractTests(unittest.TestCase):
         with (ROOT / "deploy/com.stanley.signalforge-s01-news-daily.plist").open("rb") as handle:
             job = plistlib.load(handle)
         self.assertEqual(job["Label"], "com.stanley.signalforge-s01-news-daily")
-        self.assertEqual(job["StartCalendarInterval"], {"Hour": 17, "Minute": 0})
+        self.assertEqual(job["StartCalendarInterval"], {"Hour": 9, "Minute": 40})
         self.assertTrue(job["RunAtLoad"])
         self.assertEqual(job["StartInterval"], 3600)
         self.assertIn("Application Support/SignalForge/runtime/run-s01-news-daily.zsh", job["ProgramArguments"][-1])
