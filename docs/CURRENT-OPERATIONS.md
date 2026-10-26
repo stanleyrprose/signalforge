@@ -2,6 +2,10 @@
 
 This file separates approved requirements, implementation, deployment and dated production observations. Requirements live in [GOAL](../GOAL.md), [Tender PRD](PRD-v2.0-TENDER-CORE.md) and [news contract](S01-S52-S53-NEWS-DELIVERY-CONTRACT.md). Repository code is GitHub-owned; actual installed SHAs come from runtime release markers plus the merged PR deployment evidence. A dated observation is not a permanent live-health claim.
 
+## Owner schedule amendment — 2026-10-26
+
+S01 calendar trigger and daily due boundary are09:40 Asia/Yangon, replacing17:00. The worker starts acquisition/AI processing at that time and formally dispatches through Bangkok after preparation; exact-minute arrival is not guaranteed. Hourly recovery, independent receipts, current-day priority and receipt-gated cleanup remain. Implementation, CI, exact deployed SHA and actual delivery results belong to this amendment's release PR evidence, independently of the historical observations below.
+
 ## Verified observation — 2026-10-25 21:49 Asia/Yangon
 
 SignalForge Mac and Bangkok runtime: `431cc0a32aaf7440c08c5b2b6c71ab8e90ba1773`, PR [#328](https://github.com/stanleyrprose/signalforge/pull/328). Newspaper producer: `bac371e3885736a8b8e463fb807de7db9dc34172`, macmini_automation PR22. Bangkok newspaper transport v2.2 retains its own component release marker; its differing SHA is not app drift.

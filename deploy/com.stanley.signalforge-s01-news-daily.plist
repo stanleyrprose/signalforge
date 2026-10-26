@@ -9,7 +9,7 @@
     <string>/Users/xu/Library/Application Support/SignalForge/runtime/run-s01-news-daily.zsh</string>
   </array>
   <key>StartCalendarInterval</key>
-  <dict><key>Hour</key><integer>17</integer><key>Minute</key><integer>0</integer></dict>
+  <dict><key>Hour</key><integer>9</integer><key>Minute</key><integer>40</integer></dict>
   <key>StartInterval</key><integer>3600</integer>
   <key>RunAtLoad</key><true/>
   <key>StandardOutPath</key><string>/Users/xu/Library/Logs/signalforge-s01-news-daily.stdout.log</string>

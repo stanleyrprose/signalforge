@@ -11,6 +11,19 @@ NOW = datetime(2026, 10, 24, 18, tzinfo=sched.YANGON)
 
 
 class ScheduleTests(unittest.TestCase):
+    def test_0940_boundary_and_plist_agree(self):
+        import plistlib
+        config = plistlib.loads((Path(__file__).resolve().parents[1] /
+            "deploy/com.stanley.signalforge-s01-news-daily.plist").read_bytes())
+        self.assertEqual(config["StartCalendarInterval"], {"Hour": 9, "Minute": 40})
+        for hour, minute, expected in ((9, 39, "2026-10-23"),
+                                       (9, 40, "2026-10-24"),
+                                       (10, 0, "2026-10-24")):
+            with self.subTest(hour=hour, minute=minute), tempfile.TemporaryDirectory() as t:
+                with patch.object(sched, "_execute_day", return_value={"status": "NO_NEW_ARTICLES"}) as work:
+                    sched.execute(Path(t), now=NOW.replace(hour=hour, minute=minute))
+                    self.assertEqual(work.call_args.args[1], expected)
+
     def test_successful_date_never_reacquires_or_resends(self):
         with tempfile.TemporaryDirectory() as t:
             root = Path(t)
