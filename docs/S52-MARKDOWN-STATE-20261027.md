@@ -1,0 +1,9 @@
+# S52 Markdown attachment and concurrent state repair — 2026-10-27
+
+Owner-approved change: S52/km full Chinese body delivery uses UTF-8 Markdown instead of PDF to reduce upload size. S53/mal remains paused by its source-control file; S01 and Tender Core are unaffected. Existing PDF delivery receipts remain valid and are never reset or resent because the format changed.
+
+All accepted news bodies, full continuation passages, article IDs, original source URL/hash/pages, 待核 flags and unreadable-page reasons are preserved in Markdown. The existing Chinese PDF remains an internal validated editorial artifact for the current AI contract; only Markdown and the Digest bundle travel to Bangkok. This avoids a wider model-input/schema rewrite. New body metadata binds Markdown filename/SHA. Bangkok v2.3 validates UTF-8, size and hash, sends Digest first and then the selected attachment, and persists a general attachment message ID/format; old PDF ID fields are supported on reads. A confirmed issue is reused before checking deleted content. Both-host all-content cleanup requires durable Digest and body receipts, regardless of format.
+
+The Oct27 scheduler exception occurred because prepare and deliver held different long-running phase locks but both wrote `YYYY-MM-DD.tmp`. The new short journal lock merges only changes since each writer's snapshot, preserving other phases and terminal delivery success. Each replacement has a unique temporary filename and is flushed before atomic replacement. OCR/AI work is not held under the journal lock, so preparation cannot delay a ready attachment's dispatch merely to serialize state writing. Bangkok receipt writes similarly use unique temporary files and a per-issue send lock.
+
+Dated successful deliveries and old traceback logs are historical facts, not rewritten. Release PRs hold focused validation, deployment and receipt-reconciliation evidence. No test artifact is presented as a full daily news edition.

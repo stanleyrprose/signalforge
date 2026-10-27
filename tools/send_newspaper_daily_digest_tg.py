@@ -9,6 +9,8 @@ original document SHA. A --digest-only mode exists for the already-sent R06 PDF.
 from __future__ import annotations
 
 import argparse
+import fcntl
+import tempfile
 from datetime import datetime
 import hashlib
 import json
@@ -45,15 +47,25 @@ def validate_bundle(digest: dict, pdf: Path) -> None:
         raise ValueError("Invalid issue date") from exc
     if not re.fullmatch(r"[a-f0-9]{64}", str(digest.get("source_pdf_sha256") or "")):
         raise ValueError("Missing official issue digest")
-    if digest.get("edition_pdf_basename") != pdf.name:
-        raise ValueError("Digest is bound to a different PDF")
-    if not pdf.is_file() or pdf.stat().st_size > MAX_BYTES:
+    kind = digest.get("attachment_format", "pdf")
+    if kind not in ("pdf", "markdown"):
+        raise ValueError("Unsupported newspaper attachment format")
+    basename_key = "edition_markdown_basename" if kind == "markdown" else "edition_pdf_basename"
+    sha_key = "edition_markdown_sha256" if kind == "markdown" else "edition_pdf_sha256"
+    limit = 2_000_000 if kind == "markdown" else MAX_BYTES
+    if digest.get(basename_key) != pdf.name:
+        raise ValueError("Digest is bound to a different attachment")
+    if not pdf.is_file() or pdf.stat().st_size > limit:
+        raise ValueError("Invalid or oversized edition PDF/Markdown")
+    raw = pdf.read_bytes()
+    if kind == "markdown":
+        if pdf.suffix != ".md" or not raw.strip() or bytes([0]) in raw:
+            raise ValueError("Invalid Markdown attachment")
+        raw.decode("utf-8")
+    elif not raw.startswith(b"%PDF-"):
         raise ValueError("Invalid or oversized edition PDF")
-    with pdf.open("rb") as stream:
-        if stream.read(5) != b"%PDF-":
-            raise ValueError("Invalid or oversized edition PDF")
-    if _sha256(pdf) != digest.get("edition_pdf_sha256"):
-        raise ValueError("PDF was modified after digest generation")
+    if _sha256(pdf) != digest.get(sha_key):
+        raise ValueError("PDF/Markdown was modified after digest generation")
     messages = digest.get("messages")
     selected = digest.get("selected")
     if not isinstance(messages, list) or not 1 <= len(messages) <= 12:
@@ -118,13 +130,21 @@ def _receipt_file(root: Path, digest: dict, *, preview: bool = False,
 
 def _save(path: Path, state: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    temp = path.with_suffix(".tmp")
-    temp.write_text(json.dumps(state, ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8")
-    temp.chmod(0o600)
-    os.replace(temp, path)
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent,
+                                         prefix="." + path.name + ".", delete=False) as stream:
+            temporary = Path(stream.name)
+            stream.write(json.dumps(state, ensure_ascii=False, sort_keys=True) + "\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
 
 
-def send_issue(bundle: Path, pdf: Path, *, receipts: Path = DEFAULT_RECEIPTS,
+def _send_issue(bundle: Path, pdf: Path, *, receipts: Path = DEFAULT_RECEIPTS,
                digest_only: bool = False, preview: bool = False,
                review_tag: str | None = None) -> dict:
     digest = json.loads(bundle.read_text(encoding="utf-8"))
@@ -149,6 +169,11 @@ def send_issue(bundle: Path, pdf: Path, *, receipts: Path = DEFAULT_RECEIPTS,
         "edition_news_count": digest["edition_news_count"],
         "unreadable_pages": digest.get("unreadable_pages", []),
     })
+    kind = digest.get("attachment_format", "pdf")
+    state.setdefault("attachment_format", kind)
+    state.setdefault("attachment_sha256", _sha256(pdf))
+    if state["attachment_format"] != kind or state["attachment_sha256"] != _sha256(pdf):
+        raise RuntimeError("Issue attachment changed; manual release required")
     state.setdefault("messages", {})
     for index, part in enumerate(digest["messages"], 1):
         key = str(index)
@@ -163,27 +188,44 @@ def send_issue(bundle: Path, pdf: Path, *, receipts: Path = DEFAULT_RECEIPTS,
                 raise RuntimeError("Preview marker exceeded Telegram limit")
             state["messages"][key] = _send_text(token, chat, text)
             _save(receipt_file, state)
-    if not digest_only and "pdf_message_id" not in state:
+    body_key = "attachment_message_id" if kind == "markdown" else "pdf_message_id"
+    if not digest_only and body_key not in state:
         label = str(digest.get("paper_label") or digest["paper"])
         skipped_count = len(digest.get("unreadable_pages", []))
         coverage = f"；{skipped_count}页无法读取，已标记跳过" if skipped_count else ""
-        caption = f"📰 {label} · {digest['date']} 中文新闻PDF（可读新闻全收录{coverage}；Digest已单独发送）"
-        state["pdf_message_id"] = _send_document(token, chat, pdf, caption)
+        format_label = "Markdown" if kind == "markdown" else "PDF"
+        caption = f"📰 {label} · {digest['date']} 中文新闻{format_label}（可读新闻全收录{coverage}；Digest已单独发送）"
+        state[body_key] = _send_document(token, chat, pdf, caption)
         _save(receipt_file, state)
     return {
         "status": "SENT_OR_ALREADY_DELIVERED",
         "paper": digest["paper"], "date": digest["date"],
         "digest_parts": len(state["messages"]),
         "digest_ids": list(state["messages"].values()),
-        "pdf_message_id": state.get("pdf_message_id"),
+        "attachment_message_id": state.get(body_key),
+        "attachment_format": kind,
+        **({"pdf_message_id": state.get("pdf_message_id")} if kind == "pdf" else {}),
         "digest_only": digest_only,
     }
+
+
+def send_issue(bundle: Path, pdf: Path, *, receipts: Path = DEFAULT_RECEIPTS,
+               digest_only: bool = False, preview: bool = False,
+               review_tag: str | None = None) -> dict:
+    digest = json.loads(bundle.read_text(encoding="utf-8"))
+    validate_bundle(digest, pdf)
+    path = _receipt_file(receipts, digest, preview=preview, review_tag=review_tag)
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    with path.with_suffix(".lock").open("a+") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        return _send_issue(bundle, pdf, receipts=receipts, digest_only=digest_only,
+                           preview=preview, review_tag=review_tag)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Send Chinese newspaper Digest then full PDF via Bangkok")
     parser.add_argument("--digest", type=Path, required=True)
-    parser.add_argument("--pdf", type=Path, required=True)
+    parser.add_argument("--attachment", "--pdf", dest="pdf", type=Path, required=True)
     parser.add_argument("--digest-only", action="store_true",
                         help="For previously delivered complete PDF (e.g. approved R06)")
     parser.add_argument("--preview", action="store_true")
