@@ -149,6 +149,30 @@ class DigestDeliveryTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,"requires preview"):
                 mod._receipt_file(root/"receipts",data,preview=False,review_tag="v2-1")
 
+    def test_markdown_digest_and_body_once_with_separate_receipt(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            bundle, pdf = self.fixture(root)
+            md = root / "Chinese_News.md"
+            md.write_text("# 完整中文新闻\n全部正文", encoding="utf-8")
+            data = json.loads(bundle.read_text())
+            data.update(attachment_format="markdown", edition_markdown_basename=md.name,
+                        edition_markdown_sha256=hashlib.sha256(md.read_bytes()).hexdigest())
+            bundle.write_text(json.dumps(data))
+            with patch.object(mod, "_credentials", return_value=("fake","allowed-chat")), \
+                 patch.object(mod, "_send_text", return_value=720) as text, \
+                 patch.object(mod, "_send_document", return_value=721) as document:
+                for _ in range(2):
+                    result = mod.send_issue(bundle, md, receipts=root / "receipts")
+                self.assertEqual(text.call_count, 1)
+                self.assertEqual(document.call_count, 1)
+                self.assertEqual(result["attachment_message_id"], 721)
+                self.assertEqual(result["attachment_format"], "markdown")
+                self.assertNotIn("pdf_message_id", result)
+            md.write_text("tampered")
+            with self.assertRaisesRegex(ValueError, "modified"):
+                mod.validate_bundle(data, md)
+
     def test_pdf_sha_change_fails_before_sending(self):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder)

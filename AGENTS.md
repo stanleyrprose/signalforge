@@ -1,5 +1,7 @@
 # SignalForge — Development Agent Rules
 
+> Current owner amendment (2026-10-27): S52/km sends a full Chinese Markdown attachment plus Digest; S53/mal remains temporarily paused. Earlier two-PDF wording is superseded for S52. See [the format/state contract](docs/S52-MARKDOWN-STATE-20261027.md). Historical receipts remain unchanged.
+
 > Current S01 format (2026-10-25): [Markdown body + independently attempted Digest](docs/S01-MARKDOWN-INDEPENDENT-DELIVERY-20261025.md) supersedes S01 PDF wording below. S52/S53 retain PDF. Content cleanup requires the selected body attachment and Digest receipts. This is approved behavior; deployment/production evidence is recorded separately.
 
 ## Active owner execution boundary — 2026-10-25

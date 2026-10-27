@@ -1,5 +1,7 @@
 # S01 / S52 / S53 新闻日报交付契约
 
+> 2026-10-27 owner amendment: S52/km body attachment is Markdown; S53/mal is temporarily paused. [Format and state contract](S52-MARKDOWN-STATE-20261027.md) supersedes earlier S52 PDF wording below. Historical delivery facts and the underlying internal PDF evidence contract are retained.
+
 Status: approved scope and behavior. Runtime observations and release evidence: [operations record](CURRENT-OPERATIONS.md). Updated 2026-10-25.
 
 ## Source identities and product boundary
