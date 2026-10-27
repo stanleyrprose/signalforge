@@ -26,7 +26,8 @@ def pending_review_batches(database: Path, *, model: str, batch_size: int = 10) 
 
 
 def reconcile_ai_digest(database: Path, results: list[dict], *, min_importance: int = 60,
-                        output: Path | None = None, include_all: bool = True) -> dict:
+                        output: Path | None = None, include_all: bool = True,
+                        delivered_versions: dict | None = None) -> dict:
     if not 0 <= min_importance <= 100:
         raise ValueError("invalid threshold")
     with connect(database) as conn:
@@ -42,11 +43,14 @@ def reconcile_ai_digest(database: Path, results: list[dict], *, min_importance: 
                 raise ValueError("duplicate AI result across batches")
             reviewed[item["source_url"]] = item
     items = []
-    from .s01_daily_ledger import content_fingerprint
+    from .s01_daily_ledger import content_fingerprint, already_delivered_content
     for url, title, listing_sha, detail_sha, chars, status, body in rows:
         ai = reviewed.get(url)
         if not detail_sha or (chars or 0) < 100:
             disposition, reason = "DETAIL_REQUIRED", "Missing sufficient article body evidence"
+        elif already_delivered_content(delivered_versions, url, body):
+            disposition, reason = "ALREADY_DELIVERED", "Receipt-confirmed article body unchanged; AI skipped"
+            ai = None
         elif ai is None:
             disposition, reason = "AI_REVIEW_PENDING", "No validated Chinese AI review"
         elif include_all or ai["importance"] >= min_importance:
@@ -62,10 +66,13 @@ def reconcile_ai_digest(database: Path, results: list[dict], *, min_importance: 
                       key=lambda i: -i["ai_review"]["importance"])
     unresolved = sum(i["disposition"] in {"DETAIL_REQUIRED", "AI_REVIEW_PENDING"} for i in items)
     report = {"total_discovered": len(items), "included": len(included),
+              "already_delivered": sum(i["disposition"] == "ALREADY_DELIVERED" for i in items),
               "excluded": sum(i["disposition"] == "EXCLUDED_LOW_PRIORITY" for i in items),
               "unresolved": unresolved,
               "digest_publish_gate": "REVIEW_REQUIRED" if not unresolved else ("PARTIAL_READY_FOR_REVIEW" if included else "BLOCKED_NO_ARTICLES"),
               "items": items}
+    if items and report["already_delivered"] == len(items):
+        report["digest_publish_gate"] = "NO_NEW_ARTICLES"
     if output:
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -75,7 +82,7 @@ def reconcile_ai_digest(database: Path, results: list[dict], *, min_importance: 
 def render_chinese_digest(report: dict) -> str:
     lines = ["S01 缅甸政府门户新闻｜中文审核稿",
              "来源网页TLS证书未验证；AI摘要不等于官方事实核验。",
-             f"发现 {report['total_discovered']}｜收录 {report['included']}｜排除 {report['excluded']}｜待处理 {report['unresolved']}"]
+             f"发现 {report['total_discovered']}｜收录 {report['included']}｜已投递未变化 {report.get('already_delivered', 0)}｜排除 {report['excluded']}｜待处理 {report['unresolved']}"]
     included = sorted((i for i in report["items"] if i["disposition"] == "INCLUDED"),
                       key=lambda i: -i["ai_review"]["importance"])
     for index, item in enumerate(included, 1):

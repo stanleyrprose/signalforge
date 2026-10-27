@@ -72,7 +72,10 @@ def run(root: Path, *, day: str, max_pages: int = 20, batch_size: int = 4,
                 notice["notice_error_type"] = type(failure).__name__
             (evidence / "failure-notice.json").write_text(json.dumps(notice)+"\n")
             raise
-        if result['excluded'] or result['included'] < 1 or result['included'] + result['unresolved'] != pagination['unique_candidates']:
+        if (result['excluded']
+                or (result['included'] < 1 and result['unresolved'])
+                or result['included'] + result['unresolved'] + result.get('already_delivered', 0)
+                != pagination['unique_candidates']):
             raise RuntimeError('S01 AI/coverage accounting invalid; no publication')
         prepared = prepare(evidence / 'coverage-audit.json', ledger, output,
                            day=day, fontfile=font)

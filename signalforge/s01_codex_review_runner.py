@@ -33,7 +33,7 @@ def run(database: Path, output_dir: Path, *, batch_size: int = 4,
             WHERE d.body_chars >= 100 ORDER BY n.url""").fetchall()
     source = [{"url": r[0]} for r in rows]
     results = []
-    from .s01_daily_ledger import S01Ledger, article_identity, content_fingerprint
+    from .s01_daily_ledger import S01Ledger, already_delivered_content
     delivered = {}
     if cache_ledger and cache_ledger.exists():
         ledger = S01Ledger(cache_ledger)
@@ -41,6 +41,14 @@ def run(database: Path, output_dir: Path, *, batch_size: int = 4,
             delivered = ledger.delivered_versions()
         finally:
             ledger.close()
+    # Filter article-by-article before grouping prompts. Delivered review text is
+    # deliberately purged after delivery; the minimum body fingerprint survives.
+    skipped = sum(already_delivered_content(delivered, row[0], row[2]) for row in rows)
+    rows = [row for row in rows if not already_delivered_content(delivered, row[0], row[2])]
+    (output_dir / "incremental-review-plan.json").write_text(json.dumps({
+        "readable_articles": len(rows) + skipped, "already_delivered": skipped,
+        "articles_requiring_review": len(rows),
+    }, ensure_ascii=False) + "\n", encoding="utf-8")
     for offset in range(0, len(rows), batch_size):
         batch = rows[offset:offset + batch_size]
         index = offset // batch_size + 1
@@ -56,21 +64,6 @@ def run(database: Path, output_dir: Path, *, batch_size: int = 4,
         payload = [{"item_id": str(i), "url": url, "title_hint": title, "body_text": body,
                     "detail_sha256": sha, "evidence_status": "DETAIL_EXTRACTED_UNVERIFIED"}
                    for i, (url, title, body, sha) in enumerate(batch)]
-        # Reuse only receipt-confirmed review of this exact unchanged body.
-        # Raw HTML evidence still changes/signs the acquisition independently.
-        if not response_path.exists() and delivered:
-            import copy
-            cached = []
-            for i, (url, _title, body, _sha) in enumerate(batch):
-                review = delivered.get(article_identity(url), {}).get("reviews", {}).get(content_fingerprint(body))
-                if not review:
-                    break
-                item = copy.deepcopy(review)
-                item["item_id"] = str(i)
-                item["source_url"] = url
-                cached.append(item)
-            if len(cached) == len(batch):
-                response_path.write_text(json.dumps({"items": cached}, ensure_ascii=False), encoding="utf-8")
         prompt = (SYSTEM_INSTRUCTIONS +
                   "\nFor this batch use item_id instead of source_url. Return each item_id exactly once, " +
                   "preserve the associated translation for that item_id. " +
@@ -163,11 +156,13 @@ def run(database: Path, output_dir: Path, *, batch_size: int = 4,
             raise RuntimeError(f"batch {index}: exhausted model retries")
         signature_path.write_text(signature, encoding="ascii")
         results.append(valid_result)
-    report = reconcile_ai_digest(database, results, output=output_dir / "coverage-audit.json")
+    report = reconcile_ai_digest(database, results, output=output_dir / "coverage-audit.json",
+                                 delivered_versions=delivered)
     (output_dir / "chinese-digest-review.txt").write_text(
         render_chinese_digest(report), encoding="utf-8")
     return {k: report[k] for k in ("total_discovered", "included", "excluded",
-                                  "unresolved", "digest_publish_gate")}
+                                  "unresolved", "digest_publish_gate")} | {
+        "already_delivered": report.get("already_delivered", 0)}
 
 
 def main() -> None:
