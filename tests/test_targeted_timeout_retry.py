@@ -37,7 +37,7 @@ class TargetedTimeoutRetryTests(unittest.TestCase):
         from signalforge.http import FetchError
         with patch("signalforge.engine.acquire_local_bytes", side_effect=FetchError("The read operation timed out")) as fetch, patch("signalforge.engine.time.sleep") as pause:
             with self.assertRaises(FetchError):
-                self._acquire("S20")
+                self._acquire("S13")
         self.assertEqual(fetch.call_count, 1)
         pause.assert_not_called()
 

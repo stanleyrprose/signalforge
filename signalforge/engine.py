@@ -746,14 +746,16 @@ def _acquire_source_bytes(
             effective_fetcher = fetch_bytes_cloudrity_d1n
         elif profile == "cloudrity_d1n_expired_cert_v1" and fetcher is fetch_bytes:
             effective_fetcher = partial(fetch_bytes_cloudrity_d1n, allow_expired_certificate=True)
-        # Retry only transient timeouts for these three sources; audit each attempt.
-        for attempt in range(3 if source_id in {"S37", "S43", "S47"} else 1):
+        # S20 gets one bounded HTML retry for observed transient timeouts.
+        # Preserve the existing two-retry policy for S37/S43/S47 and audit every attempt.
+        retries = (1 if source_id == "S20" and target_kind in {"DISCOVERY", "HTML"}
+                   else 2 if source_id in {"S37", "S43", "S47"} else 0)
+        for attempt in range(retries + 1):
             try:
                 return acquire_local_bytes(**common, fetcher=effective_fetcher)
             except Exception as exc:
                 if (
-                    attempt >= 2
-                    or source_id not in {"S37", "S43", "S47"}
+                    attempt >= retries
                     or classify_acquisition_failure(exc).value != "CONNECT_TIMEOUT"
                 ):
                     raise
