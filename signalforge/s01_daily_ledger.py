@@ -46,6 +46,13 @@ def content_fingerprint(text: str) -> str:
     return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
 
 
+def already_delivered_content(versions: dict | None, url: str, body: str | None) -> bool:
+    """Only a receipt-confirmed exact body version can skip Chinese processing."""
+    if not versions or not body:
+        return False
+    return content_fingerprint(body) in versions.get(article_identity(url), {}).get("content", set())
+
+
 def review_metadata(entry: dict) -> dict | None:
     value = entry.get("content_sha256")
     if value is None:

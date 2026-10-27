@@ -45,7 +45,7 @@ def cleanup_day(root: Path, day: str, edition: str) -> dict:
     if audit.is_file():
         data = json.loads(audit.read_text(encoding="utf-8"))
         summary = {key:data.get(key) for key in
-                   ("total_discovered", "included", "excluded", "unresolved")}
+                   ("total_discovered", "included", "excluded", "unresolved", "already_delivered")}
     result = {"date":day, "edition_id":edition, "telegram":receipts,
               "coverage":summary, "status":"PENDING", "policy":"ALL_TASK_CONTENT_V1"}
     proof.parent.mkdir(parents=True, exist_ok=True)

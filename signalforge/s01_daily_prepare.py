@@ -23,7 +23,8 @@ def prepare(audit_path: Path, ledger_path: Path, output_dir: Path,
         raise ValueError("pagination fetch incomplete")
     if report.get("excluded", 0):
         raise ValueError("news must not be excluded by importance")
-    if report["included"] < 1 or report["included"] + report["unresolved"] != report["total_discovered"]:
+    if (report["included"] + report["unresolved"] + report.get("already_delivered", 0)
+            != report["total_discovered"] or (report["included"] < 1 and report["unresolved"])):
         raise ValueError("S01 article accounting mismatch")
     # A successful article-level audit does not prove that all listing pages were fetched.
     if report.get("pagination_incomplete") or report.get("coverage_incomplete"):
@@ -59,6 +60,13 @@ def prepare(audit_path: Path, ledger_path: Path, output_dir: Path,
         # The sender maintains its own independent delivery state.
         pending = set()
         delivered = ledger.delivered_versions()
+        skipped = [x for x in report["items"] if x["disposition"] == "ALREADY_DELIVERED"]
+        if len(skipped) != report.get("already_delivered", 0):
+            raise ValueError("already-delivered article accounting mismatch")
+        for item in skipped:
+            versions = delivered.get(article_identity(item["url"]), {})
+            if not item.get("content_sha256") or item["content_sha256"] not in versions.get("content", set()):
+                raise ValueError("skipped article requires receipt-confirmed matching content")
         for item in included:
             identity = article_identity(item["url"])
             versions = delivered.get(identity, {"raw": set(), "content": set()})
@@ -73,7 +81,8 @@ def prepare(audit_path: Path, ledger_path: Path, output_dir: Path,
                 new_items.append(item)
                 seen_identities.add(identity)
         if not new_items:
-            return {"status": "NO_NEW_ARTICLES", "date": day, "count": 0}
+            return {"status": "NO_NEW_ARTICLES", "date": day, "count": 0,
+                    "already_delivered": report.get("already_delivered", 0)}
         subreport = {"items": new_items, "included": len(new_items),
                      "total_discovered": len(new_items), "excluded": 0, "unresolved": 0}
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -84,11 +93,11 @@ def prepare(audit_path: Path, ledger_path: Path, output_dir: Path,
             raise ValueError("edition Markdown already exists; reuse immutable manifest or reconcile")
         pdf.write_text(render_markdown({**subreport, "pending_articles": [
             {"url": x["url"], "reason": x.get("exclusion_reason")} for x in report["items"]
-            if x["disposition"] != "INCLUDED"]}, edition_date=day), encoding="utf-8")
+            if x["disposition"] in {"DETAIL_REQUIRED", "AI_REVIEW_PENDING"}]}, edition_date=day), encoding="utf-8")
         result = {"markdown": str(pdf), "articles": len(new_items), "bytes": pdf.stat().st_size}
         manifest = {
             "incomplete_count": report["unresolved"],
-            "pending_articles": [{"url": x["url"], "reason": x.get("exclusion_reason")} for x in report["items"] if x["disposition"] != "INCLUDED"],
+            "pending_articles": [{"url": x["url"], "reason": x.get("exclusion_reason")} for x in report["items"] if x["disposition"] in {"DETAIL_REQUIRED", "AI_REVIEW_PENDING"}],
             "date": day, "edition_id": edition,
             "articles": [{"identity": identity, "detail_sha": sha,
                           "url": next(item["url"] for item in new_items

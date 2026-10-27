@@ -12,3 +12,15 @@ A real repeated fetch returned different raw HTML SHA values for identical extra
 - Earlier prepared manifests are immutable. Reconcile them against confirmed receipts before archiving or regenerating; never send them merely because their raw HTML SHA differs.
 
 Current product authority remains [the news delivery contract](S01-S52-S53-NEWS-DELIVERY-CONTRACT.md). This change is confined to the independent S01 news ledgers; Tender Core canonical state and source registry are outside its scope.
+
+## 2026-10-27 pre-AI incremental correction
+
+Status: implementation complete on `fix/s01-before-ai-incremental-20261027`; verification and release evidence must be recorded separately before claiming deployment.
+
+The previous runner only reused an entire batch when every item still had a retained AI review. Required post-delivery cleanup removes those reviews; the later preparation/sender dedup still prevented resends but did not prevent repeated AI input.
+
+The runner now compares each acquired readable body against the minimum receipt-confirmed article identity/content fingerprint **before batching or invoking AI**. Unchanged confirmed items are recorded as `ALREADY_DELIVERED` without retaining or inventing a translation. Only new, changed or not-yet-confirmed versions enter model batches. Validated same-snapshot batch outputs remain resumable after a failure; stale signatures still invalidate changed batches.
+
+Coverage accounts for included new/changed articles + already-delivered unchanged articles + unresolved articles. Already-delivered items are not missing translations and do not appear in the new attachment or its pending list. Preparation independently verifies the skip fingerprints against its ledger. When all discovered articles are confirmed unchanged and there are no unresolved items, the daily result is `NO_NEW_ARTICLES` and no AI or edition delivery occurs. Unreadable/missing details remain unresolved; they cannot be relabeled as no-new success.
+
+No new content store or permanent translation cache is introduced. Successful-delivery cleanup retains fingerprints/receipts, deletes task content as before, and preserves the already-delivered count in its minimum coverage proof. Tender Core, newspaper processing, scheduling times and Bangkok component delivery receipts are outside this correction.

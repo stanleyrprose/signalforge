@@ -68,27 +68,22 @@ class ContentDedupTests(unittest.TestCase):
             self.assertEqual(ledger.db.execute("SELECT detail_sha FROM articles WHERE identity=?",(ident,)).fetchone()[0],"a"*64)
             ledger.close()
 
-    def test_receipt_confirmed_unchanged_translation_reuses_ai_without_provider_call(self):
+    def test_receipt_confirmed_unchanged_body_skips_ai_without_retaining_translation(self):
         from signalforge import s01_codex_review_runner as runner
         with tempfile.TemporaryDirectory() as t:
             root = Path(t)
             _ident, fingerprint = self.seed(root/"ledger.sqlite")
-            ai = {"source_url":URL,"importance":70,"chinese_title":"政策新闻",
-                  "chinese_summary":"据官方报道，发布了公共服务政策。",
-                  "category":"政策","rationale":"涉及公共服务。","evidence_limitations":"官方单一来源。"}
-            ledger = S01Ledger(root/"ledger.sqlite")
-            ledger.upsert_article(URL,"a"*64,review={"content_sha256":fingerprint,"ai_review":ai})
-            ledger.close()
             conn = MagicMock()
             conn.__enter__.return_value = conn
             conn.execute.return_value.fetchall.return_value = [(URL,"Policy","same article body","b"*64)]
-            report = {"total_discovered":1,"included":1,"excluded":0,"unresolved":0,"digest_publish_gate":"PASS"}
+            report = {"total_discovered":1,"included":0,"already_delivered":1,"excluded":0,"unresolved":0,"digest_publish_gate":"NO_NEW_ARTICLES"}
             with patch.object(runner,"connect",return_value=conn), \
                  patch.object(runner,"reconcile_ai_digest",return_value=report), \
                  patch.object(runner,"render_chinese_digest",return_value="审核"), \
                  patch.object(runner.subprocess,"run") as invoke:
                 result = runner.run(root/"review.sqlite",root/"working",cache_ledger=root/"ledger.sqlite")
-            self.assertEqual(result["included"],1)
+            self.assertEqual(result["already_delivered"],1)
+            self.assertEqual(result["included"],0)
             invoke.assert_not_called()
 
     def test_unconfirmed_new_revision_is_not_treated_as_delivered_content(self):
